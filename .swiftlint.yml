@@ -1,0 +1,17 @@
+included:
+  - App
+  - MiraNoteKit/Sources
+  - MiraNoteKit/Tests
+
+line_length:
+  warning: 120
+  error: 140
+
+identifier_name:
+  min_length: 2
+
+trailing_comma:
+  mandatory_comma: false
+
+nesting:
+  type_level: 2

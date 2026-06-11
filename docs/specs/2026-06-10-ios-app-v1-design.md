@@ -82,6 +82,7 @@ separate entries**, each its own sheet:
 | Q2 | Confirm assumptions A1 (drawer expand arrow), A2 ("Quick organize"), A3 (voice glyph) | Jason |
 | Q3 | When do sheets call live POC endpoints vs mocks (dev builds talk to localhost?) | team |
 | Q4 | Home bottom pill "What is in your mind?" -- does it open the chatbot POC (:8003) flow? | Jason |
+| Q5 | Should a plain add-photo path (no style transfer) exist? v1 routes both the [photo] pill and the long-press Image option through the Style Transfer sheet, which requires picking a style before Generate. Q1 resolved 2026-06-10: build fresh (Meng) | Jason |
 
 ## Non-goals for v1
 
