@@ -65,6 +65,14 @@ From the worktree root:
    again with tolerance tightened to 5pt -- the claimed ~100pt offset
    does not reproduce (see Deviations). Mutations reverted by targeted
    edits; final full suite re-run green. Criteria 7/7.
+3. Maker-checker (fresh-context): DONE -- reviewer independently re-ran
+   the full verifier (Kit 19/19, swiftlint 0, simulator suite 4/4,
+   governance 4/4). 1 WARN: AC3's test has never been observed red
+   (consequence of the mutation-2 finding; accepted consciously --
+   detection rests on the 40pt arithmetic). 3 NITs: index-based back
+   navigation, typeText hardware-keyboard hazard, AC3 parenthetical
+   reworded post-freeze (testable threshold unchanged). Criteria 7/7;
+   proceeding to terminal state.
 
 ## Deviations and decisions
 
