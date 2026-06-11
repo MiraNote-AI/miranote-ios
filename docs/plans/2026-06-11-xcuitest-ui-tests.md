@@ -8,24 +8,24 @@ targets `main` after #6 merges.
 
 ## Goal (acceptance criteria)
 
-- [ ] AC1: `MiraNoteUITests` target exists (project.yml, XcodeGen) and runs
+- [x] AC1: `MiraNoteUITests` target exists (project.yml, XcodeGen) and runs
       via `xcodebuild test` on the iPhone 17 simulator alongside
       `MiraNoteTests`.
-- [ ] AC2: `testSaveKeepsCanvasAndFilesCollection` -- start a memory, add
+- [x] AC2: `testSaveKeepsCanvasAndFilesCollection` -- start a memory, add
       text, Save: the text stays on the canvas (v1 bug wiped it); back on
       Home the "My memories" card with "1 memories" is shown and the
       empty-state hint is gone.
-- [ ] AC3: `testLongPressMenuAppearsAtTouchPoint` -- press-and-hold on the
+- [x] AC3: `testLongPressMenuAppearsAtTouchPoint` -- press-and-hold on the
       empty canvas: the insert menu's center lands within 40pt of the press
-      point (v1 bug offset it by ~100pt).
-- [ ] AC4: `testEmptyStateHintShownOnFirstLaunch` -- D3 hint visible on a
+      point (claimed v1 bug: ~100pt offset; see Deviations).
+- [x] AC4: `testEmptyStateHintShownOnFirstLaunch` -- D3 hint visible on a
       fresh launch.
-- [ ] AC5: Mutation evidence -- AC2's test FAILS when the v1 inline-view-model
+- [x] AC5: Mutation evidence -- AC2's test FAILS when the v1 inline-view-model
       bug is deliberately reintroduced (and AC3's against a `.local`
       coordinate-space mutation, if cheap). Outputs recorded in the ledger;
       mutations reverted.
-- [ ] AC6: Full verifier green (see Verifier).
-- [ ] AC7: App-target diff limited to accessibility/testability hooks; no
+- [x] AC6: Full verifier green (see Verifier).
+- [x] AC7: App-target diff limited to accessibility/testability hooks; no
       behavior change.
 
 HUMAN: none -- every criterion is machine-checkable.
@@ -53,6 +53,19 @@ From the worktree root:
 
 ## Iterations
 
+1. Added MiraNoteUITests target (project.yml + scheme), insert-menu
+   accessibility hook in CanvasView, and 3 UI tests -- criteria 5/7
+   (AC1-AC4, AC7); xcodebuild BUILD + TEST SUCCEEDED (1 unit + 3 UI:
+   hint 3.3s, long-press 7.7s, save round-trip 14.8s), Kit 19/19,
+   swiftlint --strict 0, governance 4/4.
+2. Mutation evidence -- (a) inline-view-model mutation (exact pre-fix
+   code from 036e528^): testSaveKeepsCanvasAndFilesCollection FAILED at
+   "canvas content must survive Save", TEST FAILED -- AC5 core proven.
+   (b) historical `.local` coordinate mutation: test PASSED, then PASSED
+   again with tolerance tightened to 5pt -- the claimed ~100pt offset
+   does not reproduce (see Deviations). Mutations reverted by targeted
+   edits; final full suite re-run green. Criteria 7/7.
+
 ## Deviations and decisions
 
 - Issue AC2 was revised BEFORE iteration 1 (criteria freeze point): v1 has
@@ -61,3 +74,18 @@ From the worktree root:
 - Loop based on `origin/docs/ios-v1-spec` instead of `main` (see Base
   above); discovered while setting up: PRs #3/#4 were merged 11s apart so
   GitHub never retargeted the stacked #4.
+- FINDING (mutation 2): the v1 review's coordinate-space bug claim
+  ("menu lands ~100pt below the touch with `.local`") does NOT reproduce
+  on the iPhone 17 / iOS 26 simulator -- the exact pre-fix gesture code
+  places the menu within 5pt of the press point. SwiftUI keeps a view's
+  local coordinate origin at its layout frame even when ignoresSafeArea
+  expands its drawing, so background-local equals the ZStack space here.
+  The 036e528 named-coordinate-space change was defensive, not
+  corrective, and its commit message asserts a runtime fact that was
+  never reproduced. The named space is kept (more robust to future view
+  re-parenting); the lesson -- review findings about runtime behavior
+  need a runtime repro before being recorded as fact -- goes to the org
+  loop-engineering notes.
+- Ops slip during mutation testing: reverting mutation 1 via
+  `git checkout <file>` also wiped the uncommitted accessibility hook;
+  re-applied. Revert mutations with targeted edits, not file checkout.

@@ -164,6 +164,10 @@ private struct InsertMenu: View {
         .padding(8)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.cornerRadius))
         .shadow(radius: 8)
+        // Testability hook: lets UI tests locate the menu and assert it
+        // appears at the touch point (the v1 coordinate-space regression).
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("canvas.insertMenu")
         .position(location)
     }
 

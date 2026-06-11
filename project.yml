@@ -21,6 +21,7 @@ targets:
     scheme:
       testTargets:
         - MiraNoteTests
+        - MiraNoteUITests
       gatherCoverageData: false
     settings:
       base:
@@ -34,5 +35,12 @@ targets:
     platform: iOS
     sources:
       - App/Tests
+    dependencies:
+      - target: MiraNote
+  MiraNoteUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - App/UITests
     dependencies:
       - target: MiraNote
