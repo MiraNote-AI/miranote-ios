@@ -22,7 +22,7 @@ cd MiraNoteKit && swift build && swift test
 
 # full app (requires Xcode + an iOS simulator)
 xcodebuild -project MiraNote.xcodeproj -scheme MiraNote \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build test
+  -destination 'platform=iOS Simulator,name=iPhone 17' build test
 
 # lint
 swiftlint --strict

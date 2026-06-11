@@ -4,13 +4,26 @@ import SwiftUI
 /// Sketch 2: free canvas with long-press insert menu, Save and
 /// Quick organize in the top bar, expandable toolbar at the bottom.
 struct CanvasView: View {
-    @Bindable var viewModel: CanvasViewModel
-    var onSave: ((Memory) -> Void)?
+    // The view model is @State-owned so it survives re-renders of the
+    // parent's navigationDestination closure; a plain stored property
+    // would be rebuilt blank every time Home re-renders (e.g. after Save).
+    @State private var viewModel: CanvasViewModel
+    private let onSave: ((Memory) -> Void)?
+
+    /// Shared coordinate space for the long-press location, the insert
+    /// menu, and item positions -- the background ignores the safe area,
+    /// so its .local space is offset from the ZStack's by the top inset.
+    private static let canvasSpace = "canvas"
 
     @State private var activeSheet: CanvasSheet?
     @State private var showsAIChooser = false
     @State private var pendingInsertPoint: CGPoint = .zero
     @State private var canvasSize: CGSize = .zero
+
+    init(memory: Memory, onSave: ((Memory) -> Void)? = nil) {
+        _viewModel = State(initialValue: CanvasViewModel(memory: memory))
+        self.onSave = onSave
+    }
 
     enum CanvasSheet: Identifiable {
         case text
@@ -27,7 +40,8 @@ struct CanvasView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
+        @Bindable var viewModel = viewModel
+        return GeometryReader { proxy in
             ZStack {
                 Color(.systemGroupedBackground)
                     .ignoresSafeArea()
@@ -53,6 +67,7 @@ struct CanvasView: View {
                     }
                 }
             }
+            .coordinateSpace(name: Self.canvasSpace)
         }
         .navigationTitle("Canvas")
         .navigationBarTitleDisplayMode(.inline)
@@ -103,7 +118,7 @@ struct CanvasView: View {
     /// point supplies the menu position.
     private var longPressWithLocation: some Gesture {
         LongPressGesture(minimumDuration: 0.4)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.canvasSpace)))
             .onEnded { value in
                 if case .second(true, let drag) = value, let location = drag?.location {
                     viewModel.insertMenuLocation = location
@@ -214,6 +229,6 @@ private struct CanvasItemView: View {
 
 #Preview {
     NavigationStack {
-        CanvasView(viewModel: CanvasViewModel(memory: Memory()))
+        CanvasView(memory: Memory())
     }
 }

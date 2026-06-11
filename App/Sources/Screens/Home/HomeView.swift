@@ -42,7 +42,7 @@ struct HomeView: View {
                 }
             }
             .navigationDestination(item: $activeMemory) { memory in
-                CanvasView(viewModel: CanvasViewModel(memory: memory)) { saved in
+                CanvasView(memory: memory) { saved in
                     viewModel.file(saved, underCollectionTitled: "My memories")
                 }
             }

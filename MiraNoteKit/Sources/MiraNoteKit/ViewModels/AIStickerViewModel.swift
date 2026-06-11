@@ -39,9 +39,12 @@ public final class AIStickerViewModel {
         }
     }
 
-    /// A3: the mic glyph dictates into the prompt field.
+    /// A3: the mic glyph dictates into the prompt field. Reuses the
+    /// isGenerating flag so a double-tap cannot append twice.
     public func dictate() async {
         guard !isGenerating else { return }
+        isGenerating = true
+        defer { isGenerating = false }
         do {
             let transcript = try await voiceService.transcribe()
             prompt = prompt.isEmpty ? transcript : prompt + " " + transcript
