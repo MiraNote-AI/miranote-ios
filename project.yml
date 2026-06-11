@@ -1,0 +1,38 @@
+name: MiraNote
+options:
+  bundleIdPrefix: ai.miranote
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  MiraNoteKit:
+    path: MiraNoteKit
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    GENERATE_INFOPLIST_FILE: YES
+targets:
+  MiraNote:
+    type: application
+    platform: iOS
+    sources:
+      - App/Sources
+    dependencies:
+      - package: MiraNoteKit
+    scheme:
+      testTargets:
+        - MiraNoteTests
+      gatherCoverageData: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.miranote.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: "1"
+  MiraNoteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - App/Tests
+    dependencies:
+      - target: MiraNote
