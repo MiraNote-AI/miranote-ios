@@ -9,6 +9,9 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 
+# Generated project (xcodegen generate)
+MiraNote.xcodeproj/
+
 # SPM
 .build/
 .swiftpm/
