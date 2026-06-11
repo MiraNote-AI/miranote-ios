@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Generated project (xcodegen generate)
+MiraNote.xcodeproj/
+
+# SPM
+.build/
+.swiftpm/
+
+# Claude Code local state
+.handoff-*.md
+.mcp.json
+.claude/settings.local.json
