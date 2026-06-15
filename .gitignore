@@ -11,6 +11,7 @@ xcuserdata/
 
 # Generated project (xcodegen generate)
 MiraNote.xcodeproj/
+App/Info.plist
 
 # SPM
 .build/
