@@ -26,7 +26,7 @@ public struct LiveVoiceTranscriptionService: VoiceTranscriptionService {
         components.queryItems = [
             URLQueryItem(name: "correct", value: "true"),
             URLQueryItem(name: "with_emotion", value: "false"),
-            URLQueryItem(name: "lang", value: language),
+            URLQueryItem(name: "lang", value: language)
         ]
 
         let boundary = "MiraNoteBoundary-\(UUID().uuidString)"

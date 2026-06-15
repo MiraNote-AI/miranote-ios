@@ -38,7 +38,10 @@ final class LiveVoiceTranscriptionServiceTests: XCTestCase {
 
         XCTAssertTrue(contentType?.contains("multipart/form-data; boundary=") ?? false)
         let body = try XCTUnwrap(bodyString)
-        XCTAssertTrue(body.contains(#"name="file"; filename="recording.m4a""#), "multipart must carry the file field + filename")
+        XCTAssertTrue(
+            body.contains(#"name="file"; filename="recording.m4a""#),
+            "multipart must carry the file field + filename"
+        )
         XCTAssertTrue(body.contains("AUDIODATA"), "multipart must carry the audio bytes")
     }
 

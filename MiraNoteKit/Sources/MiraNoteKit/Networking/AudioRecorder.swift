@@ -67,7 +67,7 @@ public final class AudioRecorder: AudioRecording {
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
             AVSampleRateKey: 44_100,
             AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         let recorder = try AVAudioRecorder(url: fileURL, settings: settings)
         guard recorder.record() else { throw RecordingError.noAudioCaptured }
