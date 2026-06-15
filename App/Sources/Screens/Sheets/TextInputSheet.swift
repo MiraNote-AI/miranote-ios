@@ -65,9 +65,18 @@ struct TextInputSheet: View {
 
     private var actionRow: some View {
         HStack(spacing: 10) {
-            actionButton("voice", symbol: "mic") {
-                await viewModel.dictate()
+            Button {
+                Task { await viewModel.toggleDictation() }
+            } label: {
+                Label(
+                    viewModel.isRecording ? "stop" : "voice",
+                    systemImage: viewModel.isRecording ? "stop.circle.fill" : "mic"
+                )
+                .font(.callout)
             }
+            .buttonStyle(PillButtonStyle())
+            .tint(viewModel.isRecording ? .red : nil)
+            .disabled(viewModel.isProcessing)
             ForEach(TextTransformMode.allCases) { mode in
                 actionButton(mode.rawValue, symbol: symbolName(for: mode)) {
                     await viewModel.apply(mode)
@@ -95,7 +104,7 @@ struct TextInputSheet: View {
                 .font(.callout)
         }
         .buttonStyle(PillButtonStyle())
-        .disabled(viewModel.isProcessing)
+        .disabled(viewModel.isProcessing || viewModel.isRecording)
     }
 
     private func symbolName(for mode: TextTransformMode) -> String {

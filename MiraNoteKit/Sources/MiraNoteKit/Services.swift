@@ -22,7 +22,7 @@ public protocol TextTransformService: Sendable {
 /// Voice dictation entry (sketch 2.1 "voice", Home pill glyph).
 /// Backend mapping: voice-to-text POC (:8000).
 public protocol VoiceTranscriptionService: Sendable {
-    func transcribe() async throws -> String
+    func transcribe(audio: Data, filename: String) async throws -> String
 }
 
 /// AI sticker generation (sketch 2.2, D2 entry one).
@@ -57,7 +57,7 @@ public struct MockTextTransformService: TextTransformService {
 public struct MockVoiceTranscriptionService: VoiceTranscriptionService {
     public init() {}
 
-    public func transcribe() async throws -> String {
+    public func transcribe(audio: Data, filename: String) async throws -> String {
         try await Task.sleep(for: .milliseconds(300))
         return "Transcribed voice note (mock)"
     }

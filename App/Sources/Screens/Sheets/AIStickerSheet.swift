@@ -17,10 +17,11 @@ struct AIStickerSheet: View {
                     // A3: same voice glyph as the Home pill; dictates into
                     // the prompt field.
                     Button {
-                        Task { await viewModel.dictate() }
+                        Task { await viewModel.toggleDictation() }
                     } label: {
-                        Image(systemName: "mic.badge.plus")
+                        Image(systemName: viewModel.isRecording ? "stop.circle.fill" : "mic.badge.plus")
                     }
+                    .tint(viewModel.isRecording ? .red : nil)
                     .disabled(viewModel.isGenerating)
                 }
 
