@@ -164,8 +164,18 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
    LiveTextTransformService, ServiceContainer wired into app. swift test
    30/30 green; app BUILD SUCCEEDED on iPhone 17 Pro. AC1+AC2 pass, AC5
    text-half done (voice half pending T8) -- criteria 2/9; text checkpoint next
+3. 2026-06-14 ATS + mic (pulled forward from T8): app target switched to an
+   explicit Info.plist with NSAllowsLocalNetworking + localhost exception
+   (else iOS blocks http://localhost) and NSMicrophoneUsageDescription;
+   AC6 partially met. App rebuilt + relaunched on sim, Home renders; backend
+   :8001 verified via curl (/clean returns real AI). -- criteria 2/9; paused
+   at text checkpoint with Meng
 ```
 
 ## Deviations
 
-(none yet)
+- ATS + mic permission (part of T8) pulled forward into the text phase: the
+  text demo cannot work without the localhost ATS exception, so it was added
+  before the T4 checkpoint rather than during T8. Switched the app target from
+  a generated Info.plist to an explicit XcodeGen `info:` plist (gitignored,
+  like the project) to carry the nested NSAppTransportSecurity dict.
