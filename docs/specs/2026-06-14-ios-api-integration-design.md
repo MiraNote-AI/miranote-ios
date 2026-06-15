@@ -174,7 +174,7 @@ together; PR references the issue per Rule 6). No direct commits to `main`.
 | D5 | Simulator-only; localhost base URLs; real-device networking deferred | Meng | 2026-06-14 |
 | D6 | (resolves Q3) App composition root injects live services; tests/previews keep mock defaults. No global runtime mock/live flag in v1 | Meng | 2026-06-14 |
 | D7 | Voice mic becomes a record start/stop toggle; `VoiceTranscriptionService` extended to take recorded audio; text path and other view models unchanged | Meng | 2026-06-14 |
-| D8 | Voice request uses `correct=true`, `with_emotion=false`, `lang=zh` (default, handles zh+en code-switching per the POC); emotion and per-segment data are not surfaced | Meng | 2026-06-14 |
+| D8 | Voice request uses `correct=true`, `with_emotion=false`, `lang=en` (Q7 resolved -- English demo default; `zh` still available via the service `language` param); emotion and per-segment data are not surfaced | Meng | 2026-06-14 |
 | D9 | Service errors shown via existing `lastError`; no silent fallback to mock output | Meng | 2026-06-14 |
 
 ## Open questions
@@ -182,8 +182,8 @@ together; PR references the issue per Rule 6). No direct commits to `main`.
 | #  | Question | Owner |
 |----|----------|-------|
 | Q3 | Resolved by D6 (live in app, mock in tests; localhost) | -- |
-| Q6 | Voice stop trigger: tap-to-stop with a 60s safety cap (proposed). Confirm during planning | Meng |
-| Q7 | Voice language default `zh` vs `en` for the demo audience -- confirm before the demo | Meng |
+| Q6 | Resolved: tap-to-stop. The 60s safety cap was deferred (concurrency complexity for little demo value); revisit if needed | Meng |
+| Q7 | Resolved: `en` (English) default for the demo; configurable per call | Meng |
 | Q4 | Home "What is in your mind?" pill -> chatbot POC (`:8003`)? Still open, out of v1 scope | Jason |
 
 ## Non-goals for v1

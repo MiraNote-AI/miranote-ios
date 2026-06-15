@@ -122,7 +122,7 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
       from the container (voice stays mock for now). Build + launch on the
       simulator. **CHECKPOINT: Meng tries clean/expand/polish against
       `start-all.sh`.** Commit.
-- [ ] T5: D7 protocol + view-model change. Change
+- [x] T5: D7 protocol + view-model change. Change
       `VoiceTranscriptionService.transcribe(audio:filename:)`; update
       `MockVoiceTranscriptionService` (ignores audio, returns mock text).
       Add `AudioRecording` protocol + `MockAudioRecorder`. Give
@@ -132,17 +132,17 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
       bytes, `transcribe`, append; auto-stop after 60s). Rewrite the two
       dictate unit tests to drive the toggle with a `MockAudioRecorder` +
       mock voice service. TDD + commit.
-- [ ] T6: `AudioRecorder` (AVFoundation). `start()` configures an
+- [x] T6: `AudioRecorder` (AVFoundation). `start()` configures an
       `AVAudioSession` (record), writes m4a to a temp URL; `stop()` finalizes
       and returns the file bytes; `isRecording` tracks state. No unit test
       for the live mic (covered by AC8 manual). Build clean. Commit.
-- [ ] T7: `LiveVoiceTranscriptionService`. Build the `multipart/form-data`
+- [x] T7: `LiveVoiceTranscriptionService`. Build the `multipart/form-data`
       body (field name `file`, given filename, `audio/m4a`); POST to
       `voiceBaseURL/transcribe` with query `correct=true&with_emotion=false&lang=zh`;
       decode and return `corrected_text ?? raw_text`. Tests (StubURLProtocol):
       multipart boundary+filename+field present, query string correct,
       response parsing, 422 maps to `BackendError.server`. TDD + commit.
-- [ ] T8: Mic permission + wire live voice. Add
+- [x] T8: Mic permission + wire live voice. Add
       `INFOPLIST_KEY_NSMicrophoneUsageDescription` to `project.yml`; run a
       localhost runtime check and add an ATS exception only if needed.
       `ServiceContainer` now also vends `LiveVoiceTranscriptionService`;
@@ -170,6 +170,11 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
    AC6 partially met. App rebuilt + relaunched on sim, Home renders; backend
    :8001 verified via curl (/clean returns real AI). -- criteria 2/9; paused
    at text checkpoint with Meng
+4. 2026-06-14 voice path T5-T8: AudioRecording + AudioRecorder, voice protocol
+   takes recorded audio, tap-to-stop dictation in both sheets,
+   LiveVoiceTranscriptionService (multipart, lang=en). Q6 resolved (tap-to-stop,
+   60s cap deferred), Q7 resolved (en). swift test 35/35; app BUILD SUCCEEDED.
+   -- criteria: AC3+AC4 pass, AC5 full, AC6 met; T9 verify next
 ```
 
 ## Deviations
@@ -179,3 +184,8 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
   before the T4 checkpoint rather than during T8. Switched the app target from
   a generated Info.plist to an explicit XcodeGen `info:` plist (gitignored,
   like the project) to carry the nested NSAppTransportSecurity dict.
+- Q6 (60s auto-stop cap) deferred: tap-to-stop only for v1. The timer added
+  concurrency complexity for little demo value; revisit if a forgotten
+  recording becomes a real problem.
+- Voice language default is `en` (Q7), set via the service `language` param;
+  `zh` remains available.
