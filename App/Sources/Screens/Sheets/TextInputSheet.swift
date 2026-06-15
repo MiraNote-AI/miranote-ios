@@ -4,9 +4,17 @@ import SwiftUI
 /// Sketch 2.1: text editor sheet over a blurred canvas, with the
 /// voice / clean / expand / polish action row.
 struct TextInputSheet: View {
-    @State private var viewModel = TextInputViewModel()
+    @State private var viewModel: TextInputViewModel
     @Environment(\.dismiss) private var dismiss
     let onDone: (String) -> Void
+
+    init(services: ServiceContainer, onDone: @escaping (String) -> Void) {
+        _viewModel = State(initialValue: TextInputViewModel(
+            textService: services.textTransform,
+            voiceService: services.voiceTranscription
+        ))
+        self.onDone = onDone
+    }
 
     var body: some View {
         NavigationStack {
@@ -100,5 +108,5 @@ struct TextInputSheet: View {
 }
 
 #Preview {
-    TextInputSheet { _ in }
+    TextInputSheet(services: .mock) { _ in }
 }
