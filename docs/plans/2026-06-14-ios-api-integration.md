@@ -96,16 +96,16 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
 
 - [x] T0: File the tracking issue (create-ticket). Create feature branch
       `feat/ios-api-integration` off `main`. Commit the spec and this plan.
-- [ ] T1: HTTP foundation. `HTTPClient` + `BackendError`. Test target gets a
+- [x] T1: HTTP foundation. `HTTPClient` + `BackendError`. Test target gets a
       reusable `StubURLProtocol` (registers a per-test handler returning a
       canned `(HTTPURLResponse, Data)` or throwing). Tests: a 200 decodes a
       sample struct; a 500 maps to `.server`; a thrown transport error maps
       to `.unreachable`. TDD: write tests, see them fail, implement, green,
       commit.
-- [ ] T2: Backend config. Add `MiraNoteConfig.Backend.textBaseURL` /
+- [x] T2: Backend config. Add `MiraNoteConfig.Backend.textBaseURL` /
       `voiceBaseURL`. Test: the two URLs are the expected localhost:port
       values. Commit.
-- [ ] T3: `LiveTextTransformService`. Endpoint+field map:
+- [x] T3: `LiveTextTransformService`. Endpoint+field map:
 
       | mode   | POST path | response field |
       |--------|-----------|----------------|
@@ -116,7 +116,7 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
       Body `{"text": <input>}`. Tests (StubURLProtocol): each mode hits the
       right path with the right body and returns the field; a 502 surfaces
       `BackendError.server`. TDD + commit.
-- [ ] T4: Wire live text into the app. Add `ServiceContainer` (vends
+- [x] T4: Wire live text into the app. Add `ServiceContainer` (vends
       `LiveTextTransformService(baseURL: MiraNoteConfig.Backend.textBaseURL)`).
       `TextInputSheet` builds `TextInputViewModel(textService:voiceService:)`
       from the container (voice stays mock for now). Build + launch on the
@@ -160,6 +160,10 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
 0. 2026-06-14 contract written; awaiting go to start T0 -- criteria 0/9
 1. 2026-06-14 T0: issue #9 filed; branch feat/ios-api-integration cut;
    spec+plan committed (docs-only, verify-repo gates) -- criteria 0/9
+2. 2026-06-14 T1-T4 text path: HTTPClient+BackendError, config base URLs,
+   LiveTextTransformService, ServiceContainer wired into app. swift test
+   30/30 green; app BUILD SUCCEEDED on iPhone 17 Pro. AC1+AC2 pass, AC5
+   text-half done (voice half pending T8) -- criteria 2/9; text checkpoint next
 ```
 
 ## Deviations
