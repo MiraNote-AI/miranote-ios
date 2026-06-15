@@ -22,11 +22,11 @@ public struct ServiceContainer: Sendable {
         self.styleTransfer = styleTransfer
     }
 
-    /// Live wiring. Text hits the POC now; voice becomes live in T8. Sticker
-    /// and style transfer stay mocked -- no backend POC exists (spec scope).
+    /// Live wiring. Text and voice hit the POCs. Sticker and style transfer
+    /// stay mocked -- no backend POC exists (spec scope).
     public static let live = ServiceContainer(
         textTransform: LiveTextTransformService(),
-        voiceTranscription: MockVoiceTranscriptionService(),
+        voiceTranscription: LiveVoiceTranscriptionService(),
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService()
     )

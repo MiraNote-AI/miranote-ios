@@ -138,7 +138,7 @@ struct CanvasView: View {
                 viewModel.addText(text, at: pendingInsertPoint)
             }
         case .aiSticker:
-            AIStickerSheet { sticker in
+            AIStickerSheet(services: services) { sticker in
                 viewModel.addSticker(sticker, at: pendingInsertPoint)
             }
         case .styleTransfer:
