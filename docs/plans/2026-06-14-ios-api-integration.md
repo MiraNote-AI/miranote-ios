@@ -13,16 +13,16 @@ style-transfer stay on mocks (no backend POC). Builds on the seam in
 
 **Goal -- acceptance criteria:**
 
-- [ ] AC1: `MiraNoteKit` gains a URLSession-based HTTP helper and typed
+- [x] AC1: `MiraNoteKit` gains a URLSession-based HTTP helper and typed
       errors. No new SwiftPM dependencies (Package.swift unchanged except
       possibly a new test resource). `swift build` / app build clean.
-- [ ] AC2: `LiveTextTransformService: TextTransformService` POSTs to
+- [x] AC2: `LiveTextTransformService: TextTransformService` POSTs to
       `<textBaseURL>/clean|/expand|/polish` with body `{"text": ...}` and
       returns the matching response field (`cleaned`/`expanded`/`polished`).
       Unit tests with a stubbed `URLProtocol` assert request URL+method+body
       and response parsing for all three modes, plus error mapping for a
       non-2xx status and a transport failure. Tests pass.
-- [ ] AC3: Voice path implemented:
+- [x] AC3: Voice path implemented:
       - `AudioRecording` protocol + `AudioRecorder` (AVFoundation) records
         mic to an m4a temp file and returns the bytes; a `MockAudioRecorder`
         returns canned bytes for tests.
@@ -31,7 +31,7 @@ style-transfer stay on mocks (no backend POC). Builds on the seam in
         and returns `corrected_text ?? raw_text`.
       - Unit tests assert multipart assembly (boundary, filename, field
         name `file`), query string, response parsing, and error mapping.
-- [ ] AC4: D7 interaction change applied to the voice path only:
+- [x] AC4: D7 interaction change applied to the voice path only:
       `VoiceTranscriptionService` becomes
       `func transcribe(audio: Data, filename: String) async throws -> String`;
       `MockVoiceTranscriptionService` updated; `TextInputViewModel` and
@@ -40,22 +40,22 @@ style-transfer stay on mocks (no backend POC). Builds on the seam in
       their sheets' mic buttons reflect `isRecording`. `apply(mode:)` and all
       other view-model behavior unchanged. Existing dictate tests rewritten
       to the new API stay green.
-- [ ] AC5: `MiraNoteConfig.Backend` exposes `textBaseURL`
+- [x] AC5: `MiraNoteConfig.Backend` exposes `textBaseURL`
       (`http://localhost:8001`) and `voiceBaseURL` (`http://localhost:8000`).
       A composition root vends live services; `TextInputSheet` and
       `AIStickerSheet` build their view models from it. Tests and previews
       use the mock defaults (no global runtime flag -- D6).
-- [ ] AC6: `project.yml` adds `INFOPLIST_KEY_NSMicrophoneUsageDescription`;
+- [x] AC6: `project.yml` adds `INFOPLIST_KEY_NSMicrophoneUsageDescription`;
       an ATS localhost exception is added only if a runtime check shows plain
       `http://localhost` is blocked. `xcodegen generate` succeeds; app builds.
-- [ ] AC7: `xcodebuild build` and `xcodebuild test` are green on the
+- [x] AC7: `xcodebuild build` and `xcodebuild test` are green on the
       `iPhone 17 Pro` simulator; SwiftLint clean on changed files; governance
       checks green (verify-repo from a clean `origin/main` checkout of
       `MiraNote-AI/.github`).
 - [ ] HUMAN AC8: End-to-end on the simulator with `start-all.sh` up -- typing
       then clean/expand/polish returns real AI output; recording voice yields
       a transcript. Meng + Claude together.
-- [ ] HUMAN AC9: Q6 (voice tap-to-stop + 60s cap) and Q7 (voice language
+- [x] HUMAN AC9: Q6 (voice tap-to-stop + 60s cap) and Q7 (voice language
       default) confirmed by Meng before the demo.
 
 **Stop conditions:** iteration cap 6; 2 consecutive no-progress iterations
@@ -148,7 +148,7 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
       `ServiceContainer` now also vends `LiveVoiceTranscriptionService`;
       `TextInputSheet` + `AIStickerSheet` get it and show the recording
       state on the mic button. `xcodegen generate`, build + launch. Commit.
-- [ ] T9: Integration + verify pass. Full `xcodebuild build` + `test` green
+- [x] T9: Integration + verify pass. Full `xcodebuild build` + `test` green
       on iPhone 17 Pro; SwiftLint clean; verify-repo governance green.
       **Final E2E (AC8) with Meng:** `start-all.sh` up, text + voice
       exercised in the simulator. Open PR referencing the T0 issue
@@ -175,6 +175,11 @@ text demo before starting voice (T5+). Final E2E (AC8) is done with Meng.
    LiveVoiceTranscriptionService (multipart, lang=en). Q6 resolved (tap-to-stop,
    60s cap deferred), Q7 resolved (en). swift test 35/35; app BUILD SUCCEEDED.
    -- criteria: AC3+AC4 pass, AC5 full, AC6 met; T9 verify next
+5. 2026-06-14 T9 verify: swift test 35/35, swiftlint --strict 0, xcodebuild
+   build test SUCCEEDED (app unit + 3 UI tests), governance 4/4. Text + voice
+   backend round-trips verified via curl. Fresh-context review VERDICT: DONE
+   (all ACs PASS, no blockers). AC1-AC7+AC9 pass; AC8 (in-app voice) is the
+   HUMAN check left for the reviewer. -> create-pr.
 ```
 
 ## Deviations
