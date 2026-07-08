@@ -237,6 +237,16 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertTrue(failure.chips.contains("Add a soft title"))
     }
 
+    func testComposedMemoryKeepsTitleWhenPageHasNoText() {
+        // Opening and closing the editor must never rename a text-less page
+        // (e.g. a chat-filed memory).
+        let source = Memory(title: "a quiet morning", body: "kept body")
+        let editor = CanvasViewModel(memory: source)
+        let composed = editor.composedMemory()
+        XCTAssertEqual(composed.title, "a quiet morning")
+        XCTAssertEqual(composed.body, "kept body")
+    }
+
     func testSuggestionsAreContextAware() {
         let coordinator = makeCoordinator()
         let empty = CanvasViewModel(memory: Memory())

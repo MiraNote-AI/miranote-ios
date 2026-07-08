@@ -69,8 +69,10 @@ struct ExportSheet: View {
     let memory: Memory
 
     @State private var rendered: UIImage?
+    @State private var renderedPNG: Data?
     @State private var advancedOpen = false
     @State private var confirmation: String?
+    @State private var photoSaver = PhotoSaver()
     @Environment(\.dismiss) private var dismiss
 
     private var hasSound: Bool {
@@ -164,7 +166,7 @@ struct ExportSheet: View {
     }
 
     @ViewBuilder private var shareButton: some View {
-        if let rendered, let data = rendered.pngData() {
+        if let rendered, let data = renderedPNG {
             ShareLink(
                 item: ExportedPage(data: data, title: memory.title),
                 preview: SharePreview(memory.title, image: Image(uiImage: rendered))
@@ -200,12 +202,42 @@ struct ExportSheet: View {
         )
         renderer.scale = 2
         rendered = renderer.uiImage
+        renderedPNG = rendered?.pngData()
     }
 
     private func saveToPhotos() {
         guard let rendered else { return }
-        UIImageWriteToSavedPhotosAlbum(rendered, nil, nil, nil)
-        confirmation = "Saved to Photos."
+        photoSaver.save(rendered) { succeeded in
+            confirmation = succeeded
+                ? "Saved to Photos."
+                : "Couldn't save -- allow Photos access in Settings."
+        }
+    }
+}
+
+/// Bridges UIImageWriteToSavedPhotosAlbum's target-selector completion so
+/// the sheet reports the truth (a denied permission fails silently
+/// otherwise).
+private final class PhotoSaver: NSObject {
+    private var completion: ((Bool) -> Void)?
+
+    func save(_ image: UIImage, completion: @escaping (Bool) -> Void) {
+        self.completion = completion
+        UIImageWriteToSavedPhotosAlbum(
+            image,
+            self,
+            #selector(image(_:didFinishSavingWithError:contextInfo:)),
+            nil
+        )
+    }
+
+    @objc private func image(
+        _ image: UIImage,
+        didFinishSavingWithError error: Error?,
+        contextInfo: UnsafeRawPointer
+    ) {
+        completion?(error == nil)
+        completion = nil
     }
 }
 
@@ -219,7 +251,12 @@ struct ExportedPage: Transferable {
             page.data
         }
         .suggestedFileName { page in
-            let slug = page.title.replacingOccurrences(of: " ", with: "-")
+            let slug = page.title
+                .map { $0.isLetter || $0.isNumber ? $0 : "-" }
+                .reduce(into: "") { partial, char in
+                    if char != "-" || partial.last != "-" { partial.append(char) }
+                }
+                .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
             return slug.isEmpty ? "MiraNote-page.png" : "\(slug).png"
         }
     }

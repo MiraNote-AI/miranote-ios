@@ -10,6 +10,9 @@ struct CollectionDetailView: View {
     var onBack: () -> Void = {}
     var onOpenNote: (Memory) -> Void = { _ in }
 
+    @State private var datingNote: Memory?
+    @State private var pickedDate = Date.now
+
     private var collection: MemoryCollection? {
         viewModel.collection(collectionID)
     }
@@ -27,6 +30,31 @@ struct CollectionDetailView: View {
         .screenBackground()
         .safeAreaInset(edge: .top) {
             header
+        }
+        .sheet(item: $datingNote) { note in
+            VStack(spacing: 16) {
+                Text("When is this memory from?")
+                    .font(.miraPageTitle)
+                    .foregroundStyle(Palette.ink)
+                DatePicker("Memory date", selection: $pickedDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .tint(Palette.forest)
+                Button {
+                    viewModel.setMemoryDate(note.id, in: collectionID, to: pickedDate)
+                    datingNote = nil
+                } label: {
+                    Text("Done")
+                        .font(.miraPill)
+                        .foregroundStyle(Palette.onInk)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Capsule().fill(Palette.ink))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("date.done")
+            }
+            .padding(18)
+            .presentationDetents([.medium])
         }
         .safeAreaInset(edge: .bottom) {
             Button {
@@ -81,10 +109,15 @@ struct CollectionDetailView: View {
         let memories: [Memory]
     }
 
-    private var monthGroups: [MonthGroup] {
-        guard let memories = collection?.memories else { return [] }
+    private static let monthFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
+        return formatter
+    }()
+
+    private var monthGroups: [MonthGroup] {
+        guard let memories = collection?.memories else { return [] }
+        let formatter = Self.monthFormatter
         let sorted = memories.sorted { $0.memoryDate > $1.memoryDate }
         var order: [String] = []
         var buckets: [String: [Memory]] = [:]
@@ -132,6 +165,12 @@ struct CollectionDetailView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("note.\(memory.title)")
         .contextMenu {
+            Button {
+                pickedDate = memory.memoryDate
+                datingNote = memory
+            } label: {
+                Label("Change date", systemImage: "calendar")
+            }
             ForEach(otherCollections) { destination in
                 Button {
                     viewModel.move(memory.id, from: collectionID, to: destination.id)

@@ -103,6 +103,22 @@ public final class HomeViewModel {
         store.save(library)
     }
 
+    /// The page's "about" date is user-editable (v2.1): backfilled pages
+    /// land in the month they are about, not the month they were made.
+    public func setMemoryDate(
+        _ noteID: Memory.ID,
+        in collectionID: MemoryCollection.ID,
+        to date: Date
+    ) {
+        guard
+            let collectionIndex = library.collections.firstIndex(where: { $0.id == collectionID }),
+            let noteIndex = library.collections[collectionIndex].memories
+                .firstIndex(where: { $0.id == noteID })
+        else { return }
+        library.collections[collectionIndex].memories[noteIndex].memoryDate = date
+        store.save(library)
+    }
+
     // MARK: Recently deleted (30-day bin) and moving
 
     /// Deleting a page moves it to the bin -- never straight to oblivion.

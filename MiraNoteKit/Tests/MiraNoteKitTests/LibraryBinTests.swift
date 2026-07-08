@@ -49,6 +49,22 @@ final class LibraryBinTests: XCTestCase {
         XCTAssertEqual(viewModel.collections[1].memories[0].title, "Paris lunch")
     }
 
+    func testSetMemoryDateRegroupsAndPersists() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mdate-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = HomeViewModel(store: FileCollectionStore(url: url))
+        let collection = first.collections[0]
+        let noteID = collection.memories[0].id
+        let lastMonth = Date.now.addingTimeInterval(-40 * 24 * 3600)
+
+        first.setMemoryDate(noteID, in: collection.id, to: lastMonth)
+        XCTAssertEqual(first.note(noteID, in: collection.id)?.memoryDate, lastMonth)
+
+        let second = HomeViewModel(store: FileCollectionStore(url: url))
+        XCTAssertEqual(second.note(noteID, in: collection.id)?.memoryDate, lastMonth, "the about-date persists")
+    }
+
     func testLegacyMemoryDateDefaultsToCreatedAt() throws {
         let created = Date(timeIntervalSince1970: 700_000_000)
         let legacy = Data("""
