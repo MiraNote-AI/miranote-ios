@@ -265,7 +265,21 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
     func testSuggestionsAreContextAware() {
         let coordinator = makeCoordinator()
         let empty = CanvasViewModel(memory: Memory())
-        XCTAssertEqual(coordinator.suggestions(for: empty), ["Add a soft title"])
+        XCTAssertEqual(coordinator.suggestions(for: empty), [], "a blank page has nothing to suggest about")
+
+        let soundOnly = CanvasViewModel(memory: Memory())
+        _ = soundOnly.addSound(SoundClip(duration: 3, note: "birds"), at: CGPoint(x: 100, y: 100))
+        XCTAssertEqual(
+            coordinator.suggestions(for: soundOnly), [],
+            "a title is about words -- it must not pop right after a sound"
+        )
+
+        let wordsNoTitle = CanvasViewModel(memory: Memory())
+        _ = wordsNoTitle.addText("small words", at: CGPoint(x: 100, y: 100))
+        XCTAssertEqual(
+            coordinator.suggestions(for: wordsNoTitle),
+            ["Polish the text", "Add a soft title"]
+        )
 
         let full = makeEditor()
         XCTAssertEqual(

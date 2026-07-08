@@ -96,9 +96,16 @@ public final class MiraCanvasCoordinator {
     }
 
     /// Context-aware idle suggestions (only offer what the page can take).
+    /// Every chip must be ABOUT something already on the page -- a chip
+    /// that pops right after an unrelated add (a sound, a photo) reads as
+    /// caused by it. A title is a suggestion about words, so it waits for
+    /// words.
     public func suggestions(for editor: CanvasViewModel) -> [String] {
         var chips: [String] = []
-        if editor.items.contains(where: { if case .text = $0.content { return true } else { return false } }) {
+        let hasText = editor.items.contains {
+            if case .text = $0.content { return true } else { return false }
+        }
+        if hasText {
             chips.append("Polish the text")
         }
         if editor.items.count > 1 {
@@ -108,7 +115,7 @@ public final class MiraCanvasCoordinator {
             if case .text(let block) = $0.content { return block.pointSize >= 24 }
             return false
         }
-        if !hasTitle {
+        if hasText, !hasTitle {
             chips.append("Add a soft title")
         }
         return chips

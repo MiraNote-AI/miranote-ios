@@ -58,6 +58,10 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(keep.waitForExistence(timeout: 5))
         keep.tap()
         XCTAssertTrue(app.staticTexts["Add a note"].waitForExistence(timeout: 5))
+
+        // A title is a suggestion about words: keeping a sound on a
+        // wordless page must not summon the title chip.
+        XCTAssertFalse(app.buttons["mira.suggestion.Add a soft title"].exists)
     }
 
     // The Image tool still opens its panel (contents are Phase D work).
