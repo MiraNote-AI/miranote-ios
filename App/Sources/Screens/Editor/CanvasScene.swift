@@ -1,15 +1,17 @@
 import SwiftUI
 
-/// Flow 7 Scene 02: the base editor -- page plus the instrument panel, with a
-/// plain hint row and no context card.
+/// The base editor (v2.1): page plus the three-mode instrument panel and the
+/// unified Mira bar. Header is back / undo / Done -- no title, no sub-toolbar.
 struct CanvasScene: View {
     var actions = EditorActions()
 
     var body: some View {
         EditorScaffold(
-            title: "Canvas",
+            leading: "Home",
+            leadingSymbol: "chevron.left",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done,
+            onUndo: undoPlaceholder
         ) {
             MemoryPage(
                 title: "Lunch by the river",
@@ -17,7 +19,10 @@ struct CanvasScene: View {
             )
         } bottom: {
             InputModeBar(active: nil, onSelect: actions.selectMode)
-            ActionRow(hint: "Choose voice, text, image, or sticker", onGo: actions.go)
+            ActionRow(hint: "Ask Mira anything", onGo: actions.go)
         }
     }
+
+    /// No-op until the Phase B canvas element model brings a real undo stack.
+    private func undoPlaceholder() {}
 }

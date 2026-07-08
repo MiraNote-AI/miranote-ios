@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// Flow 7 Scene 03: voice capture. A "Voice memory" card floats on the page;
-/// the bottom carries a live recorder bar instead of the Go row.
+/// Sound capture (v2.1 tool name: Sound). A "Voice memory" card floats on the
+/// page; the bottom carries a live recorder bar instead of the Go row.
 struct VoiceScene: View {
     var actions = EditorActions()
 
     var body: some View {
         EditorScaffold(
-            title: "Voice input",
+            title: "Sound",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done
         ) {
             MemoryPage(
                 title: "Lunch by the river",
@@ -22,7 +22,7 @@ struct VoiceScene: View {
                 .padding(12)
             }
         } bottom: {
-            InputModeBar(active: .voice, onSelect: actions.selectMode)
+            InputModeBar(active: .sound, onSelect: actions.selectMode)
             recorderBar
         }
     }

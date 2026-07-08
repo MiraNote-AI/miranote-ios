@@ -11,7 +11,7 @@ struct ExportScene: View {
             leadingSymbol: "chevron.left",
             title: "Export",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done
         ) {
             MemoryPage(
                 title: "Lunch by the river",
@@ -49,7 +49,7 @@ struct ExportScene: View {
     }
 
     private var saveButton: some View {
-        Button(action: actions.save) {
+        Button(action: actions.done) {
             Text("Save to Photos")
                 .font(.miraPill)
                 .foregroundStyle(Palette.onInk)

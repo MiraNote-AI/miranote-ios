@@ -27,13 +27,15 @@ struct HomeView: View {
                     .padding(.bottom, 16)
 
                 hero
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 20)
+
+                // v2.1: the search pill sits above the primary action -- it
+                // asks about the past (retrieval), it does not start a note.
+                quickPill
+                    .padding(.bottom, 16)
 
                 Button("Start a memory", action: onStart)
                     .buttonStyle(PrimaryPill(horizontalPadding: 30, verticalPadding: 15))
-                    .padding(.bottom, 18)
-
-                quickPill
                     .padding(.bottom, 22)
 
                 grid
@@ -60,7 +62,6 @@ struct HomeView: View {
             Text("MiraNote")
                 .font(.miraLogo)
             Spacer()
-            Image(systemName: "bell")
             Image(systemName: "person")
         }
         .font(.system(size: 17, weight: .regular))
@@ -90,7 +91,7 @@ struct HomeView: View {
                 .onSubmit(submitPrompt)
                 .overlay(alignment: .leading) {
                     if prompt.isEmpty {
-                        Text("what I eat...")
+                        Text("When was my Paris trip?")
                             .font(.miraBody)
                             .foregroundStyle(Palette.textSecondary)
                             .allowsHitTesting(false)

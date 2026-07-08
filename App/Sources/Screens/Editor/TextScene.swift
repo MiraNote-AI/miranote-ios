@@ -9,7 +9,7 @@ struct TextInputScene: View {
         EditorScaffold(
             title: "Text input",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done
         ) {
             MemoryPage(
                 title: "Lunch by the river",
@@ -42,8 +42,7 @@ struct TextStoryScene: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                TopBar(title: "Text input", onTrailing: actions.save)
-                SubToolbar()
+                TopBar(title: "Text input", onTrailing: actions.done)
                 MemoryPage(
                     title: "Lunch by the river",
                     caption: "Text over the journal page"

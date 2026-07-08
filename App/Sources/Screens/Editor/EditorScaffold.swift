@@ -6,19 +6,21 @@ struct EditorActions {
     var selectMode: (EditorMode) -> Void = { _ in }
     var go: () -> Void = {}
     var leading: () -> Void = {}
-    var save: () -> Void = {}
+    var done: () -> Void = {}
 }
 
-/// Shared editor layout: top bar, sub-toolbar, the memory page, and a bottom
-/// cluster (context card + InputModeBar + action row) pinned to the lower edge.
+/// Shared editor layout (v2.1): a single-row top bar, the memory page, and a
+/// bottom cluster (context card + InputModeBar + action row) pinned to the
+/// lower edge. The Page/Spread/zoom sub-toolbar is gone; editing autosaves,
+/// so the trailing action is "Done", never "Save".
 struct EditorScaffold<Page: View, Bottom: View>: View {
     var leading: String? = "Canvas"
     var leadingSymbol: String?
-    let title: String
-    var trailing: String? = "Save"
-    var zoom: String = "86%"
+    var title: String = ""
+    var trailing: String? = "Done"
     var onLeading: () -> Void = {}
     var onTrailing: () -> Void = {}
+    var onUndo: (() -> Void)?
     @ViewBuilder var page: () -> Page
     @ViewBuilder var bottom: () -> Bottom
 
@@ -30,9 +32,9 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
                 title: title,
                 trailing: trailing,
                 onLeading: onLeading,
-                onTrailing: onTrailing
+                onTrailing: onTrailing,
+                onUndo: onUndo
             )
-            SubToolbar(zoom: zoom)
             page()
             Spacer(minLength: 16)
             VStack(spacing: 16) {

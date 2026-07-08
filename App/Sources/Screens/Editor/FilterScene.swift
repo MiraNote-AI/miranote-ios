@@ -9,7 +9,7 @@ struct FilterScene: View {
         EditorScaffold(
             title: "Preview",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done
         ) {
             MemoryPage(
                 title: "Lunch by the river",

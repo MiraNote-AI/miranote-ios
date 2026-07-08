@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Flow 7 Scene 08: AI sticker creation -- a placed cup sticker plus the
-/// prompt + Generate context card.
+/// AI sticker creation -- reached from the Image panel's Generate option
+/// (v2.1: sticker is a generate style, not a tool). A placed cup sticker plus
+/// the prompt + Generate context card.
 struct AIStickerScene: View {
     var actions = EditorActions()
 
@@ -9,7 +10,7 @@ struct AIStickerScene: View {
         EditorScaffold(
             title: "Create sticker",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done
         ) {
             MemoryPage(
                 title: "Lunch by the river",
@@ -33,7 +34,7 @@ struct AIStickerScene: View {
                     }
                 }
             }
-            InputModeBar(active: .sticker, onSelect: actions.selectMode)
+            InputModeBar(active: .image, onSelect: actions.selectMode)
             ActionRow(hint: "Generate sticker from keyword", onGo: actions.go)
         }
     }
@@ -72,7 +73,7 @@ struct StickerLibraryScene: View {
         EditorScaffold(
             title: "Sticker Library",
             onLeading: actions.leading,
-            onTrailing: actions.save
+            onTrailing: actions.done
         ) {
             MemoryPage(
                 title: "Lunch by the river",
@@ -99,7 +100,7 @@ struct StickerLibraryScene: View {
                     }
                 }
             }
-            InputModeBar(active: .sticker, onSelect: actions.selectMode)
+            InputModeBar(active: .image, onSelect: actions.selectMode)
             ActionRow(hint: "Add selected sticker", onGo: actions.go)
         }
     }

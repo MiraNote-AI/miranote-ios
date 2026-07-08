@@ -1,21 +1,40 @@
 import SwiftUI
 
-/// Editor top bar: leading context chip | centered serif title | trailing
-/// ink "Save" pill. The title stays optically centered regardless of the
-/// leading/trailing widths.
+/// Editor top bar (v2.1): leading back chip | center title, or an undo icon
+/// when the scene has no title (the canvas) | trailing ink "Done" pill.
+/// The center stays optically centered regardless of the side widths.
 struct TopBar: View {
     var leading: String?
     var leadingSymbol: String?
-    let title: String
-    var trailing: String? = "Save"
+    var title: String = ""
+    var trailing: String? = "Done"
     var onLeading: () -> Void = {}
     var onTrailing: () -> Void = {}
+    /// When set and `title` is empty, a centered undo icon replaces the title.
+    var onUndo: (() -> Void)?
 
     var body: some View {
         ZStack {
-            Text(title)
-                .font(.miraScreenTitle)
-                .foregroundStyle(Palette.ink)
+            if !title.isEmpty {
+                Text(title)
+                    .font(.miraScreenTitle)
+                    .foregroundStyle(Palette.ink)
+            } else if let onUndo {
+                Button(action: onUndo) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Palette.ink)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            Circle()
+                                .fill(Palette.paper)
+                                .overlay(Circle().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Undo")
+                .accessibilityIdentifier("editor.undo")
+            }
 
             HStack {
                 if let leading {
@@ -42,32 +61,5 @@ struct TopBar: View {
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.top, 2)
         .padding(.bottom, 12)
-    }
-}
-
-/// The Page / Spread / Undo / zoom row beneath the top bar.
-struct SubToolbar: View {
-    var zoom: String = "86%"
-
-    var body: some View {
-        HStack(spacing: 8) {
-            chip("Page", emphasized: true)
-            chip("Spread")
-            chip("Undo")
-            Spacer()
-            chip(zoom)
-        }
-        .padding(.horizontal, Metrics.screenPadding)
-        .padding(.bottom, 14)
-    }
-
-    private func chip(_ text: String, emphasized: Bool = false) -> some View {
-        Text(text)
-            .font(.miraLabel)
-            .foregroundStyle(emphasized ? Palette.ink : Palette.textSecondary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(Palette.paper, in: Capsule())
-            .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
     }
 }

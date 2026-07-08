@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The four ways to add to a memory page -- the bottom "instrument panel".
+/// The three ways to add to a memory page -- the bottom "instrument panel".
+/// Sticker creation lives inside the Image panel (v2.1), not on the bar.
 enum EditorMode: String, CaseIterable, Identifiable {
-    case voice, text, image, sticker
+    case sound, text, image
 
     var id: String { rawValue }
 
@@ -10,10 +11,9 @@ enum EditorMode: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .voice: return "mic"
+        case .sound: return "waveform"
         case .text: return "textformat"
         case .image: return "photo"
-        case .sticker: return "face.smiling"
         }
     }
 }

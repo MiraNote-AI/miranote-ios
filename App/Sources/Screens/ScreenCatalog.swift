@@ -6,7 +6,7 @@ import SwiftUI
 enum FlowScene: String, CaseIterable {
     case home
     case canvas
-    case voice
+    case sound
     case text
     case textStory
     case imageStart
@@ -23,7 +23,7 @@ enum FlowScene: String, CaseIterable {
         switch self {
         case .home: HomeView(viewModel: HomeViewModel(collections: MemoryCollection.seed))
         case .canvas: CanvasScene()
-        case .voice: VoiceScene()
+        case .sound: VoiceScene()
         case .text: TextInputScene()
         case .textStory: TextStoryScene()
         case .imageStart: ImageStartScene()

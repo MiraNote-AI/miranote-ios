@@ -9,7 +9,6 @@ struct PhotoLibraryScene: View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 TopBar(title: "Canvas")
-                SubToolbar()
                 MemoryPage(
                     title: "Lunch by the river",
                     caption: "June 21 \u{00B7} calm afternoon"

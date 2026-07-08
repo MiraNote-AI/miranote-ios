@@ -19,15 +19,21 @@ struct EditorFlowView: View {
     @ViewBuilder private var content: some View {
         switch scene {
         case .canvas:
-            CanvasScene(actions: actions(onGo: { navigate(.text) }, back: onExit))
-        case .voice:
+            // Done on the canvas finishes the memory: autosave semantics, no
+            // Save step and no Export detour (export moves to reading mode in
+            // Phase E).
+            CanvasScene(actions: actions(onGo: { navigate(.text) }, back: onExit, done: onComplete))
+        case .sound:
             VoiceScene(actions: actions(onGo: { navigate(.canvas) }))
         case .text:
             TextInputScene(actions: actions(onGo: { navigate(.textStory) }))
         case .textStory:
             TextStoryScene(actions: actions(onGo: { navigate(.canvas) }))
         case .imageStart:
-            ImageStartScene(actions: actions(onGo: { navigate(.photoLibrary) }))
+            ImageStartScene(
+                actions: actions(onGo: { navigate(.photoLibrary) }),
+                onGenerate: { navigate(.aiSticker) }
+            )
         case .photoLibrary:
             PhotoLibraryScene(actions: actions(onGo: { navigate(.filter) }, back: { navigate(.canvas) }))
         case .filter:
@@ -37,27 +43,30 @@ struct EditorFlowView: View {
         case .stickerLibrary:
             StickerLibraryScene(actions: actions(onGo: { navigate(.canvas) }))
         case .export:
-            ExportScene(actions: EditorActions(go: onComplete, leading: { navigate(.canvas) }, save: onComplete))
+            ExportScene(actions: EditorActions(go: onComplete, leading: { navigate(.canvas) }, done: onComplete))
         case .home, .chat, .collection, .note:
             EmptyView()
         }
     }
 
-    private func actions(onGo: (() -> Void)? = nil, back: (() -> Void)? = nil) -> EditorActions {
+    private func actions(
+        onGo: (() -> Void)? = nil,
+        back: (() -> Void)? = nil,
+        done: (() -> Void)? = nil
+    ) -> EditorActions {
         EditorActions(
             selectMode: { navigate(flowScene(for: $0)) },
             go: onGo ?? { navigate(.canvas) },
             leading: back ?? { navigate(.canvas) },
-            save: { navigate(.export) }
+            done: done ?? { navigate(.canvas) }
         )
     }
 
     private func flowScene(for mode: EditorMode) -> FlowScene {
         switch mode {
-        case .voice: return .voice
+        case .sound: return .sound
         case .text: return .text
         case .image: return .imageStart
-        case .sticker: return .aiSticker
         }
     }
 
