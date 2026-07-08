@@ -8,7 +8,9 @@ struct PhotoLibraryScene: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
-                TopBar(title: "Canvas")
+                // Dimmed backdrop only -- no trailing action, so the sheet's
+                // Done stays the single "Done" in the hierarchy.
+                TopBar(title: "Canvas", trailing: nil)
                 MemoryPage(
                     title: "Lunch by the river",
                     caption: "June 21 \u{00B7} calm afternoon"

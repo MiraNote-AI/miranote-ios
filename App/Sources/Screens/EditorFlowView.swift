@@ -1,10 +1,10 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The interactive editor: shows one Flow 7 editor scene at a time and moves
+/// The interactive editor: shows one editor scene at a time and moves
 /// between them as the instrument panel, Go, and nav controls are used.
 /// A memory starts on the canvas; picking a mode swaps in that mode's scene,
-/// Go advances the sub-steps, Save routes to Export, and Back unwinds.
+/// Go advances the sub-steps, and Done files the memory and returns Home.
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
     var onComplete: () -> Void = {}
@@ -39,12 +39,12 @@ struct EditorFlowView: View {
         case .filter:
             FilterScene(actions: actions(onGo: { navigate(.canvas) }))
         case .aiSticker:
-            AIStickerScene(actions: actions(onGo: { navigate(.stickerLibrary) }))
+            AIStickerScene(actions: actions(onGo: { navigate(.stickerLibrary) }, back: { navigate(.imageStart) }))
         case .stickerLibrary:
             StickerLibraryScene(actions: actions(onGo: { navigate(.canvas) }))
-        case .export:
-            ExportScene(actions: EditorActions(go: onComplete, leading: { navigate(.canvas) }, done: onComplete))
-        case .home, .chat, .collection, .note:
+        case .home, .chat, .collection, .note, .export:
+            // Export left the main flow in v2.1 (share/export moves to
+            // reading mode in Phase E); the scene stays catalog-only.
             EmptyView()
         }
     }
