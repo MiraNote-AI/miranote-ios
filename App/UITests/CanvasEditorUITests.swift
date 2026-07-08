@@ -66,7 +66,8 @@ final class CanvasEditorUITests: XCTestCase {
     // undone (the "Deleted / Undo" toast).
     func testLongPressDeleteThenUndoRestores() {
         app.buttons["Start a memory"].tap()
-        let title = app.staticTexts["Lunch by the river"]
+        addTextBlock("delete me later")
+        let title = app.staticTexts["delete me later"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
 
         title.press(forDuration: 0.9)
@@ -76,10 +77,10 @@ final class CanvasEditorUITests: XCTestCase {
 
         let undo = app.buttons["toast.undo"]
         XCTAssertTrue(undo.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Lunch by the river"].exists)
+        XCTAssertFalse(app.staticTexts["delete me later"].exists)
 
         undo.tap()
-        XCTAssertTrue(app.staticTexts["Lunch by the river"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["delete me later"].waitForExistence(timeout: 5))
     }
 
     // The Library source adds real images through the store pipeline; they
@@ -137,6 +138,7 @@ final class CanvasEditorUITests: XCTestCase {
     // Home.
     func testDoneFilesMemoryAndReturnsHome() {
         app.buttons["Start a memory"].tap()
+        addTextBlock("golden broth by the window")
         let done = app.buttons["Done"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Save"].exists)
@@ -144,8 +146,6 @@ final class CanvasEditorUITests: XCTestCase {
         done.tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
-        // (The seed already contains a "Lunch by the river" note, so the
-        // count is the only trustworthy signal here.)
         XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
     }
 
@@ -238,7 +238,8 @@ final class CanvasEditorUITests: XCTestCase {
     // grammar).
     func testDragMovesSelectedElementInsteadOfScrolling() {
         app.buttons["Start a memory"].tap()
-        let title = app.staticTexts["Lunch by the river"]
+        addTextBlock("drag me around")
+        let title = app.staticTexts["drag me around"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         let before = title.frame.midY
 
@@ -249,5 +250,17 @@ final class CanvasEditorUITests: XCTestCase {
 
         XCTAssertTrue(title.waitForExistence(timeout: 3))
         XCTAssertGreaterThan(title.frame.midY, before + 70, "selected element follows the drag")
+    }
+
+    /// Adds a text block through the Text tool and closes the keyboard.
+    private func addTextBlock(_ text: String) {
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText(text)
+        let done = app.buttons["keyboard.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
     }
 }

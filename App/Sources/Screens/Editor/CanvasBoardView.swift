@@ -66,6 +66,15 @@ struct CanvasBoardView: View {
     private var board: some View {
         ZStack(alignment: .topLeading) {
             paper
+            if editor.items.isEmpty {
+                Text("Tap a tool below, or tell Mira about today.")
+                    .font(.miraBody)
+                    .foregroundStyle(Palette.textSecondary)
+                    .frame(width: 240)
+                    .multilineTextAlignment(.center)
+                    .position(x: 180, y: 200)
+                    .allowsHitTesting(false)
+            }
             ForEach(editor.orderedItems) { item in
                 element(item)
             }

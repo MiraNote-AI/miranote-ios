@@ -145,13 +145,27 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["note.a quiet morning"].waitForExistence(timeout: 5))
     }
 
-    // "Start a memory" opens the canvas editor: the page and the instrument
-    // panel are shown.
-    func testStartOpensCanvasEditor() {
+    // "Start a memory" opens a BLANK canvas (v2.1) with the teaching line
+    // and the instrument panel.
+    func testStartOpensBlankCanvas() {
         app.buttons["Start a memory"].tap()
 
-        XCTAssertTrue(app.staticTexts["Lunch by the river"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Tap a tool below, or tell Mira about today."].waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(app.staticTexts["Lunch by the river"].exists, "no leftover demo content")
         XCTAssertTrue(app.buttons["mode.text"].exists)
         XCTAssertTrue(app.buttons["mode.image"].exists)
+    }
+
+    // Done on an untouched blank canvas keeps nothing.
+    func testDoneOnBlankCanvasFilesNothing() {
+        app.buttons["Start a memory"].tap()
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["3 notes"].exists, "Daily Log stays at its seeded 2 notes")
     }
 }

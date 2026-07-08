@@ -28,8 +28,10 @@ struct EditorFlowView: View {
         self.onComplete = onComplete
         self.recorderFactory = recorderFactory
         self.services = services
+        // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
+        // the recorded D3 backend gap and takes over here when it lands.
         _editor = State(initialValue: CanvasViewModel(
-            memory: memory?.materializedForEditing() ?? Memory(items: Memory.starterDraft())
+            memory: memory?.materializedForEditing() ?? Memory()
         ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
@@ -50,7 +52,15 @@ struct EditorFlowView: View {
                 editor: editor,
                 mira: mira,
                 imageStudio: services.imageStudio,
-                actions: actions(back: onExit, done: { onComplete(editor.composedMemory()) }),
+                actions: actions(back: onExit, done: {
+                    // Done on an untouched blank page keeps nothing -- no
+                    // junk "New memory" entries in the journal.
+                    if editor.items.isEmpty {
+                        onExit()
+                    } else {
+                        onComplete(editor.composedMemory())
+                    }
+                }),
                 pendingTool: $pendingTool,
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
