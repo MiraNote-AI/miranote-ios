@@ -57,6 +57,22 @@ final class LiveImageStudioServiceTests: XCTestCase {
         XCTAssertTrue(sent.contains("img"), "carries the image bytes")
     }
 
+    func testCutoutTargetPlusSignStaysEncoded() async throws {
+        let tiny = MockImageStudioService.tinyPNG.base64EncodedString()
+        var captured: URLRequest?
+        StubURLProtocol.handler = { request in
+            captured = request
+            return self.ok(#"{"image": "\#(tiny)", "mode_used": "auto"}"#, for: request)
+        }
+
+        _ = try await makeService().cutout(image: Data("img".utf8), target: "C++ book")
+
+        XCTAssertTrue(
+            captured?.url?.absoluteString.contains("C%2B%2B%20book") ?? false,
+            "plus signs are percent-encoded so the server never reads them as spaces"
+        )
+    }
+
     func testOutlineRequestsOutlineMode() async throws {
         let tiny = MockImageStudioService.tinyPNG.base64EncodedString()
         var captured: URLRequest?

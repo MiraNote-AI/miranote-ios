@@ -42,7 +42,14 @@ struct CanvasScene: View {
                 soundStore: soundStore,
                 textFocus: $textFocus,
                 workingItemIDs: mira.workingItemIDs,
-                onEditImage: { editingImageItem = $0 }
+                onEditImage: { id in
+                    // The panel takes the bottom cluster: never unmount a
+                    // live Mira turn's Stop, and stop the mic first.
+                    guard !mira.isWorking else { return }
+                    cancelRecording()
+                    cancelDictationIfNeeded()
+                    editingImageItem = id
+                }
             )
         } bottom: {
             bottomCluster
@@ -57,6 +64,16 @@ struct CanvasScene: View {
         .onAppear { consumePendingTool() }
         .onDisappear { cancelRecording() }
         .onChange(of: pendingTool) { consumePendingTool() }
+        .onChange(of: editor.changeCount) {
+            // The edited photo can be deleted or undone away by canvas
+            // interactions above the panel; close the panel when its item
+            // is no longer an image.
+            if let id = editingImageItem {
+                if case .image = editor.item(id)?.content {} else {
+                    editingImageItem = nil
+                }
+            }
+        }
         .onChange(of: editor.editingTextItemID) { _, editing in
             if editing == nil {
                 cleanUpEmptyText()
@@ -125,6 +142,9 @@ struct CanvasScene: View {
     }
 
     private func handleTool(_ mode: EditorMode) {
+        // Any tool tap closes the photo edit panel first -- one owner of
+        // the bottom cluster at a time.
+        editingImageItem = nil
         switch mode {
         case .text:
             addTextBlock()

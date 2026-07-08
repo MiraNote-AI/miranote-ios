@@ -132,7 +132,11 @@ struct ImagePanelScene: View {
                 added = true
             }
             pickerItems = []
-            if added { actions.leading() }
+            if added {
+                actions.leading()
+            } else {
+                notice = "Those photos couldn't be imported. Try different ones?"
+            }
         }
     }
 
@@ -242,7 +246,10 @@ extension ImagePanelScene {
     }
 
     private func place(_ result: GeneratedResult) {
-        guard let fileName = try? imageStore.save(result.data, id: UUID()) else { return }
+        guard let fileName = try? imageStore.save(result.data, id: UUID()) else {
+            notice = "That picture couldn't be saved. Try again?"
+            return
+        }
         let position = CGPoint(x: 180, y: min(editor.contentBottom + 90, 4000))
         if result.style == .sticker {
             let sticker = GeneratedSticker(prompt: result.prompt, symbolName: "sparkles", fileName: fileName)
@@ -304,7 +311,10 @@ extension ImagePanelScene {
 
     private func add(imageData: Data?, name: String, returnToCanvas: Bool = true) {
         guard let imageData,
-              let fileName = try? imageStore.save(imageData, id: UUID()) else { return }
+              let fileName = try? imageStore.save(imageData, id: UUID()) else {
+            notice = "That photo couldn't be saved. Try again?"
+            return
+        }
         let position = CGPoint(x: 180, y: min(editor.contentBottom + 90, 4000))
         editor.addImages([ImageRef(displayName: name, fileName: fileName)], around: position)
         if returnToCanvas { actions.leading() }

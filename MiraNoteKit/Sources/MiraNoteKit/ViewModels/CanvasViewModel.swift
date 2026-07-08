@@ -213,7 +213,8 @@ extension CanvasViewModel {
 
     public func setImageFilter(itemID: CanvasItem.ID, to filterName: String) {
         guard let index = index(of: itemID),
-              case .image(var ref) = memory.items[index].content else { return }
+              case .image(var ref) = memory.items[index].content,
+              ref.filterName != filterName else { return }
         beginChange()
         ref.filterName = filterName
         memory.items[index].content = .image(ref)
@@ -221,7 +222,8 @@ extension CanvasViewModel {
 
     public func setImageFrame(itemID: CanvasItem.ID, to frameName: String) {
         guard let index = index(of: itemID),
-              case .image(var ref) = memory.items[index].content else { return }
+              case .image(var ref) = memory.items[index].content,
+              ref.frameName != frameName else { return }
         beginChange()
         ref.frameName = frameName
         memory.items[index].content = .image(ref)

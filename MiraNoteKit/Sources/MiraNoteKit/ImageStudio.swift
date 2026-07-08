@@ -118,7 +118,17 @@ public struct LiveImageStudioService: ImageStudioService {
             resolvingAgainstBaseURL: false
         )!
         if !query.isEmpty {
-            components.queryItems = query
+            // URLComponents leaves '+' bare and the server decodes it as a
+            // space; percent-encode values with '+' excluded from the
+            // allowed set.
+            var allowed = CharacterSet.urlQueryAllowed
+            allowed.remove(charactersIn: "+")
+            components.percentEncodedQuery = query
+                .map { item in
+                    let value = item.value?.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+                    return "\(item.name)=\(value)"
+                }
+                .joined(separator: "&")
         }
         let boundary = "MiraNoteBoundary-\(UUID().uuidString)"
         var request = URLRequest(url: components.url!)

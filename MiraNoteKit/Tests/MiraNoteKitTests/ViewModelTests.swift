@@ -301,6 +301,21 @@ final class CanvasViewModelTests: XCTestCase {
         XCTAssertEqual(afterUndo.filterName, "bw")
     }
 
+    func testRepeatedTreatmentTapsBurnNoUndoSlots() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        viewModel.addImages([ImageRef(displayName: "roses", fileName: "r.png")], around: .zero)
+        let id = viewModel.items[0].id
+        viewModel.setImageFilter(itemID: id, to: "bw")
+
+        viewModel.setImageFilter(itemID: id, to: "bw")
+        viewModel.setImageFilter(itemID: id, to: "bw")
+        viewModel.undo()   // undoes the one real filter change
+        guard case .image(let ref)? = viewModel.item(id)?.content else {
+            return XCTFail("expected image content")
+        }
+        XCTAssertEqual(ref.filterName, "", "single undo lands before the filter, not on a no-op")
+    }
+
     func testReplaceImageWithStickerIsOneUndoableStep() {
         let viewModel = CanvasViewModel(memory: Memory())
         viewModel.addImages([ImageRef(displayName: "roses", fileName: "r.png")], around: .zero)
