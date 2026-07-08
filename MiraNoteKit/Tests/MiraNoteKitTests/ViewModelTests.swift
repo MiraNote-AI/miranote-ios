@@ -280,6 +280,45 @@ final class CanvasViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.item(id)?.position.x, 336)
     }
 
+    func testImageTreatmentsApplyAndUndoAsOneStep() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        viewModel.addImages([ImageRef(displayName: "roses", fileName: "r.png")], around: .zero)
+        let id = viewModel.items[0].id
+
+        viewModel.setImageFilter(itemID: id, to: "bw")
+        viewModel.setImageFrame(itemID: id, to: "polaroid")
+        guard case .image(let ref)? = viewModel.item(id)?.content else {
+            return XCTFail("expected image content")
+        }
+        XCTAssertEqual(ref.filterName, "bw")
+        XCTAssertEqual(ref.frameName, "polaroid")
+
+        viewModel.undo()
+        guard case .image(let afterUndo)? = viewModel.item(id)?.content else {
+            return XCTFail("expected image content after undo")
+        }
+        XCTAssertEqual(afterUndo.frameName, "", "one undo steps back one treatment")
+        XCTAssertEqual(afterUndo.filterName, "bw")
+    }
+
+    func testReplaceImageWithStickerIsOneUndoableStep() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        viewModel.addImages([ImageRef(displayName: "roses", fileName: "r.png")], around: .zero)
+        let id = viewModel.items[0].id
+
+        let sticker = GeneratedSticker(prompt: "roses", symbolName: "sparkles", fileName: "cut.png")
+        viewModel.replaceImageWithSticker(itemID: id, sticker: sticker)
+        guard case .sticker(let placed)? = viewModel.item(id)?.content else {
+            return XCTFail("expected sticker content")
+        }
+        XCTAssertEqual(placed.fileName, "cut.png")
+
+        viewModel.undo()
+        guard case .image? = viewModel.item(id)?.content else {
+            return XCTFail("undo returns the photo")
+        }
+    }
+
     func testSelectingAnotherItemEndsTextEditing() {
         let viewModel = CanvasViewModel(memory: Memory())
         let textID = viewModel.addText("editing", at: .zero)

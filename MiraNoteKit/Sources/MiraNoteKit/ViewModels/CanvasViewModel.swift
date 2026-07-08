@@ -181,7 +181,11 @@ public final class CanvasViewModel {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees
     }
+}
 
+// MARK: - Content edits
+
+extension CanvasViewModel {
     // MARK: Content edits
 
     public func setText(itemID: CanvasItem.ID, to text: String) {
@@ -207,6 +211,31 @@ public final class CanvasViewModel {
         memory.items[index].content = .text(block)
     }
 
+    public func setImageFilter(itemID: CanvasItem.ID, to filterName: String) {
+        guard let index = index(of: itemID),
+              case .image(var ref) = memory.items[index].content else { return }
+        beginChange()
+        ref.filterName = filterName
+        memory.items[index].content = .image(ref)
+    }
+
+    public func setImageFrame(itemID: CanvasItem.ID, to frameName: String) {
+        guard let index = index(of: itemID),
+              case .image(var ref) = memory.items[index].content else { return }
+        beginChange()
+        ref.frameName = frameName
+        memory.items[index].content = .image(ref)
+    }
+
+    /// "Make sticker": the photo element becomes a sticker in place (one
+    /// undo step returns the photo).
+    public func replaceImageWithSticker(itemID: CanvasItem.ID, sticker: GeneratedSticker) {
+        guard let index = index(of: itemID),
+              case .image = memory.items[index].content else { return }
+        beginChange()
+        memory.items[index].content = .sticker(sticker)
+    }
+
     public func setSoundNote(itemID: CanvasItem.ID, to note: String) {
         guard let index = index(of: itemID),
               case .sound(var clip) = memory.items[index].content else { return }
@@ -214,7 +243,11 @@ public final class CanvasViewModel {
         clip.note = note
         memory.items[index].content = .sound(clip)
     }
+}
 
+// MARK: - Element operations
+
+extension CanvasViewModel {
     // MARK: Element operations (long-press menu)
 
     @discardableResult

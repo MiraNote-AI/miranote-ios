@@ -8,6 +8,7 @@ import SwiftUI
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
+    var imageStudio: ImageStudioService = MockImageStudioService()
     var actions = EditorActions()
     /// A tool requested from another scene (consumed on appear/change).
     @Binding var pendingTool: EditorMode?
@@ -20,6 +21,7 @@ struct CanvasScene: View {
     @State private var reviewNote = ""
     @State var accessoryRow: AccessoryRow = .tools
     @State private var miraPrompt = ""
+    @State private var editingImageItem: CanvasItem.ID?
     @State var dictating = false
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState private var miraFocus: Bool
@@ -39,7 +41,8 @@ struct CanvasScene: View {
                 editor: editor,
                 soundStore: soundStore,
                 textFocus: $textFocus,
-                workingItemIDs: mira.workingItemIDs
+                workingItemIDs: mira.workingItemIDs,
+                onEditImage: { editingImageItem = $0 }
             )
         } bottom: {
             bottomCluster
@@ -73,6 +76,20 @@ struct CanvasScene: View {
     // MARK: Bottom cluster (instrument panel + context bar)
 
     @ViewBuilder private var bottomCluster: some View {
+        if let editingImageItem {
+            PhotoEditPanel(
+                editor: editor,
+                itemID: editingImageItem,
+                studio: imageStudio,
+                onClose: { self.editingImageItem = nil }
+            )
+            InputModeBar(active: .image, onSelect: handleTool)
+        } else {
+            recorderCluster
+        }
+    }
+
+    @ViewBuilder private var recorderCluster: some View {
         switch recorderState {
         case .idle:
             if let recorderNotice {

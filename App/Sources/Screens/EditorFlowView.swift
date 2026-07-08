@@ -43,6 +43,7 @@ struct EditorFlowView: View {
             CanvasScene(
                 editor: editor,
                 mira: mira,
+                imageStudio: services.imageStudio,
                 actions: actions(back: onExit, done: { onComplete(editor.composedMemory()) }),
                 pendingTool: $pendingTool,
                 recorderFactory: recorderFactory,

@@ -14,6 +14,8 @@ struct CanvasBoardView: View {
     /// Elements Mira is currently changing: they breathe and ignore touches
     /// (lock the element, never the screen).
     var workingItemIDs: Set<CanvasItem.ID> = []
+    /// Long-press "Edit photo" (images with stored pixels only).
+    var onEditImage: (CanvasItem.ID) -> Void = { _ in }
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -278,7 +280,15 @@ extension CanvasBoardView {
             } label: {
                 Label("Edit note", systemImage: "text.bubble")
             }
-        case .image, .sticker:
+        case .image(let ref):
+            if !ref.fileName.isEmpty {
+                Button {
+                    onEditImage(item.id)
+                } label: {
+                    Label("Edit photo", systemImage: "camera.filters")
+                }
+            }
+        case .sticker:
             EmptyView()
         }
 

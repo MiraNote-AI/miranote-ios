@@ -286,6 +286,35 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Sunny afternoon, tiny noodle shop by the bridge"].exists, "canvas untouched")
     }
 
+    // Long-press Edit photo opens the treatment panel; Make sticker runs
+    // cutout + outline and replaces the photo with a sticker in place.
+    func testPhotoEditMakeStickerReplacesInPlace() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let samples = app.buttons["image.library.samples"]
+        XCTAssertTrue(samples.waitForExistence(timeout: 5))
+        samples.tap()
+
+        // The second element.image is a stored sample (the first is the
+        // starter's pixel-less placeholder, which offers no Edit photo).
+        let photo = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 1)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        photo.press(forDuration: 0.9)
+
+        let edit = app.buttons["Edit photo"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        edit.tap()
+
+        app.buttons["photo.section.sticker"].tap()
+        app.buttons["photo.makeSticker"].tap()
+
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        XCTAssertTrue(sticker.waitForExistence(timeout: 8), "the photo became a sticker in place")
+    }
+
     // With a selection, a vertical drag moves the element -- it must not be
     // stolen by the page scroll (the "selected moves, unselected scrolls"
     // grammar).
