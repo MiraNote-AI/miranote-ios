@@ -8,6 +8,7 @@ struct CanvasElementView: View {
     let isSelected: Bool
     let isEditingText: Bool
     let isPlaying: Bool
+    var imageStore = ImageFileStore()
     var text: Binding<String>
     var textFocus: FocusState<CanvasItem.ID?>.Binding
     var onTogglePlay: () -> Void
@@ -18,11 +19,68 @@ struct CanvasElementView: View {
         case .text(let block):
             textView(block)
         case .image(let ref):
-            GradientPlaceholder(tint: Self.tint(for: ref))
+            imageView(ref)
+                .accessibilityIdentifier("element.image")
         case .sticker(let sticker):
-            StickerBlob(symbol: sticker.symbolName, label: sticker.prompt, size: min(item.size.width, item.size.height))
+            stickerView(sticker)
+                .accessibilityIdentifier("element.sticker")
         case .sound(let clip):
             soundView(clip)
+        }
+    }
+
+    /// Real pixels when the ref has a file (with its filter and frame
+    /// treatments); the warm gradient placeholder otherwise.
+    @ViewBuilder private func imageView(_ ref: ImageRef) -> some View {
+        if let image = CanvasImageCache.image(
+            fileName: ref.fileName,
+            filterName: ref.filterName,
+            store: imageStore
+        ) {
+            framed(ref.frameName) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            }
+        } else {
+            GradientPlaceholder(tint: Self.tint(for: ref))
+        }
+    }
+
+    @ViewBuilder private func framed<Content: View>(
+        _ frameName: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        switch PhotoFrame(rawValue: frameName) ?? .none {
+        case .none:
+            content()
+                .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
+        case .white:
+            content()
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 10).fill(.white))
+                .shadow(color: Palette.ink.opacity(0.10), radius: 5, y: 2)
+        case .polaroid:
+            content()
+                .clipShape(Rectangle())
+                .padding(EdgeInsets(top: 8, leading: 8, bottom: 26, trailing: 8))
+                .background(Rectangle().fill(.white))
+                .shadow(color: Palette.ink.opacity(0.14), radius: 7, y: 3)
+        }
+    }
+
+    @ViewBuilder private func stickerView(_ sticker: GeneratedSticker) -> some View {
+        if let image = CanvasImageCache.image(
+            fileName: sticker.fileName,
+            filterName: "",
+            store: imageStore
+        ) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+        } else {
+            StickerBlob(symbol: sticker.symbolName, label: sticker.prompt, size: min(item.size.width, item.size.height))
         }
     }
 

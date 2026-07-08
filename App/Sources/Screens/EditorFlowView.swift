@@ -49,18 +49,11 @@ struct EditorFlowView: View {
                 transcription: services.voiceTranscription
             )
         case .imageStart:
-            ImageStartScene(
-                actions: actions(onGo: { navigate(.photoLibrary) }),
-                onGenerate: { navigate(.aiSticker) }
+            ImagePanelScene(
+                editor: editor,
+                studio: services.imageStudio,
+                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) })
             )
-        case .photoLibrary:
-            PhotoLibraryScene(actions: actions(onGo: { navigate(.filter) }, back: { navigate(.canvas) }))
-        case .filter:
-            FilterScene(actions: actions(onGo: { navigate(.canvas) }))
-        case .aiSticker:
-            AIStickerScene(actions: actions(onGo: { navigate(.stickerLibrary) }, back: { navigate(.imageStart) }))
-        case .stickerLibrary:
-            StickerLibraryScene(actions: actions(onGo: { navigate(.canvas) }))
         case .home, .chat, .collection, .note, .export:
             // Export left the main flow in v2.1 (share/export moves to
             // reading mode in Phase E); the scene stays catalog-only.

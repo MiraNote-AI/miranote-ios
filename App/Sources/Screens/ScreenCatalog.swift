@@ -7,10 +7,6 @@ enum FlowScene: String, CaseIterable {
     case home
     case canvas
     case imageStart
-    case photoLibrary
-    case filter
-    case aiSticker
-    case stickerLibrary
     case export
     case chat
     case collection
@@ -20,11 +16,7 @@ enum FlowScene: String, CaseIterable {
         switch self {
         case .home: HomeView(viewModel: HomeViewModel(collections: MemoryCollection.seed))
         case .canvas: CanvasCatalogPreview()
-        case .imageStart: ImageStartScene()
-        case .photoLibrary: PhotoLibraryScene()
-        case .filter: FilterScene()
-        case .aiSticker: AIStickerScene()
-        case .stickerLibrary: StickerLibraryScene()
+        case .imageStart: ImagePanelCatalogPreview()
         case .export: ExportScene()
         case .chat:
             MiraChatView(
@@ -36,6 +28,15 @@ enum FlowScene: String, CaseIterable {
         case .note:
             NoteCatalogPreview()
         }
+    }
+}
+
+/// Renders the image panel with mock services for the DEBUG catalog.
+private struct ImagePanelCatalogPreview: View {
+    @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+
+    var body: some View {
+        ImagePanelScene(editor: editor, studio: MockImageStudioService())
     }
 }
 

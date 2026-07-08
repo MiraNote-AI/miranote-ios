@@ -164,18 +164,53 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Lunch by the river"].waitForExistence(timeout: 5))
     }
 
-    // Sticker creation moved inside the Image panel: Generate opens the
-    // sticker creator.
-    func testGenerateOpensStickerCreator() {
+    // The Library source adds real images through the store pipeline; they
+    // render as canvas elements.
+    func testLibraryAddsSamplePhotosToCanvas() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
-
         app.buttons["mode.image"].tap()
-        let generate = app.buttons["image.generate"]
-        XCTAssertTrue(generate.waitForExistence(timeout: 5))
 
-        generate.tap()
-        XCTAssertTrue(app.staticTexts["Create sticker"].waitForExistence(timeout: 5))
+        let samples = app.buttons["image.library.samples"]
+        XCTAssertTrue(samples.waitForExistence(timeout: 5))
+        samples.tap()
+
+        // Back on the canvas: the starter placeholder plus two new photos.
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
+        XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(
+            app.descendants(matching: .any).matching(identifier: "element.image").count, 3
+        )
+    }
+
+    // Sticker creation lives inside Generate as a style: generating with the
+    // sticker style and placing a result lands a sticker element and seeds
+    // the favorites row.
+    func testGenerateStickerPlacesElement() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+
+        app.buttons["image.source.generate"].tap()
+        // Pick the style before typing: once the keyboard is up it can
+        // swallow taps meant for the chips row.
+        let stickerStyle = app.buttons["image.style.sticker"]
+        XCTAssertTrue(stickerStyle.waitForExistence(timeout: 5))
+        stickerStyle.tap()
+
+        let prompt = app.textFields["image.prompt"]
+        prompt.tap()
+        prompt.typeText("a coffee cup")
+        app.buttons["image.generate.run"].tap()
+
+        let firstResult = app.buttons["image.result.0"]
+        XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
+        firstResult.tap()
+
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        let sticker = app.descendants(matching: .any).matching(identifier: "element.sticker").firstMatch
+        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the placed sticker renders on the canvas")
     }
 
     // Done round-trip (the save-does-not-wipe regression under autosave

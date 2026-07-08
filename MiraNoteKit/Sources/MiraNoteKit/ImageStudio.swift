@@ -24,9 +24,10 @@ public protocol ImageStudioService: Sendable {
 
 /// Deterministic offline double: instant tiny PNGs, no network.
 public struct MockImageStudioService: ImageStudioService {
-    /// A valid 1x1 transparent PNG.
+    /// A valid 8x8 opaque tan PNG -- visible in snapshots, and opaque so
+    /// the accessibility tree never prunes a fully transparent element.
     public static let tinyPNG = Data(base64Encoded:
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGM4uWkqVsQwtCQAoMWEAbpmkkwAAAAASUVORK5CYII="
     )!
 
     public init() {}
