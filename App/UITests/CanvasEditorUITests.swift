@@ -94,12 +94,12 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
 
-        // Back on the canvas: the starter placeholder plus two new photos.
+        // Back on the blank canvas: the two stored sample photos.
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(
-            app.descendants(matching: .any).matching(identifier: "element.image").count, 3
+            app.descendants(matching: .any).matching(identifier: "element.image").count, 2
         )
     }
 
@@ -153,6 +153,8 @@ final class CanvasEditorUITests: XCTestCase {
     // Revert is one tap and restores the original.
     func testMiraPolishShowsReceiptAndRevertRestores() {
         app.buttons["Start a memory"].tap()
+        addTextBlock("sunny afternoon by the bridge")
+
         let input = app.textFields["mira.input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap()
@@ -160,12 +162,12 @@ final class CanvasEditorUITests: XCTestCase {
         app.buttons["mira.go"].tap()
 
         XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8))
-        let polished = "(polished -- mock) Sunny afternoon, tiny noodle shop by the bridge"
+        let polished = "(polished -- mock) sunny afternoon by the bridge"
         XCTAssertTrue(app.staticTexts[polished].waitForExistence(timeout: 3), "canvas text transformed")
 
         app.buttons["mira.revert"].tap()
         XCTAssertTrue(
-            app.staticTexts["Sunny afternoon, tiny noodle shop by the bridge"].waitForExistence(timeout: 5),
+            app.staticTexts["sunny afternoon by the bridge"].waitForExistence(timeout: 5),
             "revert restores the original text"
         )
     }
@@ -192,6 +194,7 @@ final class CanvasEditorUITests: XCTestCase {
     // the canvas is untouched.
     func testMiraFailureShowsRetryAndRefills() {
         app.buttons["Start a memory"].tap()
+        addTextBlock("still here untouched")
         let input = app.textFields["mira.input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap()
@@ -201,7 +204,7 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["mira.failure"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["mira.retry"].exists)
         XCTAssertEqual(input.value as? String, "please fail now", "prompt refilled on failure")
-        XCTAssertTrue(app.staticTexts["Sunny afternoon, tiny noodle shop by the bridge"].exists, "canvas untouched")
+        XCTAssertTrue(app.staticTexts["still here untouched"].exists, "canvas untouched")
     }
 
     // Long-press Edit photo opens the treatment panel; Make sticker runs
@@ -214,10 +217,9 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
 
-        // The second element.image is a stored sample (the first is the
-        // starter's pixel-less placeholder, which offers no Edit photo).
+        // Both canvas images are stored samples now; take the first.
         let photo = app.descendants(matching: .any)
-            .matching(identifier: "element.image").element(boundBy: 1)
+            .matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         photo.press(forDuration: 0.9)
 
@@ -241,6 +243,12 @@ final class CanvasEditorUITests: XCTestCase {
         addTextBlock("drag me around")
         let title = app.staticTexts["drag me around"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        // Closing the keyboard leaves the block selected; tap empty paper
+        // to deselect, then tap once to select (tap-on-selected re-enters
+        // editing, which is the product grammar, not a drag).
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .withOffset(CGVector(dx: 0, dy: 300)).tap()
         let before = title.frame.midY
 
         title.tap()
