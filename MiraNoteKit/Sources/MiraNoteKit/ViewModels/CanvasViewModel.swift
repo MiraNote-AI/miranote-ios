@@ -177,6 +177,19 @@ public final class CanvasViewModel {
         )
     }
 
+    /// Text blocks grow with their content: sets the measured height with
+    /// the TOP edge anchored (the block extends downward under the caret).
+    /// Continuous like resize -- records no undo step.
+    public func autosizeTextHeight(itemID: CanvasItem.ID, to height: CGFloat) {
+        guard let index = index(of: itemID),
+              case .text = memory.items[index].content else { return }
+        let old = memory.items[index].size.height
+        let clamped = max(36, height)
+        guard abs(old - clamped) > 0.5 else { return }
+        memory.items[index].size.height = clamped
+        memory.items[index].position.y += (clamped - old) / 2
+    }
+
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees

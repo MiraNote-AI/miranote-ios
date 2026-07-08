@@ -1,4 +1,5 @@
 import Foundation
+import MiraNoteKit
 import SwiftUI
 
 // Shared state shapes for CanvasScene's bottom cluster.
@@ -70,6 +71,7 @@ extension CanvasScene {
                 Button(choice.label) {
                     if let id = editor.editingTextItemID {
                         editor.setTextPointSize(itemID: id, to: choice.pointSize)
+                        resizeEditedText(id, pointSize: choice.pointSize)
                     }
                 }
             }
@@ -109,6 +111,16 @@ extension CanvasScene {
         editor.select(id)
         endTextEditing()
         mira.ask("\(action.lowercased()) the text", editor: editor)
+    }
+
+    /// Size changes re-measure the block so bigger type gets a bigger box.
+    func resizeEditedText(_ id: CanvasItem.ID, pointSize: CGFloat) {
+        guard let item = editor.item(id), case .text(let block) = item.content else { return }
+        editor.autosizeTextHeight(itemID: id, to: TextMeasure.blockHeight(
+            text: block.text,
+            pointSize: pointSize,
+            width: item.size.width
+        ))
     }
 
     /// Ends a dictation that lost its editing session (keyboard dismissed,

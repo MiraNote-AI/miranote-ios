@@ -105,23 +105,28 @@ struct CanvasScene: View {
     // MARK: Bottom cluster (instrument panel + context bar)
 
     @ViewBuilder private var bottomCluster: some View {
-        if let gestureHint {
-            Text(gestureHint)
-                .font(.miraCaption)
-                .foregroundStyle(Palette.textSecondary)
-                .padding(.horizontal, Metrics.screenPadding)
-                .transition(.opacity)
-        }
-        if let editingImageItem {
-            PhotoEditPanel(
-                editor: editor,
-                itemID: editingImageItem,
-                studio: imageStudio,
-                onClose: { self.editingImageItem = nil }
-            )
-            InputModeBar(active: .image, onSelect: handleTool)
-        } else {
-            recorderCluster
+        // While words are being written, the canvas is the whole show:
+        // tools, chips, and the Mira bar step aside (the accordion bar
+        // rides the keyboard).
+        if editor.editingTextItemID == nil {
+            if let gestureHint {
+                Text(gestureHint)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.horizontal, Metrics.screenPadding)
+                    .transition(.opacity)
+            }
+            if let editingImageItem {
+                PhotoEditPanel(
+                    editor: editor,
+                    itemID: editingImageItem,
+                    studio: imageStudio,
+                    onClose: { self.editingImageItem = nil }
+                )
+                InputModeBar(active: .image, onSelect: handleTool)
+            } else {
+                recorderCluster
+            }
         }
     }
 
@@ -181,7 +186,7 @@ struct CanvasScene: View {
     /// typing happens where the words will live.
     private func addTextBlock() {
         let position = CGPoint(x: 180, y: min(editor.contentBottom + 70, 4000))
-        let id = editor.addText("", at: position, pointSize: 17, size: CGSize(width: 260, height: 64))
+        let id = editor.addText("", at: position, pointSize: 17, size: CGSize(width: 320, height: 48))
         // addText already recorded the undo point for this compound action.
         editor.startEditingText(id, recordingUndo: false)
         textFocus = id

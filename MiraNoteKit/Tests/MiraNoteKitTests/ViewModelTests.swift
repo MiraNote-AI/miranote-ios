@@ -334,6 +334,21 @@ final class CanvasViewModelTests: XCTestCase {
         }
     }
 
+    func testAutosizeAnchorsTopEdgeAndSkipsNoops() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addText("grows", at: CGPoint(x: 100, y: 100), size: CGSize(width: 200, height: 40))
+        let topBefore = 100 - 40.0 / 2
+
+        viewModel.autosizeTextHeight(itemID: id, to: 120)
+        let item = viewModel.item(id)!
+        XCTAssertEqual(item.size.height, 120)
+        XCTAssertEqual(item.position.y - item.size.height / 2, topBefore, "top edge stays put")
+
+        let undoDepthSensitive = viewModel.canUndo
+        viewModel.autosizeTextHeight(itemID: id, to: 120)
+        XCTAssertEqual(viewModel.canUndo, undoDepthSensitive, "no-op resize records nothing")
+    }
+
     func testSelectingAnotherItemEndsTextEditing() {
         let viewModel = CanvasViewModel(memory: Memory())
         let textID = viewModel.addText("editing", at: .zero)

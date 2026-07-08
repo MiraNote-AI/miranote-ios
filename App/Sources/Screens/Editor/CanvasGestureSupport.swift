@@ -61,3 +61,16 @@ enum HandleCorner: CaseIterable {
         }
     }
 }
+
+extension CanvasBoardView {
+    /// Blocks grow with their words -- measured, top-anchored.
+    func autosize(_ id: CanvasItem.ID, text: String? = nil) {
+        guard let item = editor.item(id), case .text(let block) = item.content else { return }
+        let height = TextMeasure.blockHeight(
+            text: text ?? block.text,
+            pointSize: block.pointSize,
+            width: item.size.width
+        )
+        editor.autosizeTextHeight(itemID: id, to: height)
+    }
+}

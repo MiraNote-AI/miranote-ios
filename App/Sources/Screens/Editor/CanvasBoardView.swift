@@ -33,10 +33,18 @@ struct CanvasBoardView: View {
     private let minBoardHeight: CGFloat = 620
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            board
-                .padding(.horizontal, Metrics.screenPadding)
-                .padding(.bottom, 8)
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                board
+                    .padding(.horizontal, Metrics.screenPadding)
+                    .padding(.bottom, 8)
+            }
+            .onChange(of: editor.editingTextItemID) { _, editing in
+                guard let editing else { return }
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo(editing, anchor: .center)
+                }
+            }
         }
         // The gesture grammar, literally: with a selection, dragging moves
         // the element (UIScrollView would otherwise steal vertical pans);
@@ -147,6 +155,7 @@ struct CanvasBoardView: View {
         }
         .rotationEffect(.degrees(geometry.rotation))
         .position(geometry.position)
+        .id(item.id)
         .onTapGesture { handleTap(item, isSelected: isSelected) }
         .gesture(isSelected && !isEditing ? moveGesture(item) : nil)
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
@@ -194,9 +203,13 @@ struct CanvasBoardView: View {
                 if case .text(let block) = editor.item(item.id)?.content { return block.text }
                 return ""
             },
-            set: { editor.setText(itemID: item.id, to: $0) }
+            set: { newText in
+                editor.setText(itemID: item.id, to: newText)
+                autosize(item.id, text: newText)
+            }
         )
     }
+
 }
 
 // MARK: - Gestures, menu, toast, sound
