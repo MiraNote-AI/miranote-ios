@@ -43,6 +43,13 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mode.sound"].waitForExistence(timeout: 5))
 
         app.buttons["mode.sound"].tap()
+        // The tool only arms the recorder -- nothing is captured until
+        // the user presses Record.
+        let record = app.buttons["recorder.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["recorder.stop"].exists)
+        record.tap()
+
         let stop = app.buttons["recorder.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5))
         stop.tap()
