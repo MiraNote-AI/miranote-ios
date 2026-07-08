@@ -318,21 +318,24 @@ extension CanvasViewModel {
                   !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             return (block, $0)
         }
-        let title = textBlocks
+        let titleEntry = textBlocks
             .sorted { lhs, rhs in
                 if lhs.block.pointSize != rhs.block.pointSize {
                     return lhs.block.pointSize > rhs.block.pointSize
                 }
                 return lhs.item.position.y < rhs.item.position.y
             }
-            .first?.block.text
+            .first
         // A page with no text keeps its existing archive name and body --
         // opening and closing the editor must never rename a page.
         let fallbackTitle = memory.title.isEmpty ? defaultTitle : memory.title
-        composed.title = title.map { String($0.prefix(48)) } ?? fallbackTitle
+        composed.title = titleEntry.map { String($0.block.text.prefix(48)) } ?? fallbackTitle
+        // The title block is the name, not part of the prose -- exclude it
+        // from the body so open-and-Done never rewrites a page's body.
+        let bodyBlocks = textBlocks.filter { $0.item.id != titleEntry?.item.id }
         composed.body = textBlocks.isEmpty
             ? memory.body
-            : textBlocks
+            : bodyBlocks
                 .sorted { $0.item.position.y < $1.item.position.y }
                 .map(\.block.text)
                 .joined(separator: "\n\n")

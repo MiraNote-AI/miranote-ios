@@ -30,6 +30,7 @@ struct ReadingView: View {
                     .font(.miraScreenTitle)
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.65)
                 Spacer()
                 circleButton("square.and.arrow.up", id: "reading.share") { showsExport = true }
                 circleButton("pencil", id: "reading.edit", action: onEdit)

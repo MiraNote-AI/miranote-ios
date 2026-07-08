@@ -28,11 +28,33 @@ struct StaticPageView: View {
                         endPoint: .bottom
                     )
                 )
+            if memory.items.isEmpty {
+                metadataFallback
+            }
             ForEach(memory.items.sorted { $0.zIndex < $1.zIndex }) { item in
                 element(item)
             }
         }
         .frame(width: designWidth, height: contentHeight)
+    }
+
+    /// Pages without canvas elements (legacy seeds, chat-filed notes) still
+    /// read as pages: their archive title and body render in place.
+    private var metadataFallback: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !memory.title.isEmpty {
+                Text(memory.title)
+                    .font(Serif.font(size: 30, weight: 560, optical: 72))
+                    .foregroundStyle(Palette.ink)
+            }
+            if !memory.body.isEmpty {
+                Text(memory.body)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Palette.ink)
+            }
+        }
+        .padding(22)
+        .frame(width: designWidth, alignment: .topLeading)
     }
 
     @ViewBuilder private func element(_ item: CanvasItem) -> some View {

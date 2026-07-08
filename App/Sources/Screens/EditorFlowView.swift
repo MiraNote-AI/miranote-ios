@@ -29,7 +29,7 @@ struct EditorFlowView: View {
         self.recorderFactory = recorderFactory
         self.services = services
         _editor = State(initialValue: CanvasViewModel(
-            memory: memory ?? Memory(items: Memory.starterDraft())
+            memory: memory?.materializedForEditing() ?? Memory(items: Memory.starterDraft())
         ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,

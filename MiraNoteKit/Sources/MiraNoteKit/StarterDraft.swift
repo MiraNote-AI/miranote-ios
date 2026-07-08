@@ -76,3 +76,33 @@ extension Memory {
         ]
     }
 }
+
+extension Memory {
+    /// Legacy pages (and chat-filed ones) carry title/body only. Opening
+    /// them in the editor materializes that metadata into real canvas
+    /// elements -- the v2.1 rule is "the visual title IS a text element".
+    /// composedMemory round-trips them back, so nothing is lost.
+    public func materializedForEditing() -> Memory {
+        guard items.isEmpty, !(title.isEmpty && body.isEmpty) else { return self }
+        var copy = self
+        var made: [CanvasItem] = []
+        if !title.isEmpty {
+            made.append(CanvasItem(
+                content: .text(TextBlock(text: title, pointSize: 30)),
+                position: CGPoint(x: 180, y: 70),
+                size: CGSize(width: 320, height: 84),
+                zIndex: 1
+            ))
+        }
+        if !body.isEmpty {
+            made.append(CanvasItem(
+                content: .text(TextBlock(text: body, pointSize: 15)),
+                position: CGPoint(x: 180, y: title.isEmpty ? 80 : 190),
+                size: CGSize(width: 320, height: 140),
+                zIndex: 2
+            ))
+        }
+        copy.items = made
+        return copy
+    }
+}

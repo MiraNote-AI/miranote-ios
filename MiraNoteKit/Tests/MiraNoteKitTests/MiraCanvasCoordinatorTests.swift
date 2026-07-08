@@ -247,6 +247,21 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(composed.body, "kept body")
     }
 
+    func testMaterializedLegacyPageRoundTripsTitleAndBody() {
+        let legacy = Memory(title: "Slow morning, good coffee", body: "the kettle sang first")
+        let opened = legacy.materializedForEditing()
+        XCTAssertEqual(opened.items.count, 2, "title and body become canvas elements")
+
+        let editor = CanvasViewModel(memory: opened)
+        let composed = editor.composedMemory()
+        XCTAssertEqual(composed.title, "Slow morning, good coffee")
+        XCTAssertEqual(composed.body, "the kettle sang first")
+        XCTAssertEqual(composed.id, legacy.id, "same page, no duplicate")
+
+        let untouched = Memory(title: "has items already", items: Memory.starterDraft())
+        XCTAssertEqual(untouched.materializedForEditing().items, untouched.items)
+    }
+
     func testSuggestionsAreContextAware() {
         let coordinator = makeCoordinator()
         let empty = CanvasViewModel(memory: Memory())
