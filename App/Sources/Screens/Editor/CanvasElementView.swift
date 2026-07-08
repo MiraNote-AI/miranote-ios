@@ -127,6 +127,11 @@ final class SoundPlayer {
               let audioPlayer = try? AVAudioPlayer(contentsOf: store.url(forFileName: clip.fileName)) else {
             return
         }
+        #if os(iOS)
+        // Playback category so markers are audible with the silent switch on.
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
         player = audioPlayer
         audioPlayer.play()
         playingID = clip.id

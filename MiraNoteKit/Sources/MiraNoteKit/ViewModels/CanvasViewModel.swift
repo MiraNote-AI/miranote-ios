@@ -75,11 +75,13 @@ public final class CanvasViewModel {
         }
     }
 
-    /// Begin in-place text editing (records one undo point for the whole
-    /// editing session).
-    public func startEditingText(_ id: CanvasItem.ID) {
-        guard case .text = item(id)?.content else { return }
-        beginChange()
+    /// Begin in-place text editing. Records one undo point for the whole
+    /// editing session unless the caller already recorded one for a
+    /// compound action (e.g. add-and-edit); re-entry is a no-op so repeat
+    /// taps never burn snapshots.
+    public func startEditingText(_ id: CanvasItem.ID, recordingUndo: Bool = true) {
+        guard editingTextItemID != id, case .text = item(id)?.content else { return }
+        if recordingUndo { beginChange() }
         selectedItemID = id
         editingTextItemID = id
     }
@@ -146,9 +148,18 @@ public final class CanvasViewModel {
 
     // MARK: Geometry (continuous -- caller brackets with beginChange())
 
+    /// The board tells the model how wide the page is so moves stay
+    /// reachable; height is unbounded (the canvas grows downward).
+    public var canvasWidth: CGFloat?
+
     public func move(itemID: CanvasItem.ID, to position: CGPoint) {
         guard let index = index(of: itemID) else { return }
-        memory.items[index].position = position
+        var clamped = position
+        clamped.y = max(24, clamped.y)
+        if let width = canvasWidth, width > 48 {
+            clamped.x = min(max(24, clamped.x), width - 24)
+        }
+        memory.items[index].position = clamped
     }
 
     public func resize(itemID: CanvasItem.ID, to size: CGSize) {
@@ -223,13 +234,17 @@ public final class CanvasViewModel {
         if editingTextItemID == itemID { editingTextItemID = nil }
     }
 
-    /// Removes an item without recording an undo step -- for husks the user
-    /// never sees as content, like an abandoned empty text block.
-    public func removeWithoutUndo(itemID: CanvasItem.ID) {
+    /// Removes an abandoned husk (e.g. an empty text block) without
+    /// recording an undo step, then drops any trailing history snapshots
+    /// identical to the result so undo never "restores" the husk state.
+    public func discardAbandonedText(itemID: CanvasItem.ID) {
         guard let index = index(of: itemID) else { return }
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
+        while let last = history.last, last == memory.items {
+            history.removeLast()
+        }
     }
 
     public func bringToFront(itemID: CanvasItem.ID) {
@@ -282,6 +297,7 @@ public final class CanvasViewModel {
     /// reading order preserved. Real auto-organization arrives with the
     /// backend feature; the deterministic layout keeps this testable.
     public func quickOrganize(canvasWidth: CGFloat, spacing: CGFloat = 120) {
+        beginChange()
         let columns = max(1, Int(canvasWidth / spacing))
         for (offset, item) in memory.items.enumerated() {
             let column = offset % columns

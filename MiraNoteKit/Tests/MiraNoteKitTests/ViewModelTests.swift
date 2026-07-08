@@ -233,15 +233,51 @@ final class CanvasViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.composedMemory().title, "New memory")
     }
 
-    func testRemoveWithoutUndoLeavesHistoryAlone() {
+    func testAbandonedTextDiscardCompactsHistory() {
+        // Tap Text tool, type nothing, dismiss: the husk vanishes and undo
+        // does NOT resurrect it (trailing identical snapshots compacted).
         let viewModel = CanvasViewModel(memory: Memory())
-        let kept = viewModel.addText("real work", at: .zero)
         let husk = viewModel.addText("", at: .zero)
-        let historyBefore = viewModel.canUndo
-        viewModel.removeWithoutUndo(itemID: husk)
+        viewModel.startEditingText(husk, recordingUndo: false)
+        viewModel.endEditingText()
+        viewModel.discardAbandonedText(itemID: husk)
         XCTAssertNil(viewModel.item(husk))
-        XCTAssertNotNil(viewModel.item(kept))
-        XCTAssertEqual(viewModel.canUndo, historyBefore)
+        XCTAssertFalse(viewModel.canUndo, "history holds only states equal to now; all compacted")
+    }
+
+    func testAddTypeDoneThenSingleUndoRemovesWholeBlock() {
+        // One user action (add-and-type) = one undo step: no intermediate
+        // empty-placeholder state.
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addText("", at: .zero)
+        viewModel.startEditingText(id, recordingUndo: false)
+        viewModel.setText(itemID: id, to: "hello river")
+        viewModel.endEditingText()
+        viewModel.undo()
+        XCTAssertNil(viewModel.item(id), "single undo removes the typed block entirely")
+    }
+
+    func testRepeatStartEditingBurnsNoSnapshots() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addText("hi", at: .zero)
+        viewModel.startEditingText(id)
+        viewModel.startEditingText(id)
+        viewModel.startEditingText(id)
+        viewModel.endEditingText()
+        viewModel.undo()   // editing-session snapshot
+        viewModel.undo()   // the add itself
+        XCTAssertNil(viewModel.item(id))
+        XCTAssertFalse(viewModel.canUndo, "re-entry recorded nothing extra")
+    }
+
+    func testMoveClampsIntoReachableCanvas() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        viewModel.canvasWidth = 360
+        let id = viewModel.addText("pin me", at: CGPoint(x: 100, y: 100))
+        viewModel.move(itemID: id, to: CGPoint(x: -300, y: -300))
+        XCTAssertEqual(viewModel.item(id)?.position, CGPoint(x: 24, y: 24))
+        viewModel.move(itemID: id, to: CGPoint(x: 900, y: 50))
+        XCTAssertEqual(viewModel.item(id)?.position.x, 336)
     }
 
     func testSelectingAnotherItemEndsTextEditing() {

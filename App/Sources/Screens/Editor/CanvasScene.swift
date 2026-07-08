@@ -14,6 +14,7 @@ struct CanvasScene: View {
 
     @State private var recorderState: RecorderState = .idle
     @State private var recorder: AudioRecording?
+    @State private var recorderNotice: String?
     @State private var reviewNote = ""
     @State private var accessoryRow: AccessoryRow = .tools
     @FocusState private var textFocus: CanvasItem.ID?
@@ -41,9 +42,18 @@ struct CanvasScene: View {
             }
         }
         .onAppear { consumePendingTool() }
+        .onDisappear { cancelRecording() }
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.editingTextItemID) { _, editing in
             if editing == nil { cleanUpEmptyText() }
+        }
+        .onChange(of: textFocus) { _, focus in
+            // Interactive keyboard dismissal clears focus without going
+            // through the Done button; keep the editing state in sync.
+            if focus == nil, editor.editingTextItemID != nil {
+                editor.endEditingText()
+                accessoryRow = .tools
+            }
         }
     }
 
@@ -52,6 +62,12 @@ struct CanvasScene: View {
     @ViewBuilder private var bottomCluster: some View {
         switch recorderState {
         case .idle:
+            if let recorderNotice {
+                Text(recorderNotice)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.horizontal, Metrics.screenPadding)
+            }
             InputModeBar(active: nil, onSelect: handleTool)
             ActionRow(hint: "Ask Mira anything", onGo: addTextBlock)
         case .recording(let start):
@@ -70,6 +86,7 @@ struct CanvasScene: View {
         case .sound:
             if case .idle = recorderState { startRecording() }
         case .image:
+            cancelRecording()
             actions.selectMode(.image)
         }
     }
@@ -79,7 +96,8 @@ struct CanvasScene: View {
     private func addTextBlock() {
         let position = CGPoint(x: 180, y: min(editor.contentBottom + 70, 4000))
         let id = editor.addText("", at: position, pointSize: 17, size: CGSize(width: 260, height: 64))
-        editor.startEditingText(id)
+        // addText already recorded the undo point for this compound action.
+        editor.startEditingText(id, recordingUndo: false)
         textFocus = id
     }
 
@@ -89,14 +107,19 @@ struct CanvasScene: View {
         for item in editor.items {
             if case .text(let block) = item.content,
                block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                editor.removeWithoutUndo(itemID: item.id)
+                editor.discardAbandonedText(itemID: item.id)
             }
         }
     }
+}
 
+// MARK: - Sound recording, accessory, pending tools
+
+extension CanvasScene {
     // MARK: Sound recording
 
     private func startRecording() {
+        recorderNotice = nil
         let newRecorder = recorderFactory()
         recorder = newRecorder
         Task {
@@ -106,8 +129,24 @@ struct CanvasScene: View {
             } catch {
                 recorder = nil
                 recorderState = .idle
+                recorderNotice = error.localizedDescription
             }
         }
+    }
+
+    /// Stops and discards an in-flight recording (leaving the canvas, or
+    /// switching tools mid-recording). Keeps the audio session tidy.
+    private func cancelRecording() {
+        guard recorder != nil || !isIdle else { return }
+        let abandoned = recorder
+        recorder = nil
+        recorderState = .idle
+        Task { _ = try? await abandoned?.stop() }
+    }
+
+    private var isIdle: Bool {
+        if case .idle = recorderState { return true }
+        return false
     }
 
     private func stopRecording() {

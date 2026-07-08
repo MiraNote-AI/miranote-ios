@@ -13,9 +13,13 @@ struct CanvasBoardView: View {
     var textFocus: FocusState<CanvasItem.ID?>.Binding
 
     @State private var player = SoundPlayer()
-    @State private var moveOrigin: CGPoint?
-    @State private var rotationOrigin: Double?
-    @State private var resizeOrigin: (position: CGPoint, size: CGSize)?
+    // Transient gesture values: @GestureState resets automatically when a
+    // gesture is CANCELLED (context menu, incoming call, backgrounding), so
+    // no stale origin can teleport an element or skip an undo snapshot. The
+    // model commits once, on gesture end.
+    @GestureState private var activeMove: ActiveMove?
+    @GestureState private var activeResize: ActiveResize?
+    @GestureState private var activeRotation: ActiveRotation?
     @State private var noteDraft = ""
     @State private var noteEditingItem: CanvasItem.ID?
     @State private var showsDeleteToast = false
@@ -29,6 +33,10 @@ struct CanvasBoardView: View {
                 .padding(.horizontal, Metrics.screenPadding)
                 .padding(.bottom, 8)
         }
+        // The gesture grammar, literally: with a selection, dragging moves
+        // the element (UIScrollView would otherwise steal vertical pans);
+        // with none, dragging scrolls the page.
+        .scrollDisabled(editor.selectedItemID != nil)
         .overlay(alignment: .bottom) {
             if showsDeleteToast {
                 deleteToast
@@ -62,6 +70,15 @@ struct CanvasBoardView: View {
         // No identifier on the container: SwiftUI cascades a parent
         // accessibilityIdentifier onto contained elements, masking child
         // ids like canvas.textEditor.
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { editor.canvasWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { _, width in
+                        editor.canvasWidth = width
+                    }
+            }
+        )
     }
 
     private var boardHeight: CGFloat {
@@ -95,6 +112,7 @@ struct CanvasBoardView: View {
     @ViewBuilder private func element(_ item: CanvasItem) -> some View {
         let isSelected = editor.selectedItemID == item.id
         let isEditing = editor.editingTextItemID == item.id
+        let geometry = effectiveGeometry(item)
 
         CanvasElementView(
             item: item,
@@ -106,18 +124,42 @@ struct CanvasBoardView: View {
             onTogglePlay: { togglePlay(item) },
             onEditNote: { beginNoteEdit(item) }
         )
-        .frame(width: item.size.width, height: item.size.height)
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .contentShape(Rectangle())
         .overlay {
             if isSelected && !isEditing {
-                handles(for: item)
+                handles(for: item, size: geometry.size)
             }
         }
-        .rotationEffect(.degrees(item.rotation))
-        .position(item.position)
+        .rotationEffect(.degrees(geometry.rotation))
+        .position(geometry.position)
         .onTapGesture { handleTap(item, isSelected: isSelected) }
         .gesture(isSelected && !isEditing ? moveGesture(item) : nil)
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
+    }
+
+    /// Model geometry plus any in-flight gesture translation for this item.
+    /// The model itself only changes when a gesture ends, so a cancelled
+    /// gesture reverts visually for free.
+    private func effectiveGeometry(_ item: CanvasItem) -> ElementGeometry {
+        var position = item.position
+        var size = item.size
+        var rotation = item.rotation
+        if let move = activeMove, move.itemID == item.id {
+            position.x += move.translation.width
+            position.y += move.translation.height
+        }
+        if let resize = activeResize, resize.itemID == item.id {
+            size.width = max(44, size.width + resize.corner.sign.x * resize.translation.width)
+            size.height = max(36, size.height + resize.corner.sign.y * resize.translation.height)
+            position.x += resize.translation.width / 2
+            position.y += resize.translation.height / 2
+        }
+        if let spin = activeRotation, spin.itemID == item.id {
+            rotation += spin.degrees
+        }
+        return ElementGeometry(position: position, size: size, rotation: rotation)
     }
 
     private func handleTap(_ item: CanvasItem, isSelected: Bool) {
@@ -149,37 +191,33 @@ extension CanvasBoardView {
 
     private func moveGesture(_ item: CanvasItem) -> some Gesture {
         DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                if moveOrigin == nil {
-                    moveOrigin = editor.item(item.id)?.position
-                    editor.beginChange()
-                }
-                guard let origin = moveOrigin else { return }
+            .updating($activeMove) { value, state, _ in
+                state = ActiveMove(itemID: item.id, translation: value.translation)
+            }
+            .onEnded { value in
+                editor.beginChange()
                 editor.move(itemID: item.id, to: CGPoint(
-                    x: origin.x + value.translation.width,
-                    y: origin.y + value.translation.height
+                    x: item.position.x + value.translation.width,
+                    y: item.position.y + value.translation.height
                 ))
             }
-            .onEnded { _ in moveOrigin = nil }
     }
 
     private func rotateGesture(_ item: CanvasItem) -> some Gesture {
         RotateGesture()
-            .onChanged { value in
-                if rotationOrigin == nil {
-                    rotationOrigin = editor.item(item.id)?.rotation
-                    editor.beginChange()
-                }
-                guard let origin = rotationOrigin else { return }
-                editor.rotate(itemID: item.id, degrees: origin + value.rotation.degrees)
+            .updating($activeRotation) { value, state, _ in
+                state = ActiveRotation(itemID: item.id, degrees: value.rotation.degrees)
             }
-            .onEnded { _ in rotationOrigin = nil }
+            .onEnded { value in
+                editor.beginChange()
+                editor.rotate(itemID: item.id, degrees: item.rotation + value.rotation.degrees)
+            }
     }
 
     /// Dashed selection frame with four corner dots. Corner drags resize
     /// around the opposite corner; deltas are applied in unrotated space (a
     /// deliberate simplification -- scrapbook tilts stay small).
-    private func handles(for item: CanvasItem) -> some View {
+    private func handles(for item: CanvasItem, size: CGSize) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(
@@ -191,9 +229,10 @@ extension CanvasBoardView {
                     .fill(Palette.onInk)
                     .overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1.4))
                     .frame(width: 14, height: 14)
+                    .contentShape(Circle().inset(by: -10))
                     .offset(
-                        x: corner.sign.x * item.size.width / 2,
-                        y: corner.sign.y * item.size.height / 2
+                        x: corner.sign.x * size.width / 2,
+                        y: corner.sign.y * size.height / 2
                     )
                     .gesture(resizeGesture(item, corner: corner))
             }
@@ -202,23 +241,20 @@ extension CanvasBoardView {
 
     private func resizeGesture(_ item: CanvasItem, corner: HandleCorner) -> some Gesture {
         DragGesture(minimumDistance: 2)
-            .onChanged { value in
-                if resizeOrigin == nil {
-                    guard let current = editor.item(item.id) else { return }
-                    resizeOrigin = (current.position, current.size)
-                    editor.beginChange()
-                }
-                guard let origin = resizeOrigin else { return }
+            .updating($activeResize) { value, state, _ in
+                state = ActiveResize(itemID: item.id, corner: corner, translation: value.translation)
+            }
+            .onEnded { value in
+                editor.beginChange()
                 editor.resize(itemID: item.id, to: CGSize(
-                    width: origin.size.width + corner.sign.x * value.translation.width,
-                    height: origin.size.height + corner.sign.y * value.translation.height
+                    width: item.size.width + corner.sign.x * value.translation.width,
+                    height: item.size.height + corner.sign.y * value.translation.height
                 ))
                 editor.move(itemID: item.id, to: CGPoint(
-                    x: origin.position.x + value.translation.width / 2,
-                    y: origin.position.y + value.translation.height / 2
+                    x: item.position.x + value.translation.width / 2,
+                    y: item.position.y + value.translation.height / 2
                 ))
             }
-            .onEnded { _ in resizeOrigin = nil }
     }
 
     // MARK: Context menu (the only delete path)
@@ -318,6 +354,30 @@ extension CanvasBoardView {
             set: { if !$0 { noteEditingItem = nil } }
         )
     }
+}
+
+/// An element's on-screen geometry once in-flight gesture deltas apply.
+private struct ElementGeometry {
+    let position: CGPoint
+    let size: CGSize
+    let rotation: Double
+}
+
+/// In-flight gesture values (see the @GestureState notes above).
+private struct ActiveMove {
+    let itemID: CanvasItem.ID
+    let translation: CGSize
+}
+
+private struct ActiveResize {
+    let itemID: CanvasItem.ID
+    let corner: HandleCorner
+    let translation: CGSize
+}
+
+private struct ActiveRotation {
+    let itemID: CanvasItem.ID
+    let degrees: Double
 }
 
 /// Which corner a resize handle sits on; `sign` maps drag translation to

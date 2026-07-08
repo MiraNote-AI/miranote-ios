@@ -191,11 +191,26 @@ final class MiraNoteUITests: XCTestCase {
         done.tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
+        // (The seed already contains a "Lunch by the river" note, so the
+        // count is the only trustworthy signal here.)
         XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
+    }
 
-        // The filed note carries the canvas title (starter draft's serif
-        // title), proving Done captured real canvas content.
-        app.buttons["collection.Daily Log"].tap()
-        XCTAssertTrue(app.buttons["note.Lunch by the river"].waitForExistence(timeout: 5))
+    // With a selection, a vertical drag moves the element -- it must not be
+    // stolen by the page scroll (the "selected moves, unselected scrolls"
+    // grammar).
+    func testDragMovesSelectedElementInsteadOfScrolling() {
+        app.buttons["Start a memory"].tap()
+        let title = app.staticTexts["Lunch by the river"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        let before = title.frame.midY
+
+        title.tap()
+        let start = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: 140))
+        start.press(forDuration: 0.08, thenDragTo: end)
+
+        XCTAssertTrue(title.waitForExistence(timeout: 3))
+        XCTAssertGreaterThan(title.frame.midY, before + 70, "selected element follows the drag")
     }
 }
