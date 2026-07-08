@@ -7,11 +7,29 @@ import SwiftUI
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
     var onComplete: (Memory) -> Void = { _ in }
-    var recorderFactory: () -> AudioRecording = { AudioRecorder() }
+    var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
+    var services: ServiceContainer = .mock
 
     @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
+
+    init(
+        onExit: @escaping () -> Void = {},
+        onComplete: @escaping (Memory) -> Void = { _ in },
+        recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
+        services: ServiceContainer = .mock
+    ) {
+        self.onExit = onExit
+        self.onComplete = onComplete
+        self.recorderFactory = recorderFactory
+        self.services = services
+        _mira = State(initialValue: MiraCanvasCoordinator(
+            text: services.textTransform,
+            chat: services.chat
+        ))
+    }
 
     var body: some View {
         content
@@ -24,9 +42,11 @@ struct EditorFlowView: View {
         case .canvas:
             CanvasScene(
                 editor: editor,
+                mira: mira,
                 actions: actions(back: onExit, done: { onComplete(editor.composedMemory()) }),
                 pendingTool: $pendingTool,
-                recorderFactory: recorderFactory
+                recorderFactory: recorderFactory,
+                transcription: services.voiceTranscription
             )
         case .imageStart:
             ImageStartScene(
@@ -107,8 +127,20 @@ struct HomeFlow: View {
         return FileCollectionStore()
     }
 
+    /// UI tests drive Mira with scripted services so working, stop, and
+    /// failure states are deterministic; otherwise the app's own container
+    /// is used unchanged.
+    private static func editorServices(base: ServiceContainer) -> ServiceContainer {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            return .uiTestScripted
+        }
+        #endif
+        return base
+    }
+
     /// UI tests record with a canned in-memory recorder (no mic permission).
-    private static func makeRecorder() -> AudioRecording {
+    @MainActor private static func makeRecorder() -> AudioRecording {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
             return MockAudioRecorder()
@@ -166,7 +198,8 @@ struct HomeFlow: View {
                         viewModel.file(memory, underCollectionTitled: Self.inbox)
                         route = nil
                     },
-                    recorderFactory: Self.makeRecorder
+                    recorderFactory: Self.makeRecorder,
+                    services: Self.editorServices(base: services)
                 )
             case .chat(let seed):
                 MiraChatView(

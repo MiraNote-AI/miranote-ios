@@ -1,0 +1,220 @@
+import XCTest
+@testable import MiraNoteKit
+
+@MainActor
+final class MiraCanvasCoordinatorTests: XCTestCase {
+    private func makeEditor() -> CanvasViewModel {
+        CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    }
+
+    private func makeCoordinator(
+        text: TextTransformService = ScriptedText(),
+        chat: ChatService = ScriptedChat(),
+        workingDelay: Duration = .milliseconds(1),
+        timeout: Duration = .seconds(5),
+        receiptDismiss: Duration = .seconds(60)
+    ) -> MiraCanvasCoordinator {
+        MiraCanvasCoordinator(
+            text: text,
+            chat: chat,
+            workingDelay: workingDelay,
+            timeout: timeout,
+            receiptDismiss: receiptDismiss
+        )
+    }
+
+    /// Spin until the condition holds or the deadline passes.
+    private func waitUntil(
+        _ timeout: Duration = .seconds(3),
+        _ condition: @MainActor () -> Bool
+    ) async {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while !condition() && ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    func testPolishAppliesAtomicallyWithReceiptAndRevert() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator()
+        let bodyBefore = "Sunny afternoon, tiny noodle shop by the bridge"
+
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+
+        guard case .receipt(let receipt) = coordinator.phase else {
+            return XCTFail("expected a receipt, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(receipt.changed, "Polished the text.")
+        XCTAssertTrue(receipt.kept.contains("stayed put"), "receipt names what was kept")
+        let bodyTexts = editor.items.compactMap { item -> String? in
+            if case .text(let block) = item.content { return block.text }
+            return nil
+        }
+        XCTAssertTrue(bodyTexts.contains("[polish] " + bodyBefore), "body text transformed")
+
+        coordinator.revert(editor: editor)
+        let restored = editor.items.compactMap { item -> String? in
+            if case .text(let block) = item.content { return block.text }
+            return nil
+        }
+        XCTAssertTrue(restored.contains(bodyBefore), "one-tap revert restores the original")
+        XCTAssertEqual(coordinator.phase, .idle)
+    }
+
+    func testStopLeavesNoResidueAndRefillsPrompt() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator(
+            text: ScriptedText(delay: .seconds(3)),
+            workingDelay: .milliseconds(5)
+        )
+        let itemsBefore = editor.items
+        let undoBefore = editor.canUndo
+
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .working = coordinator.phase { return true } else { return false } }
+        guard case .working(let verb) = coordinator.phase else {
+            return XCTFail("expected working state")
+        }
+        XCTAssertEqual(verb, "Polishing the text...")
+        XCTAssertFalse(coordinator.workingItemIDs.isEmpty, "affected element marked for breathing")
+
+        coordinator.stop()
+        XCTAssertEqual(coordinator.phase, .idle)
+        XCTAssertEqual(coordinator.refillPrompt, "polish the text", "the words come back")
+        XCTAssertEqual(editor.items, itemsBefore, "stop leaves no partial edits")
+        XCTAssertEqual(editor.canUndo, undoBefore, "no orphaned undo snapshot")
+        XCTAssertTrue(coordinator.workingItemIDs.isEmpty)
+    }
+
+    func testWorkingIndicatorWaitsForItsDelay() async {
+        let coordinator = makeCoordinator(
+            text: ScriptedText(delay: .milliseconds(400)),
+            workingDelay: .milliseconds(150)
+        )
+        let editor = makeEditor()
+        coordinator.ask("polish the text", editor: editor)
+
+        try? await Task.sleep(for: .milliseconds(40))
+        if case .working = coordinator.phase {
+            XCTFail("working state must not appear before the 400ms-style threshold")
+        }
+        await waitUntil { if case .working = coordinator.phase { return true } else { return false } }
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+    }
+
+    func testBackendFailureRefillsAndOffersRetry() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator(chat: ScriptedChat(error: URLError(.notConnectedToInternet)))
+
+        coordinator.ask("tell me something nice", editor: editor)
+        await waitUntil { if case .failure = coordinator.phase { return true } else { return false } }
+
+        guard case .failure(let failure) = coordinator.phase else {
+            return XCTFail("expected failure")
+        }
+        XCTAssertEqual(failure.kind, .retry)
+        XCTAssertTrue(failure.chips.contains("Try again"))
+        XCTAssertEqual(coordinator.refillPrompt, "tell me something nice")
+    }
+
+    func testTimeoutBecomesARetryFailure() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator(
+            text: ScriptedText(delay: .seconds(10)),
+            timeout: .milliseconds(60)
+        )
+
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .failure = coordinator.phase { return true } else { return false } }
+
+        guard case .failure(let failure) = coordinator.phase else {
+            return XCTFail("expected timeout failure")
+        }
+        XCTAssertEqual(failure.kind, .retry)
+        XCTAssertTrue(failure.message.contains("taking too long"))
+    }
+
+    func testConversationRepliesWithChipsAndCarriesSession() async {
+        let editor = makeEditor()
+        let chat = ScriptedChat(reply: "That sounds lovely.", sessionID: "s-42")
+        let coordinator = makeCoordinator(chat: chat)
+
+        coordinator.ask("hello mira", editor: editor)
+        await waitUntil { if case .reply = coordinator.phase { return true } else { return false } }
+        guard case .reply(let message, let chips) = coordinator.phase else {
+            return XCTFail("expected reply")
+        }
+        XCTAssertEqual(message, "That sounds lovely.")
+        XCTAssertFalse(chips.isEmpty, "reply offers follow-up chips")
+
+        coordinator.ask("and another thing", editor: editor)
+        await waitUntil { if case .reply = coordinator.phase { return true } else { return false } }
+        let seen = await chat.recorder.sessionIDs
+        XCTAssertEqual(seen, [nil, "s-42"], "server session id carries into the next turn")
+    }
+
+    func testOrganizeAndTitleIntents() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator()
+
+        coordinator.ask("tidy the layout", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+        guard case .receipt(let organized) = coordinator.phase else { return XCTFail("expected an organize receipt") }
+        XCTAssertEqual(organized.changed, "Tidied the layout.")
+
+        coordinator.dismiss()
+        let countBefore = editor.items.count
+        coordinator.ask("add a soft title", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+        XCTAssertEqual(editor.items.count, countBefore + 1, "a title block landed")
+    }
+
+    func testSuggestionsAreContextAware() {
+        let coordinator = makeCoordinator()
+        let empty = CanvasViewModel(memory: Memory())
+        XCTAssertEqual(coordinator.suggestions(for: empty), ["Add a soft title"])
+
+        let full = makeEditor()
+        XCTAssertEqual(
+            coordinator.suggestions(for: full),
+            ["Polish the text", "Tidy the layout", "Add a soft title"]
+        )
+    }
+}
+
+// MARK: - Scripted services
+
+private struct ScriptedText: TextTransformService {
+    var delay: Duration = .zero
+    var error: Error?
+
+    func transform(_ text: String, mode: TextTransformMode) async throws -> String {
+        if delay > .zero { try await Task.sleep(for: delay) }
+        if let error { throw error }
+        return "[\(mode.rawValue)] " + text
+    }
+}
+
+private struct ScriptedChat: ChatService {
+    var reply = "Scripted reply."
+    var sessionID: String? = "scripted-session"
+    var delay: Duration = .zero
+    var error: Error?
+    let recorder = SessionRecorder()
+
+    func reply(to message: String, sessionID incoming: String?) async throws -> ChatReply {
+        await recorder.record(incoming)
+        if delay > .zero { try await Task.sleep(for: delay) }
+        if let error { throw error }
+        return ChatReply(text: reply, sessionID: sessionID)
+    }
+}
+
+private actor SessionRecorder {
+    private(set) var sessionIDs: [String?] = []
+
+    func record(_ id: String?) {
+        sessionIDs.append(id)
+    }
+}

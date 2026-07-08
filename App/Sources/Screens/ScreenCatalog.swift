@@ -43,11 +43,16 @@ enum FlowScene: String, CaseIterable {
 /// DEBUG catalog (text and sound tools work in place; Image is inert here).
 private struct CanvasCatalogPreview: View {
     @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    @State private var mira = MiraCanvasCoordinator(
+        text: MockTextTransformService(),
+        chat: MockChatService()
+    )
     @State private var pendingTool: EditorMode?
 
     var body: some View {
         CanvasScene(
             editor: editor,
+            mira: mira,
             pendingTool: $pendingTool,
             recorderFactory: { MockAudioRecorder() }
         )

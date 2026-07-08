@@ -11,6 +11,9 @@ struct CanvasBoardView: View {
     @Bindable var editor: CanvasViewModel
     var soundStore = SoundFileStore()
     var textFocus: FocusState<CanvasItem.ID?>.Binding
+    /// Elements Mira is currently changing: they breathe and ignore touches
+    /// (lock the element, never the screen).
+    var workingItemIDs: Set<CanvasItem.ID> = []
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -137,6 +140,7 @@ struct CanvasBoardView: View {
         .gesture(isSelected && !isEditing ? moveGesture(item) : nil)
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
+        .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.
@@ -353,44 +357,5 @@ extension CanvasBoardView {
             get: { noteEditingItem != nil },
             set: { if !$0 { noteEditingItem = nil } }
         )
-    }
-}
-
-/// An element's on-screen geometry once in-flight gesture deltas apply.
-private struct ElementGeometry {
-    let position: CGPoint
-    let size: CGSize
-    let rotation: Double
-}
-
-/// In-flight gesture values (see the @GestureState notes above).
-private struct ActiveMove {
-    let itemID: CanvasItem.ID
-    let translation: CGSize
-}
-
-private struct ActiveResize {
-    let itemID: CanvasItem.ID
-    let corner: HandleCorner
-    let translation: CGSize
-}
-
-private struct ActiveRotation {
-    let itemID: CanvasItem.ID
-    let degrees: Double
-}
-
-/// Which corner a resize handle sits on; `sign` maps drag translation to
-/// size growth for that corner.
-private enum HandleCorner: CaseIterable {
-    case topLeading, topTrailing, bottomLeading, bottomTrailing
-
-    var sign: (x: CGFloat, y: CGFloat) {
-        switch self {
-        case .topLeading: return (-1, -1)
-        case .topTrailing: return (1, -1)
-        case .bottomLeading: return (-1, 1)
-        case .bottomTrailing: return (1, 1)
-        }
     }
 }

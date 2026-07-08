@@ -7,17 +7,22 @@ import SwiftUI
 /// leaves for its panel. Header is back / undo / Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
+    @Bindable var mira: MiraCanvasCoordinator
     var actions = EditorActions()
     /// A tool requested from another scene (consumed on appear/change).
     @Binding var pendingTool: EditorMode?
-    var recorderFactory: () -> AudioRecording = { AudioRecorder() }
+    var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
+    var transcription: VoiceTranscriptionService = MockVoiceTranscriptionService()
 
     @State private var recorderState: RecorderState = .idle
-    @State private var recorder: AudioRecording?
-    @State private var recorderNotice: String?
+    @State var recorder: AudioRecording?
+    @State var recorderNotice: String?
     @State private var reviewNote = ""
-    @State private var accessoryRow: AccessoryRow = .tools
-    @FocusState private var textFocus: CanvasItem.ID?
+    @State var accessoryRow: AccessoryRow = .tools
+    @State private var miraPrompt = ""
+    @State var dictating = false
+    @FocusState var textFocus: CanvasItem.ID?
+    @FocusState private var miraFocus: Bool
 
     private let soundStore = SoundFileStore()
 
@@ -30,7 +35,12 @@ struct CanvasScene: View {
             onUndo: editor.undo,
             undoEnabled: editor.canUndo
         ) {
-            CanvasBoardView(editor: editor, soundStore: soundStore, textFocus: $textFocus)
+            CanvasBoardView(
+                editor: editor,
+                soundStore: soundStore,
+                textFocus: $textFocus,
+                workingItemIDs: mira.workingItemIDs
+            )
         } bottom: {
             bottomCluster
         }
@@ -69,7 +79,18 @@ struct CanvasScene: View {
                     .padding(.horizontal, Metrics.screenPadding)
             }
             InputModeBar(active: nil, onSelect: handleTool)
-            ActionRow(hint: "Ask Mira anything", onGo: addTextBlock)
+            MiraCard(
+                coordinator: mira,
+                editor: editor,
+                onAsk: { mira.ask($0, editor: editor) },
+                onRephrase: { miraFocus = true }
+            )
+            MiraBar(
+                coordinator: mira,
+                editor: editor,
+                prompt: $miraPrompt,
+                promptFocus: $miraFocus
+            )
         case .recording(let start):
             InputModeBar(active: .sound, onSelect: handleTool)
             recordingBar(since: start)
@@ -262,54 +283,6 @@ extension CanvasScene {
         .padding(.horizontal, Metrics.screenPadding)
     }
 
-    // MARK: Text accessory (accordion: one row expanded at a time)
-
-    @ViewBuilder private var textAccessory: some View {
-        switch accessoryRow {
-        case .tools:
-            Button("Aa") { accessoryRow = .sizes }
-                .accessibilityIdentifier("style.sizes")
-            Button {
-                accessoryRow = .colors
-            } label: {
-                Circle().fill(Palette.forest).frame(width: 16, height: 16)
-            }
-            .accessibilityIdentifier("style.colors")
-            Spacer()
-            Button("Done") { endTextEditing() }
-                .fontWeight(.semibold)
-                .accessibilityIdentifier("keyboard.done")
-        case .sizes:
-            ForEach(TextSizeChoice.allCases, id: \.self) { choice in
-                Button(choice.label) {
-                    if let id = editor.editingTextItemID {
-                        editor.setTextPointSize(itemID: id, to: choice.pointSize)
-                    }
-                }
-            }
-            Spacer()
-            Button("Back") { accessoryRow = .tools }
-        case .colors:
-            ForEach(["ink", "forest", "taupe", "tan", "textSecondary"], id: \.self) { name in
-                Button {
-                    if let id = editor.editingTextItemID {
-                        editor.setTextColorName(itemID: id, to: name)
-                    }
-                } label: {
-                    Circle().fill(Palette.color(named: name)).frame(width: 18, height: 18)
-                }
-            }
-            Spacer()
-            Button("Back") { accessoryRow = .tools }
-        }
-    }
-
-    private func endTextEditing() {
-        editor.endEditingText()
-        textFocus = nil
-        accessoryRow = .tools
-    }
-
     // MARK: Pending tool from other scenes
 
     private func consumePendingTool() {
@@ -321,35 +294,5 @@ extension CanvasScene {
     static func timestamp(_ duration: TimeInterval) -> String {
         let total = max(0, Int(duration.rounded()))
         return String(format: "%d:%02d", total / 60, total % 60)
-    }
-}
-
-private enum RecorderState {
-    case idle
-    case recording(start: Date)
-    case review(data: Data, duration: TimeInterval)
-}
-
-private enum AccessoryRow {
-    case tools, sizes, colors
-}
-
-private enum TextSizeChoice: CaseIterable {
-    case small, medium, large
-
-    var label: String {
-        switch self {
-        case .small: return "S"
-        case .medium: return "M"
-        case .large: return "L"
-        }
-    }
-
-    var pointSize: CGFloat {
-        switch self {
-        case .small: return 13
-        case .medium: return 17
-        case .large: return 30
-        }
     }
 }

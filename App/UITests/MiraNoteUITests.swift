@@ -196,6 +196,61 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
     }
 
+    // Mira applies a change atomically and shows the Keep-pattern receipt;
+    // Revert is one tap and restores the original.
+    func testMiraPolishShowsReceiptAndRevertRestores() {
+        app.buttons["Start a memory"].tap()
+        let input = app.textFields["mira.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("polish the text")
+        app.buttons["mira.go"].tap()
+
+        XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8))
+        let polished = "(polished -- mock) Sunny afternoon, tiny noodle shop by the bridge"
+        XCTAssertTrue(app.staticTexts[polished].waitForExistence(timeout: 3), "canvas text transformed")
+
+        app.buttons["mira.revert"].tap()
+        XCTAssertTrue(
+            app.staticTexts["Sunny afternoon, tiny noodle shop by the bridge"].waitForExistence(timeout: 5),
+            "revert restores the original text"
+        )
+    }
+
+    // Past the threshold the bar shows verb-specific work with Stop; Stop
+    // applies nothing and gives the words back.
+    func testMiraStopRefillsPromptAndAppliesNothing() {
+        app.buttons["Start a memory"].tap()
+        let input = app.textFields["mira.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("think about this slowly")
+        app.buttons["mira.go"].tap()
+
+        let stop = app.buttons["mira.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5), "working bar appears with Stop")
+        stop.tap()
+
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        XCTAssertEqual(input.value as? String, "think about this slowly", "prompt refilled")
+    }
+
+    // Failure is a calm card with a retry chip; the prompt is refilled and
+    // the canvas is untouched.
+    func testMiraFailureShowsRetryAndRefills() {
+        app.buttons["Start a memory"].tap()
+        let input = app.textFields["mira.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("please fail now")
+        app.buttons["mira.go"].tap()
+
+        XCTAssertTrue(app.staticTexts["mira.failure"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["mira.retry"].exists)
+        XCTAssertEqual(input.value as? String, "please fail now", "prompt refilled on failure")
+        XCTAssertTrue(app.staticTexts["Sunny afternoon, tiny noodle shop by the bridge"].exists, "canvas untouched")
+    }
+
     // With a selection, a vertical drag moves the element -- it must not be
     // stolen by the page scroll (the "selected moves, unselected scrolls"
     // grammar).
