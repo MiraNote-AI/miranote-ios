@@ -118,17 +118,12 @@ public struct LiveImageStudioService: ImageStudioService {
             resolvingAgainstBaseURL: false
         )!
         if !query.isEmpty {
-            // URLComponents leaves '+' bare and the server decodes it as a
-            // space; percent-encode values with '+' excluded from the
-            // allowed set.
-            var allowed = CharacterSet.urlQueryAllowed
-            allowed.remove(charactersIn: "+")
-            components.percentEncodedQuery = query
-                .map { item in
-                    let value = item.value?.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
-                    return "\(item.name)=\(value)"
-                }
-                .joined(separator: "&")
+            // Keep Foundation's escaping (it correctly encodes separators
+            // like & and = inside values), then fix its one gap: a bare '+'
+            // that the server would decode as a space.
+            components.queryItems = query
+            components.percentEncodedQuery = components.percentEncodedQuery?
+                .replacingOccurrences(of: "+", with: "%2B")
         }
         let boundary = "MiraNoteBoundary-\(UUID().uuidString)"
         var request = URLRequest(url: components.url!)

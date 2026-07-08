@@ -65,11 +65,12 @@ final class LiveImageStudioServiceTests: XCTestCase {
             return self.ok(#"{"image": "\#(tiny)", "mode_used": "auto"}"#, for: request)
         }
 
-        _ = try await makeService().cutout(image: Data("img".utf8), target: "C++ book")
+        _ = try await makeService().cutout(image: Data("img".utf8), target: "salt & pepper + C++")
 
+        let wire = captured?.url?.absoluteString ?? ""
         XCTAssertTrue(
-            captured?.url?.absoluteString.contains("C%2B%2B%20book") ?? false,
-            "plus signs are percent-encoded so the server never reads them as spaces"
+            wire.contains("salt%20%26%20pepper%20%2B%20C%2B%2B"),
+            "separators stay escaped inside values and plus signs never decode to spaces; got \(wire)"
         )
     }
 
