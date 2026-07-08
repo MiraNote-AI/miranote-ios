@@ -224,6 +224,7 @@ public final class MiraCanvasCoordinator {
         switch outcome {
         case .textChanged(let itemID, let newText, let receipt):
             guard editor.item(itemID) != nil else {
+                refillPrompt = lastPrompt
                 phase = .failure(MiraFailure(
                     kind: .retry,
                     message: "The text I was working on is gone, so I left everything as is.",
