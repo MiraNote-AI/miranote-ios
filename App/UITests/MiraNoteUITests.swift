@@ -41,6 +41,22 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["noodles by the river"].waitForExistence(timeout: 5))
     }
 
+    // The home pill is the ask-the-past entry: results render as tappable
+    // page covers in the chat, and tapping one opens reading mode.
+    func testHomeSearchFindsPageAndOpensReading() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("noodle shop")
+        app.buttons["quick.send"].tap()
+
+        let hit = app.buttons["chat.hit.Lunch by the river"]
+        XCTAssertTrue(hit.waitForExistence(timeout: 8), "the matching page appears as a cover")
+        hit.tap()
+
+        XCTAssertTrue(app.buttons["reading.share"].waitForExistence(timeout: 8), "the hit opens reading mode")
+    }
+
     // Collections are real data: a seeded collection opens to its notes, and a
     // new note can be added and appears.
     func testOpenCollectionAndAddNote() {

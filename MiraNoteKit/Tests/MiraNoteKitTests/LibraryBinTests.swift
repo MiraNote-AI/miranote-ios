@@ -65,6 +65,38 @@ final class LibraryBinTests: XCTestCase {
         XCTAssertEqual(second.note(noteID, in: collection.id)?.memoryDate, lastMonth, "the about-date persists")
     }
 
+    func testLibrarySearchFindsAcrossTitleBodyAndSoundNotes() {
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [
+                Memory(title: "Lunch by the river", body: "tiny noodle shop by the bridge"),
+                Memory(title: "Quiet morning", items: [
+                    CanvasItem(content: .sound(SoundClip(duration: 5, note: "rain on the window")), position: .zero)
+                ])
+            ])
+        ])
+
+        let noodle = LibrarySearch.find("noodle shop", in: library)
+        XCTAssertEqual(noodle.first?.memory.title, "Lunch by the river")
+
+        let rain = LibrarySearch.find("rain", in: library)
+        XCTAssertEqual(rain.first?.memory.title, "Quiet morning", "sound notes are searchable")
+
+        XCTAssertTrue(LibrarySearch.find("zeppelin", in: library).isEmpty)
+        XCTAssertTrue(LibrarySearch.find("  ", in: library).isEmpty)
+    }
+
+    func testLibrarySearchRanksTitleMatchesFirst() {
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [
+                Memory(title: "Paris lunch", body: "a bistro"),
+                Memory(title: "Random day", body: "we talked about paris a lot")
+            ])
+        ])
+        let hits = LibrarySearch.find("paris", in: library)
+        XCTAssertEqual(hits.first?.memory.title, "Paris lunch", "title matches outrank body matches")
+        XCTAssertEqual(hits.count, 2)
+    }
+
     func testLegacyMemoryDateDefaultsToCreatedAt() throws {
         let created = Date(timeIntervalSince1970: 700_000_000)
         let legacy = Data("""

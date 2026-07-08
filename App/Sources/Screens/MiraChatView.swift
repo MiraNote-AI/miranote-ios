@@ -7,19 +7,29 @@ struct MiraChatView: View {
     var seed: String?
     var onExit: () -> Void = {}
     var onNewMemory: () -> Void = {}
+    /// Mira answers "find" questions with pages, not paragraphs (v2.1):
+    /// every user message also runs the library search; hits render as
+    /// tappable covers under it.
+    var findPages: (String) -> [PageHit] = { _ in [] }
+    var onOpenPage: (PageHit) -> Void = { _ in }
 
     @State private var viewModel: ChatViewModel
+    @State private var hits: [ChatMessage.ID: [PageHit]] = [:]
 
     init(
         service: ChatService,
         seed: String? = nil,
         onExit: @escaping () -> Void = {},
-        onNewMemory: @escaping () -> Void = {}
+        onNewMemory: @escaping () -> Void = {},
+        findPages: @escaping (String) -> [PageHit] = { _ in [] },
+        onOpenPage: @escaping (PageHit) -> Void = { _ in }
     ) {
         _viewModel = State(initialValue: ChatViewModel(service: service))
         self.seed = seed
         self.onExit = onExit
         self.onNewMemory = onNewMemory
+        self.findPages = findPages
+        self.onOpenPage = onOpenPage
     }
 
     var body: some View {
@@ -69,6 +79,9 @@ struct MiraChatView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(viewModel.messages) { message in
                         bubble(message).id(message.id)
+                        if let pageHits = hits[message.id], !pageHits.isEmpty {
+                            hitsRow(pageHits)
+                        }
                     }
                     if viewModel.isResponding {
                         TypingBubble().id("typing")
@@ -77,8 +90,48 @@ struct MiraChatView: View {
                 .padding(.horizontal, Metrics.screenPadding)
                 .padding(.vertical, 20)
             }
-            .onChange(of: viewModel.messages.count) { scrollToEnd(proxy) }
+            .onChange(of: viewModel.messages.count) {
+                collectHits()
+                scrollToEnd(proxy)
+            }
             .onChange(of: viewModel.isResponding) { scrollToEnd(proxy) }
+        }
+    }
+
+    /// Search runs for each new user message exactly once.
+    private func collectHits() {
+        for message in viewModel.messages where message.role == .user && hits[message.id] == nil {
+            hits[message.id] = findPages(message.text)
+        }
+    }
+
+    private func hitsRow(_ pageHits: [PageHit]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("From your pages")
+                .font(.system(size: 10, weight: .medium))
+                .kerning(1.4)
+                .foregroundStyle(Palette.textSecondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(pageHits) { hit in
+                        Button {
+                            onOpenPage(hit)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                PageCoverView(memory: hit.memory, coverWidth: 104, coverHeight: 128)
+                                Text(hit.memory.title.isEmpty ? "Untitled" : hit.memory.title)
+                                    .font(.miraCaption)
+                                    .foregroundStyle(Palette.ink)
+                                    .lineLimit(1)
+                                    .frame(width: 104, alignment: .leading)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("chat.hit.\(hit.memory.title)")
+                    }
+                }
+            }
         }
     }
 

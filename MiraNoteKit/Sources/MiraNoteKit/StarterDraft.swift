@@ -34,3 +34,45 @@ extension Memory {
         ]
     }
 }
+
+extension Memory {
+    /// The first-run welcome page (v2.1 onboarding layer 0): a page that is
+    /// itself the teacher -- poke it, move it, delete it.
+    public static func welcomeDraft() -> [CanvasItem] {
+        [
+            CanvasItem(
+                content: .text(TextBlock(text: "A little welcome", pointSize: 30)),
+                position: CGPoint(x: 150, y: 62),
+                size: CGSize(width: 270, height: 60),
+                zIndex: 1
+            ),
+            CanvasItem(
+                content: .text(TextBlock(
+                    text: "This page is yours to poke. Tap anything to pick it up, "
+                        + "drag it around, two fingers to tilt it.",
+                    pointSize: 15
+                )),
+                position: CGPoint(x: 170, y: 150),
+                size: CGSize(width: 300, height: 70),
+                zIndex: 2
+            ),
+            CanvasItem(
+                content: .text(TextBlock(
+                    text: "Long-press anything for more. And the bar below the page? "
+                        + "Ask Mira -- she can change, tidy, and find things.",
+                    pointSize: 15
+                )),
+                position: CGPoint(x: 170, y: 240),
+                size: CGSize(width: 300, height: 80),
+                zIndex: 3
+            ),
+            CanvasItem(
+                content: .sticker(GeneratedSticker(prompt: "hello", symbolName: "hand.wave")),
+                position: CGPoint(x: 290, y: 330),
+                size: CGSize(width: 80, height: 80),
+                rotation: 8,
+                zIndex: 4
+            )
+        ]
+    }
+}

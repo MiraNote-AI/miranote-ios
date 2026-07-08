@@ -21,6 +21,7 @@ struct CanvasScene: View {
     @State private var reviewNote = ""
     @State var accessoryRow: AccessoryRow = .tools
     @State private var miraPrompt = ""
+    @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
     @State var dictating = false
     @FocusState var textFocus: CanvasItem.ID?
@@ -64,6 +65,17 @@ struct CanvasScene: View {
         .onAppear { consumePendingTool() }
         .onDisappear { cancelRecording() }
         .onChange(of: pendingTool) { consumePendingTool() }
+        .onChange(of: editor.selectedItemID) { _, selected in
+            // Layer-1 onboarding: the gesture hint appears on the first
+            // selection ever, then graduates for good.
+            guard selected != nil, HintCenter.shouldShow("gesture-basics") else { return }
+            HintCenter.graduate("gesture-basics")
+            gestureHint = "Drag to move. Two fingers tilt. Long-press for more."
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                gestureHint = nil
+            }
+        }
         .onChange(of: editor.changeCount) {
             // The edited photo can be deleted or undone away by canvas
             // interactions above the panel; close the panel when its item
@@ -93,6 +105,13 @@ struct CanvasScene: View {
     // MARK: Bottom cluster (instrument panel + context bar)
 
     @ViewBuilder private var bottomCluster: some View {
+        if let gestureHint {
+            Text(gestureHint)
+                .font(.miraCaption)
+                .foregroundStyle(Palette.textSecondary)
+                .padding(.horizontal, Metrics.screenPadding)
+                .transition(.opacity)
+        }
         if let editingImageItem {
             PhotoEditPanel(
                 editor: editor,

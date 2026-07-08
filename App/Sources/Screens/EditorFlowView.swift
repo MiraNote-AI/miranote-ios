@@ -234,6 +234,15 @@ struct HomeFlow: View {
                     onNewMemory: {
                         viewModel.file(Memory(title: seed), underCollectionTitled: Self.inbox)
                         route = nil
+                    },
+                    findPages: { LibrarySearch.find($0, in: viewModel.library) },
+                    onOpenPage: { hit in
+                        route = nil
+                        // Let the cover dismiss before pushing reading mode.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(300))
+                            path.append(NoteRef(collectionID: hit.collectionID, noteID: hit.memory.id))
+                        }
                     }
                 )
             }

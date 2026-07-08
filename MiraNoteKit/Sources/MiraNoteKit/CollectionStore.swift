@@ -51,6 +51,7 @@ public extension MemoryCollection {
                 Memory(title: "Peach season")
             ]),
             MemoryCollection(title: "Little Joys", memories: [
+                Memory(title: "A little welcome", items: Memory.welcomeDraft()),
                 Memory(title: "Sunlight on the desk")
             ])
         ]

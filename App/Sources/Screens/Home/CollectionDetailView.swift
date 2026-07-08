@@ -20,6 +20,19 @@ struct CollectionDetailView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
+                if monthGroups.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "book.closed")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Palette.textSecondary)
+                        Text("This journal is still empty -- start a memory below.")
+                            .font(.miraBody)
+                            .foregroundStyle(Palette.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 120)
+                }
                 ForEach(monthGroups, id: \.label) { group in
                     section(group)
                 }
