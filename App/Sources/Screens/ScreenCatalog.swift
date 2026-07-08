@@ -6,9 +6,6 @@ import SwiftUI
 enum FlowScene: String, CaseIterable {
     case home
     case canvas
-    case sound
-    case text
-    case textStory
     case imageStart
     case photoLibrary
     case filter
@@ -22,10 +19,7 @@ enum FlowScene: String, CaseIterable {
     @MainActor @ViewBuilder var view: some View {
         switch self {
         case .home: HomeView(viewModel: HomeViewModel(collections: MemoryCollection.seed))
-        case .canvas: CanvasScene()
-        case .sound: VoiceScene()
-        case .text: TextInputScene()
-        case .textStory: TextStoryScene()
+        case .canvas: CanvasCatalogPreview()
         case .imageStart: ImageStartScene()
         case .photoLibrary: PhotoLibraryScene()
         case .filter: FilterScene()
@@ -42,6 +36,21 @@ enum FlowScene: String, CaseIterable {
         case .note:
             NoteCatalogPreview()
         }
+    }
+}
+
+/// Renders the live canvas editor seeded with the starter draft for the
+/// DEBUG catalog (text and sound tools work in place; Image is inert here).
+private struct CanvasCatalogPreview: View {
+    @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    @State private var pendingTool: EditorMode?
+
+    var body: some View {
+        CanvasScene(
+            editor: editor,
+            pendingTool: $pendingTool,
+            recorderFactory: { MockAudioRecorder() }
+        )
     }
 }
 

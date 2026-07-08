@@ -15,6 +15,20 @@ enum Palette {
     static let sheetFill = Color(hex: 0xDCD5C6)
     static let hairline = Color(hex: 0xE2DBCD)
     static let textSecondary = Color(hex: 0x8B857A)
+
+    /// Resolves the palette names persisted on canvas text blocks
+    /// (`TextBlock.colorName`). Unknown names fall back to ink.
+    static func color(named name: String) -> Color {
+        switch name {
+        case "onInk": return onInk
+        case "forest": return forest
+        case "taupe": return taupe
+        case "tan": return tan
+        case "sage": return sage
+        case "textSecondary": return textSecondary
+        default: return ink
+        }
+    }
 }
 
 extension Color {

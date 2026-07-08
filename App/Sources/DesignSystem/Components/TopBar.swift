@@ -12,6 +12,8 @@ struct TopBar: View {
     var onTrailing: () -> Void = {}
     /// When set and `title` is empty, a centered undo icon replaces the title.
     var onUndo: (() -> Void)?
+    /// Dims and disables the undo icon when there is nothing to undo.
+    var undoEnabled = true
 
     var body: some View {
         ZStack {
@@ -32,6 +34,8 @@ struct TopBar: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .disabled(!undoEnabled)
+                .opacity(undoEnabled ? 1 : 0.35)
                 .accessibilityLabel("Undo")
                 .accessibilityIdentifier("editor.undo")
             }

@@ -98,21 +98,70 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mode.image"].exists)
     }
 
-    // The instrument panel switches the editor between the three v2.1 input
-    // scenes; sticker is no longer a mode on the bar.
-    func testInputModeSwitchesScenes() {
+    // v2.1 gesture grammar: the Text tool drops an editable block right on
+    // the canvas -- typing happens where the words will live.
+    func testTextToolAddsEditableBlockInPlace() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["mode.sticker"].exists)
 
         app.buttons["mode.text"].tap()
-        XCTAssertTrue(app.staticTexts["Text input"].waitForExistence(timeout: 5))
+        // Multiline SwiftUI TextFields surface as text views, so match the
+        // identifier across any element type.
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("warm broth, golden light")
+
+        let done = app.buttons["keyboard.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        XCTAssertTrue(app.staticTexts["warm broth, golden light"].waitForExistence(timeout: 5))
+    }
+
+    // The Sound tool records in place: stop -> review -> Keep places a
+    // sound marker with its note pill on the canvas.
+    func testSoundToolRecordsAndKeepPlacesMarker() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sound"].waitForExistence(timeout: 5))
+
+        app.buttons["mode.sound"].tap()
+        let stop = app.buttons["recorder.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5))
+        stop.tap()
+
+        let keep = app.buttons["recorder.keep"]
+        XCTAssertTrue(keep.waitForExistence(timeout: 5))
+        keep.tap()
+        XCTAssertTrue(app.staticTexts["Add a note"].waitForExistence(timeout: 5))
+    }
+
+    // The Image tool still opens its panel (contents are Phase D work).
+    func testImageToolOpensPanel() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
 
         app.buttons["mode.image"].tap()
         XCTAssertTrue(app.staticTexts["Add an image"].waitForExistence(timeout: 5))
+    }
 
-        app.buttons["mode.sound"].tap()
-        XCTAssertTrue(app.staticTexts["Sound"].waitForExistence(timeout: 5))
+    // Long-press is the single delete path, and deletion is one tap from
+    // undone (the "Deleted / Undo" toast).
+    func testLongPressDeleteThenUndoRestores() {
+        app.buttons["Start a memory"].tap()
+        let title = app.staticTexts["Lunch by the river"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        title.press(forDuration: 0.9)
+        let delete = app.buttons["Delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        delete.tap()
+
+        let undo = app.buttons["toast.undo"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Lunch by the river"].exists)
+
+        undo.tap()
+        XCTAssertTrue(app.staticTexts["Lunch by the river"].waitForExistence(timeout: 5))
     }
 
     // Sticker creation moved inside the Image panel: Generate opens the
@@ -130,7 +179,9 @@ final class MiraNoteUITests: XCTestCase {
     }
 
     // Done round-trip (the save-does-not-wipe regression under autosave
-    // semantics): Done files the memory into Daily Log and returns Home.
+    // semantics): Done composes the memory -- its title taken from the most
+    // prominent text on the canvas -- files it into Daily Log, and returns
+    // Home.
     func testDoneFilesMemoryAndReturnsHome() {
         app.buttons["Start a memory"].tap()
         let done = app.buttons["Done"]
@@ -141,5 +192,10 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
         XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
+
+        // The filed note carries the canvas title (starter draft's serif
+        // title), proving Done captured real canvas content.
+        app.buttons["collection.Daily Log"].tap()
+        XCTAssertTrue(app.buttons["note.Lunch by the river"].waitForExistence(timeout: 5))
     }
 }

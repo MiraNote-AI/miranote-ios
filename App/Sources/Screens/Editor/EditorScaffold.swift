@@ -21,6 +21,7 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
     var onLeading: () -> Void = {}
     var onTrailing: () -> Void = {}
     var onUndo: (() -> Void)?
+    var undoEnabled = true
     @ViewBuilder var page: () -> Page
     @ViewBuilder var bottom: () -> Bottom
 
@@ -33,7 +34,8 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
                 trailing: trailing,
                 onLeading: onLeading,
                 onTrailing: onTrailing,
-                onUndo: onUndo
+                onUndo: onUndo,
+                undoEnabled: undoEnabled
             )
             page()
             Spacer(minLength: 16)

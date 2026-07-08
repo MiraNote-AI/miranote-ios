@@ -223,6 +223,15 @@ public final class CanvasViewModel {
         if editingTextItemID == itemID { editingTextItemID = nil }
     }
 
+    /// Removes an item without recording an undo step -- for husks the user
+    /// never sees as content, like an abandoned empty text block.
+    public func removeWithoutUndo(itemID: CanvasItem.ID) {
+        guard let index = index(of: itemID) else { return }
+        memory.items.remove(at: index)
+        if selectedItemID == itemID { selectedItemID = nil }
+        if editingTextItemID == itemID { editingTextItemID = nil }
+    }
+
     public func bringToFront(itemID: CanvasItem.ID) {
         guard let index = index(of: itemID) else { return }
         beginChange()
@@ -239,6 +248,34 @@ public final class CanvasViewModel {
 
     public func save() {
         memory.savedAt = .now
+    }
+
+    /// The memory as it should be filed on Done: the archive title follows
+    /// the most prominent text (largest point size, then topmost -- the
+    /// v2.1 "visual title is just a text element" rule), the body collects
+    /// all text in reading order, and savedAt is stamped.
+    public func composedMemory(defaultTitle: String = "New memory") -> Memory {
+        var composed = memory
+        let textBlocks: [(block: TextBlock, item: CanvasItem)] = memory.items.compactMap {
+            guard case .text(let block) = $0.content,
+                  !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return (block, $0)
+        }
+        let title = textBlocks
+            .sorted { lhs, rhs in
+                if lhs.block.pointSize != rhs.block.pointSize {
+                    return lhs.block.pointSize > rhs.block.pointSize
+                }
+                return lhs.item.position.y < rhs.item.position.y
+            }
+            .first?.block.text
+        composed.title = title.map { String($0.prefix(48)) } ?? defaultTitle
+        composed.body = textBlocks
+            .sorted { $0.item.position.y < $1.item.position.y }
+            .map(\.block.text)
+            .joined(separator: "\n\n")
+        composed.savedAt = .now
+        return composed
     }
 
     /// A2 "Quick organize": deterministic tidy-up -- items snap to a grid,
@@ -275,25 +312,25 @@ extension Memory {
         [
             CanvasItem(
                 content: .text(TextBlock(text: title, pointSize: 30)),
-                position: CGPoint(x: 118, y: 46),
-                size: CGSize(width: 200, height: 76),
+                position: CGPoint(x: 150, y: 62),
+                size: CGSize(width: 270, height: 60),
                 zIndex: 1
             ),
             CanvasItem(
                 content: .text(TextBlock(text: "June 21 - calm afternoon", pointSize: 12, colorName: "textSecondary")),
-                position: CGPoint(x: 106, y: 96),
-                size: CGSize(width: 176, height: 24),
+                position: CGPoint(x: 120, y: 110),
+                size: CGSize(width: 200, height: 24),
                 zIndex: 2
             ),
             CanvasItem(
                 content: .image(ImageRef(displayName: "placeholder")),
-                position: CGPoint(x: 180, y: 226),
+                position: CGPoint(x: 180, y: 240),
                 size: CGSize(width: 328, height: 210),
                 zIndex: 3
             ),
             CanvasItem(
                 content: .text(TextBlock(text: "Sunny afternoon, tiny noodle shop by the bridge", pointSize: 15)),
-                position: CGPoint(x: 160, y: 396),
+                position: CGPoint(x: 160, y: 400),
                 size: CGSize(width: 288, height: 66),
                 zIndex: 4
             )

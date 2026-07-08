@@ -1,14 +1,17 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The interactive editor: shows one editor scene at a time and moves
-/// between them as the instrument panel, Go, and nav controls are used.
-/// A memory starts on the canvas; picking a mode swaps in that mode's scene,
-/// Go advances the sub-steps, and Done files the memory and returns Home.
+/// The interactive editor. The canvas is home base (v2.1): Text and Sound
+/// act directly on it, Image opens its panel scenes, and Done composes the
+/// memory (title from its most prominent text) and files it.
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
-    var onComplete: () -> Void = {}
+    var onComplete: (Memory) -> Void = { _ in }
+    var recorderFactory: () -> AudioRecording = { AudioRecorder() }
+
+    @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
     @State private var scene: FlowScene = .canvas
+    @State private var pendingTool: EditorMode?
 
     var body: some View {
         content
@@ -19,16 +22,12 @@ struct EditorFlowView: View {
     @ViewBuilder private var content: some View {
         switch scene {
         case .canvas:
-            // Done on the canvas finishes the memory: autosave semantics, no
-            // Save step and no Export detour (export moves to reading mode in
-            // Phase E).
-            CanvasScene(actions: actions(onGo: { navigate(.text) }, back: onExit, done: onComplete))
-        case .sound:
-            VoiceScene(actions: actions(onGo: { navigate(.canvas) }))
-        case .text:
-            TextInputScene(actions: actions(onGo: { navigate(.textStory) }))
-        case .textStory:
-            TextStoryScene(actions: actions(onGo: { navigate(.canvas) }))
+            CanvasScene(
+                editor: editor,
+                actions: actions(back: onExit, done: { onComplete(editor.composedMemory()) }),
+                pendingTool: $pendingTool,
+                recorderFactory: recorderFactory
+            )
         case .imageStart:
             ImageStartScene(
                 actions: actions(onGo: { navigate(.photoLibrary) }),
@@ -55,18 +54,22 @@ struct EditorFlowView: View {
         done: (() -> Void)? = nil
     ) -> EditorActions {
         EditorActions(
-            selectMode: { navigate(flowScene(for: $0)) },
+            selectMode: { select(mode: $0) },
             go: onGo ?? { navigate(.canvas) },
             leading: back ?? { navigate(.canvas) },
             done: done ?? { navigate(.canvas) }
         )
     }
 
-    private func flowScene(for mode: EditorMode) -> FlowScene {
+    /// Text and Sound always act on the canvas; from another scene they
+    /// carry over as a pending tool the canvas consumes on arrival.
+    private func select(mode: EditorMode) {
         switch mode {
-        case .sound: return .sound
-        case .text: return .text
-        case .image: return .imageStart
+        case .image:
+            navigate(.imageStart)
+        case .text, .sound:
+            pendingTool = mode
+            navigate(.canvas)
         }
     }
 
@@ -102,6 +105,16 @@ struct HomeFlow: View {
         }
         #endif
         return FileCollectionStore()
+    }
+
+    /// UI tests record with a canned in-memory recorder (no mic permission).
+    private static func makeRecorder() -> AudioRecording {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            return MockAudioRecorder()
+        }
+        #endif
+        return AudioRecorder()
     }
 
     private enum Route: Identifiable {
@@ -149,10 +162,11 @@ struct HomeFlow: View {
             case .editor:
                 EditorFlowView(
                     onExit: { route = nil },
-                    onComplete: {
-                        viewModel.file(Memory(title: "Lunch by the river"), underCollectionTitled: Self.inbox)
+                    onComplete: { memory in
+                        viewModel.file(memory, underCollectionTitled: Self.inbox)
                         route = nil
-                    }
+                    },
+                    recorderFactory: Self.makeRecorder
                 )
             case .chat(let seed):
                 MiraChatView(
