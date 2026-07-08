@@ -1,8 +1,9 @@
 import MiraNoteKit
 import SwiftUI
 
-/// A collection opened from Home: its notes listed as rows, with an add action.
-/// Reads the collection live from the view model by id, so adds appear at once.
+/// Journal detail (v2.1): a two-column grid of page covers grouped by the
+/// month of the memory date. Tap opens reading mode; long-press offers
+/// move / delete (delete goes to the 30-day bin, the only delete path).
 struct CollectionDetailView: View {
     var viewModel: HomeViewModel
     let collectionID: MemoryCollection.ID
@@ -14,120 +15,139 @@ struct CollectionDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            if let collection, !collection.memories.isEmpty {
-                notesList(collection)
-            } else {
-                emptyState
-            }
-        }
-        .screenBackground()
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Palette.ink)
-                        .frame(width: 38, height: 38)
-                        .background(Circle().fill(Palette.onInk.opacity(0.6)))
-                }
-                .buttonStyle(.plain)
-                Spacer()
-                Button {
-                    viewModel.addNote(titled: "New note", to: collectionID)
-                } label: {
-                    Label("Add note", systemImage: "plus")
-                }
-                .buttonStyle(SoftPill())
-                .accessibilityIdentifier("note.add")
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(collection?.title ?? "Collection")
-                    .font(.miraPageTitle)
-                    .foregroundStyle(Palette.ink)
-                Text(noteCountLabel)
-                    .font(.miraCaption)
-                    .foregroundStyle(Palette.textSecondary)
-            }
-        }
-        .padding(.horizontal, Metrics.screenPadding)
-        .padding(.top, 4)
-        .padding(.bottom, 18)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Palette.hairline).frame(height: Metrics.hairline)
-        }
-    }
-
-    private var noteCountLabel: String {
-        let count = collection?.memories.count ?? 0
-        return "\(count) note\(count == 1 ? "" : "s")"
-    }
-
-    private func notesList(_ collection: MemoryCollection) -> some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 12) {
-                ForEach(collection.memories) { memory in
-                    Button {
-                        onOpenNote(memory)
-                    } label: {
-                        noteRow(memory)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("note.\(memory.title)")
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(monthGroups, id: \.label) { group in
+                    section(group)
                 }
             }
             .padding(.horizontal, Metrics.screenPadding)
-            .padding(.vertical, 18)
+            .padding(.bottom, 24)
+        }
+        .screenBackground()
+        .safeAreaInset(edge: .top) {
+            header
+        }
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                viewModel.addNote(titled: "New note", to: collectionID)
+            } label: {
+                Text("+ New memory")
+                    .font(.miraPill)
+                    .foregroundStyle(Palette.onInk)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Capsule().fill(Palette.ink))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("note.add")
+            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.bottom, 6)
         }
     }
 
-    private func noteRow(_ memory: Memory) -> some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Palette.cardFill)
-                .frame(width: 48, height: 48)
-                .overlay(Image(systemName: "doc.text").foregroundStyle(Palette.taupe))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(memory.title.isEmpty ? "Untitled" : memory.title)
-                    .font(.system(size: 16, weight: .medium))
+    private var header: some View {
+        HStack(spacing: 10) {
+            Button(action: onBack) {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Home")
+                }
+            }
+            .buttonStyle(SoftPill())
+            Spacer()
+            VStack(spacing: 1) {
+                Text(collection?.title ?? "")
+                    .font(.miraScreenTitle)
                     .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                Text(memory.createdAt, format: .dateTime.month().day().year())
+                Text("\(collection?.memories.count ?? 0) pages")
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Palette.textSecondary)
+            // Balances the leading pill so the title stays centered.
+            Color.clear.frame(width: 64, height: 1)
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Palette.onInk.opacity(0.5))
-                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-        )
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 8)
+        .background(Palette.paper.opacity(0.94))
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            Spacer()
-            Image(systemName: "tray")
-                .font(.system(size: 28))
-                .foregroundStyle(Palette.textSecondary)
-            Text("No notes yet")
-                .font(.miraPageTitle)
-                .foregroundStyle(Palette.ink)
-            Text("Tap Add note to start this collection.")
-                .font(.miraCaption)
-                .foregroundStyle(Palette.textSecondary)
-            Spacer()
+    // MARK: Month groups (by memory date, newest first)
+
+    private struct MonthGroup {
+        let label: String
+        let memories: [Memory]
+    }
+
+    private var monthGroups: [MonthGroup] {
+        guard let memories = collection?.memories else { return [] }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        let sorted = memories.sorted { $0.memoryDate > $1.memoryDate }
+        var order: [String] = []
+        var buckets: [String: [Memory]] = [:]
+        for memory in sorted {
+            let label = formatter.string(from: memory.memoryDate).uppercased()
+            if buckets[label] == nil { order.append(label) }
+            buckets[label, default: []].append(memory)
         }
-        .frame(maxWidth: .infinity)
+        return order.map { MonthGroup(label: $0, memories: buckets[$0] ?? []) }
+    }
+
+    @ViewBuilder private func section(_ group: MonthGroup) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(group.label)
+                .font(.system(size: 11, weight: .medium))
+                .kerning(1.6)
+                .foregroundStyle(Palette.textSecondary)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                spacing: 14
+            ) {
+                ForEach(group.memories) { memory in
+                    cover(memory)
+                }
+            }
+        }
+    }
+
+    private func cover(_ memory: Memory) -> some View {
+        Button {
+            onOpenNote(memory)
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                PageCoverView(memory: memory, coverWidth: 164, coverHeight: 190)
+                Text(memory.title.isEmpty ? "Untitled" : memory.title)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+            }
+            // The cover itself ignores touches (Color.clear + hit-disabled
+            // page), so give the whole label a tappable shape.
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("note.\(memory.title)")
+        .contextMenu {
+            ForEach(otherCollections) { destination in
+                Button {
+                    viewModel.move(memory.id, from: collectionID, to: destination.id)
+                } label: {
+                    Label("Move to \(destination.title)", systemImage: "arrow.turn.up.right")
+                }
+            }
+            Button(role: .destructive) {
+                viewModel.deleteNote(memory.id, from: collectionID)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private var otherCollections: [MemoryCollection] {
+        viewModel.collections.filter { $0.id != collectionID }
     }
 }

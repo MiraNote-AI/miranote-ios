@@ -10,12 +10,15 @@ struct EditorFlowView: View {
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var services: ServiceContainer = .mock
 
-    @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    @State private var editor: CanvasViewModel
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
 
+    /// Pass `memory` to edit an existing page; omitted, a fresh starter
+    /// draft opens.
     init(
+        memory: Memory? = nil,
         onExit: @escaping () -> Void = {},
         onComplete: @escaping (Memory) -> Void = { _ in },
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
@@ -25,6 +28,9 @@ struct EditorFlowView: View {
         self.onComplete = onComplete
         self.recorderFactory = recorderFactory
         self.services = services
+        _editor = State(initialValue: CanvasViewModel(
+            memory: memory ?? Memory(items: Memory.starterDraft())
+        ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
             chat: services.chat
@@ -145,15 +151,20 @@ struct HomeFlow: View {
 
     private enum Route: Identifiable {
         case editor
+        case editMemory(Memory)
         case chat(String)
 
         var id: String {
             switch self {
             case .editor: return "editor"
+            case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
             }
         }
     }
+
+    /// Navigation token for the recently-deleted bin.
+    struct TrashRoute: Hashable {}
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -161,7 +172,8 @@ struct HomeFlow: View {
                 viewModel: viewModel,
                 onStart: { route = .editor },
                 onQuickCapture: { route = .chat($0) },
-                onOpenCollection: { path.append($0) }
+                onOpenCollection: { path.append($0) },
+                onOpenTrash: { path.append(TrashRoute()) }
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -174,10 +186,18 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
             .navigationDestination(for: NoteRef.self) { ref in
-                NoteDetailView(
+                if let memory = viewModel.note(ref.noteID, in: ref.collectionID) {
+                    ReadingView(
+                        memory: memory,
+                        onBack: { path.removeLast() },
+                        onEdit: { route = .editMemory(memory) }
+                    )
+                    .navigationBarHidden(true)
+                }
+            }
+            .navigationDestination(for: TrashRoute.self) { _ in
+                RecentlyDeletedView(
                     viewModel: viewModel,
-                    collectionID: ref.collectionID,
-                    noteID: ref.noteID,
                     onBack: { path.removeLast() }
                 )
                 .navigationBarHidden(true)
@@ -190,6 +210,17 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { memory in
                         viewModel.file(memory, underCollectionTitled: Self.inbox)
+                        route = nil
+                    },
+                    recorderFactory: Self.makeRecorder,
+                    services: Self.editorServices(base: services)
+                )
+            case .editMemory(let memory):
+                EditorFlowView(
+                    memory: memory,
+                    onExit: { route = nil },
+                    onComplete: { edited in
+                        viewModel.file(edited, underCollectionTitled: Self.inbox)
                         route = nil
                     },
                     recorderFactory: Self.makeRecorder,

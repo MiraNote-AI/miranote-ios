@@ -20,6 +20,10 @@ public struct Memory: Identifiable, Equatable, Sendable {
     public var title: String
     public var body: String
     public var createdAt: Date
+    /// The day the memory is ABOUT (v2.1): grouping and retrieval sort by
+    /// this, not by when the file was made. Defaults to creation time and
+    /// stays user-editable.
+    public var memoryDate: Date
     public var savedAt: Date?
     public var items: [CanvasItem]
 
@@ -28,6 +32,7 @@ public struct Memory: Identifiable, Equatable, Sendable {
         title: String = "",
         body: String = "",
         createdAt: Date = .now,
+        memoryDate: Date? = nil,
         savedAt: Date? = nil,
         items: [CanvasItem] = []
     ) {
@@ -35,6 +40,7 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.title = title
         self.body = body
         self.createdAt = createdAt
+        self.memoryDate = memoryDate ?? createdAt
         self.savedAt = savedAt
         self.items = items
     }
@@ -50,16 +56,18 @@ extension Memory: Hashable {
 /// full canvas item list. Older saves without `items` decode to empty.
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, title, body, createdAt, savedAt, items
+        case id, title, body, createdAt, memoryDate, savedAt, items
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let created = try container.decode(Date.self, forKey: .createdAt)
         self.init(
             id: try container.decode(UUID.self, forKey: .id),
             title: try container.decode(String.self, forKey: .title),
             body: try container.decodeIfPresent(String.self, forKey: .body) ?? "",
-            createdAt: try container.decode(Date.self, forKey: .createdAt),
+            createdAt: created,
+            memoryDate: try container.decodeIfPresent(Date.self, forKey: .memoryDate) ?? created,
             savedAt: try container.decodeIfPresent(Date.self, forKey: .savedAt),
             items: try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
         )
@@ -71,6 +79,7 @@ extension Memory: Codable {
         try container.encode(title, forKey: .title)
         try container.encode(body, forKey: .body)
         try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(memoryDate, forKey: .memoryDate)
         try container.encodeIfPresent(savedAt, forKey: .savedAt)
         try container.encode(items, forKey: .items)
     }

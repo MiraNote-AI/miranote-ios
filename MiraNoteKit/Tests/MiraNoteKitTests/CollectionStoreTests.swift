@@ -13,7 +13,7 @@ final class CollectionStoreTests: XCTestCase {
 
         let loaded = FileCollectionStore(url: url).load()
 
-        XCTAssertFalse(loaded.isEmpty, "a fresh install must seed default collections")
+        XCTAssertFalse(loaded.collections.isEmpty, "a fresh install must seed default collections")
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "the seed must be written to disk")
     }
 
@@ -22,11 +22,23 @@ final class CollectionStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
 
         let collections = [MemoryCollection(title: "Trips", memories: [Memory(title: "Kyoto")])]
-        FileCollectionStore(url: url).save(collections)
+        FileCollectionStore(url: url).save(MemoryLibrary(collections: collections))
 
         let reloaded = FileCollectionStore(url: url).load()
-        XCTAssertEqual(reloaded.count, 1)
-        XCTAssertEqual(reloaded.first?.title, "Trips")
-        XCTAssertEqual(reloaded.first?.memories.first?.title, "Kyoto")
+        XCTAssertEqual(reloaded.collections.count, 1)
+        XCTAssertEqual(reloaded.collections.first?.title, "Trips")
+        XCTAssertEqual(reloaded.collections.first?.memories.first?.title, "Kyoto")
+    }
+
+    func testLegacyBareArrayFileStillLoads() throws {
+        let url = tempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let legacy = [MemoryCollection(title: "Old shelf", memories: [Memory(title: "Kept")])]
+        try JSONEncoder().encode(legacy).write(to: url)
+
+        let loaded = FileCollectionStore(url: url).load()
+        XCTAssertEqual(loaded.collections.first?.title, "Old shelf")
+        XCTAssertTrue(loaded.trash.isEmpty, "pre-bin files decode with an empty bin")
     }
 }

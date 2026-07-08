@@ -1,10 +1,38 @@
 import Foundation
 
-/// Where the user's note collections live. The app uses the file-backed store;
+/// A deleted page waiting in the 30-day bin (v2.1 "recently deleted":
+/// losing a memory to a slip is a brand-level accident).
+public struct TrashedMemory: Codable, Equatable, Sendable, Identifiable {
+    public var memory: Memory
+    public var collectionTitle: String
+    public var deletedAt: Date
+
+    public var id: Memory.ID { memory.id }
+
+    public init(memory: Memory, collectionTitle: String, deletedAt: Date = .now) {
+        self.memory = memory
+        self.collectionTitle = collectionTitle
+        self.deletedAt = deletedAt
+    }
+}
+
+/// Everything the library persists: the shelf plus the bin. Older files
+/// that stored a bare collections array still decode (empty bin).
+public struct MemoryLibrary: Codable, Equatable, Sendable {
+    public var collections: [MemoryCollection]
+    public var trash: [TrashedMemory]
+
+    public init(collections: [MemoryCollection] = [], trash: [TrashedMemory] = []) {
+        self.collections = collections
+        self.trash = trash
+    }
+}
+
+/// Where the user's library lives. The app uses the file-backed store;
 /// tests and previews use the in-memory one.
 public protocol CollectionStore: Sendable {
-    func load() -> [MemoryCollection]
-    func save(_ collections: [MemoryCollection])
+    func load() -> MemoryLibrary
+    func save(_ library: MemoryLibrary)
 }
 
 public extension MemoryCollection {
@@ -12,7 +40,7 @@ public extension MemoryCollection {
     static var seed: [MemoryCollection] {
         [
             MemoryCollection(title: "Daily Log", memories: [
-                Memory(title: "Lunch by the river"),
+                Memory(title: "Lunch by the river", items: Memory.starterDraft()),
                 Memory(title: "Slow morning, good coffee")
             ]),
             MemoryCollection(title: "Travel Scrapbook", memories: [
@@ -43,20 +71,26 @@ public struct FileCollectionStore: CollectionStore {
         return directory.appendingPathComponent("collections.json")
     }
 
-    public func load() -> [MemoryCollection] {
-        guard
-            let data = try? Data(contentsOf: url),
-            let decoded = try? JSONDecoder().decode([MemoryCollection].self, from: data)
-        else {
-            let seed = MemoryCollection.seed
-            save(seed)
-            return seed
+    public func load() -> MemoryLibrary {
+        guard let data = try? Data(contentsOf: url) else {
+            let seeded = MemoryLibrary(collections: MemoryCollection.seed)
+            save(seeded)
+            return seeded
         }
-        return decoded
+        if let library = try? JSONDecoder().decode(MemoryLibrary.self, from: data) {
+            return library
+        }
+        // Legacy file: a bare collections array from before the bin existed.
+        if let legacy = try? JSONDecoder().decode([MemoryCollection].self, from: data) {
+            return MemoryLibrary(collections: legacy)
+        }
+        let seeded = MemoryLibrary(collections: MemoryCollection.seed)
+        save(seeded)
+        return seeded
     }
 
-    public func save(_ collections: [MemoryCollection]) {
-        guard let data = try? JSONEncoder().encode(collections) else { return }
+    public func save(_ library: MemoryLibrary) {
+        guard let data = try? JSONEncoder().encode(library) else { return }
         try? data.write(to: url, options: .atomic)
     }
 }
@@ -64,13 +98,13 @@ public struct FileCollectionStore: CollectionStore {
 /// Non-persistent store for tests and previews; `save` is a no-op because the
 /// view model already holds the live array.
 public struct InMemoryCollectionStore: CollectionStore {
-    private let initial: [MemoryCollection]
+    private let initial: MemoryLibrary
 
-    public init(collections: [MemoryCollection] = []) {
-        self.initial = collections
+    public init(collections: [MemoryCollection] = [], trash: [TrashedMemory] = []) {
+        self.initial = MemoryLibrary(collections: collections, trash: trash)
     }
 
-    public func load() -> [MemoryCollection] { initial }
+    public func load() -> MemoryLibrary { initial }
 
-    public func save(_ collections: [MemoryCollection]) {}
+    public func save(_ library: MemoryLibrary) {}
 }

@@ -9,6 +9,7 @@ struct HomeView: View {
     var onStart: () -> Void = {}
     var onQuickCapture: (String) -> Void = { _ in }
     var onOpenCollection: (MemoryCollection) -> Void = { _ in }
+    var onOpenTrash: () -> Void = {}
 
     @State private var prompt = ""
     @State private var addingCollection = false
@@ -39,6 +40,23 @@ struct HomeView: View {
                     .padding(.bottom, 22)
 
                 grid
+
+                if !viewModel.trash.isEmpty {
+                    Button {
+                        onOpenTrash()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 12))
+                            Text("Recently deleted (\(viewModel.trash.count))")
+                                .font(.miraCaption)
+                        }
+                        .foregroundStyle(Palette.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.trash")
+                    .padding(.top, 14)
+                }
             }
             .padding(.horizontal, Metrics.screenPadding)
             .padding(.top, 6)

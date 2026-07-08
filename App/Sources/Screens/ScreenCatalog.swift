@@ -73,23 +73,12 @@ private struct CollectionCatalogPreview: View {
     }
 }
 
-/// Renders a filled note in the editor for the DEBUG catalog.
+/// Renders a filled page in reading mode for the DEBUG catalog.
 private struct NoteCatalogPreview: View {
-    @State private var viewModel = HomeViewModel(collections: [
-        MemoryCollection(title: "Daily Log", memories: [
-            Memory(
-                title: "Lunch by the river",
-                body: "Sunny afternoon, tiny noodle shop by the bridge. Warm broth, golden light."
-            )
-        ])
-    ])
-
     var body: some View {
-        let collection = viewModel.collections.first
-        NoteDetailView(
-            viewModel: viewModel,
-            collectionID: collection?.id ?? UUID(),
-            noteID: collection?.memories.first?.id ?? UUID()
-        )
+        ReadingView(memory: Memory(
+            title: "Lunch by the river",
+            items: Memory.starterDraft()
+        ))
     }
 }

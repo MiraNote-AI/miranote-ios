@@ -29,6 +29,7 @@ targets:
           - Fraunces.ttf
         NSMicrophoneUsageDescription: MiraNote uses the microphone to turn your voice into notes.
         NSCameraUsageDescription: MiraNote uses the camera to add photos to your memory pages.
+        NSPhotoLibraryAddUsageDescription: MiraNote saves your exported memory pages to your photo library.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSExceptionDomains:
