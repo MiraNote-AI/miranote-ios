@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// A group of memories shown as one "book" card on the Home screen.
-public struct MemoryCollection: Identifiable, Equatable, Sendable {
+public struct MemoryCollection: Identifiable, Equatable, Hashable, Sendable, Codable {
     public let id: UUID
     public var title: String
     public var memories: [Memory]
@@ -18,6 +18,7 @@ public struct MemoryCollection: Identifiable, Equatable, Sendable {
 public struct Memory: Identifiable, Equatable, Sendable {
     public let id: UUID
     public var title: String
+    public var body: String
     public var createdAt: Date
     public var savedAt: Date?
     public var items: [CanvasItem]
@@ -25,12 +26,14 @@ public struct Memory: Identifiable, Equatable, Sendable {
     public init(
         id: UUID = UUID(),
         title: String = "",
+        body: String = "",
         createdAt: Date = .now,
         savedAt: Date? = nil,
         items: [CanvasItem] = []
     ) {
         self.id = id
         self.title = title
+        self.body = body
         self.createdAt = createdAt
         self.savedAt = savedAt
         self.items = items
@@ -40,6 +43,35 @@ public struct Memory: Identifiable, Equatable, Sendable {
 extension Memory: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+/// Persisted form keeps identity, title, and timestamps. Canvas `items` are not
+/// yet produced by the Flow 7 editor, so they are omitted and decode to empty.
+extension Memory: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case id, title, body, createdAt, savedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            title: try container.decode(String.self, forKey: .title),
+            body: try container.decodeIfPresent(String.self, forKey: .body) ?? "",
+            createdAt: try container.decode(Date.self, forKey: .createdAt),
+            savedAt: try container.decodeIfPresent(Date.self, forKey: .savedAt),
+            items: []
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(body, forKey: .body)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(savedAt, forKey: .savedAt)
     }
 }
 

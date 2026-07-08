@@ -16,6 +16,7 @@ targets:
     platform: iOS
     sources:
       - App/Sources
+      - App/Resources
     dependencies:
       - package: MiraNoteKit
     info:
@@ -24,6 +25,8 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UIAppFonts:
+          - Fraunces.ttf
         NSMicrophoneUsageDescription: MiraNote uses the microphone to turn your voice into notes.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true

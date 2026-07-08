@@ -36,6 +36,62 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.collections[0].memories.count, 1, "repeated Save must not duplicate")
         XCTAssertEqual(viewModel.collections[0].memories[0].title, "second save")
     }
+
+    func testAddCollectionAppendsAndIgnoresBlank() {
+        let viewModel = HomeViewModel(collections: [])
+        viewModel.addCollection(title: "New notebook")
+        viewModel.addCollection(title: "   ")
+        XCTAssertEqual(viewModel.collections.count, 1)
+        XCTAssertEqual(viewModel.collections[0].title, "New notebook")
+    }
+
+    func testAddNoteAppendsToNamedCollection() {
+        let seed = [MemoryCollection(title: "Log")]
+        let viewModel = HomeViewModel(collections: seed)
+        viewModel.addNote(titled: "First note", to: seed[0].id)
+        XCTAssertEqual(viewModel.collection(seed[0].id)?.memories.count, 1)
+        XCTAssertEqual(viewModel.collection(seed[0].id)?.memories.first?.title, "First note")
+    }
+
+    func testChangesPersistThroughAFileStore() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vm-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = HomeViewModel(store: FileCollectionStore(url: url))
+        let before = first.collections.count
+        first.addCollection(title: "Persisted")
+
+        let second = HomeViewModel(store: FileCollectionStore(url: url))
+        XCTAssertEqual(second.collections.count, before + 1)
+        XCTAssertTrue(second.collections.contains { $0.title == "Persisted" })
+    }
+
+    func testUpdateNoteEditsTitleAndBody() {
+        let seed = [MemoryCollection(title: "Log", memories: [Memory(title: "Draft")])]
+        let viewModel = HomeViewModel(collections: seed)
+        let noteID = seed[0].memories[0].id
+
+        viewModel.updateNote(noteID, in: seed[0].id, title: "Kyoto trip", body: "Rainy morning.")
+
+        let note = viewModel.note(noteID, in: seed[0].id)
+        XCTAssertEqual(note?.title, "Kyoto trip")
+        XCTAssertEqual(note?.body, "Rainy morning.")
+        XCTAssertNotNil(note?.savedAt, "editing a note stamps savedAt")
+    }
+
+    func testNoteEditsPersistThroughAFileStore() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("note-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = HomeViewModel(store: FileCollectionStore(url: url))
+        let collection = first.collections[0]
+        let noteID = collection.memories[0].id
+        first.updateNote(noteID, in: collection.id, title: "Kept", body: "Persisted body.")
+
+        let second = HomeViewModel(store: FileCollectionStore(url: url))
+        XCTAssertEqual(second.note(noteID, in: collection.id)?.body, "Persisted body.")
+        XCTAssertEqual(second.note(noteID, in: collection.id)?.title, "Kept")
+    }
 }
 
 @MainActor

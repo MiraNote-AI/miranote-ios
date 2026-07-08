@@ -1,0 +1,59 @@
+import SwiftUI
+
+/// The four ways to add to a memory page -- the bottom "instrument panel".
+enum EditorMode: String, CaseIterable, Identifiable {
+    case voice, text, image, sticker
+
+    var id: String { rawValue }
+
+    var title: String { rawValue.capitalized }
+
+    var symbol: String {
+        switch self {
+        case .voice: return "mic"
+        case .text: return "textformat"
+        case .image: return "photo"
+        case .sticker: return "face.smiling"
+        }
+    }
+}
+
+extension View {
+    /// Warm-paper full-bleed background, locked to the light appearance the
+    /// Flow 7 design assumes.
+    func screenBackground() -> some View {
+        background(Palette.paper.ignoresSafeArea())
+            .preferredColorScheme(.light)
+    }
+}
+
+/// A soft warm gradient blob used to stand in for a photo, matching the
+/// gradient placeholders the Figma frames use.
+struct GradientPlaceholder: View {
+    var tint: Color = Palette.tan
+    var corner: CGFloat = Metrics.imageCorner
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: corner)
+            .fill(Palette.cardFill)
+            .overlay {
+                RoundedRectangle(cornerRadius: corner)
+                    .fill(
+                        LinearGradient(
+                            colors: [tint.opacity(0.55), Palette.cardFill.opacity(0.1)],
+                            startPoint: .bottomTrailing,
+                            endPoint: .topLeading
+                        )
+                    )
+                    .blendMode(.multiply)
+            }
+            .overlay(alignment: .bottomLeading) {
+                Circle()
+                    .fill(Palette.onInk.opacity(0.35))
+                    .frame(width: 70, height: 70)
+                    .blur(radius: 26)
+                    .padding(28)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: corner))
+    }
+}

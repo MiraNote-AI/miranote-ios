@@ -1,115 +1,240 @@
 import MiraNoteKit
 import SwiftUI
 
-/// Sketch 1: hamburger + avatar, "Start a memory", collections row,
-/// "What is in your mind?" pill. Empty state per D3.
+/// Flow 7 Scene 01: the wordmark row, the date, the editorial hero, the ink
+/// "Start a memory" pill, a quick-capture field, and the collection grid --
+/// now driven by the user's real, persisted note collections.
 struct HomeView: View {
-    @Bindable var viewModel: HomeViewModel
-    @State private var activeMemory: Memory?
-    @State private var showsQuickCapturePlaceholder = false
+    var viewModel: HomeViewModel
+    var onStart: () -> Void = {}
+    var onQuickCapture: (String) -> Void = { _ in }
+    var onOpenCollection: (MemoryCollection) -> Void = { _ in }
+
+    @State private var prompt = ""
+    @State private var addingCollection = false
+    @State private var newCollectionName = ""
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 32) {
-                Spacer(minLength: 24)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.bottom, 20)
 
+                Text("MONDAY,\nJUNE 22")
+                    .font(.miraDate)
+                    .foregroundStyle(Palette.ink)
+                    .lineSpacing(1)
+                    .padding(.bottom, 16)
+
+                hero
+                    .padding(.bottom, 24)
+
+                Button("Start a memory", action: onStart)
+                    .buttonStyle(PrimaryPill(horizontalPadding: 30, verticalPadding: 15))
+                    .padding(.bottom, 18)
+
+                quickPill
+                    .padding(.bottom, 22)
+
+                grid
+            }
+            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.top, 6)
+            .padding(.bottom, 28)
+        }
+        .screenBackground()
+        .alert("New collection", isPresented: $addingCollection) {
+            TextField("Name", text: $newCollectionName)
+            Button("Cancel", role: .cancel) { newCollectionName = "" }
+            Button("Create") {
+                viewModel.addCollection(title: newCollectionName)
+                newCollectionName = ""
+            }
+        } message: {
+            Text("Name your new notebook.")
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 16) {
+            Text("MiraNote")
+                .font(.miraLogo)
+            Spacer()
+            Image(systemName: "bell")
+            Image(systemName: "person")
+        }
+        .font(.system(size: 17, weight: .regular))
+        .foregroundStyle(Palette.ink)
+    }
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Your memory,")
+            Text("beautifully made.")
+        }
+        .font(.miraHero)
+        .foregroundStyle(Palette.ink)
+    }
+
+    private var quickPill: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.textSecondary)
+
+            TextField("", text: $prompt)
+                .font(.miraBody)
+                .foregroundStyle(Palette.ink)
+                .tint(Palette.forest)
+                .submitLabel(.send)
+                .onSubmit(submitPrompt)
+                .overlay(alignment: .leading) {
+                    if prompt.isEmpty {
+                        Text("what I eat...")
+                            .font(.miraBody)
+                            .foregroundStyle(Palette.textSecondary)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+            if !prompt.isEmpty {
+                Button(action: submitPrompt) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Palette.ink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("quick.send")
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(
+            Capsule()
+                .fill(Palette.onInk.opacity(0.55))
+                .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+        )
+    }
+
+    private var grid: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ]
+        return LazyVGrid(columns: columns, spacing: 14) {
+            ForEach(Array(viewModel.collections.enumerated()), id: \.element.id) { index, collection in
                 Button {
-                    activeMemory = viewModel.startMemory()
+                    onOpenCollection(collection)
                 } label: {
-                    Label("Start a memory", systemImage: "plus")
-                        .font(.title3.weight(.semibold))
+                    card(for: collection, index: index)
                 }
-                .buttonStyle(PillButtonStyle(prominent: true))
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("collection.\(collection.title)")
+            }
 
-                collectionsSection
-
-                Spacer()
-
-                whatsOnYourMindPill
+            Button {
+                addingCollection = true
+            } label: {
+                newCollectionCard
             }
-            .padding()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Text("Settings and more arrive later")
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Image(systemName: "person.circle")
-                        .font(.title3)
-                }
-            }
-            .navigationDestination(item: $activeMemory) { memory in
-                CanvasView(memory: memory) { saved in
-                    viewModel.file(saved, underCollectionTitled: "My memories")
-                }
-            }
-            .sheet(isPresented: $showsQuickCapturePlaceholder) {
-                quickCapturePlaceholder
-            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("collection.new")
         }
     }
 
-    @ViewBuilder private var collectionsSection: some View {
-        if viewModel.showsEmptyStateHint {
-            VStack(spacing: 8) {
-                Image(systemName: "arrow.up")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                Text("No collections yet. Start your first memory and it will live here.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 32)
-        } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(viewModel.collections) { collection in
-                        CollectionCard(title: collection.title, count: collection.memories.count)
-                    }
-                }
-                .padding(.horizontal)
-            }
+    private func card(for collection: MemoryCollection, index: Int) -> some View {
+        let style = cardStyle(index)
+        return HomeCollectionCard(
+            title: collection.title,
+            count: collection.memories.count,
+            background: style.background,
+            inner: style.inner,
+            titleColor: style.title
+        )
+    }
+
+    private var newCollectionCard: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .medium))
+            Text("New collection")
+                .font(.system(size: 13, weight: .medium))
+        }
+        .foregroundStyle(Palette.textSecondary)
+        .frame(maxWidth: .infinity, minHeight: 122)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Palette.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .strokeBorder(Palette.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                )
+        )
+    }
+
+    private func cardStyle(_ index: Int) -> CardStyle {
+        switch index % 4 {
+        case 1:
+            return CardStyle(background: Palette.forest, inner: Palette.sage.opacity(0.7), title: Palette.onInk)
+        case 2:
+            return CardStyle(
+                background: Palette.sage.opacity(0.45),
+                inner: Palette.taupe.opacity(0.55),
+                title: Palette.ink
+            )
+        case 3:
+            return CardStyle(
+                background: Palette.tan.opacity(0.6),
+                inner: Palette.onInk.opacity(0.7),
+                title: Palette.ink
+            )
+        default:
+            return CardStyle(background: Palette.cardFill, inner: Palette.taupe.opacity(0.45), title: Palette.ink)
         }
     }
 
-    private var whatsOnYourMindPill: some View {
-        Button {
-            showsQuickCapturePlaceholder = true
-        } label: {
-            HStack {
-                Image(systemName: "mic.badge.plus")
-                Text("What is in your mind?")
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding()
-            .background(.thinMaterial, in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// Spec Q4: the chat-style entry point is undecided; placeholder only.
-    private var quickCapturePlaceholder: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.text.bubble.right")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Quick capture is on its way")
-                .font(.headline)
-            Text("This entry point is waiting on a design decision (spec Q4).")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(32)
-        .presentationDetents([.fraction(0.3)])
+    private func submitPrompt() {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        onQuickCapture(trimmed)
+        prompt = ""
     }
 }
 
+/// One book-spine collection card in the Home grid.
+struct HomeCollectionCard: View {
+    let title: String
+    let count: Int
+    var background: Color
+    var inner: Color
+    var titleColor: Color = Palette.ink
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(titleColor)
+                .lineLimit(1)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(inner)
+                .frame(height: 44)
+            Text("\(count) note\(count == 1 ? "" : "s")")
+                .font(.system(size: 11))
+                .foregroundStyle(titleColor.opacity(0.6))
+        }
+        .padding(15)
+        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 20).fill(background))
+    }
+}
+
+/// The palette a Home collection card is drawn in, cycled by grid position.
+private struct CardStyle {
+    let background: Color
+    let inner: Color
+    let title: Color
+}
+
 #Preview {
-    HomeView(viewModel: HomeViewModel())
+    HomeView(viewModel: HomeViewModel(collections: MemoryCollection.seed))
 }

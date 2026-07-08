@@ -12,8 +12,14 @@ final class ServiceContainerTests: XCTestCase {
                       "the running app must use the live voice service, not the mock")
     }
 
+    func testLiveContainerWiresTheLiveChatService() {
+        XCTAssertTrue(ServiceContainer.live.chat is LiveChatService,
+                      "the running app must use the live chat service, not the mock")
+    }
+
     func testMockContainerWiresMockServices() {
         XCTAssertTrue(ServiceContainer.mock.textTransform is MockTextTransformService)
         XCTAssertTrue(ServiceContainer.mock.voiceTranscription is MockVoiceTranscriptionService)
+        XCTAssertTrue(ServiceContainer.mock.chat is MockChatService)
     }
 }
