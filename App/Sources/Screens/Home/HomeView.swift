@@ -21,7 +21,7 @@ struct HomeView: View {
                 header
                     .padding(.bottom, 20)
 
-                Text("MONDAY,\nJUNE 22")
+                Text(HomeView.dateLine(for: .now))
                     .font(.miraDate)
                     .foregroundStyle(Palette.ink)
                     .lineSpacing(1)
@@ -252,6 +252,21 @@ private struct CardStyle {
     let background: Color
     let inner: Color
     let title: Color
+}
+
+extension HomeView {
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "EEEE,\nMMMM d"
+        return formatter
+    }()
+
+    /// The editorial dateline under the wordmark: "WEDNESDAY,\nJULY 8".
+    /// Pinned to English -- all of the app's copy is.
+    static func dateLine(for date: Date) -> String {
+        dateFormatter.string(from: date).uppercased()
+    }
 }
 
 #Preview {

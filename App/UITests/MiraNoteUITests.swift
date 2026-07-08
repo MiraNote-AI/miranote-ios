@@ -23,6 +23,16 @@ final class MiraNoteUITests: XCTestCase {
     func testHomeShowsHeroAndStart() {
         XCTAssertTrue(app.staticTexts["MiraNote"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Start a memory"].exists)
+
+        // The dateline is live, not design-mock copy frozen at June 22.
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "MMMM d"
+        let today = formatter.string(from: .now).uppercased()
+        let dateline = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", today)
+        )
+        XCTAssertTrue(dateline.firstMatch.exists)
     }
 
     // The quick-capture field is a live text input, not a static placeholder:
