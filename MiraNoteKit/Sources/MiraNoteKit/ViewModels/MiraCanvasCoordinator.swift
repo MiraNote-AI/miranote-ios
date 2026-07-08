@@ -29,7 +29,7 @@ public struct MiraReceipt: Equatable, Sendable {
 /// The v2.1 failure taxonomy: clarify (did not understand), retry (it did
 /// not work), redirect (cannot do that here). Never red, never partial.
 public struct MiraFailure: Equatable, Sendable {
-    public enum Kind: Equatable {
+    public enum Kind: Equatable, Sendable {
         case clarify, retry, redirect
     }
 

@@ -17,5 +17,7 @@ public enum MiraNoteConfig {
         public static let voiceBaseURL = URL(string: "http://localhost:8000")!
         /// chatbot POC: /chat.
         public static let chatBaseURL = URL(string: "http://localhost:8003")!
+        /// image-generation POC: /generate, /cutout, /stylize, /border.
+        public static let imageBaseURL = URL(string: "http://localhost:8002")!
     }
 }

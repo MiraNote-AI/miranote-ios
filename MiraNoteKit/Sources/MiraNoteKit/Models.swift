@@ -190,28 +190,75 @@ extension CanvasItem.Content: Codable {
     }
 }
 
-/// Reference to a user-picked image. v1 keeps display names only;
-/// pixel data handling and persistence are later tasks (see spec).
+/// Reference to a picked or generated image. Pixels live in the
+/// ImageFileStore under `fileName`; an empty file name renders as the warm
+/// gradient placeholder. `filterName` / `frameName` are the photo-edit
+/// treatments (resolved by the app layer; empty = none).
 public struct ImageRef: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var displayName: String
+    public var fileName: String
+    public var filterName: String
+    public var frameName: String
 
-    public init(id: UUID = UUID(), displayName: String) {
+    public init(
+        id: UUID = UUID(),
+        displayName: String,
+        fileName: String = "",
+        filterName: String = "",
+        frameName: String = ""
+    ) {
         self.id = id
         self.displayName = displayName
+        self.fileName = fileName
+        self.filterName = filterName
+        self.frameName = frameName
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, displayName, fileName, filterName, frameName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            displayName: try container.decode(String.self, forKey: .displayName),
+            fileName: try container.decodeIfPresent(String.self, forKey: .fileName) ?? "",
+            filterName: try container.decodeIfPresent(String.self, forKey: .filterName) ?? "",
+            frameName: try container.decodeIfPresent(String.self, forKey: .frameName) ?? ""
+        )
     }
 }
 
-/// Output of the AI sticker generator (mocked in v1).
+/// Output of the AI sticker generator. Real artwork lives in the
+/// ImageFileStore under `fileName`; when empty, `symbolName` renders a
+/// placeholder glyph.
 public struct GeneratedSticker: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var prompt: String
     public var symbolName: String
+    public var fileName: String
 
-    public init(id: UUID = UUID(), prompt: String, symbolName: String) {
+    public init(id: UUID = UUID(), prompt: String, symbolName: String, fileName: String = "") {
         self.id = id
         self.prompt = prompt
         self.symbolName = symbolName
+        self.fileName = fileName
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, prompt, symbolName, fileName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            prompt: try container.decode(String.self, forKey: .prompt),
+            symbolName: try container.decode(String.self, forKey: .symbolName),
+            fileName: try container.decodeIfPresent(String.self, forKey: .fileName) ?? ""
+        )
     }
 }
 

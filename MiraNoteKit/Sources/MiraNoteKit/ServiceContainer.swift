@@ -10,19 +10,22 @@ public struct ServiceContainer: Sendable {
     public let stickerGeneration: StickerGenerationService
     public let styleTransfer: StyleTransferService
     public let chat: ChatService
+    public let imageStudio: ImageStudioService
 
     public init(
         textTransform: TextTransformService,
         voiceTranscription: VoiceTranscriptionService,
         stickerGeneration: StickerGenerationService,
         styleTransfer: StyleTransferService,
-        chat: ChatService = MockChatService()
+        chat: ChatService = MockChatService(),
+        imageStudio: ImageStudioService = MockImageStudioService()
     ) {
         self.textTransform = textTransform
         self.voiceTranscription = voiceTranscription
         self.stickerGeneration = stickerGeneration
         self.styleTransfer = styleTransfer
         self.chat = chat
+        self.imageStudio = imageStudio
     }
 
     /// Live wiring. Text, voice, and chat hit their POCs. Sticker and style
@@ -32,7 +35,8 @@ public struct ServiceContainer: Sendable {
         voiceTranscription: LiveVoiceTranscriptionService(),
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
-        chat: LiveChatService()
+        chat: LiveChatService(),
+        imageStudio: LiveImageStudioService()
     )
 
     /// All-mock wiring for previews, tests, and offline use.
