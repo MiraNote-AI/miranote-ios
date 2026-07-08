@@ -170,6 +170,73 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(editor.items.count, countBefore + 1, "a title block landed")
     }
 
+    func testReplacingALiveTurnKeepsStopWorking() async {
+        // Reviewer major: task A's defer must not null task B's handle.
+        let editor = makeEditor()
+        let coordinator = makeCoordinator(
+            text: ScriptedText(delay: .seconds(3)),
+            chat: ScriptedChat(delay: .seconds(3)),
+            workingDelay: .milliseconds(5)
+        )
+        let itemsBefore = editor.items
+
+        coordinator.ask("polish the text", editor: editor)
+        try? await Task.sleep(for: .milliseconds(30))
+        coordinator.ask("hello there mira", editor: editor)
+        // Let turn A's cancellation unwind (its defer must not touch turn B).
+        try? await Task.sleep(for: .milliseconds(60))
+
+        XCTAssertTrue(coordinator.isWorking, "the replacing turn is still alive")
+        coordinator.stop()
+        XCTAssertEqual(coordinator.phase, .idle, "Stop still works after replacement")
+        XCTAssertEqual(coordinator.refillPrompt, "hello there mira", "refill is turn B's words")
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(editor.items, itemsBefore, "neither turn applied anything")
+    }
+
+    func testRevertDeclinesAfterAUserEdit() async {
+        // Reviewer major: Revert must never eat the user's own edit.
+        let editor = makeEditor()
+        let coordinator = makeCoordinator()
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+
+        // The user drags something while the receipt is up.
+        editor.beginChange()
+        let anyID = editor.items[0].id
+        editor.move(itemID: anyID, to: CGPoint(x: 200, y: 200))
+        let itemsAfterUserEdit = editor.items
+
+        coordinator.revert(editor: editor)
+        XCTAssertEqual(editor.items, itemsAfterUserEdit, "revert declines instead of undoing the drag")
+        XCTAssertEqual(coordinator.phase, .idle)
+    }
+
+    func testReceiptStepsAsideWhenTheCanvasChanges() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator()
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+
+        editor.beginChange()
+        coordinator.canvasDidChange(editor)
+        XCTAssertEqual(coordinator.phase, .idle, "a user edit auto-keeps the receipt")
+    }
+
+    func testTransformWithNoTextAsksToClarify() async {
+        let editor = CanvasViewModel(memory: Memory())
+        let coordinator = makeCoordinator()
+
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .failure = coordinator.phase { return true } else { return false } }
+
+        guard case .failure(let failure) = coordinator.phase else {
+            return XCTFail("expected a clarify failure")
+        }
+        XCTAssertEqual(failure.kind, .clarify)
+        XCTAssertTrue(failure.chips.contains("Add a soft title"))
+    }
+
     func testSuggestionsAreContextAware() {
         let coordinator = makeCoordinator()
         let empty = CanvasViewModel(memory: Memory())
@@ -178,7 +245,8 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         let full = makeEditor()
         XCTAssertEqual(
             coordinator.suggestions(for: full),
-            ["Polish the text", "Tidy the layout", "Add a soft title"]
+            ["Polish the text", "Tidy the layout"],
+            "no title chip when the page already has a display-size title"
         )
     }
 }

@@ -18,6 +18,11 @@ public final class CanvasViewModel {
     /// The text element currently being edited in place, if any.
     public var editingTextItemID: CanvasItem.ID?
 
+    /// Bumps on every recorded mutation (and on undo). Lets observers tell
+    /// whether the canvas changed since a point in time -- e.g. a Mira
+    /// receipt must not "revert" a later user edit.
+    public private(set) var changeCount = 0
+
     private var history: [[CanvasItem]] = []
     private static let historyCap = 50
 
@@ -49,6 +54,7 @@ public final class CanvasViewModel {
     /// Snapshot the current items. Call once before a discrete change or at
     /// the START of a continuous gesture (drag / resize / rotate).
     public func beginChange() {
+        changeCount += 1
         history.append(memory.items)
         if history.count > Self.historyCap {
             history.removeFirst()
@@ -57,6 +63,7 @@ public final class CanvasViewModel {
 
     public func undo() {
         guard let snapshot = history.popLast() else { return }
+        changeCount += 1
         memory.items = snapshot
         if let selected = selectedItemID, item(selected) == nil {
             selectedItemID = nil

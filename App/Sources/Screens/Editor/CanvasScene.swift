@@ -55,7 +55,10 @@ struct CanvasScene: View {
         .onDisappear { cancelRecording() }
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.editingTextItemID) { _, editing in
-            if editing == nil { cleanUpEmptyText() }
+            if editing == nil {
+                cleanUpEmptyText()
+                cancelDictationIfNeeded()
+            }
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
@@ -83,7 +86,11 @@ struct CanvasScene: View {
                 coordinator: mira,
                 editor: editor,
                 onAsk: { mira.ask($0, editor: editor) },
-                onRephrase: { miraFocus = true }
+                onRephrase: { miraFocus = true },
+                onRetry: {
+                    miraPrompt = ""
+                    mira.retry(editor: editor)
+                }
             )
             MiraBar(
                 coordinator: mira,
@@ -105,7 +112,9 @@ struct CanvasScene: View {
         case .text:
             addTextBlock()
         case .sound:
-            if case .idle = recorderState { startRecording() }
+            // One audio owner at a time: not while dictating, and starting
+            // a recording would unmount the Mira strip mid-turn.
+            if case .idle = recorderState, !dictating, !mira.isWorking { startRecording() }
         case .image:
             cancelRecording()
             actions.selectMode(.image)

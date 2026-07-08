@@ -16,7 +16,7 @@ public enum MiraTurnPhase: Equatable {
 }
 
 /// The v2.1 receipt: say what changed AND what was kept.
-public struct MiraReceipt: Equatable {
+public struct MiraReceipt: Equatable, Sendable {
     public let changed: String
     public let kept: String
 
@@ -28,7 +28,7 @@ public struct MiraReceipt: Equatable {
 
 /// The v2.1 failure taxonomy: clarify (did not understand), retry (it did
 /// not work), redirect (cannot do that here). Never red, never partial.
-public struct MiraFailure: Equatable {
+public struct MiraFailure: Equatable, Sendable {
     public enum Kind: Equatable {
         case clarify, retry, redirect
     }
@@ -68,6 +68,13 @@ public final class MiraCanvasCoordinator {
     private var dismissTask: Task<Void, Never>?
     private var sessionID: String?
     private var lastPrompt = ""
+    /// Generation token: every ask/cancel bumps it, and every phase write
+    /// from a turn is guarded on it, so a replaced turn can never clobber
+    /// its successor's state (Stop, isWorking, receipts all stay coherent).
+    private var turnGeneration = 0
+    /// The editor's changeCount when the current receipt was shown; Revert
+    /// only undoes if nothing else mutated the canvas since.
+    private var receiptChangeCount: Int?
 
     public init(
         text: TextTransformService,
@@ -97,7 +104,13 @@ public final class MiraCanvasCoordinator {
         if editor.items.count > 1 {
             chips.append("Tidy the layout")
         }
-        chips.append("Add a soft title")
+        let hasTitle = editor.items.contains {
+            if case .text(let block) = $0.content { return block.pointSize >= 24 }
+            return false
+        }
+        if !hasTitle {
+            chips.append("Add a soft title")
+        }
         return chips
     }
 
@@ -111,7 +124,8 @@ public final class MiraCanvasCoordinator {
         lastPrompt = trimmed
         refillPrompt = nil
         let intent = MiraIntent.classify(trimmed, editor: editor)
-        turnTask = Task { await run(intent, prompt: trimmed, editor: editor) }
+        let generation = turnGeneration
+        turnTask = Task { await run(intent, prompt: trimmed, editor: editor, generation: generation) }
     }
 
     /// The Stop control: cancel with no residue, give the words back.
@@ -128,38 +142,63 @@ public final class MiraCanvasCoordinator {
         ask(lastPrompt, editor: editor)
     }
 
-    /// One-tap revert of the last applied change (the receipt's escape hatch).
+    /// One-tap revert of the last applied change (the receipt's escape
+    /// hatch). If anything else touched the canvas since the receipt was
+    /// shown, revert declines to undo (it would eat the user's edit, not
+    /// Mira's) and just dismisses.
     public func revert(editor: CanvasViewModel) {
-        editor.undo()
+        if let expected = receiptChangeCount, editor.changeCount == expected {
+            editor.undo()
+        }
+        receiptChangeCount = nil
         dismissTask?.cancel()
         phase = .idle
     }
 
+    /// The view calls this when the canvas mutates while a receipt shows:
+    /// the moment the user edits, the receipt's Revert is no longer honest,
+    /// so the receipt keeps (dismisses) itself.
+    public func canvasDidChange(_ editor: CanvasViewModel) {
+        guard case .receipt = phase,
+              let expected = receiptChangeCount,
+              editor.changeCount != expected else { return }
+        dismiss()
+    }
+
     /// Auto-keep is the default: dismissing keeps the change.
     public func dismiss() {
+        receiptChangeCount = nil
         dismissTask?.cancel()
         phase = .idle
     }
 
     private func cancelTurn() {
+        turnGeneration += 1
         turnTask?.cancel()
         turnTask = nil
         dismissTask?.cancel()
         workingItemIDs = []
     }
 
-    private func run(_ intent: MiraIntent, prompt: String, editor: CanvasViewModel) async {
+    private func run(
+        _ intent: MiraIntent,
+        prompt: String,
+        editor: CanvasViewModel,
+        generation: Int
+    ) async {
         // The working state earns its place only past the delay threshold.
         let indicator = Task { [workingDelay] in
             try? await Task.sleep(for: workingDelay)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.turnGeneration == generation else { return }
             phase = .working(verb: intent.verb)
             workingItemIDs = intent.affectedItems
         }
         defer {
             indicator.cancel()
-            workingItemIDs = []
-            turnTask = nil
+            if turnGeneration == generation {
+                workingItemIDs = []
+                turnTask = nil
+            }
         }
 
         do {
@@ -167,13 +206,13 @@ public final class MiraCanvasCoordinator {
                 try await intent.perform(text: text, chat: chat, sessionID: sessionID)
             }
             indicator.cancel()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, turnGeneration == generation else { return }
             settle(outcome, editor: editor)
         } catch is CancellationError {
             // stop() already reset the phase.
         } catch {
             indicator.cancel()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, turnGeneration == generation else { return }
             refillPrompt = prompt
             phase = .failure(Self.failure(for: error))
         }
@@ -184,27 +223,41 @@ public final class MiraCanvasCoordinator {
     private func settle(_ outcome: MiraOutcome, editor: CanvasViewModel) {
         switch outcome {
         case .textChanged(let itemID, let newText, let receipt):
+            guard editor.item(itemID) != nil else {
+                phase = .failure(MiraFailure(
+                    kind: .retry,
+                    message: "The text I was working on is gone, so I left everything as is.",
+                    chips: ["Try again"]
+                ))
+                return
+            }
             editor.beginChange()
             editor.setText(itemID: itemID, to: newText)
-            showReceipt(receipt)
+            showReceipt(receipt, editor: editor)
         case .titleAdded(let title, let receipt):
+            // Land above the current topmost element, never on top of it.
+            let currentTop = editor.items
+                .map { $0.position.y - $0.size.height / 2 }
+                .min() ?? 100
+            let titleY = max(36, currentTop - 44)
             editor.addText(
                 title,
-                at: CGPoint(x: 150, y: 40),
+                at: CGPoint(x: 150, y: titleY),
                 pointSize: 30,
                 size: CGSize(width: 270, height: 60)
             )
-            showReceipt(receipt)
+            showReceipt(receipt, editor: editor)
         case .organized(let receipt):
             editor.quickOrganize(canvasWidth: editor.canvasWidth ?? 360)
-            showReceipt(receipt)
+            showReceipt(receipt, editor: editor)
         case .reply(let message, let newSessionID):
             sessionID = newSessionID ?? sessionID
             phase = .reply(message, chips: suggestions(for: editor))
         }
     }
 
-    private func showReceipt(_ receipt: MiraReceipt) {
+    private func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel) {
+        receiptChangeCount = editor.changeCount
         phase = .receipt(receipt)
         dismissTask?.cancel()
         dismissTask = Task { [receiptDismiss] in
@@ -245,130 +298,6 @@ public final class MiraCanvasCoordinator {
             guard let first = try await group.next() else { throw MiraTimeoutError() }
             group.cancelAll()
             return first
-        }
-    }
-}
-
-struct MiraTimeoutError: Error {}
-
-/// A clarify-type failure raised during classification (e.g. "polish the
-/// text" on a page with no text).
-struct MiraClarifyError: Error {
-    let question: String
-    let chips: [String]
-}
-
-/// What a successful turn produced. Mutations are described, not applied --
-/// the coordinator applies them on the main actor after the await returns.
-enum MiraOutcome: Sendable {
-    case textChanged(CanvasItem.ID, String, MiraReceipt)
-    case titleAdded(String, MiraReceipt)
-    case organized(MiraReceipt)
-    case reply(String, sessionID: String?)
-}
-
-/// V1 local intent rules. The structured page-draft backend (plan D3 gap)
-/// will replace classification; the surrounding turn machinery stays.
-enum MiraIntent {
-    case transformText(CanvasItem.ID, original: String, TextTransformMode)
-    case addTitle
-    case organize
-    case converse(String)
-
-    @MainActor
-    static func classify(_ prompt: String, editor: CanvasViewModel) -> MiraIntent {
-        let lowered = prompt.lowercased()
-
-        func targetText() -> (CanvasItem.ID, String)? {
-            let candidates = editor.orderedItems.compactMap { item -> (CanvasItem.ID, String)? in
-                guard case .text(let block) = item.content,
-                      !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-                return (item.id, block.text)
-            }
-            if let selected = editor.selectedItemID,
-               let match = candidates.first(where: { $0.0 == selected }) {
-                return match
-            }
-            // No selection: the longest text is almost always the prose body
-            // (titles and date captions are short).
-            return candidates.max { $0.1.count < $1.1.count }
-        }
-
-        if lowered.contains("polish") || lowered.contains("warmer") || lowered.contains("softer") {
-            if let (id, original) = targetText() {
-                return .transformText(id, original: original, .polish)
-            }
-            return .converse(prompt)
-        }
-        if lowered.contains("expand") || lowered.contains("longer") {
-            if let (id, original) = targetText() {
-                return .transformText(id, original: original, .expand)
-            }
-            return .converse(prompt)
-        }
-        if lowered.contains("shorten") || lowered.contains("clean") || lowered.contains("tighten") {
-            if let (id, original) = targetText() {
-                return .transformText(id, original: original, .clean)
-            }
-            return .converse(prompt)
-        }
-        if lowered.contains("title") {
-            return .addTitle
-        }
-        if lowered.contains("tidy") || lowered.contains("layout")
-            || lowered.contains("organize") || lowered.contains("arrange") {
-            return .organize
-        }
-        return .converse(prompt)
-    }
-
-    var verb: String {
-        switch self {
-        case .transformText(_, _, .polish): return "Polishing the text..."
-        case .transformText(_, _, .expand): return "Expanding the text..."
-        case .transformText(_, _, .clean): return "Tightening the text..."
-        case .addTitle: return "Adding a title..."
-        case .organize: return "Tidying the layout..."
-        case .converse: return "Thinking..."
-        }
-    }
-
-    var affectedItems: Set<CanvasItem.ID> {
-        if case .transformText(let id, _, _) = self { return [id] }
-        return []
-    }
-
-    func perform(
-        text: TextTransformService,
-        chat: ChatService,
-        sessionID: String?
-    ) async throws -> MiraOutcome {
-        switch self {
-        case .transformText(let id, let original, let mode):
-            let transformed = try await text.transform(original, mode: mode)
-            let what: String
-            switch mode {
-            case .polish: what = "Polished the text."
-            case .expand: what = "Expanded the text."
-            case .clean: what = "Tightened the text."
-            }
-            return .textChanged(id, transformed, MiraReceipt(
-                changed: what,
-                kept: "Layout, photos, and everything else stayed put."
-            ))
-        case .addTitle:
-            return .titleAdded("A quiet moment", MiraReceipt(
-                changed: "Added a soft title.",
-                kept: "Your words and photos are unchanged."
-            ))
-        case .organize:
-            return .organized(MiraReceipt(
-                changed: "Tidied the layout.",
-                kept: "Your words and photos are unchanged."
-            ))
-        case .converse(let prompt):
-            let reply = try await chat.reply(to: prompt, sessionID: sessionID)
-            return .reply(reply.text, sessionID: reply.sessionID)
         }
     }
 }

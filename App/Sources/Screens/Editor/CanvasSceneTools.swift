@@ -111,8 +111,19 @@ extension CanvasScene {
         mira.ask("\(action.lowercased()) the text", editor: editor)
     }
 
+    /// Ends a dictation that lost its editing session (keyboard dismissed,
+    /// editing finished): stop the mic quietly, keep nothing.
+    func cancelDictationIfNeeded() {
+        guard dictating else { return }
+        let abandoned = recorder
+        recorder = nil
+        dictating = false
+        Task { _ = try? await abandoned?.stop() }
+    }
+
     /// Tap-to-toggle dictation: record, transcribe (:8000), append to the
-    /// block being edited.
+    /// block being edited. The sound tool and dictation never share the
+    /// recorder slot (guarded on both entry points).
     func toggleDictation() {
         if dictating {
             guard let recorder else {
@@ -132,6 +143,7 @@ extension CanvasScene {
                 }
             }
         } else {
+            guard recorder == nil else { return }
             let newRecorder = recorderFactory()
             recorder = newRecorder
             Task {

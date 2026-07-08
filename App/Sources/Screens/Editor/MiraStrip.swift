@@ -9,8 +9,18 @@ struct MiraCard: View {
     @Bindable var editor: CanvasViewModel
     var onAsk: (String) -> Void
     var onRephrase: () -> Void
+    var onRetry: () -> Void
 
     var body: some View {
+        content
+            // A user edit while the receipt shows makes Revert dishonest --
+            // the receipt keeps itself out of the way.
+            .onChange(of: editor.changeCount) {
+                coordinator.canvasDidChange(editor)
+            }
+    }
+
+    @ViewBuilder private var content: some View {
         switch coordinator.phase {
         case .idle:
             chipsRow(coordinator.suggestions(for: editor))
@@ -74,7 +84,7 @@ struct MiraCard: View {
     private func handleFailureChip(_ chip: String) {
         switch chip {
         case "Try again":
-            coordinator.retry(editor: editor)
+            onRetry()
         case "Rephrase":
             onRephrase()
         default:
