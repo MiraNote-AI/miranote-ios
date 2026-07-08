@@ -25,6 +25,14 @@ public enum RecordingError: Error, LocalizedError {
     }
 }
 
+/// Measures recorded audio without playing it.
+public enum AudioInfo {
+    /// Duration of an encoded clip; 0 when the bytes are not decodable.
+    public static func duration(of data: Data) -> TimeInterval {
+        (try? AVAudioPlayer(data: data))?.duration ?? 0
+    }
+}
+
 /// Test double: no microphone, returns canned bytes.
 @MainActor
 public final class MockAudioRecorder: AudioRecording {

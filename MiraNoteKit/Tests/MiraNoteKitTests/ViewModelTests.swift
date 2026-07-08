@@ -123,6 +123,165 @@ final class CanvasViewModelTests: XCTestCase {
         XCTAssertEqual(positions[2], CGPoint(x: 60, y: 180))
         XCTAssertEqual(Set(positions.map { "\($0)" }).count, 5, "no two items share a slot")
     }
+
+    // MARK: v2.1 editor core
+
+    func testNewElementsStackAboveExisting() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let textID = viewModel.addText("first", at: .zero)
+        let soundID = viewModel.addSound(SoundClip(duration: 12), at: .zero)
+        let textZ = viewModel.item(textID)?.zIndex ?? .max
+        let soundZ = viewModel.item(soundID)?.zIndex ?? .min
+        XCTAssertGreaterThan(soundZ, textZ)
+        XCTAssertEqual(viewModel.orderedItems.last?.id, soundID)
+    }
+
+    func testDuplicateOffsetsCopyAndSelectsIt() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let original = viewModel.addText("hello", at: CGPoint(x: 100, y: 100))
+        let copy = viewModel.duplicate(itemID: original)
+        XCTAssertNotNil(copy)
+        XCTAssertEqual(viewModel.items.count, 2)
+        XCTAssertEqual(viewModel.item(copy!)?.position, CGPoint(x: 116, y: 116))
+        XCTAssertEqual(viewModel.selectedItemID, copy)
+        XCTAssertGreaterThan(viewModel.item(copy!)!.zIndex, viewModel.item(original)!.zIndex)
+    }
+
+    func testDeleteRemovesAndUndoRestores() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addText("keep me", at: .zero)
+        viewModel.select(id)
+        viewModel.delete(itemID: id)
+        XCTAssertTrue(viewModel.items.isEmpty)
+        XCTAssertNil(viewModel.selectedItemID)
+
+        viewModel.undo()
+        XCTAssertEqual(viewModel.items.count, 1)
+        XCTAssertEqual(viewModel.item(id)?.id, id)
+    }
+
+    func testUndoStepsBackOneGestureNotOneTick() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addText("dragged", at: CGPoint(x: 10, y: 10))
+        viewModel.beginChange()
+        viewModel.move(itemID: id, to: CGPoint(x: 50, y: 50))
+        viewModel.move(itemID: id, to: CGPoint(x: 90, y: 90))
+        viewModel.move(itemID: id, to: CGPoint(x: 130, y: 130))
+        viewModel.undo()
+        XCTAssertEqual(viewModel.item(id)?.position, CGPoint(x: 10, y: 10))
+    }
+
+    func testResizeClampsToMinimum() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addText("tiny", at: .zero)
+        viewModel.resize(itemID: id, to: CGSize(width: 2, height: 2))
+        XCTAssertEqual(viewModel.item(id)?.size, CGSize(width: 44, height: 36))
+    }
+
+    func testLayerOrderOperations() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let first = viewModel.addText("a", at: .zero)
+        let second = viewModel.addText("b", at: .zero)
+        viewModel.sendToBack(itemID: second)
+        XCTAssertEqual(viewModel.orderedItems.first?.id, second)
+        viewModel.bringToFront(itemID: second)
+        XCTAssertEqual(viewModel.orderedItems.last?.id, second)
+        XCTAssertEqual(viewModel.orderedItems.first?.id, first)
+    }
+
+    func testSoundNoteEditAndTextEdits() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let soundID = viewModel.addSound(SoundClip(duration: 8, note: ""), at: .zero)
+        viewModel.setSoundNote(itemID: soundID, to: "noodle shop")
+        guard case .sound(let clip)? = viewModel.item(soundID)?.content else {
+            return XCTFail("expected sound content")
+        }
+        XCTAssertEqual(clip.note, "noodle shop")
+
+        let textID = viewModel.addText("draft", at: .zero)
+        viewModel.startEditingText(textID)
+        XCTAssertEqual(viewModel.editingTextItemID, textID)
+        viewModel.setText(itemID: textID, to: "draft, polished by hand")
+        viewModel.setTextPointSize(itemID: textID, to: 28)
+        viewModel.endEditingText()
+        guard case .text(let block)? = viewModel.item(textID)?.content else {
+            return XCTFail("expected text content")
+        }
+        XCTAssertEqual(block.text, "draft, polished by hand")
+        XCTAssertEqual(block.pointSize, 28)
+    }
+
+    func testContentBottomTracksLowestElement() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        XCTAssertEqual(viewModel.contentBottom, 0)
+        viewModel.addText("low", at: CGPoint(x: 0, y: 900), size: CGSize(width: 100, height: 100))
+        XCTAssertEqual(viewModel.contentBottom, 950)
+    }
+
+    func testSelectingAnotherItemEndsTextEditing() {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let textID = viewModel.addText("editing", at: .zero)
+        let otherID = viewModel.addText("other", at: .zero)
+        viewModel.startEditingText(textID)
+        viewModel.select(otherID)
+        XCTAssertNil(viewModel.editingTextItemID)
+        XCTAssertEqual(viewModel.selectedItemID, otherID)
+    }
+}
+
+final class CanvasItemCodableTests: XCTestCase {
+    func testMemoryItemsSurviveEncodeDecode() throws {
+        let items: [CanvasItem] = [
+            CanvasItem(
+                content: .text(TextBlock(text: "title", pointSize: 30, colorName: "ink")),
+                position: CGPoint(x: 118, y: 46),
+                size: CGSize(width: 200, height: 76),
+                rotation: -4,
+                zIndex: 7
+            ),
+            CanvasItem(content: .image(ImageRef(displayName: "roses")), position: CGPoint(x: 60, y: 200)),
+            CanvasItem(
+                content: .sticker(GeneratedSticker(prompt: "cup", symbolName: "cup.and.saucer.fill")),
+                position: .zero
+            ),
+            CanvasItem(
+                content: .sound(SoundClip(duration: 12.5, note: "noodle shop", fileName: "a.m4a")),
+                position: .zero
+            )
+        ]
+        let memory = Memory(title: "Lunch by the river", items: items)
+        let data = try JSONEncoder().encode(memory)
+        let decoded = try JSONDecoder().decode(Memory.self, from: data)
+        XCTAssertEqual(decoded.items, items)
+        XCTAssertEqual(decoded, memory)
+    }
+
+    func testLegacyMemoryWithoutItemsDecodesEmpty() throws {
+        let legacy = Data("""
+        {"id":"\(UUID().uuidString)","title":"old","createdAt":700000000}
+        """.utf8)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let decoded = try decoder.decode(Memory.self, from: legacy)
+        XCTAssertEqual(decoded.items, [])
+    }
+}
+
+final class SoundFileStoreTests: XCTestCase {
+    func testSaveRoundTripAndDelete() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sound-store-test-\(UUID().uuidString)")
+        let store = SoundFileStore(directory: dir)
+        let id = UUID()
+
+        let fileName = try store.save(Data("audio-bytes".utf8), id: id)
+        XCTAssertTrue(store.exists(fileName: fileName))
+        XCTAssertEqual(try Data(contentsOf: store.url(forFileName: fileName)), Data("audio-bytes".utf8))
+
+        store.delete(fileName: fileName)
+        XCTAssertFalse(store.exists(fileName: fileName))
+        try? FileManager.default.removeItem(at: dir)
+    }
 }
 
 @MainActor
