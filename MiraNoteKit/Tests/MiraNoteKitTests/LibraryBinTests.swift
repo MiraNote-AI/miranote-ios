@@ -97,6 +97,27 @@ final class LibraryBinTests: XCTestCase {
         XCTAssertEqual(hits.count, 2)
     }
 
+    func testLibrarySearchTitleHitOutranksManyBodyHits() {
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [
+                Memory(title: "Paris lunch", body: "a bistro"),
+                Memory(title: "Random day", body: "paris paris lunch lunch we kept saying paris lunch")
+            ])
+        ])
+        let hits = LibrarySearch.find("paris lunch", in: library)
+        XCTAssertEqual(hits.first?.memory.title, "Paris lunch", "a title hit is a rule, not a weight")
+    }
+
+    func testLibrarySearchKeepsSingleCJKCharacters() {
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [
+                Memory(title: "Tea afternoon", body: "\u{8336} with grandmother")
+            ])
+        ])
+        let hits = LibrarySearch.find("\u{8336}", in: library)
+        XCTAssertEqual(hits.count, 1, "a single CJK character is a whole word and must match")
+    }
+
     func testLegacyMemoryDateDefaultsToCreatedAt() throws {
         let created = Date(timeIntervalSince1970: 700_000_000)
         let legacy = Data("""
