@@ -46,6 +46,30 @@ final class LiveChatServiceTests: XCTestCase {
         XCTAssertEqual(sent["session_id"] as? String, "s1")
     }
 
+    func testParsesCreateNoteDraftFromToolTrace() async throws {
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let json = #"""
+            {"session_id":"s1","reply":"Draft ready.","tool_trace":[
+                {"name":"find_quote","args":{"max":3},"result_preview":"[]"},
+                {"name":"create_note","args":{"title":"Noodle night","body":"Warm broth."},"result_preview":"{}"}
+            ]}
+            """#
+            return (response, Data(json.utf8))
+        }
+        let result = try await service().reply(to: "note this down", sessionID: nil)
+        XCTAssertEqual(result.pageDraft, ChatPageDraft(title: "Noodle night", body: "Warm broth."))
+    }
+
+    func testNoDraftWhenNoCreateNoteInTrace() async throws {
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"{"session_id":"s1","reply":"Hi.","tool_trace":[]}"#.utf8))
+        }
+        let result = try await service().reply(to: "hi", sessionID: nil)
+        XCTAssertNil(result.pageDraft)
+    }
+
     func testServerErrorPropagatesAsBackendError() async {
         StubURLProtocol.handler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 502, httpVersion: nil, headerFields: nil)!

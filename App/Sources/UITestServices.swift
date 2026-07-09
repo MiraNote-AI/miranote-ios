@@ -26,6 +26,13 @@ struct UITestScriptedChat: ChatService {
         if lowered.contains("slowly") {
             try await Task.sleep(for: .seconds(8))
         }
+        if lowered.contains("draft") {
+            return ChatReply(
+                text: "Your draft is ready.",
+                sessionID: "ui-test",
+                pageDraft: ChatPageDraft(title: "Drafted by Mira", body: "warm broth, golden light")
+            )
+        }
         return ChatReply(text: "A scripted reply for UI tests.", sessionID: "ui-test")
     }
 }

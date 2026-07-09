@@ -10,11 +10,27 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public let id: UUID
     public var role: Role
     public var text: String
+    /// A page the companion drafted during this turn, if any -- rendered
+    /// as an openable card under the bubble.
+    public var pageDraft: ChatPageDraft?
 
-    public init(id: UUID = UUID(), role: Role, text: String) {
+    public init(id: UUID = UUID(), role: Role, text: String, pageDraft: ChatPageDraft? = nil) {
         self.id = id
         self.role = role
         self.text = text
+        self.pageDraft = pageDraft
+    }
+}
+
+/// A page the companion drafted from the conversation. The app opens it
+/// in the editor for the user to shape -- nothing files automatically.
+public struct ChatPageDraft: Codable, Equatable, Sendable {
+    public let title: String
+    public let body: String
+
+    public init(title: String, body: String) {
+        self.title = title
+        self.body = body
     }
 }
 
@@ -24,10 +40,12 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
 public struct ChatReply: Sendable {
     public let text: String
     public let sessionID: String?
+    public let pageDraft: ChatPageDraft?
 
-    public init(text: String, sessionID: String?) {
+    public init(text: String, sessionID: String?, pageDraft: ChatPageDraft? = nil) {
         self.text = text
         self.sessionID = sessionID
+        self.pageDraft = pageDraft
     }
 }
 
@@ -101,6 +119,13 @@ public struct MockChatService: ChatService {
     public func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
         try await Task.sleep(for: .milliseconds(500))
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.lowercased().contains("note") || trimmed.lowercased().contains("draft") {
+            return ChatReply(
+                text: "I sketched a little page from that -- open it to shape it.",
+                sessionID: sessionID ?? "mock-session",
+                pageDraft: ChatPageDraft(title: "A small draft", body: trimmed)
+            )
+        }
         let text: String
         if isAffirmative(trimmed) {
             text = "Lovely. I can set the scene, warm the photo with a film filter, "

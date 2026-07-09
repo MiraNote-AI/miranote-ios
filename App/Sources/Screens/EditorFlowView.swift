@@ -163,12 +163,15 @@ struct HomeFlow: View {
         case editor
         case editMemory(Memory)
         case chat(String)
+        /// A page Mira drafted in chat, opening in the editor as a new note.
+        case draft(Memory)
 
         var id: String {
             switch self {
             case .editor: return "editor"
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
+            case .draft(let memory): return "draft-\(memory.id.uuidString)"
             }
         }
     }
@@ -225,7 +228,7 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
-            case .editMemory(let memory):
+            case .editMemory(let memory), .draft(let memory):
                 EditorFlowView(
                     memory: memory,
                     onExit: { route = nil },
@@ -237,8 +240,10 @@ struct HomeFlow: View {
                     services: Self.editorServices(base: services)
                 )
             case .chat(let seed):
+                // Same swap as the editor: -UITEST talks to the scripted
+                // chat so replies (and drafts) are deterministic.
                 MiraChatView(
-                    service: services.chat,
+                    service: Self.editorServices(base: services).chat,
                     seed: seed,
                     onExit: { route = nil },
                     onNewMemory: {
@@ -252,6 +257,14 @@ struct HomeFlow: View {
                         Task { @MainActor in
                             try? await Task.sleep(for: .milliseconds(300))
                             path.append(NoteRef(collectionID: hit.collectionID, noteID: hit.memory.id))
+                        }
+                    },
+                    onOpenDraft: { draft in
+                        route = nil
+                        // Same dance: swap covers only after this one is gone.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(300))
+                            route = .draft(Memory(title: draft.title, body: draft.body))
                         }
                     }
                 )

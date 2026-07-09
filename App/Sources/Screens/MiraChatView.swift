@@ -12,6 +12,8 @@ struct MiraChatView: View {
     /// tappable covers under it.
     var findPages: (String) -> [PageHit] = { _ in [] }
     var onOpenPage: (PageHit) -> Void = { _ in }
+    /// Mira drafted a page from the conversation; open it in the editor.
+    var onOpenDraft: (ChatPageDraft) -> Void = { _ in }
 
     @State private var viewModel: ChatViewModel
     @State private var hits: [ChatMessage.ID: [PageHit]] = [:]
@@ -22,7 +24,8 @@ struct MiraChatView: View {
         onExit: @escaping () -> Void = {},
         onNewMemory: @escaping () -> Void = {},
         findPages: @escaping (String) -> [PageHit] = { _ in [] },
-        onOpenPage: @escaping (PageHit) -> Void = { _ in }
+        onOpenPage: @escaping (PageHit) -> Void = { _ in },
+        onOpenDraft: @escaping (ChatPageDraft) -> Void = { _ in }
     ) {
         // Each outgoing message carries the pages that match it, so the
         // companion answers from the user's own notes (journal mode).
@@ -37,6 +40,7 @@ struct MiraChatView: View {
         self.onNewMemory = onNewMemory
         self.findPages = findPages
         self.onOpenPage = onOpenPage
+        self.onOpenDraft = onOpenDraft
     }
 
     var body: some View {
@@ -86,6 +90,9 @@ struct MiraChatView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(viewModel.messages) { message in
                         bubble(message).id(message.id)
+                        if let draft = message.pageDraft {
+                            draftCard(draft)
+                        }
                         if let pageHits = hits[message.id], !pageHits.isEmpty {
                             hitsRow(pageHits)
                         }
@@ -140,6 +147,45 @@ struct MiraChatView: View {
                 }
             }
         }
+    }
+
+    /// The drafted page, one tap from the editor ("AI offers, the human
+    /// shapes" -- nothing files until the user says Done there).
+    private func draftCard(_ draft: ChatPageDraft) -> some View {
+        Button {
+            onOpenDraft(draft)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Palette.forest)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(draft.title.isEmpty ? "New page" : draft.title)
+                        .font(.miraCardTitle)
+                        .foregroundStyle(Palette.ink)
+                        .lineLimit(1)
+                    Text("Draft ready -- open to shape it")
+                        .font(.miraCaption)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Palette.onInk)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
+                    )
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("chat.draft.open")
     }
 
     private func scrollToEnd(_ proxy: ScrollViewProxy) {

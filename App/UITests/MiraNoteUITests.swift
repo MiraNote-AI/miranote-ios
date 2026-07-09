@@ -155,6 +155,28 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["note.a quiet morning"].waitForExistence(timeout: 5))
     }
 
+    // Mira can draft a page from the conversation: the card opens the
+    // editor with the drafted words on the canvas; Done files it.
+    func testChatDraftOpensEditorAndFiles() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("draft me a noodle page")
+        app.buttons["quick.send"].tap()
+
+        let draftCard = app.buttons["chat.draft.open"]
+        XCTAssertTrue(draftCard.waitForExistence(timeout: 5))
+        draftCard.tap()
+
+        XCTAssertTrue(app.staticTexts["Drafted by Mira"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+
+        let dailyLog = app.buttons["collection.Daily Log"]
+        XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
+        dailyLog.tap()
+        XCTAssertTrue(app.buttons["note.Drafted by Mira"].waitForExistence(timeout: 5))
+    }
+
     // "Start a memory" opens a BLANK canvas (v2.1) with the teaching line
     // and the instrument panel.
     func testStartOpensBlankCanvas() {

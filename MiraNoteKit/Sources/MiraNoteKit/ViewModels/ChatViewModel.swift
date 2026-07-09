@@ -56,7 +56,11 @@ public final class ChatViewModel {
                 notes: notesForMessage(trimmed)
             )
             sessionID = reply.sessionID
-            messages.append(ChatMessage(role: .assistant, text: reply.text))
+            messages.append(ChatMessage(
+                role: .assistant,
+                text: reply.text,
+                pageDraft: reply.pageDraft
+            ))
         } catch {
             let detail = (error as? LocalizedError)?.errorDescription
                 ?? "Something went wrong. Try again in a moment."
