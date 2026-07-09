@@ -269,11 +269,13 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(untouched.materializedForEditing().items, untouched.items)
     }
 
-    func testReceiptStaysLongEnoughToActuallyRevert() {
-        XCTAssertEqual(
-            MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(20),
-            "5s made Revert a reflex test; the receipt must outlive a careful read"
-        )
+    func testReceiptKeepsByItselfAfterItsWindow() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator(receiptDismiss: .milliseconds(120))
+        coordinator.ask("polish the text", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+        await waitUntil(.seconds(2)) { if case .idle = coordinator.phase { return true } else { return false } }
+        guard case .idle = coordinator.phase else { return XCTFail("receipt must keep by itself") }
     }
 
     func testSuggestionsAreContextAware() {

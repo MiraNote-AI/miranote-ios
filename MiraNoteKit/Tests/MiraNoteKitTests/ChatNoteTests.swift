@@ -19,6 +19,13 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(note.date, "2026-06-30")
     }
 
+    func testReceiptDefaultOutlivesACarefulRead() {
+        XCTAssertEqual(
+            MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(20),
+            "5s made Revert a reflex test; the receipt must outlive a careful read"
+        )
+    }
+
     func testMaterializedDraftBodyHugsTheTitle() {
         let draft = Memory(title: "Drafted by Mira", body: "warm broth").materializedForEditing()
         XCTAssertEqual(draft.items.count, 2)

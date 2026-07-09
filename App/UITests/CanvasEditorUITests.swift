@@ -67,16 +67,21 @@ final class CanvasEditorUITests: XCTestCase {
     // The Image tool still opens its panel (contents are Phase D work).
     func testImageToolOpensPanel() {
         app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        addTextBlock("panel shows my page")
 
         app.buttons["mode.image"].tap()
         XCTAssertTrue(app.staticTexts["Add an image"].waitForExistence(timeout: 5))
 
-        // The page preview above the panel is the USER's page (blank
-        // here), never the old catalog demo page.
+        // The page preview above the panel is the USER's live page --
+        // their words appear, the old catalog demo page does not.
+        XCTAssertTrue(
+            app.staticTexts["panel shows my page"].waitForExistence(timeout: 3),
+            "image panel renders the live canvas"
+        )
         XCTAssertFalse(
             app.staticTexts["Lunch by the river"].exists,
-            "image panel must render the live canvas, not demo content"
+            "and never the demo content"
         )
     }
 

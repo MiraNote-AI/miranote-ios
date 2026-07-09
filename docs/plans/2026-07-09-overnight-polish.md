@@ -125,3 +125,56 @@ mismatches, fix them carefully step by step. Results reviewed 09:00.
    visuals (canvas elements expose no ids -- proposal below), photo
    edit panel, export advanced row, sticker generate flow, welcome
    page.
+
+4. Verify record for iteration 3 (the round that shipped F6-F8): lint
+   0; Kit 109; full suite on shadow sim 22 tests 0 failures, TEST
+   SUCCEEDED (task bqrswhwlg, finished ~09:37) -- ran BEFORE commit
+   8799609 but was recorded here only afterwards; noted per the
+   maker-checker's call-out.
+
+5. Fresh-context review (contract gate) returned NOT DONE with fair
+   findings: caption-date and photo-glyph fixes carried no test lock;
+   the receipt lock pinned the constant but not the behavior; the
+   image-panel lock was absence-only; the draft-open re-measure had no
+   end-to-end lock; the ledger was missing iteration 3's verify record
+   and the promised proposals section. All addressed:
+   - UITest: collection grid asserts the "June 21" date caption AND the
+     image.placeholder glyph (Foundations glyph gained an a11y id).
+   - UITest: image panel positively asserts the user's own words render
+     in the preview (demo absence kept as the regression guard).
+   - UITest: the opened chat draft asserts body sits within 60pt of the
+     title (locks chaining + open-re-measure end to end).
+   - Kit: behavioral auto-keep test (120ms injected window -> idle);
+     the 20s default pin moved to ChatNoteTests.
+   Final verify (this round): recorded below after the clean run.
+
+## Proposals for Meng (not implemented -- decisions, not defects)
+
+- P1 Canvas elements expose no per-item accessibility ids, so neither
+  probes nor tests can address "the second text block" directly; the
+  long-press menu therefore has no UI-level lock. Proposal: stable
+  "canvas.item.<zIndex-or-uuid>" ids on CanvasElementView.
+- P2 Sticker favorites persist across -UITEST runs on a shared
+  simulator (mock stickers accumulate in the panel's MY STICKERS row).
+  Proposal: in-memory favorites store under -UITEST, mirroring the
+  in-memory collection store.
+- P3 Unprobed areas left for daylight: drag/resize handle visuals,
+  long-press menu visuals, photo edit panel treatments, export
+  Advanced row, sticker Generate flow end-to-end, the welcome page.
+- P4 The accordion keeps its row open after picking a size (Back to
+  switch rows). Judged fine (size comparison is real); flagging only
+  because a probe tripped on it.
+
+6. Final verify (clean, after review-driven locks): swiftlint 0 from
+   repo root; Kit 110 pass; full suite on shadow sim 22 tests 0
+   failures, TEST SUCCEEDED. Installed to the main simulator. (One
+   more process slip on the way: the first attempt to append this very
+   entry ran from a drifted working directory, failed, and the commit
+   chain ran anyway -- caught immediately, amended; same lesson as the
+   flow-v2 ledger: verification/bookkeeping and commits must not share
+   an unconditional chain.)
+
+TERMINAL STATE: SUCCESS per contract -- all criteria met or explicitly
+HUMAN-flagged; review findings addressed; budget overrun recorded.
+PR deferred (standing deviation: gh external writes denied; branch
+feat/ios-flow-v2 awaits Meng's word).

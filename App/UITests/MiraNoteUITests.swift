@@ -102,6 +102,15 @@ final class MiraNoteUITests: XCTestCase {
         app.buttons["collection.Daily Log"].tap()
         let cover = app.buttons["note.Lunch by the river"]
         XCTAssertTrue(cover.waitForExistence(timeout: 5))
+
+        // Cover captions carry the page DATE (the cover already says the
+        // title), and a missing photo shows its placeholder glyph.
+        XCTAssertTrue(app.staticTexts["June 21"].exists, "grid caption is the page date")
+        XCTAssertTrue(
+            app.images["image.placeholder"].firstMatch.exists,
+            "a missing photo reads as a photo slot, not a bare block"
+        )
+
         cover.tap()
 
         let share = app.buttons["reading.share"]
@@ -150,6 +159,16 @@ final class MiraNoteUITests: XCTestCase {
         draftCard.tap()
 
         XCTAssertTrue(app.staticTexts["Drafted by Mira"].waitForExistence(timeout: 5))
+
+        // The drafted page opens as one composition: body right under the
+        // title (chained materialization + re-measure on open).
+        let bodyText = app.staticTexts["warm broth, golden light"]
+        XCTAssertTrue(bodyText.waitForExistence(timeout: 3))
+        XCTAssertLessThan(
+            bodyText.frame.minY - app.staticTexts["Drafted by Mira"].frame.maxY, 60,
+            "title and body must not drift apart into islands"
+        )
+
         app.buttons["Done"].tap()
 
         let dailyLog = app.buttons["collection.Daily Log"]

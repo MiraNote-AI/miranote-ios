@@ -63,6 +63,7 @@ struct GradientPlaceholder: View {
                         .font(.system(size: max(12, min(26, side * 0.2)), weight: .light))
                         .foregroundStyle(Palette.taupe.opacity(0.45))
                         .frame(width: proxy.size.width, height: proxy.size.height)
+                        .accessibilityIdentifier("image.placeholder")
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: corner))
