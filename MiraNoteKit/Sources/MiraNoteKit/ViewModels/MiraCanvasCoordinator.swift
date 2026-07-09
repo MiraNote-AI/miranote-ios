@@ -64,7 +64,7 @@ public final class MiraCanvasCoordinator {
     /// itself. One line plus an inline Revert reads in a few seconds,
     /// and the header undo still covers regrets after auto-keep -- so
     /// short wins (Meng tuned this twice: 20s and 10s both felt long).
-    public static let defaultReceiptDismiss: Duration = .seconds(6)
+    public nonisolated static let defaultReceiptDismiss: Duration = .seconds(6)
 
     private let workingDelay: Duration
     private let timeout: Duration
@@ -261,6 +261,15 @@ public final class MiraCanvasCoordinator {
                 at: CGPoint(x: 150, y: titleY),
                 pointSize: 30,
                 size: CGSize(width: 270, height: 60)
+            )
+            showReceipt(receipt, editor: editor)
+        case .textAdded(let words, let receipt):
+            // A caption reads under the page's content, not on top of it.
+            editor.addText(
+                words,
+                at: CGPoint(x: 180, y: editor.contentBottom + 60),
+                pointSize: 15,
+                size: CGSize(width: 320, height: 60)
             )
             showReceipt(receipt, editor: editor)
         case .organized(let receipt):

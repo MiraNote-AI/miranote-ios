@@ -247,6 +247,10 @@ extension PhotoEditPanel {
                 editor.replaceImageFile(itemID: itemID, fileName: fileName)
                 aiInstruction = ""
                 notice = "Done -- take a look. Undo brings the old one back."
+                // New pixels, new sentence: refresh the vision summary.
+                if let summary = try? await studio.describe(image: edited) {
+                    editor.setImageSummary(itemID: itemID, to: summary)
+                }
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? "That didn't work this time. Try again?"

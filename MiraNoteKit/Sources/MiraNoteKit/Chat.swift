@@ -79,8 +79,11 @@ public extension ChatNote {
             case .sticker(let sticker):
                 if !sticker.prompt.isEmpty { parts.append("(sticker) " + sticker.prompt) }
             case .image(let ref):
-                // Pixels do not travel; the page at least says one is here.
-                parts.append("(photo) " + (ref.displayName.isEmpty ? "a photo" : ref.displayName))
+                // Vision described it at import; fall back to the name.
+                let seen = ref.summary.isEmpty
+                    ? (ref.displayName.isEmpty ? "a photo" : ref.displayName)
+                    : ref.summary
+                parts.append("(photo) " + seen)
             }
         }
         self.init(

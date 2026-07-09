@@ -416,3 +416,23 @@ feat/ios-flow-v2 awaits Meng's word).
     page. Live three-turn run: turn two correctly recalls turn one.
     api 93; Kit 115. VERIFY (clean): swiftlint 0; xcodebuild test 23
     tests 0 failures, TEST SUCCEEDED. Installed.
+
+25. Photos become visible to the AI (Meng: "try it yourself -- upload
+    a photo, ask the AI to write about it; it says it cannot see").
+    True, and now fixed at the root: a /describe endpoint on :8002
+    (gemini flash vision, one warm sentence) runs once per photo at
+    import (and after AI edits), the sentence persists on ImageRef
+    .summary (Codable-compatible), and the page note sends "(photo)
+    <sentence>" -- chat, titles, and captions all see what vision saw,
+    with zero latency at chat time. New addCaption intent ("caption",
+    "write something", pei-wen via unicode escape) asks the backend
+    for one or two warm sentences about the page and lands them as a
+    text block under the content with the standard receipt
+    (MiraOutcome.textAdded). Verified live with Meng's own flower
+    photo: describe -> "A joyful tapestry of ... ice plant flowers",
+    caption -> "nature's way of shouting I love you right back".
+    perform() split into helpers for the function-length cap; the
+    receipt constant went nonisolated (Swift 6 warning). api: /describe
+    endpoint. Kit 117 (+2: summary preference, caption landing); UI 23.
+    VERIFY (clean): swiftlint 0; xcodebuild test TEST SUCCEEDED.
+    Installed.

@@ -47,4 +47,29 @@ final class MiraPageIntentTests: XCTestCase {
             "the title comes from the AI reply (cleaned), not a placeholder"
         )
     }
+
+    func testCaptionAsksTheAIAndLandsUnderTheContent() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator()
+        let bottomBefore = editor.contentBottom
+
+        coordinator.ask("write something about this photo, a caption", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+
+        guard case .receipt(let receipt) = coordinator.phase else { return XCTFail("expected receipt") }
+        XCTAssertEqual(receipt.changed, "Added a few words.")
+        let texts = editor.items.compactMap { item -> String? in
+            if case .text(let block) = item.content { return block.text }
+            return nil
+        }
+        XCTAssertTrue(texts.contains("Scripted reply."), "the caption is the AI reply")
+        let added = editor.items.first { item in
+            if case .text(let block) = item.content { return block.text == "Scripted reply." }
+            return false
+        }
+        XCTAssertGreaterThan(
+            (added?.position.y ?? 0), bottomBefore,
+            "captions read under the page content"
+        )
+    }
 }

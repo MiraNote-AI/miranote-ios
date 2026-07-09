@@ -15,6 +15,7 @@ struct MiraClarifyError: Error {
 enum MiraOutcome: Sendable {
     case textChanged(CanvasItem.ID, String, MiraReceipt)
     case titleAdded(String, MiraReceipt)
+    case textAdded(String, MiraReceipt)
     case organized(MiraReceipt)
     case reply(String, sessionID: String?)
 }
@@ -25,6 +26,8 @@ enum MiraIntent {
     case transformText(CanvasItem.ID, original: String, TextTransformMode)
     /// AI-driven: the page rides along; the model reads it and titles it.
     case addTitle(pageNotes: [ChatNote])
+    /// AI-driven: a few warm sentences about the page (its photo included).
+    case addCaption(pageNotes: [ChatNote])
     case organize
     /// Free conversation, grounded in the page being edited (sent as a
     /// journal-mode note so Mira knows what it is standing on).
@@ -71,6 +74,11 @@ enum MiraIntent {
         if lowered.contains("title") {
             return .addTitle(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
+        // "\u{914D}\u{6587}" is Chinese for caption (source stays ASCII).
+        if lowered.contains("caption") || lowered.contains("add a few words")
+            || lowered.contains("write something") || lowered.contains("\u{914D}\u{6587}") {
+            return .addCaption(pageNotes: [ChatNote(page: editor.composedMemory())])
+        }
         if lowered.contains("tidy") || lowered.contains("layout")
             || lowered.contains("organize") || lowered.contains("arrange") {
             return .organize
@@ -84,6 +92,7 @@ enum MiraIntent {
         case .transformText(_, _, .expand): return "Expanding the text..."
         case .transformText(_, _, .clean): return "Tightening the text..."
         case .addTitle: return "Adding a title..."
+        case .addCaption: return "Writing a few words..."
         case .organize: return "Tidying the layout..."
         case .converse: return "Thinking..."
         case .clarifyNoText: return "Thinking..."
@@ -114,17 +123,9 @@ enum MiraIntent {
                 kept: "Layout, photos, and everything else stayed put."
             ))
         case .addTitle(let pageNotes):
-            let reply = try await chat.reply(
-                to: "Give this page a short, soft title: five words or fewer, "
-                    + "warm and concrete. Answer with the title only.",
-                sessionID: nil,
-                notes: pageNotes
-            )
-            let title = MiraIntent.cleanTitle(reply.text)
-            return .titleAdded(title.isEmpty ? "A quiet moment" : title, MiraReceipt(
-                changed: "Added a soft title.",
-                kept: "Your words and photos are unchanged."
-            ))
+            return try await Self.performAddTitle(chat: chat, pageNotes: pageNotes)
+        case .addCaption(let pageNotes):
+            return try await Self.performAddCaption(chat: chat, pageNotes: pageNotes)
         case .organize:
             return .organized(MiraReceipt(
                 changed: "Tidied the layout.",
@@ -139,6 +140,41 @@ enum MiraIntent {
                 chips: ["Add a soft title"]
             )
         }
+    }
+
+    private static func performAddTitle(chat: ChatService, pageNotes: [ChatNote]) async throws -> MiraOutcome {
+        let reply = try await chat.reply(
+            to: "Give this page a short, soft title: five words or fewer, "
+                + "warm and concrete. Answer with the title only.",
+            sessionID: nil,
+            notes: pageNotes
+        )
+        let title = MiraIntent.cleanTitle(reply.text)
+        return .titleAdded(title.isEmpty ? "A quiet moment" : title, MiraReceipt(
+            changed: "Added a soft title.",
+            kept: "Your words and photos are unchanged."
+        ))
+    }
+
+    private static func performAddCaption(chat: ChatService, pageNotes: [ChatNote]) async throws -> MiraOutcome {
+        let reply = try await chat.reply(
+            to: "Write one or two warm sentences for this page -- about "
+                + "its photo if it has one. Answer with the sentences only, "
+                + "in the language the page is written in.",
+            sessionID: nil,
+            notes: pageNotes
+        )
+        let words = reply.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else {
+            throw MiraClarifyError(
+                question: "I could not find words for this page -- try again?",
+                chips: ["Try again"]
+            )
+        }
+        return .textAdded(words, MiraReceipt(
+            changed: "Added a few words.",
+            kept: "Everything else stayed put."
+        ))
     }
 
     /// LLM replies arrive with quotes, trailing periods, or a chatty

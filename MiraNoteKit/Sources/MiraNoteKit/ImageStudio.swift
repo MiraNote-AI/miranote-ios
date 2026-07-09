@@ -20,6 +20,8 @@ public protocol ImageStudioService: Sendable {
     func stylize(image: Data, instruction: String) async throws -> Data
     /// The white sticker outline around a cutout.
     func outline(image: Data) async throws -> Data
+    /// One warm sentence about the photo (vision) -- page context for chat.
+    func describe(image: Data) async throws -> String
 }
 
 /// Deterministic offline double: instant tiny PNGs, no network.
@@ -50,6 +52,11 @@ public struct MockImageStudioService: ImageStudioService {
     public func outline(image: Data) async throws -> Data {
         try await Task.sleep(for: .milliseconds(200))
         return Self.tinyPNG
+    }
+
+    public func describe(image: Data) async throws -> String {
+        try await Task.sleep(for: .milliseconds(80))
+        return "a warm little photo"
     }
 }
 
@@ -111,11 +118,33 @@ public struct LiveImageStudioService: ImageStudioService {
         )
     }
 
+    public func describe(image: Data) async throws -> String {
+        struct Response: Decodable {
+            let description: String
+        }
+        let data = try await upload(path: "describe", image: image, query: [])
+        guard let response = try? JSONDecoder().decode(Response.self, from: data),
+              !response.description.isEmpty else {
+            throw BackendError.decoding
+        }
+        return response.description
+    }
+
     /// POST one image file (multipart) with query params; decode `{image}`.
     private func uploadForImage(path: String, image: Data, query: [URLQueryItem]) async throws -> Data {
         struct Response: Decodable {
             let image: String
         }
+        let data = try await upload(path: path, image: image, query: query)
+        guard let response = try? JSONDecoder().decode(Response.self, from: data),
+              let decoded = Data(base64Encoded: response.image) else {
+            throw BackendError.decoding
+        }
+        return decoded
+    }
+
+    /// POST one image file (multipart); return the raw response body.
+    private func upload(path: String, image: Data, query: [URLQueryItem]) async throws -> Data {
         var components = URLComponents(
             url: baseURL.appendingPathComponent(path),
             resolvingAgainstBaseURL: false
@@ -140,11 +169,6 @@ public struct LiveImageStudioService: ImageStudioService {
             mimeType: "image/png",
             fileData: image
         )
-        let data = try await client.send(request)
-        guard let response = try? JSONDecoder().decode(Response.self, from: data),
-              let decoded = Data(base64Encoded: response.image) else {
-            throw BackendError.decoding
-        }
-        return decoded
+        return try await client.send(request)
     }
 }

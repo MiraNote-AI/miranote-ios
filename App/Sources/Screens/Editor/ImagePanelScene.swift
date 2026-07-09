@@ -328,8 +328,21 @@ extension ImagePanelScene {
             box = CGSize(width: 170, height: min(260, max(110, (170 * aspect).rounded())))
         }
         let position = CGPoint(x: 180 + sway, y: min(editor.contentBottom + 60 + box.height / 2, 4000))
-        editor.addImages([ImageRef(displayName: name, fileName: fileName)], around: position, size: box)
+        let ids = editor.addImages(
+            [ImageRef(displayName: name, fileName: fileName)], around: position, size: box
+        )
+        describeInBackground(itemID: ids.first, imageData: imageData)
         if returnToCanvas { actions.leading() }
+    }
+
+    /// Vision looks at the photo once, off the main path; the sentence
+    /// becomes page context so chat can "see" the picture. Best-effort.
+    private func describeInBackground(itemID: CanvasItem.ID?, imageData: Data) {
+        guard let itemID else { return }
+        Task {
+            guard let summary = try? await studio.describe(image: imageData) else { return }
+            editor.setImageSummary(itemID: itemID, to: summary)
+        }
     }
 
     private func pillLabel(_ text: String) -> some View {

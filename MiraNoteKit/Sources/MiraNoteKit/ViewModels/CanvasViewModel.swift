@@ -2,11 +2,9 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// The v2.1 canvas editor core: an element list with selection, geometry
-/// (move / resize / rotate), stacking order, duplication, deletion, and a
-/// snapshot undo stack. The view layer owns gestures; every mutation that a
-/// user would call "one change" is bracketed by `beginChange()` so a single
-/// undo steps back a whole gesture, not a drag tick.
+/// The v2.1 canvas editor core: elements, selection, geometry, stacking,
+/// and a snapshot undo stack. Views own gestures; whatever a user would
+/// call "one change" is bracketed by beginChange() -- one undo per gesture.
 @MainActor
 @Observable
 public final class CanvasViewModel {
@@ -18,8 +16,7 @@ public final class CanvasViewModel {
     /// The text element currently being edited in place, if any.
     public var editingTextItemID: CanvasItem.ID?
 
-    /// Bumps on every recorded mutation and undo -- observers can tell if
-    /// the canvas changed since a point in time (receipt honesty).
+    /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
 
     private var history: [[CanvasItem]] = []
@@ -31,7 +28,6 @@ public final class CanvasViewModel {
 
     public var items: [CanvasItem] { memory.items }
 
-    /// Items in stacking order (lowest z first -- painter's order).
     public var orderedItems: [CanvasItem] {
         memory.items.sorted { $0.zIndex < $1.zIndex }
     }
@@ -40,7 +36,6 @@ public final class CanvasViewModel {
         memory.items.first { $0.id == id }
     }
 
-    /// Bottom edge of the lowest element (the canvas grows to wrap it).
     public var contentBottom: CGFloat {
         memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
     }
@@ -49,7 +44,6 @@ public final class CanvasViewModel {
 
     public var canUndo: Bool { !history.isEmpty }
 
-    /// Snapshot items: once per discrete change or gesture START.
     public func beginChange() {
         changeCount += 1
         history.append(memory.items)
@@ -79,8 +73,8 @@ public final class CanvasViewModel {
         }
     }
 
-    /// Begin in-place text editing: one undo point per session unless the
-    /// caller recorded one (add-and-edit); re-entry never burns snapshots.
+    /// One undo point per editing session (or none if the caller made
+    /// one); re-entry never burns snapshots.
     public func startEditingText(_ id: CanvasItem.ID, recordingUndo: Bool = true) {
         guard editingTextItemID != id, case .text = item(id)?.content else { return }
         if recordingUndo { beginChange() }
@@ -112,18 +106,23 @@ public final class CanvasViewModel {
         return item.id
     }
 
+    @discardableResult
     public func addImages(_ images: [ImageRef], around position: CGPoint,
-                          size: CGSize = CGSize(width: 170, height: 150)) {
+                          size: CGSize = CGSize(width: 170, height: 150)) -> [CanvasItem.ID] {
         beginChange()
+        var ids: [CanvasItem.ID] = []
         for (offset, image) in images.enumerated() {
             let shifted = CGPoint(x: position.x + CGFloat(offset) * 24, y: position.y + CGFloat(offset) * 24)
-            memory.items.append(CanvasItem(
+            let item = CanvasItem(
                 content: .image(image),
                 position: shifted,
                 size: size,
                 zIndex: topZ + 1 + offset
-            ))
+            )
+            memory.items.append(item)
+            ids.append(item.id)
         }
+        return ids
     }
 
     public func addSticker(_ sticker: GeneratedSticker, at position: CGPoint) {
@@ -151,7 +150,6 @@ public final class CanvasViewModel {
 
     // MARK: Geometry (continuous -- caller brackets with beginChange())
 
-    /// Page width from the board, so moves stay reachable (height grows).
     public var canvasWidth: CGFloat?
 
     public func move(itemID: CanvasItem.ID, to position: CGPoint) {
@@ -172,8 +170,7 @@ public final class CanvasViewModel {
         )
     }
 
-    /// Measured text height, TOP edge anchored (grows under the caret).
-    /// Continuous like resize -- records no undo step.
+    /// Measured text height, TOP anchored; continuous, no undo step.
     public func autosizeTextHeight(itemID: CanvasItem.ID, to height: CGFloat) {
         guard let index = index(of: itemID),
               case .text = memory.items[index].content else { return }
@@ -218,6 +215,15 @@ extension CanvasViewModel {
         memory.items[index].content = .text(block)
     }
 
+    /// Vision metadata from import-time describe. Silent: no undo step,
+    /// no changeCount bump (receipts stay honest).
+    public func setImageSummary(itemID: CanvasItem.ID, to summary: String) {
+        guard let index = index(of: itemID),
+              case .image(var ref) = memory.items[index].content else { return }
+        ref.summary = summary
+        memory.items[index].content = .image(ref)
+    }
+
     public func setImageFilter(itemID: CanvasItem.ID, to filterName: String) {
         guard let index = index(of: itemID),
               case .image(var ref) = memory.items[index].content,
@@ -238,8 +244,7 @@ extension CanvasViewModel {
 
     /// "Make sticker": the photo element becomes a sticker in place (one
     /// undo step returns the photo).
-    /// AI photo edit lands here: new pixels in place. The old filter
-    /// clears (the AI result IS the look); the frame stays. One undo back.
+    /// AI edit: new pixels in place; stale filter clears; one undo back.
     public func replaceImageFile(itemID: CanvasItem.ID, fileName: String) {
         guard let index = index(of: itemID),
               case .image(var ref) = memory.items[index].content else { return }
@@ -325,10 +330,8 @@ extension CanvasViewModel {
         memory.savedAt = .now
     }
 
-    /// The memory as it should be filed on Done: the archive title follows
-    /// the most prominent text (largest point size, then topmost -- the
-    /// v2.1 "visual title is just a text element" rule), the body collects
-    /// all text in reading order, and savedAt is stamped.
+    /// Filed-on-Done shape: title = most prominent text (v2.1 "the visual
+    /// title IS a text element"), body = remaining text in reading order.
     public func composedMemory(defaultTitle: String = "New memory") -> Memory {
         var composed = memory
         let textBlocks: [(block: TextBlock, item: CanvasItem)] = memory.items.compactMap {
@@ -344,12 +347,10 @@ extension CanvasViewModel {
                 return lhs.item.position.y < rhs.item.position.y
             }
             .first
-        // A page with no text keeps its existing archive name and body --
-        // opening and closing the editor must never rename a page.
+        // No text: keep the archive name (open+close must never rename).
         let fallbackTitle = memory.title.isEmpty ? defaultTitle : memory.title
         composed.title = titleEntry.map { String($0.block.text.prefix(48)) } ?? fallbackTitle
-        // The title block is the name, not part of the prose -- exclude it
-        // from the body so open-and-Done never rewrites a page's body.
+        // The title block is the name, not prose -- keep it out of body.
         let bodyBlocks = textBlocks.filter { $0.item.id != titleEntry?.item.id }
         composed.body = textBlocks.isEmpty
             ? memory.body
@@ -361,9 +362,8 @@ extension CanvasViewModel {
         return composed
     }
 
-    /// "Tidy the layout": a calm single-column pass -- title first, then
-    /// top-to-bottom as they were; gaps come from REAL heights so nothing
-    /// overlaps; tilted things straighten. Deterministic on purpose.
+    /// Tidy: one calm column -- title first, then top-to-bottom; gaps
+    /// from REAL heights (no overlap); tilt resets. Deterministic.
     public func quickOrganize(canvasWidth: CGFloat, spacing: CGFloat = 24) {
         beginChange()
         func sortKey(_ item: CanvasItem) -> (Int, CGFloat) {

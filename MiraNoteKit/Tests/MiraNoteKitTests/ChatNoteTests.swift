@@ -29,6 +29,18 @@ final class ChatNoteTests: XCTestCase {
         )
     }
 
+    func testPageNotePrefersTheVisionSummary() {
+        let editor = CanvasViewModel(memory: Memory())
+        let ids = editor.addImages([ImageRef(displayName: "Library photo")], around: .zero)
+        editor.setImageSummary(itemID: ids[0], to: "a field of fuchsia ice plants in bloom")
+        let note = ChatNote(page: editor.composedMemory())
+        XCTAssertTrue(
+            note.body.contains("(photo) a field of fuchsia ice plants in bloom"),
+            "once vision has seen the photo, chat sees what vision saw"
+        )
+        XCTAssertFalse(editor.canUndo && note.body.isEmpty, "summary writes burn no undo step")
+    }
+
     func testReplyStepsAsideWhenTheCanvasChanges() async {
         let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
         let coordinator = MiraCanvasCoordinator(

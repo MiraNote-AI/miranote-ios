@@ -209,23 +209,28 @@ public struct ImageRef: Identifiable, Equatable, Sendable, Codable {
     public var fileName: String
     public var filterName: String
     public var frameName: String
+    /// One AI-written sentence about the photo (vision runs once at
+    /// import); this is how chat "sees" pictures.
+    public var summary: String
 
     public init(
         id: UUID = UUID(),
         displayName: String,
         fileName: String = "",
         filterName: String = "",
-        frameName: String = ""
+        frameName: String = "",
+        summary: String = ""
     ) {
         self.id = id
         self.displayName = displayName
         self.fileName = fileName
         self.filterName = filterName
         self.frameName = frameName
+        self.summary = summary
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, displayName, fileName, filterName, frameName
+        case id, displayName, fileName, filterName, frameName, summary
     }
 
     public init(from decoder: Decoder) throws {
@@ -235,7 +240,8 @@ public struct ImageRef: Identifiable, Equatable, Sendable, Codable {
             displayName: try container.decode(String.self, forKey: .displayName),
             fileName: try container.decodeIfPresent(String.self, forKey: .fileName) ?? "",
             filterName: try container.decodeIfPresent(String.self, forKey: .filterName) ?? "",
-            frameName: try container.decodeIfPresent(String.self, forKey: .frameName) ?? ""
+            frameName: try container.decodeIfPresent(String.self, forKey: .frameName) ?? "",
+            summary: try container.decodeIfPresent(String.self, forKey: .summary) ?? ""
         )
     }
 }
