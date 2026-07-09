@@ -34,16 +34,24 @@ struct Chip: View {
     var selected = false
     var fillWhenSelected = true
     var compact = false
+    /// Optional leading SF Symbol (e.g. sparkles on the AI action).
+    var systemImage: String?
 
     var body: some View {
-        Text(text)
-            .font(compact ? .system(size: 12, weight: .medium) : .miraChip)
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .foregroundStyle(selected && fillWhenSelected ? Palette.onInk : Palette.ink)
-            .padding(.horizontal, compact ? 12 : 15)
-            .padding(.vertical, compact ? 8 : 9)
-            .background(background)
+        HStack(spacing: 5) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: compact ? 10 : 12, weight: .medium))
+            }
+            Text(text)
+                .font(compact ? .system(size: 12, weight: .medium) : .miraChip)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .foregroundStyle(selected && fillWhenSelected ? Palette.onInk : Palette.ink)
+        .padding(.horizontal, compact ? 12 : 15)
+        .padding(.vertical, compact ? 8 : 9)
+        .background(background)
     }
 
     @ViewBuilder private var background: some View {

@@ -89,7 +89,7 @@ struct ImagePanelScene: View {
                     Button {
                         generateOpen.toggle()
                     } label: {
-                        Chip(text: "Generate", selected: generateOpen)
+                        Chip(text: "AI image", selected: generateOpen, systemImage: "sparkles")
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("image.source.generate")
@@ -165,6 +165,26 @@ extension ImagePanelScene {
     // MARK: Generate
 
     @ViewBuilder private var generateRows: some View {
+        // Style first, words second: these chips pick what KIND of picture
+        // the AI paints (sticker included, per v2.1), not a photo filter.
+        Text("STYLE")
+            .font(.system(size: 10, weight: .medium))
+            .kerning(1.4)
+            .foregroundStyle(Palette.textSecondary)
+
+        HStack(spacing: 8) {
+            ForEach(GenerateStyle.allCases) { choice in
+                Button {
+                    style = choice
+                } label: {
+                    Chip(text: choice.label, selected: style == choice, compact: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("image.style.\(choice.rawValue)")
+            }
+            Spacer()
+        }
+
         HStack(spacing: 8) {
             TextField("Describe the picture you want", text: $prompt)
                 .font(.miraBody)
@@ -187,19 +207,6 @@ extension ImagePanelScene {
             .buttonStyle(.plain)
             .disabled(generating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityIdentifier("image.generate.run")
-        }
-
-        HStack(spacing: 8) {
-            ForEach(GenerateStyle.allCases) { choice in
-                Button {
-                    style = choice
-                } label: {
-                    Chip(text: choice.label, selected: style == choice, compact: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("image.style.\(choice.rawValue)")
-            }
-            Spacer()
         }
 
         if !results.isEmpty {

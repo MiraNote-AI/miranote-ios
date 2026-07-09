@@ -262,3 +262,15 @@ feat/ios-flow-v2 awaits Meng's word).
     run unchanged. VERIFY (clean): swiftlint 0 (one whitespace nit
     fixed post-run); Kit 110; xcodebuild test 22 tests 0 failures,
     TEST SUCCEEDED. Installed.
+
+12. Generate section clarified (Meng, live testing: "Generate" says
+    nothing about AI, and the style pills read as photo filters). The
+    action is now "AI image" with a sparkles glyph (Chip gained an
+    optional leading SF Symbol); the style pills sit under a small
+    STYLE caption ABOVE the prompt -- pick what kind of picture the AI
+    paints (Photo / Illustration / Watercolor / Sticker, per the v2.1
+    sticker-as-a-style decision), then describe it. Accessibility ids
+    unchanged; the style-before-prompt order now matches how the
+    sticker UITest always drove it. VERIFY (clean): swiftlint 0; Kit
+    110; xcodebuild test 22 tests 0 failures, TEST SUCCEEDED.
+    Installed.
