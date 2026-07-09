@@ -144,9 +144,15 @@ struct ImagePanelScene: View {
 
     #if DEBUG
     /// -UITEST only: two canned images straight through the real pipeline.
+    /// The second is portrait so tests can lock aspect-true boxes and
+    /// overflow-free rendering.
     private func addSamplePhotos() {
         add(imageData: MockImageStudioService.tinyPNG, name: "Sample one", returnToCanvas: false)
-        add(imageData: MockImageStudioService.tinyPNG, name: "Sample two", returnToCanvas: false)
+        let tall = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 16)).pngData { context in
+            UIColor(red: 0.79, green: 0.70, blue: 0.58, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 16))
+        }
+        add(imageData: tall, name: "Sample two", returnToCanvas: false)
         actions.leading()
     }
     #endif
@@ -324,8 +330,15 @@ extension ImagePanelScene {
             if case .image = $0.content { return true } else { return false }
         }.count
         let sway: CGFloat = [-28, 0, 28][photoCount % 3]
-        let position = CGPoint(x: 180 + sway, y: min(editor.contentBottom + 100, 4000))
-        editor.addImages([ImageRef(displayName: name, fileName: fileName)], around: position)
+        // The box adopts the photo's aspect (within taste) so portrait
+        // shots arrive tall instead of center-cropped into a landscape.
+        var box = CGSize(width: 170, height: 150)
+        if let ui = UIImage(data: imageData), ui.size.width > 0 {
+            let aspect = ui.size.height / ui.size.width
+            box = CGSize(width: 170, height: min(260, max(110, (170 * aspect).rounded())))
+        }
+        let position = CGPoint(x: 180 + sway, y: min(editor.contentBottom + 60 + box.height / 2, 4000))
+        editor.addImages([ImageRef(displayName: name, fileName: fileName)], around: position, size: box)
         if returnToCanvas { actions.leading() }
     }
 

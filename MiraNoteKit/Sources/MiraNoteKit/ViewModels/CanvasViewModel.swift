@@ -117,14 +117,15 @@ public final class CanvasViewModel {
         return item.id
     }
 
-    public func addImages(_ images: [ImageRef], around position: CGPoint) {
+    public func addImages(_ images: [ImageRef], around position: CGPoint,
+                          size: CGSize = CGSize(width: 170, height: 150)) {
         beginChange()
         for (offset, image) in images.enumerated() {
             let shifted = CGPoint(x: position.x + CGFloat(offset) * 24, y: position.y + CGFloat(offset) * 24)
             memory.items.append(CanvasItem(
                 content: .image(image),
                 position: shifted,
-                size: CGSize(width: 170, height: 150),
+                size: size,
                 zIndex: topZ + 1 + offset
             ))
         }

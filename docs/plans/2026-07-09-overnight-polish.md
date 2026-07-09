@@ -233,3 +233,19 @@ feat/ios-flow-v2 awaits Meng's word).
    updated with the rationale. Design amendment recorded in project
    memory. VERIFY (clean): swiftlint 0; Kit 110; xcodebuild test 22
    tests 0 failures, TEST SUCCEEDED. Installed.
+
+10. Photo overflow (Meng, live testing: tidy "looked wrong" again --
+    the film showed the boxes chained correctly; the photo was painting
+    OUTSIDE its box). Root cause: scaledToFill without a pinned frame +
+    clipped() inflates the rendered image to its long side (the classic
+    SwiftUI fill trap), so a portrait photo in a 170x150 box painted
+    ~170x255 over its neighbors -- breaking tidy visually, selection
+    outlines, and reading/export too. Fixed in both render paths
+    (CanvasElementView + StaticElementView): fill -> frame(item.size)
+    -> clipped. Bonus: import now sizes the box to the photo's aspect
+    (170 wide, height 110-260) so portraits arrive tall instead of
+    center-cropped; addImages gained a size parameter; the second
+    -UITEST sample photo is portrait so the lock asserts an
+    aspect-true 260pt box that a leaking fill (~340) would fail.
+    VERIFY (clean): swiftlint 0; Kit 110; xcodebuild test 22 tests 0
+    failures, TEST SUCCEEDED. Installed.

@@ -38,9 +38,14 @@ struct CanvasElementView: View {
             store: imageStore
         ) {
             framed(ref.frameName) {
+                // Fill THEN pin to the element box and clip: without the
+                // explicit frame, scaledToFill inflates layout to the
+                // photo's long side and paints over neighbors.
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
+                    .frame(width: item.size.width, height: item.size.height)
+                    .clipped()
             }
         } else {
             GradientPlaceholder(tint: Self.tint(for: ref))

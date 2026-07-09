@@ -96,9 +96,13 @@ struct StaticElementView: View {
             if let image = CanvasImageCache.image(
                 fileName: ref.fileName, filterName: ref.filterName, store: imageStore
             ) {
+                // Same trap as the editor: fill must be pinned to the box
+                // and clipped, or portrait photos flood their neighbors.
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
+                    .frame(width: item.size.width, height: item.size.height)
+                    .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
             } else {
                 GradientPlaceholder(tint: Palette.tan)

@@ -261,6 +261,12 @@ final class CanvasEditorUITests: XCTestCase {
             "added photos stagger like a hand-placed stack"
         )
 
+        // The portrait sample gets an aspect-true box AND renders inside
+        // it: 8x16 -> 170-wide box capped at 260 tall. A fill that leaks
+        // its frame (the scaledToFill trap) would report ~340.
+        XCTAssertEqual(second.frame.height, 260, accuracy: 8,
+                       "portrait photos arrive tall and stay inside their box")
+
         photo.press(forDuration: 0.9)
 
         let edit = app.buttons["Edit photo"]
