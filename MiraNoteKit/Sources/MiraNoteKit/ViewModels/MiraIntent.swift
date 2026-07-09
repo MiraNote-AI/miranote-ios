@@ -25,7 +25,9 @@ enum MiraIntent {
     case transformText(CanvasItem.ID, original: String, TextTransformMode)
     case addTitle
     case organize
-    case converse(String)
+    /// Free conversation, grounded in the page being edited (sent as a
+    /// journal-mode note so Mira knows what it is standing on).
+    case converse(String, pageNotes: [ChatNote])
     case clarifyNoText
 
     @MainActor
@@ -72,7 +74,7 @@ enum MiraIntent {
             || lowered.contains("organize") || lowered.contains("arrange") {
             return .organize
         }
-        return .converse(prompt)
+        return .converse(prompt, pageNotes: [ChatNote(page: editor.composedMemory())])
     }
 
     var verb: String {
@@ -120,8 +122,8 @@ enum MiraIntent {
                 changed: "Tidied the layout.",
                 kept: "Your words and photos are unchanged."
             ))
-        case .converse(let prompt):
-            let reply = try await chat.reply(to: prompt, sessionID: sessionID)
+        case .converse(let prompt, let pageNotes):
+            let reply = try await chat.reply(to: prompt, sessionID: sessionID, notes: pageNotes)
             return .reply(reply.text, sessionID: reply.sessionID)
         case .clarifyNoText:
             throw MiraClarifyError(

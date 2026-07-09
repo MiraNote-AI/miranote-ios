@@ -31,9 +31,66 @@ public struct ChatReply: Sendable {
     }
 }
 
+/// A page from the user's library, flattened for the companion. Sending
+/// notes with a message selects the backend's journal mode: replies come
+/// from these pages, never from the demo docs corpus.
+public struct ChatNote: Codable, Equatable, Sendable {
+    public let title: String
+    public let body: String
+    public let date: String
+
+    public init(title: String, body: String, date: String) {
+        self.title = title
+        self.body = body
+        self.date = date
+    }
+}
+
+public extension ChatNote {
+    /// What the page "says": body text, canvas words, sound notes, and
+    /// sticker prompts, in reading order.
+    init(page: Memory) {
+        var parts: [String] = []
+        if !page.body.isEmpty { parts.append(page.body) }
+        for item in page.items {
+            switch item.content {
+            case .text(let block):
+                parts.append(block.text)
+            case .sound(let clip):
+                if !clip.note.isEmpty { parts.append("(sound) " + clip.note) }
+            case .sticker(let sticker):
+                if !sticker.prompt.isEmpty { parts.append("(sticker) " + sticker.prompt) }
+            case .image:
+                break
+            }
+        }
+        self.init(
+            title: page.title,
+            body: parts.joined(separator: "\n"),
+            date: Self.dayFormatter.string(from: page.memoryDate)
+        )
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+}
+
 /// The MiraNote AI companion. Backend mapping: chatbot POC (:8003) `/chat`.
 public protocol ChatService: Sendable {
-    func reply(to message: String, sessionID: String?) async throws -> ChatReply
+    /// `notes` are the user's own pages relevant to this message (journal
+    /// mode). The app always sends them -- an empty list means "nothing
+    /// matched", not "not a journal conversation".
+    func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply
+}
+
+public extension ChatService {
+    func reply(to message: String, sessionID: String?) async throws -> ChatReply {
+        try await reply(to: message, sessionID: sessionID, notes: [])
+    }
 }
 
 /// Warm, journaling-oriented canned replies for previews, tests, and offline
@@ -41,7 +98,7 @@ public protocol ChatService: Sendable {
 public struct MockChatService: ChatService {
     public init() {}
 
-    public func reply(to message: String, sessionID: String?) async throws -> ChatReply {
+    public func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
         try await Task.sleep(for: .milliseconds(500))
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let text: String

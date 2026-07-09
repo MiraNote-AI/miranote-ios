@@ -18,7 +18,7 @@ extension ServiceContainer {
 /// "slowly" holds the turn long enough to show the working bar; "fail"
 /// throws; anything else replies instantly.
 struct UITestScriptedChat: ChatService {
-    func reply(to message: String, sessionID: String?) async throws -> ChatReply {
+    func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
         let lowered = message.lowercased()
         if lowered.contains("fail") {
             throw URLError(.notConnectedToInternet)

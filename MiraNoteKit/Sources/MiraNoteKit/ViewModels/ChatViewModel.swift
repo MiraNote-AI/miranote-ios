@@ -12,11 +12,18 @@ public final class ChatViewModel {
     public private(set) var isResponding = false
 
     private let service: ChatService
+    /// Selects the user's own pages to ground each message in (journal
+    /// mode). Injected by the screen that owns the library.
+    private let notesForMessage: (String) -> [ChatNote]
     private var sessionID: String?
     private var didSeed = false
 
-    public init(service: ChatService) {
+    public init(
+        service: ChatService,
+        notesForMessage: @escaping (String) -> [ChatNote] = { _ in [] }
+    ) {
         self.service = service
+        self.notesForMessage = notesForMessage
     }
 
     public var canSend: Bool {
@@ -43,7 +50,11 @@ public final class ChatViewModel {
         isResponding = true
         defer { isResponding = false }
         do {
-            let reply = try await service.reply(to: trimmed, sessionID: sessionID)
+            let reply = try await service.reply(
+                to: trimmed,
+                sessionID: sessionID,
+                notes: notesForMessage(trimmed)
+            )
             sessionID = reply.sessionID
             messages.append(ChatMessage(role: .assistant, text: reply.text))
         } catch {

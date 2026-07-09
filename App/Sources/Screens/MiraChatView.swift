@@ -24,7 +24,14 @@ struct MiraChatView: View {
         findPages: @escaping (String) -> [PageHit] = { _ in [] },
         onOpenPage: @escaping (PageHit) -> Void = { _ in }
     ) {
-        _viewModel = State(initialValue: ChatViewModel(service: service))
+        // Each outgoing message carries the pages that match it, so the
+        // companion answers from the user's own notes (journal mode).
+        _viewModel = State(initialValue: ChatViewModel(
+            service: service,
+            notesForMessage: { message in
+                findPages(message).map { ChatNote(page: $0.memory) }
+            }
+        ))
         self.seed = seed
         self.onExit = onExit
         self.onNewMemory = onNewMemory

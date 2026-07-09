@@ -152,6 +152,13 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         await waitUntil { if case .reply = coordinator.phase { return true } else { return false } }
         let seen = await chat.recorder.sessionIDs
         XCTAssertEqual(seen, [nil, "s-42"], "server session id carries into the next turn")
+
+        // Mira converses standing on the page: every turn sends it along.
+        let sentNotes = await chat.recorder.notes
+        XCTAssertEqual(sentNotes.count, 2)
+        let page = ChatNote(page: editor.composedMemory())
+        XCTAssertEqual(sentNotes.first, [page], "the current page grounds the conversation")
+        XCTAssertFalse(page.title.isEmpty)
     }
 
     func testOrganizeAndTitleIntents() async {
@@ -310,8 +317,8 @@ private struct ScriptedChat: ChatService {
     var error: Error?
     let recorder = SessionRecorder()
 
-    func reply(to message: String, sessionID incoming: String?) async throws -> ChatReply {
-        await recorder.record(incoming)
+    func reply(to message: String, sessionID incoming: String?, notes: [ChatNote]) async throws -> ChatReply {
+        await recorder.record(incoming, notes: notes)
         if delay > .zero { try await Task.sleep(for: delay) }
         if let error { throw error }
         return ChatReply(text: reply, sessionID: sessionID)
@@ -320,8 +327,10 @@ private struct ScriptedChat: ChatService {
 
 private actor SessionRecorder {
     private(set) var sessionIDs: [String?] = []
+    private(set) var notes: [[ChatNote]] = []
 
-    func record(_ id: String?) {
+    func record(_ id: String?, notes incoming: [ChatNote]) {
         sessionIDs.append(id)
+        notes.append(incoming)
     }
 }
