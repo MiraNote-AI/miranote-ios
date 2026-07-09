@@ -311,3 +311,9 @@ feat/ios-flow-v2 awaits Meng's word).
     step was short-circuited and its "installed" echo lied. Standing
     rule reaffirmed: every commit/install command starts with an
     explicit cd, and never rides an unconditional chain.)
+
+15. Receipt window 10s -> 6s (Meng: still lingers too long). With one
+    line, an inline Revert, and the header undo covering late regrets,
+    short wins; pin test updated with the tuning history. VERIFY
+    (clean): swiftlint 0; Kit 110; xcodebuild test 22 tests 0
+    failures, TEST SUCCEEDED. Installed.
