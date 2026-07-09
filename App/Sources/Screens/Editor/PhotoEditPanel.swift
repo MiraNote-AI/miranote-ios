@@ -13,6 +13,8 @@ struct PhotoEditPanel: View {
     @State private var section: Section = .filters
     @State private var cutoutTarget = ""
     @State private var stickering = false
+    @State private var aiInstruction = ""
+    @State private var aiEditing = false
     @State private var notice: String?
 
     private let imageStore = ImageFileStore()
@@ -25,6 +27,7 @@ struct PhotoEditPanel: View {
                     sectionChip("Filters", .filters)
                     sectionChip("Frame", .frame)
                     sectionChip("Make sticker", .sticker)
+                    sectionChip("Ask AI", .ai, icon: "sparkles")
                     Spacer()
                     Button("Done") { onClose() }
                         .font(.miraLabel)
@@ -36,6 +39,7 @@ struct PhotoEditPanel: View {
                 case .filters: filterRow
                 case .frame: frameRow
                 case .sticker: stickerRow
+                case .ai: aiRow
                 }
 
                 if let notice {
@@ -52,11 +56,11 @@ struct PhotoEditPanel: View {
         return nil
     }
 
-    private func sectionChip(_ label: String, _ value: Section) -> some View {
+    private func sectionChip(_ label: String, _ value: Section, icon: String? = nil) -> some View {
         Button {
             section = value
         } label: {
-            Chip(text: label, selected: section == value, compact: true)
+            Chip(text: label, selected: section == value, compact: true, systemImage: icon)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("photo.section.\(value.rawValue)")
@@ -166,5 +170,67 @@ struct PhotoEditPanel: View {
 }
 
 private enum Section: String {
-    case filters, frame, sticker
+    case filters, frame, sticker, ai
+}
+
+// MARK: - Ask AI (stylize in place)
+
+extension PhotoEditPanel {
+    /// "Change the photo with words": remove the bin in the back, make it
+    /// autumn, brighten it -- one instruction, new pixels in place.
+    private var aiRow: some View {
+        HStack(spacing: 8) {
+            TextField("Tell AI what to change", text: $aiInstruction)
+                .font(.miraCaption)
+                .foregroundStyle(Palette.ink)
+                .tint(Palette.forest)
+                .accessibilityIdentifier("photo.ai.instruction")
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(Palette.paper)
+                        .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                )
+
+            Button {
+                runAIEdit()
+            } label: {
+                Text(aiEditing ? "Working..." : "Go")
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.onInk)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Palette.ink))
+            }
+            .buttonStyle(.plain)
+            .disabled(aiEditing || aiInstruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityIdentifier("photo.ai.run")
+        }
+    }
+
+    private func runAIEdit() {
+        let instruction = aiInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !aiEditing, !instruction.isEmpty else { return }
+        guard let ref = currentRef,
+              let data = imageStore.data(forFileName: ref.fileName) else {
+            notice = "This picture has no stored pixels to change."
+            return
+        }
+        aiEditing = true
+        notice = nil
+        Task {
+            defer { aiEditing = false }
+            do {
+                let edited = try await studio.stylize(image: data, instruction: instruction)
+                let fileName = try imageStore.save(edited, id: UUID())
+                editor.replaceImageFile(itemID: itemID, fileName: fileName)
+                aiInstruction = ""
+                notice = "Done -- take a look. Undo brings the old one back."
+            } catch {
+                notice = (error as? LocalizedError)?.errorDescription
+                    ?? "That didn't work this time. Try again?"
+            }
+        }
+    }
 }

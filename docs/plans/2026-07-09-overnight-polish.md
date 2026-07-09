@@ -317,3 +317,15 @@ feat/ios-flow-v2 awaits Meng's word).
     short wins; pin test updated with the tuning history. VERIFY
     (clean): swiftlint 0; Kit 110; xcodebuild test 22 tests 0
     failures, TEST SUCCEEDED. Installed.
+
+16. Photo panel gains Ask AI (Meng: the edit page has no AI entry, and
+    words can drive edits). Fourth section chip (sparkles): type an
+    instruction, Go sends the photo + words to /stylize (Nano Banana
+    image-to-image, already live on :8002), and the result replaces
+    the pixels in place -- old filter clears (the AI result IS the
+    look), frame stays, one undo back (Kit: replaceImageFile, tested
+    incl. undo). Success confirms in the panel; failures stay calm.
+    UITest drives the whole flow against the mock studio. Doc comments
+    in CanvasViewModel tightened to stay at the 400-line cap. VERIFY
+    (clean): swiftlint 0; Kit 111; xcodebuild test 23 tests 0
+    failures, TEST SUCCEEDED. Installed.

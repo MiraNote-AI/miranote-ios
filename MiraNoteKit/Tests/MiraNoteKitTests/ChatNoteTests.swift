@@ -19,6 +19,24 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(note.date, "2026-06-30")
     }
 
+    func testReplaceImageFileSwapsPixelsClearsFilterUndoably() {
+        let editor = CanvasViewModel(memory: Memory())
+        editor.addImages([ImageRef(displayName: "bird", fileName: "old.png")], around: .zero)
+        let id = editor.items[0].id
+        editor.setImageFilter(itemID: id, to: "warm")
+
+        editor.replaceImageFile(itemID: id, fileName: "edited.png")
+
+        guard case .image(let ref) = editor.item(id)?.content else { return XCTFail("image gone") }
+        XCTAssertEqual(ref.fileName, "edited.png")
+        XCTAssertEqual(ref.filterName, "", "the AI result IS the look; stale filters clear")
+
+        editor.undo()
+        guard case .image(let back) = editor.item(id)?.content else { return XCTFail("image gone") }
+        XCTAssertEqual(back.fileName, "old.png", "one undo step brings the old pixels back")
+        XCTAssertEqual(back.filterName, "warm")
+    }
+
     func testReceiptDefaultOutlivesACarefulRead() {
         XCTAssertEqual(
             MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(6),

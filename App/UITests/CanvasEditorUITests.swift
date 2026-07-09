@@ -239,6 +239,36 @@ final class CanvasEditorUITests: XCTestCase {
 
     // Long-press Edit photo opens the treatment panel; Make sticker runs
     // cutout + outline and replaces the photo with a sticker in place.
+    // Ask AI in the photo panel: one instruction, new pixels in place.
+    func testPhotoAIEditRunsAndConfirms() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let samples = app.buttons["image.library.samples"]
+        XCTAssertTrue(samples.waitForExistence(timeout: 5))
+        samples.tap()
+
+        let photo = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        photo.press(forDuration: 0.9)
+        XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))
+        app.buttons["Edit photo"].tap()
+
+        app.buttons["photo.section.ai"].tap()
+        let field = app.textFields["photo.ai.instruction"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("make it autumn")
+        app.buttons["photo.ai.run"].tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Done -- take a look. Undo brings the old one back."]
+                .waitForExistence(timeout: 8),
+            "the AI edit lands and says so"
+        )
+    }
+
     func testPhotoEditMakeStickerReplacesInPlace() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))

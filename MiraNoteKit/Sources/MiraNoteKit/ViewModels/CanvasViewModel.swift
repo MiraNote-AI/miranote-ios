@@ -18,9 +18,8 @@ public final class CanvasViewModel {
     /// The text element currently being edited in place, if any.
     public var editingTextItemID: CanvasItem.ID?
 
-    /// Bumps on every recorded mutation (and on undo). Lets observers tell
-    /// whether the canvas changed since a point in time -- e.g. a Mira
-    /// receipt must not "revert" a later user edit.
+    /// Bumps on every recorded mutation and undo -- observers can tell if
+    /// the canvas changed since a point in time (receipt honesty).
     public private(set) var changeCount = 0
 
     private var history: [[CanvasItem]] = []
@@ -41,8 +40,7 @@ public final class CanvasViewModel {
         memory.items.first { $0.id == id }
     }
 
-    /// Bottom edge of the lowest element -- the infinite canvas grows to
-    /// wrap this (plus breathing room added by the view).
+    /// Bottom edge of the lowest element (the canvas grows to wrap it).
     public var contentBottom: CGFloat {
         memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
     }
@@ -51,8 +49,7 @@ public final class CanvasViewModel {
 
     public var canUndo: Bool { !history.isEmpty }
 
-    /// Snapshot the current items. Call once before a discrete change or at
-    /// the START of a continuous gesture (drag / resize / rotate).
+    /// Snapshot items: once per discrete change or gesture START.
     public func beginChange() {
         changeCount += 1
         history.append(memory.items)
@@ -82,10 +79,8 @@ public final class CanvasViewModel {
         }
     }
 
-    /// Begin in-place text editing. Records one undo point for the whole
-    /// editing session unless the caller already recorded one for a
-    /// compound action (e.g. add-and-edit); re-entry is a no-op so repeat
-    /// taps never burn snapshots.
+    /// Begin in-place text editing: one undo point per session unless the
+    /// caller recorded one (add-and-edit); re-entry never burns snapshots.
     public func startEditingText(_ id: CanvasItem.ID, recordingUndo: Bool = true) {
         guard editingTextItemID != id, case .text = item(id)?.content else { return }
         if recordingUndo { beginChange() }
@@ -156,8 +151,7 @@ public final class CanvasViewModel {
 
     // MARK: Geometry (continuous -- caller brackets with beginChange())
 
-    /// The board tells the model how wide the page is so moves stay
-    /// reachable; height is unbounded (the canvas grows downward).
+    /// Page width from the board, so moves stay reachable (height grows).
     public var canvasWidth: CGFloat?
 
     public func move(itemID: CanvasItem.ID, to position: CGPoint) {
@@ -178,8 +172,7 @@ public final class CanvasViewModel {
         )
     }
 
-    /// Text blocks grow with their content: sets the measured height with
-    /// the TOP edge anchored (the block extends downward under the caret).
+    /// Measured text height, TOP edge anchored (grows under the caret).
     /// Continuous like resize -- records no undo step.
     public func autosizeTextHeight(itemID: CanvasItem.ID, to height: CGFloat) {
         guard let index = index(of: itemID),
@@ -245,6 +238,17 @@ extension CanvasViewModel {
 
     /// "Make sticker": the photo element becomes a sticker in place (one
     /// undo step returns the photo).
+    /// AI photo edit lands here: new pixels in place. The old filter
+    /// clears (the AI result IS the look); the frame stays. One undo back.
+    public func replaceImageFile(itemID: CanvasItem.ID, fileName: String) {
+        guard let index = index(of: itemID),
+              case .image(var ref) = memory.items[index].content else { return }
+        beginChange()
+        ref.fileName = fileName
+        ref.filterName = ""
+        memory.items[index].content = .image(ref)
+    }
+
     public func replaceImageWithSticker(itemID: CanvasItem.ID, sticker: GeneratedSticker) {
         guard let index = index(of: itemID),
               case .image = memory.items[index].content else { return }
@@ -357,11 +361,9 @@ extension CanvasViewModel {
         return composed
     }
 
-    /// "Tidy the layout": a calm single-column pass. Reading order is
-    /// preserved (title block first, then top-to-bottom as they were),
-    /// every item keeps its size, centers align to the page column,
-    /// vertical gaps come from REAL heights so nothing can overlap, and
-    /// tilted things straighten up. Deterministic on purpose.
+    /// "Tidy the layout": a calm single-column pass -- title first, then
+    /// top-to-bottom as they were; gaps come from REAL heights so nothing
+    /// overlaps; tilted things straighten. Deterministic on purpose.
     public func quickOrganize(canvasWidth: CGFloat, spacing: CGFloat = 24) {
         beginChange()
         func sortKey(_ item: CanvasItem) -> (Int, CGFloat) {
