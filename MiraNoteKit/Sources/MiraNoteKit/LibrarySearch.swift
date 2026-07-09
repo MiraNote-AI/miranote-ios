@@ -78,6 +78,22 @@ public enum LibrarySearch {
         let bodyScore: Int
     }
 
+    /// English function words carry no content: without this, a chatty
+    /// message like "can you help me..." matches any page whose body says
+    /// "you". CJK single characters are content words and stay untouched.
+    private static let stopwords: Set<String> = [
+        "a", "an", "the", "and", "or", "but", "not", "no",
+        "of", "to", "in", "on", "at", "for", "with", "about", "from", "by", "as",
+        "is", "are", "was", "were", "be", "been", "am",
+        "do", "does", "did", "have", "has", "had",
+        "can", "could", "will", "would", "should", "shall", "may", "might", "must",
+        "i", "me", "my", "mine", "you", "your", "yours",
+        "we", "us", "our", "he", "she", "it", "its", "they", "them", "their",
+        "this", "that", "these", "those", "there", "here",
+        "what", "when", "where", "which", "who", "whom", "why", "how",
+        "any", "all", "some", "please", "help"
+    ]
+
     private static func tokenize(_ query: String) -> [String] {
         query.lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
@@ -86,5 +102,6 @@ public enum LibrarySearch {
                 // CJK character is a whole word -- it must survive.
                 token.count > 1 || (token.first.map { !$0.isASCII } ?? false)
             }
+            .filter { !stopwords.contains($0) }
     }
 }

@@ -108,6 +108,22 @@ final class LibraryBinTests: XCTestCase {
         XCTAssertEqual(hits.first?.memory.title, "Paris lunch", "a title hit is a rule, not a weight")
     }
 
+    func testLibrarySearchIgnoresEnglishFunctionWords() {
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [
+                Memory(title: "Brunch then Disney", body: "the kind that leaves you full and smiling")
+            ])
+        ])
+        XCTAssertTrue(
+            LibrarySearch.find("Can you help me create a note", in: library).isEmpty,
+            "chatty messages must not match pages through you/me/the"
+        )
+        XCTAssertEqual(
+            LibrarySearch.find("when was my brunch", in: library).count, 1,
+            "the content word still finds the page"
+        )
+    }
+
     func testLibrarySearchKeepsSingleCJKCharacters() {
         let library = MemoryLibrary(collections: [
             MemoryCollection(title: "Daily", memories: [
