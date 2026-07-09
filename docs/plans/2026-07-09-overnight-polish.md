@@ -249,3 +249,16 @@ feat/ios-flow-v2 awaits Meng's word).
     aspect-true 260pt box that a leaking fill (~340) would fail.
     VERIFY (clean): swiftlint 0; Kit 110; xcodebuild test 22 tests 0
     failures, TEST SUCCEEDED. Installed.
+
+11. Image panel simplified (Meng, live testing: "Library" then "Choose
+    from Library" confuses, and wanted one row). The source-picker step
+    is gone: one row of direct actions -- Library opens the photo
+    picker itself, Camera opens the camera (or explains it cannot
+    here), Generate toggles the prompt/style rows open and closed
+    (selected-style while open). The -UITEST Samples action joins the
+    same row as a chip. Dead code removed with the step: sourceChip,
+    libraryRow, cameraRow, the ImageSource enum. All existing
+    accessibility ids preserved, so the sticker and photo UITest flows
+    run unchanged. VERIFY (clean): swiftlint 0 (one whitespace nit
+    fixed post-run); Kit 110; xcodebuild test 22 tests 0 failures,
+    TEST SUCCEEDED. Installed.

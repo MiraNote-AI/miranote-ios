@@ -2,10 +2,6 @@ import MiraNoteKit
 import SwiftUI
 import UIKit
 
-enum ImageSource: String {
-    case library, camera, generate
-}
-
 /// v2.1 generate styles; sticker is just one of them. Photo / illustration /
 /// watercolor ride the POC's background command with a style-carrying prompt
 /// until a dedicated command exists (recorded in the plan).

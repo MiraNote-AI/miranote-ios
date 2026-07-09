@@ -10,7 +10,9 @@ struct ImagePanelScene: View {
     var studio: ImageStudioService = MockImageStudioService()
     var actions = EditorActions()
 
-    @State private var source: ImageSource = .library
+    /// Generate is the only mode-like source; Library and Camera act
+    /// directly from their buttons (one row, no second step).
+    @State private var generateOpen = false
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var showsCamera = false
     @State private var prompt = ""
@@ -60,17 +62,54 @@ struct ImagePanelScene: View {
             subtitle: "Pick from your library, take a photo, or generate one."
         ) {
             VStack(alignment: .leading, spacing: 12) {
+                // One row, three direct actions -- no picking a source
+                // first ("Library" then "Choose from Library" confused).
                 HStack(spacing: 8) {
-                    sourceChip("Library", .library)
-                    sourceChip("Camera", .camera)
-                    sourceChip("Generate", .generate)
+                    PhotosPicker(
+                        selection: $pickerItems,
+                        maxSelectionCount: MiraNoteConfig.maxImagesPerAdd,
+                        matching: .images
+                    ) {
+                        Chip(text: "Library")
+                    }
+                    .accessibilityIdentifier("image.library.pick")
+
+                    Button {
+                        if CameraCapture.isAvailable {
+                            showsCamera = true
+                        } else {
+                            notice = "The camera isn't available here."
+                        }
+                    } label: {
+                        Chip(text: "Camera")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("image.camera.open")
+
+                    Button {
+                        generateOpen.toggle()
+                    } label: {
+                        Chip(text: "Generate", selected: generateOpen)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("image.source.generate")
+
+                    #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+                        Button {
+                            addSamplePhotos()
+                        } label: {
+                            Chip(text: "Samples")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("image.library.samples")
+                    }
+                    #endif
                     Spacer()
                 }
 
-                switch source {
-                case .library: libraryRow
-                case .camera: cameraRow
-                case .generate: generateRows
+                if generateOpen {
+                    generateRows
                 }
 
                 if let notice {
@@ -83,44 +122,6 @@ struct ImagePanelScene: View {
                     favoritesRow
                 }
             }
-        }
-    }
-
-    private func sourceChip(_ label: String, _ value: ImageSource) -> some View {
-        Button {
-            source = value
-        } label: {
-            Chip(text: label, selected: source == value)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("image.source.\(value.rawValue)")
-    }
-
-    // MARK: Library
-
-    @ViewBuilder private var libraryRow: some View {
-        HStack(spacing: 10) {
-            PhotosPicker(
-                selection: $pickerItems,
-                maxSelectionCount: MiraNoteConfig.maxImagesPerAdd,
-                matching: .images
-            ) {
-                pillLabel("Choose from Library")
-            }
-            .accessibilityIdentifier("image.library.pick")
-
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-                Button {
-                    addSamplePhotos()
-                } label: {
-                    pillLabel("Add sample photos")
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("image.library.samples")
-            }
-            #endif
-            Spacer()
         }
     }
 
@@ -156,24 +157,6 @@ struct ImagePanelScene: View {
         actions.leading()
     }
     #endif
-
-    // MARK: Camera
-
-    @ViewBuilder private var cameraRow: some View {
-        if CameraCapture.isAvailable {
-            Button {
-                showsCamera = true
-            } label: {
-                pillLabel("Open Camera")
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("image.camera.open")
-        } else {
-            Text("The camera isn't available here.")
-                .font(.miraCaption)
-                .foregroundStyle(Palette.textSecondary)
-        }
-    }
 }
 
 // MARK: - Generate and favorites
