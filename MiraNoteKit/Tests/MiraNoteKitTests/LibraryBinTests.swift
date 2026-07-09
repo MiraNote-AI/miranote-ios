@@ -137,6 +137,19 @@ final class LibraryBinTests: XCTestCase {
         XCTAssertEqual(LibrarySearch.find("welcome", in: library).count, 1)
     }
 
+    func testLibrarySearchSeesPhotoSummaries() {
+        let editor = CanvasViewModel(memory: Memory(title: "Garden walk"))
+        let ids = editor.addImages([ImageRef(displayName: "Library photo")], around: .zero)
+        editor.setImageSummary(itemID: ids[0], to: "fuchsia ice plant flowers in bloom")
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [editor.composedMemory()])
+        ])
+        XCTAssertEqual(
+            LibrarySearch.find("fuchsia flowers", in: library).count, 1,
+            "what vision saw in a photo is findable"
+        )
+    }
+
     func testLibrarySearchKeepsSingleCJKCharacters() {
         let library = MemoryLibrary(collections: [
             MemoryCollection(title: "Daily", memories: [

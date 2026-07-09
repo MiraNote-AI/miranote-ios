@@ -67,6 +67,7 @@ public enum LibrarySearch {
                 parts.append(sticker.prompt)
             case .image(let ref):
                 parts.append(ref.displayName)
+                parts.append(ref.summary)
             }
         }
         return parts.joined(separator: " ").lowercased()

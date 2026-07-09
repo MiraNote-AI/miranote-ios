@@ -436,3 +436,15 @@ feat/ios-flow-v2 awaits Meng's word).
     endpoint. Kit 117 (+2: summary preference, caption landing); UI 23.
     VERIFY (clean): swiftlint 0; xcodebuild test TEST SUCCEEDED.
     Installed.
+
+26. Photo summaries join local search (free dividend of the
+    describe-at-import architecture, done while answering Meng's "why
+    not let the AI see images directly" -- answer: the chat model is
+    text-only, per-turn image upload is slow and repeatedly billed,
+    and one good sentence at import covers the journaling cases with
+    zero chat-time latency; escalation paths recorded as proposals:
+    on-demand deep-look for detail questions, or a full multimodal
+    chat swap). searchText now includes ImageRef.summary, so "fuchsia
+    flowers" finds the page whose photo shows them. Kit 118. VERIFY
+    (clean): swiftlint 0; xcodebuild test 23 tests 0 failures, TEST
+    SUCCEEDED. Installed.
