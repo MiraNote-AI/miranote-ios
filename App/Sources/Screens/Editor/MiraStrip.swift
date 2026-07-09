@@ -109,7 +109,42 @@ struct MiraCard: View {
     }
 
     @ViewBuilder private func chipsRow(_ chips: [String]) -> some View {
-        if !chips.isEmpty {
+        if chips.isEmpty {
+            EmptyView()
+        } else if chips.count <= 2 {
+            // One or two suggestions fill the row like a designed slot --
+            // a lone left-hugging pill read as a leftover.
+            HStack(spacing: 10) {
+                ForEach(chips, id: \.self) { chip in
+                    Button {
+                        onAsk(chip)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkle")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Palette.forest)
+                            Text(chip)
+                                .font(.miraLabel)
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(Palette.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Palette.onInk)
+                                .overlay(
+                                    Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
+                                )
+                        )
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("mira.suggestion.\(chip)")
+                }
+            }
+            .padding(.horizontal, Metrics.screenPadding)
+        } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(chips, id: \.self) { chip in

@@ -366,3 +366,10 @@ feat/ios-flow-v2 awaits Meng's word).
     way. Same ids, so every text-editing test drives it unchanged.
     VERIFY (clean): swiftlint 0; xcodebuild test 23 tests 0 failures,
     TEST SUCCEEDED. Installed.
+
+21. Suggestion slots instead of orphan pills (Meng: a lone "Tidy the
+    layout" chip looked bad). One or two suggestions now fill the row
+    as equal-width capsules with a small forest sparkle -- a designed
+    slot, not a leftover; three or more keep the scrolling row. Ids
+    unchanged. VERIFY (clean): swiftlint 0; xcodebuild test 23 tests
+    0 failures, TEST SUCCEEDED. Installed.
