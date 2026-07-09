@@ -91,7 +91,11 @@ public enum LibrarySearch {
         "we", "us", "our", "he", "she", "it", "its", "they", "them", "their",
         "this", "that", "these", "those", "there", "here",
         "what", "when", "where", "which", "who", "whom", "why", "how",
-        "any", "all", "some", "please", "help"
+        "any", "all", "some", "please", "help",
+        // App-meta words: in a notes app, queries say these ABOUT pages
+        // ("draft me a page..."), they are almost never page content.
+        "note", "notes", "page", "pages", "memory", "memories",
+        "draft", "create", "make", "find", "show", "save", "remember", "write"
     ]
 
     private static func tokenize(_ query: String) -> [String] {

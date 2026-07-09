@@ -166,9 +166,10 @@ struct CollectionDetailView: View {
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 PageCoverView(memory: memory, coverWidth: 164, coverHeight: 190)
-                Text(memory.title.isEmpty ? "Untitled" : memory.title)
+                // The cover already says the title; the caption says when.
+                Text(CaptionDate.string(for: memory.memoryDate))
                     .font(.miraCaption)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textSecondary)
                     .lineLimit(1)
             }
             // The cover itself ignores touches (Color.clear + hit-disabled

@@ -124,6 +124,19 @@ final class LibraryBinTests: XCTestCase {
         )
     }
 
+    func testLibrarySearchIgnoresAppMetaWords() {
+        let library = MemoryLibrary(collections: [
+            MemoryCollection(title: "Daily", memories: [
+                Memory(title: "A little welcome", body: "This page is yours to poke.")
+            ])
+        ])
+        XCTAssertTrue(
+            LibrarySearch.find("draft me a page about tonight", in: library).isEmpty,
+            "queries say page/note/draft ABOUT pages; they are not content"
+        )
+        XCTAssertEqual(LibrarySearch.find("welcome", in: library).count, 1)
+    }
+
     func testLibrarySearchKeepsSingleCJKCharacters() {
         let library = MemoryLibrary(collections: [
             MemoryCollection(title: "Daily", memories: [

@@ -54,6 +54,17 @@ struct GradientPlaceholder: View {
                     .blur(radius: 26)
                     .padding(28)
             }
+            .overlay {
+                // A quiet glyph so a missing photo reads as "a photo goes
+                // here", not as a broken block. Scales with the slot.
+                GeometryReader { proxy in
+                    let side = min(proxy.size.width, proxy.size.height)
+                    Image(systemName: "photo")
+                        .font(.system(size: max(12, min(26, side * 0.2)), weight: .light))
+                        .foregroundStyle(Palette.taupe.opacity(0.45))
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: corner))
     }
 }

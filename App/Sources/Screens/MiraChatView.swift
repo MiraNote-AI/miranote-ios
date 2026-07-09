@@ -131,9 +131,10 @@ struct MiraChatView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 PageCoverView(memory: hit.memory, coverWidth: 104, coverHeight: 128)
-                                Text(hit.memory.title.isEmpty ? "Untitled" : hit.memory.title)
+                                // Cover says the title; the caption says when.
+                                Text(CaptionDate.string(for: hit.memory.memoryDate))
                                     .font(.miraCaption)
-                                    .foregroundStyle(Palette.ink)
+                                    .foregroundStyle(Palette.textSecondary)
                                     .lineLimit(1)
                                     .frame(width: 104, alignment: .leading)
                             }

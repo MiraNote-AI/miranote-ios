@@ -19,6 +19,32 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(note.date, "2026-06-30")
     }
 
+    func testMaterializedDraftBodyHugsTheTitle() {
+        let draft = Memory(title: "Drafted by Mira", body: "warm broth").materializedForEditing()
+        XCTAssertEqual(draft.items.count, 2)
+        let title = draft.items[0]
+        let body = draft.items[1]
+        let titleBottom = title.position.y + title.size.height / 2
+        let bodyTop = body.position.y - body.size.height / 2
+        XCTAssertEqual(bodyTop - titleBottom, 12, accuracy: 0.5,
+                       "a drafted page reads as one composition, not two islands")
+    }
+
+    func testMaterializedLongTitleStillClearsTheBody() {
+        let draft = Memory(
+            title: "Ramen by the bridge with Jason on a warm evening",
+            body: String(repeating: "the broth stayed with us. ", count: 8)
+        ).materializedForEditing()
+        let title = draft.items[0]
+        let body = draft.items[1]
+        XCTAssertGreaterThan(title.size.height, 60, "two estimated lines")
+        XCTAssertGreaterThanOrEqual(
+            body.position.y - body.size.height / 2,
+            title.position.y + title.size.height / 2,
+            "estimated heights chain -- blocks never overlap"
+        )
+    }
+
     func testSendCarriesTheMatchingPages() async {
         let chat = CapturingChat()
         let viewModel = ChatViewModel(service: chat) { message in

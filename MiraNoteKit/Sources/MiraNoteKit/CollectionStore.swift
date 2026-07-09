@@ -40,7 +40,13 @@ public extension MemoryCollection {
     static var seed: [MemoryCollection] {
         [
             MemoryCollection(title: "Daily Log", memories: [
-                Memory(title: "Lunch by the river", items: Memory.starterDraft()),
+                // The starter page's caption reads "June 21"; its metadata
+                // date must agree or the month grouping lies.
+                Memory(
+                    title: "Lunch by the river",
+                    memoryDate: Calendar.current.date(from: DateComponents(year: 2026, month: 6, day: 21)),
+                    items: Memory.starterDraft()
+                ),
                 Memory(title: "Slow morning, good coffee")
             ]),
             MemoryCollection(title: "Travel Scrapbook", memories: [

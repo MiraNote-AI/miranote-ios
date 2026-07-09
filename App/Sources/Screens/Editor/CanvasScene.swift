@@ -62,7 +62,10 @@ struct CanvasScene: View {
                 }
             }
         }
-        .onAppear { consumePendingTool() }
+        .onAppear {
+            remeasureTextBlocks()
+            consumePendingTool()
+        }
         .onDisappear { cancelRecording() }
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.selectedItemID) { _, selected in
@@ -201,6 +204,19 @@ struct CanvasScene: View {
         // addText already recorded the undo point for this compound action.
         editor.startEditingText(id, recordingUndo: false)
         textFocus = id
+    }
+
+    /// Opening a page re-measures every text block against its real font
+    /// metrics -- drafted and legacy pages arrive with estimated heights.
+    private func remeasureTextBlocks() {
+        for item in editor.items {
+            guard case .text(let block) = item.content else { continue }
+            editor.autosizeTextHeight(itemID: item.id, to: TextMeasure.blockHeight(
+                text: block.text,
+                pointSize: block.pointSize,
+                width: item.size.width
+            ))
+        }
     }
 
     /// Ending an editing session on a blank block removes it -- no empty

@@ -86,23 +86,40 @@ extension Memory {
         guard items.isEmpty, !(title.isEmpty && body.isEmpty) else { return self }
         var copy = self
         var made: [CanvasItem] = []
+        var nextTop: CGFloat = 28
         if !title.isEmpty {
+            let height = Memory.estimatedTextHeight(title, pointSize: 30, width: 320)
             made.append(CanvasItem(
                 content: .text(TextBlock(text: title, pointSize: 30)),
-                position: CGPoint(x: 180, y: 70),
-                size: CGSize(width: 320, height: 84),
+                position: CGPoint(x: 180, y: nextTop + height / 2),
+                size: CGSize(width: 320, height: height),
                 zIndex: 1
             ))
+            nextTop += height + 12
         }
         if !body.isEmpty {
+            let height = Memory.estimatedTextHeight(body, pointSize: 15, width: 320)
             made.append(CanvasItem(
                 content: .text(TextBlock(text: body, pointSize: 15)),
-                position: CGPoint(x: 180, y: title.isEmpty ? 80 : 190),
-                size: CGSize(width: 320, height: 140),
+                position: CGPoint(x: 180, y: nextTop + height / 2),
+                size: CGSize(width: 320, height: height),
                 zIndex: 2
             ))
         }
         copy.items = made
         return copy
+    }
+
+    /// Rough, UIKit-free height estimate so materialized blocks chain into
+    /// one composition. The editor re-measures against real font metrics
+    /// on open (block tops are preserved), so close is good enough.
+    static func estimatedTextHeight(_ text: String, pointSize: CGFloat, width: CGFloat) -> CGFloat {
+        let charsPerLine = max(8, Int(width / (pointSize * 0.55)))
+        let lines = text
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .reduce(0) { total, line in
+                total + max(1, (line.count + charsPerLine - 1) / charsPerLine)
+            }
+        return CGFloat(lines) * pointSize * 1.35 + 20
     }
 }
