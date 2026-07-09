@@ -37,6 +37,14 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(back.filterName, "warm")
     }
 
+    func testCleanTitleStripsLLMNoise() {
+        XCTAssertEqual(MiraIntent.cleanTitle("\"Ramen by the bridge.\"\nHope you like it!"),
+                       "Ramen by the bridge")
+        XCTAssertEqual(MiraIntent.cleanTitle("  A quiet moment  "), "A quiet moment")
+        XCTAssertEqual(MiraIntent.cleanTitle(""), "")
+        XCTAssertEqual(MiraIntent.cleanTitle(String(repeating: "long ", count: 30)).count <= 60, true)
+    }
+
     func testReceiptDefaultOutlivesACarefulRead() {
         XCTAssertEqual(
             MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(6),

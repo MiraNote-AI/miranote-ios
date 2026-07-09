@@ -373,3 +373,18 @@ feat/ios-flow-v2 awaits Meng's word).
     slot, not a leftover; three or more keep the scrolling row. Ids
     unchanged. VERIFY (clean): swiftlint 0; xcodebuild test 23 tests
     0 failures, TEST SUCCEEDED. Installed.
+
+22. "Add a soft title" became real AI (Meng asked whether it was; it
+    was the D3 placeholder inserting "A quiet moment"). The addTitle
+    intent now carries the page as a journal-mode note, asks the chat
+    backend for a five-word soft title (fresh one-shot session, no
+    pollution of the conversation carry), and lands the cleaned reply
+    (MiraIntent.cleanTitle strips quotes/periods/extra lines, caps 60,
+    unit-tested); the placeholder remains only as an empty-reply
+    fallback, and errors keep the honest retry taxonomy. Kit test now
+    asserts the landed block is the AI reply, not the placeholder.
+    Live smoke on the tired-evening page: "Earned Rest Tonight".
+    Test-double and page-intent tests moved to their own files to keep
+    the coordinator test class under the 250-line cap. VERIFY (clean):
+    swiftlint 0; Kit 112; xcodebuild test 23 tests 0 failures, TEST
+    SUCCEEDED. Installed.

@@ -23,7 +23,8 @@ enum MiraOutcome: Sendable {
 /// will replace classification; the surrounding turn machinery stays.
 enum MiraIntent {
     case transformText(CanvasItem.ID, original: String, TextTransformMode)
-    case addTitle
+    /// AI-driven: the page rides along; the model reads it and titles it.
+    case addTitle(pageNotes: [ChatNote])
     case organize
     /// Free conversation, grounded in the page being edited (sent as a
     /// journal-mode note so Mira knows what it is standing on).
@@ -68,7 +69,7 @@ enum MiraIntent {
             return .clarifyNoText
         }
         if lowered.contains("title") {
-            return .addTitle
+            return .addTitle(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
         if lowered.contains("tidy") || lowered.contains("layout")
             || lowered.contains("organize") || lowered.contains("arrange") {
@@ -112,8 +113,15 @@ enum MiraIntent {
                 changed: what,
                 kept: "Layout, photos, and everything else stayed put."
             ))
-        case .addTitle:
-            return .titleAdded("A quiet moment", MiraReceipt(
+        case .addTitle(let pageNotes):
+            let reply = try await chat.reply(
+                to: "Give this page a short, soft title: five words or fewer, "
+                    + "warm and concrete. Answer with the title only.",
+                sessionID: nil,
+                notes: pageNotes
+            )
+            let title = MiraIntent.cleanTitle(reply.text)
+            return .titleAdded(title.isEmpty ? "A quiet moment" : title, MiraReceipt(
                 changed: "Added a soft title.",
                 kept: "Your words and photos are unchanged."
             ))
@@ -131,5 +139,21 @@ enum MiraIntent {
                 chips: ["Add a soft title"]
             )
         }
+    }
+
+    /// LLM replies arrive with quotes, trailing periods, or a chatty
+    /// second line; a title is one clean line.
+    static func cleanTitle(_ raw: String) -> String {
+        let firstLine = raw
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .first
+            .map(String.init) ?? ""
+        let noise = CharacterSet(charactersIn: "\"'`.\u{201C}\u{201D}\u{2018}\u{2019}")
+            .union(.whitespacesAndNewlines)
+        var title = firstLine.trimmingCharacters(in: noise)
+        if title.count > 60 {
+            title = String(title.prefix(60)).trimmingCharacters(in: .whitespaces)
+        }
+        return title
     }
 }

@@ -161,22 +161,6 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertFalse(page.title.isEmpty)
     }
 
-    func testOrganizeAndTitleIntents() async {
-        let editor = makeEditor()
-        let coordinator = makeCoordinator()
-
-        coordinator.ask("tidy the layout", editor: editor)
-        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-        guard case .receipt(let organized) = coordinator.phase else { return XCTFail("expected an organize receipt") }
-        XCTAssertEqual(organized.changed, "Tidied the layout.")
-
-        coordinator.dismiss()
-        let countBefore = editor.items.count
-        coordinator.ask("add a soft title", editor: editor)
-        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-        XCTAssertEqual(editor.items.count, countBefore + 1, "a title block landed")
-    }
-
     func testReplacingALiveTurnKeepsStopWorking() async {
         // Reviewer major: task A's defer must not null task B's handle.
         let editor = makeEditor()
@@ -304,43 +288,5 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
             ["Tidy the layout"],
             "no title chip when the page already has a display-size title"
         )
-    }
-}
-
-// MARK: - Scripted services
-
-private struct ScriptedText: TextTransformService {
-    var delay: Duration = .zero
-    var error: Error?
-
-    func transform(_ text: String, mode: TextTransformMode) async throws -> String {
-        if delay > .zero { try await Task.sleep(for: delay) }
-        if let error { throw error }
-        return "[\(mode.rawValue)] " + text
-    }
-}
-
-private struct ScriptedChat: ChatService {
-    var reply = "Scripted reply."
-    var sessionID: String? = "scripted-session"
-    var delay: Duration = .zero
-    var error: Error?
-    let recorder = SessionRecorder()
-
-    func reply(to message: String, sessionID incoming: String?, notes: [ChatNote]) async throws -> ChatReply {
-        await recorder.record(incoming, notes: notes)
-        if delay > .zero { try await Task.sleep(for: delay) }
-        if let error { throw error }
-        return ChatReply(text: reply, sessionID: sessionID)
-    }
-}
-
-private actor SessionRecorder {
-    private(set) var sessionIDs: [String?] = []
-    private(set) var notes: [[ChatNote]] = []
-
-    func record(_ id: String?, notes incoming: [ChatNote]) {
-        sessionIDs.append(id)
-        notes.append(incoming)
     }
 }
