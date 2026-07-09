@@ -329,3 +329,10 @@ feat/ios-flow-v2 awaits Meng's word).
     in CanvasViewModel tightened to stay at the 400-line cap. VERIFY
     (clean): swiftlint 0; Kit 111; xcodebuild test 23 tests 0
     failures, TEST SUCCEEDED. Installed.
+
+17. Stale notice cleared on section switch (spotted in Meng's
+    screenshot while answering "is Make sticker one tap?" -- the Ask
+    AI success line was still showing under the Make sticker section).
+    A notice narrates one action and now dies with its section. VERIFY
+    (clean): swiftlint 0; xcodebuild test 23 tests 0 failures, TEST
+    SUCCEEDED. Installed.

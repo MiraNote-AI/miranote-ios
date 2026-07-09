@@ -59,6 +59,8 @@ struct PhotoEditPanel: View {
     private func sectionChip(_ label: String, _ value: Section, icon: String? = nil) -> some View {
         Button {
             section = value
+            // A notice narrates ONE action; it must not outlive its section.
+            notice = nil
         } label: {
             Chip(text: label, selected: section == value, compact: true, systemImage: icon)
         }
