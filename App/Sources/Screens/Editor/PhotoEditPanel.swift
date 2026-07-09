@@ -23,15 +23,16 @@ struct PhotoEditPanel: View {
     var body: some View {
         ContextCard(title: "Edit photo") {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    sectionChip("Filters", .filters)
-                    sectionChip("Frame", .frame)
-                    sectionChip("Make sticker", .sticker)
-                    sectionChip("Ask AI", .ai, icon: "sparkles")
+                HStack(spacing: 14) {
+                    sectionTab("Filters", .filters)
+                    sectionTab("Frame", .frame)
+                    sectionTab("Make sticker", .sticker)
+                    sectionTab("Ask AI", .ai, icon: "sparkles")
                     Spacer()
                     Button("Done") { onClose() }
                         .font(.miraLabel)
                         .foregroundStyle(Palette.ink)
+                        .fixedSize()
                         .accessibilityIdentifier("photo.done")
                 }
 
@@ -56,13 +57,30 @@ struct PhotoEditPanel: View {
         return nil
     }
 
-    private func sectionChip(_ label: String, _ value: Section, icon: String? = nil) -> some View {
-        Button {
+    /// Sections are TABS (text + underline), one level above the option
+    /// chips below them -- they must not dress alike.
+    private func sectionTab(_ label: String, _ value: Section, icon: String? = nil) -> some View {
+        let active = section == value
+        return Button {
             section = value
             // A notice narrates ONE action; it must not outlive its section.
             notice = nil
         } label: {
-            Chip(text: label, selected: section == value, compact: true, systemImage: icon)
+            VStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    if let icon {
+                        Image(systemName: icon)
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    Text(label)
+                        .font(.system(size: 13, weight: active ? .semibold : .medium))
+                }
+                .foregroundStyle(active ? Palette.ink : Palette.textSecondary)
+                Capsule()
+                    .fill(active ? Palette.ink : .clear)
+                    .frame(height: 2)
+            }
+            .fixedSize()
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("photo.section.\(value.rawValue)")

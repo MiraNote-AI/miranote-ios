@@ -336,3 +336,12 @@ feat/ios-flow-v2 awaits Meng's word).
     A notice narrates one action and now dies with its section. VERIFY
     (clean): swiftlint 0; xcodebuild test 23 tests 0 failures, TEST
     SUCCEEDED. Installed.
+
+18. Photo panel hierarchy (Meng: section row and option row dressed
+    alike; also Done was wrapping to two lines in his screenshot).
+    Sections became underline TABS -- ink text + 2pt bar when active,
+    quiet gray otherwise -- one clear level above the option chips,
+    and the slimmer row gives Done its width back (plus fixedSize so
+    it can never wrap again). Accessibility ids unchanged. VERIFY
+    (clean): swiftlint 0; xcodebuild test 23 tests 0 failures, TEST
+    SUCCEEDED. Installed.
