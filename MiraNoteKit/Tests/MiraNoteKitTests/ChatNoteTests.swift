@@ -21,8 +21,8 @@ final class ChatNoteTests: XCTestCase {
 
     func testReceiptDefaultOutlivesACarefulRead() {
         XCTAssertEqual(
-            MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(20),
-            "5s made Revert a reflex test; the receipt must outlive a careful read"
+            MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(10),
+            "one line reads in ten seconds; 5s made Revert a reflex test"
         )
     }
 

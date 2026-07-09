@@ -38,26 +38,34 @@ struct MiraCard: View {
                 chipsRow(chips)
             }
         case .receipt(let receipt):
-            card {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(receipt.changed)
-                        .font(.miraCardTitle)
-                        .foregroundStyle(Palette.ink)
-                        .accessibilityIdentifier("mira.receipt")
-                    Text(receipt.kept)
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
-                }
-                HStack {
-                    Button("Revert") { coordinator.revert(editor: editor) }
-                        .buttonStyle(SoftPill())
-                        .accessibilityIdentifier("mira.revert")
-                    Spacer()
-                    Text("keeps by itself")
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary.opacity(0.8))
-                }
+            // A confirmation stamp, not a chat element (Meng, 2026-07-09):
+            // one forest-tinted line with Revert, kept-line dropped, and it
+            // keeps by itself after a short window. Tap dismisses.
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Palette.forest)
+                Text(receipt.changed)
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("mira.receipt")
+                Spacer()
+                Button("Revert") { coordinator.revert(editor: editor) }
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.forest)
+                    .accessibilityIdentifier("mira.revert")
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                Capsule()
+                    .fill(Palette.forest.opacity(0.1))
+                    .overlay(
+                        Capsule().strokeBorder(Palette.forest.opacity(0.35), lineWidth: Metrics.hairline)
+                    )
+            )
+            .padding(.horizontal, Metrics.screenPadding)
             .onTapGesture { coordinator.dismiss() }
         case .failure(let failure):
             card {

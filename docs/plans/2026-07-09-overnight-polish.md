@@ -220,3 +220,16 @@ feat/ios-flow-v2 awaits Meng's word).
    replaced test locked the defective behavior itself. VERIFY (clean):
    swiftlint 0; Kit 110; xcodebuild test 22 tests 0 failures, TEST
    SUCCEEDED. Installed to the main simulator.
+
+9. Receipt slimmed (Meng, live testing: "does this card need to pop
+   after every command?" -> decided: smaller, shorter, visually
+   distinct from chat). The two-line card with SoftPill Revert and
+   "keeps by itself" became a single forest-tinted capsule stamp --
+   checkmark, the changed-line, Revert -- clearly a system
+   confirmation, not a chat bubble (chat stays paper-white). Kept-line
+   dropped from display (still in the model and receipts' tests).
+   Auto-keep window 20s -> 10s: one line reads fast, and the header
+   undo also covers Mira changes after auto-keep. Kit pin test
+   updated with the rationale. Design amendment recorded in project
+   memory. VERIFY (clean): swiftlint 0; Kit 110; xcodebuild test 22
+   tests 0 failures, TEST SUCCEEDED. Installed.
