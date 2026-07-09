@@ -75,9 +75,12 @@ public struct LiveImageStudioService: ImageStudioService {
         struct Response: Decodable {
             let images: [String]
         }
+        // Generation legitimately runs past URLSession's 60s default
+        // (two images plus background removal); give it real room.
         let response: Response = try await client.postJSON(
             to: baseURL.appendingPathComponent("generate"),
-            body: Request(command: kind.rawValue, prompt: prompt, expand: true)
+            body: Request(command: kind.rawValue, prompt: prompt, expand: true),
+            timeout: 180
         )
         let decoded = response.images.compactMap { Data(base64Encoded: $0) }
         guard !decoded.isEmpty else { throw BackendError.decoding }
@@ -127,6 +130,7 @@ public struct LiveImageStudioService: ImageStudioService {
         }
         let boundary = "MiraNoteBoundary-\(UUID().uuidString)"
         var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 180
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = LiveVoiceTranscriptionService.multipartBody(

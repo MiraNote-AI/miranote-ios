@@ -37,6 +37,10 @@ final class LiveImageStudioServiceTests: XCTestCase {
         XCTAssertEqual(body?["command"] as? String, "sticker")
         XCTAssertEqual(body?["prompt"] as? String, "a sleepy cafe cat")
         XCTAssertEqual(body?["expand"] as? Bool, true)
+        XCTAssertEqual(
+            captured?.timeoutInterval, 180,
+            "generation outlives URLSession's 60s default; the request must say so"
+        )
     }
 
     func testCutoutUploadsFileWithTargetPrompt() async throws {

@@ -55,14 +55,20 @@ public struct HTTPClient: Sendable {
     }
 
     /// POST `body` encoded as JSON, then decode the response body.
+    /// `timeout` overrides URLSession's 60s default for endpoints that
+    /// legitimately work longer (image generation).
     public func postJSON<Body: Encodable, Response: Decodable>(
         to url: URL,
-        body: Body
+        body: Body,
+        timeout: TimeInterval? = nil
     ) async throws -> Response {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
+        if let timeout {
+            request.timeoutInterval = timeout
+        }
         let data = try await send(request)
         do {
             return try JSONDecoder().decode(Response.self, from: data)

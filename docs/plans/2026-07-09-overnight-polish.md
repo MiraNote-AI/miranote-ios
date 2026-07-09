@@ -289,3 +289,25 @@ feat/ios-flow-v2 awaits Meng's word).
     studio service already points at :8002 -- AI image now works in
     the app with all five backends up (voice :8000 still parked on
     the DASGPT port conflict).
+
+14. Sticker path unblocked (Meng: "stickers still do not run -- do I
+    need a local model?"). Not models (they auto-downloaded at first
+    boot): a timeout race. The server log showed the app's requests
+    all finishing 200, but a full generate (prompt expansion + two
+    images + background removal) ran 30-90s while the app hung up at
+    URLSession's 60s default and reported "couldn't reach the server".
+    Fixed on both sides: HTTPClient.postJSON accepts a per-request
+    timeout, the image studio sends 180s (multipart edits too; Kit
+    test asserts the request carries it), and the backend generates
+    its two fallback images concurrently -- an app-shaped request now
+    measures ~58s wall with room to spare. VERIFY (clean): swiftlint
+    0; Kit 110; xcodebuild test 22 tests 0 failures, TEST SUCCEEDED.
+    Installed.
+
+    (Process slip on the way, third of its kind: the commit command ran
+    from a drifted cwd, landing the api's parallelization under the ios
+    message in the WRONG repo -- caught by reading git log, message
+    amended, ios changes recommitted properly; the same chain's install
+    step was short-circuited and its "installed" echo lied. Standing
+    rule reaffirmed: every commit/install command starts with an
+    explicit cd, and never rides an unconditional chain.)
