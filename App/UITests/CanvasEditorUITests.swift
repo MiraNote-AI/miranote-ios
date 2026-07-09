@@ -71,6 +71,13 @@ final class CanvasEditorUITests: XCTestCase {
 
         app.buttons["mode.image"].tap()
         XCTAssertTrue(app.staticTexts["Add an image"].waitForExistence(timeout: 5))
+
+        // The page preview above the panel is the USER's page (blank
+        // here), never the old catalog demo page.
+        XCTAssertFalse(
+            app.staticTexts["Lunch by the river"].exists,
+            "image panel must render the live canvas, not demo content"
+        )
     }
 
     // Long-press is the single delete path, and deletion is one tap from
@@ -175,6 +182,13 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8))
         let polished = "(polished -- mock) sunny afternoon by the bridge"
         XCTAssertTrue(app.staticTexts[polished].waitForExistence(timeout: 3), "canvas text transformed")
+
+        // The longer polished text re-fits its block instead of truncating:
+        // two wrapped lines need meaningfully more height than one.
+        XCTAssertGreaterThan(
+            app.staticTexts[polished].frame.height, 50,
+            "a Mira rewrite must grow the block with the words"
+        )
 
         app.buttons["mira.revert"].tap()
         XCTAssertTrue(

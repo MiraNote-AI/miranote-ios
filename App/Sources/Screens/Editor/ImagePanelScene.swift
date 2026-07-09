@@ -29,10 +29,12 @@ struct ImagePanelScene: View {
             onLeading: actions.leading,
             onTrailing: actions.done
         ) {
-            MemoryPage(
-                title: "Lunch by the river",
-                caption: "June 21 \u{00B7} calm afternoon"
-            )
+            // The user's own page, not a demo: what the picked image will
+            // land on. Read-only up here; the canvas stays the editor.
+            ScrollView(showsIndicators: false) {
+                StaticPageView(memory: editor.memory, showsSound: false)
+                    .padding(.horizontal, Metrics.screenPadding)
+            }
         } bottom: {
             panel
             InputModeBar(active: .image, onSelect: actions.selectMode)

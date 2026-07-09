@@ -269,6 +269,13 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(untouched.materializedForEditing().items, untouched.items)
     }
 
+    func testReceiptStaysLongEnoughToActuallyRevert() {
+        XCTAssertEqual(
+            MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(20),
+            "5s made Revert a reflex test; the receipt must outlive a careful read"
+        )
+    }
+
     func testSuggestionsAreContextAware() {
         let coordinator = makeCoordinator()
         let empty = CanvasViewModel(memory: Memory())

@@ -89,6 +89,7 @@ extension CanvasScene {
                 } label: {
                     Circle().fill(Palette.color(named: name)).frame(width: 18, height: 18)
                 }
+                .accessibilityIdentifier("style.color.\(name)")
             }
             Spacer()
             Button("Back") { accessoryRow = .tools }

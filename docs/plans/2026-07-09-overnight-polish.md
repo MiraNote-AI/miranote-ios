@@ -96,3 +96,32 @@ mismatches, fix them carefully step by step. Results reviewed 09:00.
    system services; results unaffected -- Meng confirmed the outage and
    said to continue). Installed to the main simulator. Probe deleted
    before commit.
+
+3. Tour B (canvas flows) filmed across four segments (probe needed two
+   repair passes: waits before first taps; the accordion needs Back
+   before switching rows -- that behavior itself judged fine, comparing
+   sizes back-to-back is real). Findings, all fixed and locked:
+   - F6 the Mira receipt auto-kept after FIVE seconds -- Revert was a
+     reflex test. Now 20s, default exposed as
+     MiraCanvasCoordinator.defaultReceiptDismiss and pinned by a Kit
+     test. (Found because the probe's tap missed the vanished button --
+     the film then showed why.)
+   - F7 a Mira rewrite that lengthens text truncated its block (typing
+     re-measures, setText from a turn did not). The changeCount
+     observer now re-fits text blocks after committed outside-typing
+     changes; UITest asserts the polished block's frame grew.
+   - F8 the image panel's page preview was the Phase D catalog DEMO
+     page ("Lunch by the river") -- on your own page it looked like the
+     canvas got swapped. It now renders the live editor memory via
+     StaticPageView; UITest asserts the demo strings are absent on a
+     blank canvas.
+   - Color chips in the keyboard accordion gained accessibility ids
+     (style.color.<name>) -- needed by the probe, useful for tests.
+   Sound armed/record/review/keep and the blank-canvas hint verified
+   good in film. Budget note: the 08:30 wrap line has passed (network
+   outage stretched one regression to 32 min); wrapping up after this
+   round's verification instead of opening new probe areas. Unprobed
+   and left for daylight: drag/resize handle visuals, long-press menu
+   visuals (canvas elements expose no ids -- proposal below), photo
+   edit panel, export advanced row, sticker generate flow, welcome
+   page.

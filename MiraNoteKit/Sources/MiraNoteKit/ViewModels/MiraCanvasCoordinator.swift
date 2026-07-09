@@ -60,6 +60,11 @@ public final class MiraCanvasCoordinator {
 
     private let text: TextTransformService
     private let chat: ChatService
+    /// How long a receipt (and its Revert) stays before keeping by
+    /// itself. Long enough to read both lines and change your mind --
+    /// reverting must never be a reflex test.
+    public static let defaultReceiptDismiss: Duration = .seconds(20)
+
     private let workingDelay: Duration
     private let timeout: Duration
     private let receiptDismiss: Duration
@@ -81,7 +86,7 @@ public final class MiraCanvasCoordinator {
         chat: ChatService,
         workingDelay: Duration = .milliseconds(400),
         timeout: Duration = .seconds(30),
-        receiptDismiss: Duration = .seconds(5)
+        receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss
     ) {
         self.text = text
         self.chat = chat

@@ -88,6 +88,10 @@ struct CanvasScene: View {
                     editingImageItem = nil
                 }
             }
+            // Committed changes that rewrite text from OUTSIDE typing --
+            // Mira transforms, undo -- must also re-fit their blocks, or a
+            // longer polish truncates. No-op for untouched blocks.
+            remeasureTextBlocks()
         }
         .onChange(of: editor.editingTextItemID) { _, editing in
             if editing == nil {
