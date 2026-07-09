@@ -55,13 +55,6 @@ struct CanvasScene: View {
         } bottom: {
             bottomCluster
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                if editor.editingTextItemID != nil {
-                    textAccessory
-                }
-            }
-        }
         .onAppear {
             remeasureTextBlocks()
             consumePendingTool()
@@ -112,10 +105,26 @@ struct CanvasScene: View {
     // MARK: Bottom cluster (instrument panel + context bar)
 
     @ViewBuilder private var bottomCluster: some View {
-        // While words are being written, the canvas is the whole show:
-        // tools, chips, and the Mira bar step aside (the accordion bar
-        // rides the keyboard).
-        if editor.editingTextItemID == nil {
+        // While words are being written the accordion takes the bottom
+        // slot: above the software keyboard when there is one, at the
+        // screen bottom with a hardware keyboard -- visible either way
+        // (it used to ride the keyboard toolbar, which a connected
+        // hardware keyboard simply never shows).
+        if editor.editingTextItemID != nil {
+            HStack(spacing: 18) {
+                textAccessory
+            }
+            .font(.miraLabel)
+            .foregroundStyle(Palette.ink)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(Palette.onInk)
+                    .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+            )
+            .padding(.horizontal, Metrics.screenPadding)
+        } else {
             if let gestureHint {
                 Text(gestureHint)
                     .font(.miraCaption)

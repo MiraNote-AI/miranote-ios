@@ -355,3 +355,14 @@ feat/ios-flow-v2 awaits Meng's word).
     Add a soft title. Kit tests updated to the page-level inventory.
     VERIFY (clean): swiftlint 0; Kit 111; xcodebuild test 23 tests 0
     failures, TEST SUCCEEDED. Installed.
+
+20. Text accordion freed from the software keyboard (Meng: tapping
+    Text showed no tool buttons -- his simulator has the hardware
+    keyboard connected, so the software keyboard and its toolbar
+    never appear). The accessory moved from the keyboard toolbar into
+    the editing state's bottom slot: it rides above the software
+    keyboard when one shows (same visual position as before) and sits
+    at the screen bottom with a hardware keyboard -- visible either
+    way. Same ids, so every text-editing test drives it unchanged.
+    VERIFY (clean): swiftlint 0; xcodebuild test 23 tests 0 failures,
+    TEST SUCCEEDED. Installed.
