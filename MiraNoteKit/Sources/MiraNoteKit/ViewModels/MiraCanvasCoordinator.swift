@@ -165,14 +165,19 @@ public final class MiraCanvasCoordinator {
         phase = .idle
     }
 
-    /// The view calls this when the canvas mutates while a receipt shows:
-    /// the moment the user edits, the receipt's Revert is no longer honest,
-    /// so the receipt keeps (dismisses) itself.
+    /// The view calls this when the canvas mutates. A showing receipt
+    /// keeps itself (its Revert would no longer be honest), and a lingering
+    /// reply steps aside -- the user has gone back to making things.
     public func canvasDidChange(_ editor: CanvasViewModel) {
-        guard case .receipt = phase,
-              let expected = receiptChangeCount,
-              editor.changeCount != expected else { return }
-        dismiss()
+        switch phase {
+        case .receipt:
+            guard let expected = receiptChangeCount, editor.changeCount != expected else { return }
+            dismiss()
+        case .reply:
+            dismiss()
+        default:
+            break
+        }
     }
 
     /// Auto-keep is the default: dismissing keeps the change.

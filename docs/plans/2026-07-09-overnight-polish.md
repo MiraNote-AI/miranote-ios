@@ -388,3 +388,15 @@ feat/ios-flow-v2 awaits Meng's word).
     the coordinator test class under the 250-line cap. VERIFY (clean):
     swiftlint 0; Kit 112; xcodebuild test 23 tests 0 failures, TEST
     SUCCEEDED. Installed.
+
+23. Canvas Mira awareness + reply lifecycle (Meng: "the AI can't see
+    the canvas, and the reply never goes away"). Awareness: the page
+    DID ride along (Kit-locked), but photos were invisible in the
+    flattened note -- ChatNote now emits a "(photo) <name>" line per
+    image (pixels still do not travel; the backend prompt says to
+    admit that when asked), and the backend context header now says
+    the first page may be the one open in the editor. Lifecycle: a
+    reply had no exit -- it now dismisses by tap, by an xmark, and
+    steps aside on any canvas edit (canvasDidChange handles .reply;
+    Kit-tested). api tests 92; Kit 114 (+2). VERIFY (clean): swiftlint
+    0; xcodebuild test 23 tests 0 failures, TEST SUCCEEDED. Installed.

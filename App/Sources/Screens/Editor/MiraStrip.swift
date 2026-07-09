@@ -34,9 +34,19 @@ struct MiraCard: View {
                         .font(.miraBody)
                         .foregroundStyle(Palette.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        coordinator.dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Palette.textSecondary.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("mira.dismissReply")
                 }
                 chipsRow(chips)
             }
+            .onTapGesture { coordinator.dismiss() }
         case .receipt(let receipt):
             // A confirmation stamp, not a chat element (Meng, 2026-07-09):
             // one forest-tinted line with Revert, kept-line dropped, and it

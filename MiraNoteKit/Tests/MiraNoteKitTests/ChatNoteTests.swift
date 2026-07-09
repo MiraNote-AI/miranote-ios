@@ -19,6 +19,38 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(note.date, "2026-06-30")
     }
 
+    func testPageNoteMentionsPhotos() {
+        let editor = CanvasViewModel(memory: Memory())
+        editor.addImages([ImageRef(displayName: "Library photo")], around: .zero)
+        let note = ChatNote(page: editor.composedMemory())
+        XCTAssertTrue(
+            note.body.contains("(photo) Library photo"),
+            "the model must know a photo sits on the page even without pixels"
+        )
+    }
+
+    func testReplyStepsAsideWhenTheCanvasChanges() async {
+        let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+        let coordinator = MiraCanvasCoordinator(
+            text: ScriptedText(),
+            chat: ScriptedChat(),
+            workingDelay: .milliseconds(1),
+            timeout: .seconds(5),
+            receiptDismiss: .seconds(60)
+        )
+        coordinator.ask("hello mira", editor: editor)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if case .reply = coordinator.phase { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        guard case .reply = coordinator.phase else { return XCTFail("expected a reply") }
+
+        _ = editor.addText("back to making things", at: CGPoint(x: 100, y: 100))
+        coordinator.canvasDidChange(editor)
+        XCTAssertEqual(coordinator.phase, .idle, "a lingering reply steps aside on canvas edits")
+    }
+
     func testReplaceImageFileSwapsPixelsClearsFilterUndoably() {
         let editor = CanvasViewModel(memory: Memory())
         editor.addImages([ImageRef(displayName: "bird", fileName: "old.png")], around: .zero)

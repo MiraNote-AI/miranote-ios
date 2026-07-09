@@ -78,8 +78,9 @@ public extension ChatNote {
                 if !clip.note.isEmpty { parts.append("(sound) " + clip.note) }
             case .sticker(let sticker):
                 if !sticker.prompt.isEmpty { parts.append("(sticker) " + sticker.prompt) }
-            case .image:
-                break
+            case .image(let ref):
+                // Pixels do not travel; the page at least says one is here.
+                parts.append("(photo) " + (ref.displayName.isEmpty ? "a photo" : ref.displayName))
             }
         }
         self.init(
