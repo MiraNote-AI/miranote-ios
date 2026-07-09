@@ -356,20 +356,33 @@ extension CanvasViewModel {
         return composed
     }
 
-    /// A2 "Quick organize": deterministic tidy-up -- items snap to a grid,
-    /// reading order preserved. Real auto-organization arrives with the
-    /// backend feature; the deterministic layout keeps this testable.
-    public func quickOrganize(canvasWidth: CGFloat, spacing: CGFloat = 120) {
+    /// "Tidy the layout": a calm single-column pass. Reading order is
+    /// preserved (title block first, then top-to-bottom as they were),
+    /// every item keeps its size, centers align to the page column,
+    /// vertical gaps come from REAL heights so nothing can overlap, and
+    /// tilted things straighten up. Deterministic on purpose.
+    public func quickOrganize(canvasWidth: CGFloat, spacing: CGFloat = 24) {
         beginChange()
-        let columns = max(1, Int(canvasWidth / spacing))
-        for (offset, item) in memory.items.enumerated() {
-            let column = offset % columns
-            let row = offset / columns
-            let position = CGPoint(
-                x: spacing / 2 + CGFloat(column) * spacing,
-                y: spacing / 2 + CGFloat(row) * spacing
+        func sortKey(_ item: CanvasItem) -> (Int, CGFloat) {
+            if case .text(let block) = item.content, block.pointSize >= 24 {
+                return (0, item.position.y - item.size.height / 2)
+            }
+            return (1, item.position.y - item.size.height / 2)
+        }
+        let orderedIDs = memory.items
+            .sorted { sortKey($0) < sortKey($1) }
+            .map(\.id)
+
+        var nextTop: CGFloat = 28
+        for id in orderedIDs {
+            guard let itemIndex = index(of: id) else { continue }
+            let size = memory.items[itemIndex].size
+            memory.items[itemIndex].position = CGPoint(
+                x: canvasWidth / 2,
+                y: nextTop + size.height / 2
             )
-            move(itemID: item.id, to: position)
+            memory.items[itemIndex].rotation = 0
+            nextTop += size.height + spacing
         }
     }
 

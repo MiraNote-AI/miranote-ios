@@ -111,17 +111,41 @@ final class CanvasViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.memory.savedAt)
     }
 
-    func testQuickOrganizeSnapsToGridPreservingOrder() {
+    func testQuickOrganizeStacksWithoutOverlapOrOverflow() {
         let viewModel = CanvasViewModel(memory: Memory())
-        for index in 0..<5 {
-            viewModel.addText("item \(index)", at: CGPoint(x: 999, y: 999))
+        // A tall paragraph, a sound pill, and (added last, lowest on the
+        // page) a display-size title -- the old grid pass overlapped these
+        // and shoved wide blocks off the page edge.
+        let paragraphID = viewModel.addText("a long letter", at: CGPoint(x: 300, y: 600),
+                                            size: CGSize(width: 320, height: 400))
+        _ = viewModel.addSound(SoundClip(duration: 3), at: CGPoint(x: 60, y: 80))
+        let titleID = viewModel.addText("A quiet moment", at: CGPoint(x: 40, y: 900), pointSize: 30,
+                                        size: CGSize(width: 320, height: 60))
+        if let id = viewModel.items.first(where: { $0.id == titleID })?.id {
+            viewModel.rotate(itemID: id, degrees: 12)
         }
-        viewModel.quickOrganize(canvasWidth: 240, spacing: 120)
-        let positions = viewModel.items.map(\.position)
-        XCTAssertEqual(positions[0], CGPoint(x: 60, y: 60))
-        XCTAssertEqual(positions[1], CGPoint(x: 180, y: 60))
-        XCTAssertEqual(positions[2], CGPoint(x: 60, y: 180))
-        XCTAssertEqual(Set(positions.map { "\($0)" }).count, 5, "no two items share a slot")
+
+        viewModel.quickOrganize(canvasWidth: 360)
+
+        let items = viewModel.items
+        // Title leads even though it sat lowest on the page.
+        let ordered = items.sorted { $0.position.y < $1.position.y }
+        XCTAssertEqual(ordered.first?.id, titleID, "the title opens the tidied page")
+
+        for item in items {
+            XCTAssertEqual(item.position.x, 180, "single column, centered on the page")
+            XCTAssertEqual(item.rotation, 0, "tidying straightens tilted things")
+            let left = item.position.x - item.size.width / 2
+            let right = item.position.x + item.size.width / 2
+            XCTAssertGreaterThanOrEqual(left, 0, "nothing hangs off the left edge")
+            XCTAssertLessThanOrEqual(right, 360, "nothing hangs off the right edge")
+        }
+        for (upper, lower) in zip(ordered, ordered.dropFirst()) {
+            let upperBottom = upper.position.y + upper.size.height / 2
+            let lowerTop = lower.position.y - lower.size.height / 2
+            XCTAssertGreaterThanOrEqual(lowerTop, upperBottom, "real heights: no overlap, ever")
+        }
+        _ = paragraphID
     }
 
     // MARK: v2.1 editor core

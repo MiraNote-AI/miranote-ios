@@ -205,3 +205,18 @@ TERMINAL STATE: SUCCESS per contract -- all criteria met or explicitly
 HUMAN-flagged; review findings addressed; budget overrun recorded.
 PR deferred (standing deviation: gh external writes denied; branch
 feat/ios-flow-v2 awaits Meng's word).
+
+8. Post-wrap fix (Meng, live testing: "Tidy the layout scrambled
+   everything"). quickOrganize was still the Phase A placeholder: it
+   snapped item CENTERS to a 120pt grid -- a 320-wide title in the
+   x=60 column hangs half off the page, and the fixed row pitch
+   overlaps anything taller than 120 (exactly the screenshot: title
+   clipped at the left edge, sound pill on top of the paragraph).
+   Rewritten as a real tidy: single column centered on the page,
+   reading order preserved with the title block leading, vertical gaps
+   chained from REAL item heights, rotations straightened. Old
+   grid-lock test replaced by semantic locks (title-first, centered,
+   in-bounds both edges, pairwise no-overlap, rotation zeroed) -- the
+   replaced test locked the defective behavior itself. VERIFY (clean):
+   swiftlint 0; Kit 110; xcodebuild test 22 tests 0 failures, TEST
+   SUCCEEDED. Installed to the main simulator.
