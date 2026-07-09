@@ -274,3 +274,18 @@ feat/ios-flow-v2 awaits Meng's word).
     sticker UITest always drove it. VERIFY (clean): swiftlint 0; Kit
     110; xcodebuild test 22 tests 0 failures, TEST SUCCEEDED.
     Installed.
+
+13. Backend image pipeline lit up (Meng: "is the backend connected?
+    the pipeline seems broken"). :8002 had never been provisioned (the
+    standing blocker). Provisioned it end to end: python3.13 .venv
+    (setup.sh created venv/ while start-all looks for .venv/ -- fixed),
+    requirements incl. torch/SAM-2/rembg, .env with PROJECT_ID
+    oxeai-dev; the user's gcloud ADC already existed so no login was
+    needed. Found the real blocker: Imagen is gated for this project
+    (404 in every region) while gemini-2.5-flash-image works, so
+    /generate gained a Nano Banana fallback (miranote-api commit,
+    pure parts unit-tested). Live smoke: sticker prompt returned two
+    real PNGs through Imagen-404 -> fallback -> rembg. The app's live
+    studio service already points at :8002 -- AI image now works in
+    the app with all five backends up (voice :8000 still parked on
+    the DASGPT port conflict).
