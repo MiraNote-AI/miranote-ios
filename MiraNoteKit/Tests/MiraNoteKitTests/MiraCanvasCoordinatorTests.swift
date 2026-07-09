@@ -294,13 +294,14 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         _ = wordsNoTitle.addText("small words", at: CGPoint(x: 100, y: 100))
         XCTAssertEqual(
             coordinator.suggestions(for: wordsNoTitle),
-            ["Polish the text", "Add a soft title"]
+            ["Add a soft title"],
+            "canvas chips are page-level; polishing lives in the text editor"
         )
 
         let full = makeEditor()
         XCTAssertEqual(
             coordinator.suggestions(for: full),
-            ["Polish the text", "Tidy the layout"],
+            ["Tidy the layout"],
             "no title chip when the page already has a display-size title"
         )
     }

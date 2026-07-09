@@ -345,3 +345,13 @@ feat/ios-flow-v2 awaits Meng's word).
     it can never wrap again). Accessibility ids unchanged. VERIFY
     (clean): swiftlint 0; xcodebuild test 23 tests 0 failures, TEST
     SUCCEEDED. Installed.
+
+19. Canvas chips are page-level only (Meng: "Polish the text belongs
+    in the text editor, not the canvas editor"). The polish chip left
+    the canvas suggestions -- polishing lives in the text-editing
+    keyboard row (Polish / Expand / Tighten), where the target block
+    is unambiguous; typed Mira commands still work from the bar. The
+    canvas now suggests only what concerns the page: Tidy the layout,
+    Add a soft title. Kit tests updated to the page-level inventory.
+    VERIFY (clean): swiftlint 0; Kit 111; xcodebuild test 23 tests 0
+    failures, TEST SUCCEEDED. Installed.

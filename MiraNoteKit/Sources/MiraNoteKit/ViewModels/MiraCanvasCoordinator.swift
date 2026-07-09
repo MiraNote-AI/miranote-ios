@@ -101,18 +101,15 @@ public final class MiraCanvasCoordinator {
         return turnTask != nil
     }
 
-    /// Context-aware idle suggestions (only offer what the page can take).
-    /// Every chip must be ABOUT something already on the page -- a chip
-    /// that pops right after an unrelated add (a sound, a photo) reads as
-    /// caused by it. A title is a suggestion about words, so it waits for
-    /// words.
+    /// Context-aware idle suggestions -- PAGE-level only (Meng,
+    /// 2026-07-09): polishing belongs to the text editor's keyboard row,
+    /// where the target block is unambiguous. Every chip must be ABOUT
+    /// something already on the page, and a title is a suggestion about
+    /// words, so it waits for words.
     public func suggestions(for editor: CanvasViewModel) -> [String] {
         var chips: [String] = []
         let hasText = editor.items.contains {
             if case .text = $0.content { return true } else { return false }
-        }
-        if hasText {
-            chips.append("Polish the text")
         }
         if editor.items.count > 1 {
             chips.append("Tidy the layout")
