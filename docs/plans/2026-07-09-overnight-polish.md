@@ -174,6 +174,33 @@ mismatches, fix them carefully step by step. Results reviewed 09:00.
    flow-v2 ledger: verification/bookkeeping and commits must not share
    an unconditional chain.)
 
+7. Daylight extension (Meng: "you are overdue -- finish what is left").
+   P2 implemented: sticker favorites use a per-process scratch file
+   under -UITEST (StickerFavoritesStore.forCurrentProcess), verified in
+   film -- MY STICKERS shows only the current run's sticker. Tour C
+   filmed the remaining P3 areas (probe needed two repair passes; both
+   were probe grammar, not app bugs: tap-on-selected re-enters editing
+   by design, so deselect first; covered views keep their static texts
+   in the hierarchy, so gesture segments use unique fresh-canvas text).
+   Verified good in film: welcome page layout, selection handles +
+   breathing lock, drag (including deliberate off-edge bleed --
+   center-clamped, reads as scrapbook aesthetic, noted as P5 for Meng),
+   long-press menu (Edit text / Duplicate / Bring to front / Send to
+   back / Delete), delete -> Deleted-Undo toast -> undo, photo edit
+   panel (Filters / Frame / Make sticker + Match page / Original / B&W
+   / Warm / Film), sticker generate end-to-end, export sheet. Found and
+   fixed F9: every added photo landed at x=180 in a fused column;
+   photos now sway left-center-right deterministically as they stack
+   (ImagePanelScene.add), locked by a UITest asserting consecutive
+   sample photos differ in midX. The export Advanced disclosure did not
+   expand under the probe's tap -- unverified visually, noted here
+   (low-traffic row; its Kit logic is covered by existing tests).
+   P1 resolved without code: text elements are addressable by content,
+   image/sticker/sound elements by their element.* ids -- per-item ids
+   not needed for coverage; proposal withdrawn.
+   VERIFY (clean): swiftlint 0; Kit 110; xcodebuild test 22 tests 0
+   failures, TEST SUCCEEDED. Installed to the main simulator.
+
 TERMINAL STATE: SUCCESS per contract -- all criteria met or explicitly
 HUMAN-flagged; review findings addressed; budget overrun recorded.
 PR deferred (standing deviation: gh external writes denied; branch

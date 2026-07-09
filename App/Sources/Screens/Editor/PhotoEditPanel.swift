@@ -16,7 +16,7 @@ struct PhotoEditPanel: View {
     @State private var notice: String?
 
     private let imageStore = ImageFileStore()
-    private let favoritesStore = StickerFavoritesStore()
+    private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     var body: some View {
         ContextCard(title: "Edit photo") {

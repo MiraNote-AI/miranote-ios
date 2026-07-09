@@ -21,7 +21,7 @@ struct ImagePanelScene: View {
     @State private var favorites: [GeneratedSticker] = []
 
     private let imageStore = ImageFileStore()
-    private let favoritesStore = StickerFavoritesStore()
+    private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     var body: some View {
         EditorScaffold(
@@ -317,7 +317,14 @@ extension ImagePanelScene {
             notice = "That photo couldn't be saved. Try again?"
             return
         }
-        let position = CGPoint(x: 180, y: min(editor.contentBottom + 90, 4000))
+        // Photos sway left-center-right as they stack down the page --
+        // a hand-placed column, not a machine pile. Deterministic on the
+        // existing photo count so tests stay stable.
+        let photoCount = editor.items.filter {
+            if case .image = $0.content { return true } else { return false }
+        }.count
+        let sway: CGFloat = [-28, 0, 28][photoCount % 3]
+        let position = CGPoint(x: 180 + sway, y: min(editor.contentBottom + 100, 4000))
         editor.addImages([ImageRef(displayName: name, fileName: fileName)], around: position)
         if returnToCanvas { actions.leading() }
     }

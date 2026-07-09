@@ -251,6 +251,16 @@ final class CanvasEditorUITests: XCTestCase {
         let photo = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
+
+        // Consecutive photos sway instead of piling into one column.
+        let second = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 1)
+        XCTAssertTrue(second.waitForExistence(timeout: 3))
+        XCTAssertGreaterThan(
+            abs(photo.frame.midX - second.frame.midX), 20,
+            "added photos stagger like a hand-placed stack"
+        )
+
         photo.press(forDuration: 0.9)
 
         let edit = app.buttons["Edit photo"]
