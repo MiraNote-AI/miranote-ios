@@ -136,25 +136,6 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Nothing waiting here."].waitForExistence(timeout: 5))
     }
 
-    // From the chat, "New memory" files the conversation as a real note and
-    // returns Home; the note then lives in the Daily Log collection.
-    func testChatNewMemoryFilesToCollection() {
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("a quiet morning")
-        app.buttons["quick.send"].tap()
-
-        let newMemory = app.buttons["New memory"]
-        XCTAssertTrue(newMemory.waitForExistence(timeout: 5))
-        newMemory.tap()
-
-        let dailyLog = app.buttons["collection.Daily Log"]
-        XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
-        dailyLog.tap()
-        XCTAssertTrue(app.buttons["note.a quiet morning"].waitForExistence(timeout: 5))
-    }
-
     // Mira can draft a page from the conversation: the card opens the
     // editor with the drafted words on the canvas; Done files it.
     func testChatDraftOpensEditorAndFiles() {

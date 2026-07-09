@@ -246,10 +246,6 @@ struct HomeFlow: View {
                     service: Self.editorServices(base: services).chat,
                     seed: seed,
                     onExit: { route = nil },
-                    onNewMemory: {
-                        viewModel.file(Memory(title: seed), underCollectionTitled: Self.inbox)
-                        route = nil
-                    },
                     findPages: { LibrarySearch.find($0, in: viewModel.library) },
                     onOpenPage: { hit in
                         route = nil

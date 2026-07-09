@@ -1,12 +1,12 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The MiraNote AI conversation. Opened from the Home quick-capture field with
-/// the typed text as the first message; "New memory" hands off to the editor.
+/// The MiraNote AI conversation. Opened from the Home quick-capture field
+/// with the typed text as the first message; asking Mira to note something
+/// down yields a draft card that opens the editor.
 struct MiraChatView: View {
     var seed: String?
     var onExit: () -> Void = {}
-    var onNewMemory: () -> Void = {}
     /// Mira answers "find" questions with pages, not paragraphs (v2.1):
     /// every user message also runs the library search; hits render as
     /// tappable covers under it.
@@ -22,7 +22,6 @@ struct MiraChatView: View {
         service: ChatService,
         seed: String? = nil,
         onExit: @escaping () -> Void = {},
-        onNewMemory: @escaping () -> Void = {},
         findPages: @escaping (String) -> [PageHit] = { _ in [] },
         onOpenPage: @escaping (PageHit) -> Void = { _ in },
         onOpenDraft: @escaping (ChatPageDraft) -> Void = { _ in }
@@ -37,7 +36,6 @@ struct MiraChatView: View {
         ))
         self.seed = seed
         self.onExit = onExit
-        self.onNewMemory = onNewMemory
         self.findPages = findPages
         self.onOpenPage = onOpenPage
         self.onOpenDraft = onOpenDraft
@@ -73,8 +71,8 @@ struct MiraChatView: View {
             }
             Spacer()
 
-            Button("New memory", action: onNewMemory)
-                .buttonStyle(SoftPill())
+            // Mirrors the back button so the title stays centered.
+            Color.clear.frame(width: 38, height: 38)
         }
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.top, 4)
