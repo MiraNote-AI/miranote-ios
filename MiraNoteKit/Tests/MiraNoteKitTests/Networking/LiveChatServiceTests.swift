@@ -70,6 +70,21 @@ final class LiveChatServiceTests: XCTestCase {
         XCTAssertNil(result.pageDraft)
     }
 
+    func testEmptyReplyBecomesADecodingError() async {
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"{"session_id":"s1","reply":"  ","tool_trace":[]}"#.utf8))
+        }
+        do {
+            _ = try await service().reply(to: "hi", sessionID: nil)
+            XCTFail("a blank bubble must not reach the UI")
+        } catch let error as BackendError {
+            XCTAssertEqual(error, .decoding)
+        } catch {
+            XCTFail("expected BackendError, got \(error)")
+        }
+    }
+
     func testServerErrorPropagatesAsBackendError() async {
         StubURLProtocol.handler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 502, httpVersion: nil, headerFields: nil)!

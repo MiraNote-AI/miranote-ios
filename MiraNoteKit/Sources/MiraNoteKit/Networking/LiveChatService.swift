@@ -71,6 +71,10 @@ public struct LiveChatService: ChatService {
             to: url,
             body: Request(sessionID: sessionID, message: message, notes: notes)
         )
+        // A blank bubble is worse than a failure card: treat it as one.
+        guard !response.reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw BackendError.decoding
+        }
         let draft = (response.toolTrace ?? [])
             .first { $0.name == "create_note" }
             .flatMap { entry -> ChatPageDraft? in

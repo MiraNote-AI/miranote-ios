@@ -400,3 +400,19 @@ feat/ios-flow-v2 awaits Meng's word).
     steps aside on any canvas edit (canvasDidChange handles .reply;
     Kit-tested). api tests 92; Kit 114 (+2). VERIFY (clean): swiftlint
     0; xcodebuild test 23 tests 0 failures, TEST SUCCEEDED. Installed.
+
+24. Canvas chat multi-turn + true empty-reply root cause (Meng: "the
+    chat is single-turn, and it still cannot see the canvas"). Live
+    two-turn experiment reproduced it: the session DID carry and the
+    model DID describe the page perfectly on turn one -- but turn two
+    came back with EMPTY assistant content (thinking-mode deepseek
+    keeps the answer in reasoning sometimes), which chat_loop accepted
+    silently; a blank bubble also read as "it cannot see". Fixes:
+    chat_loop retries empty content up to twice (appending nothing;
+    tested with a scripted empty-empty-answer client), main.py turns a
+    still-empty reply into a 502 so the app shows its retry card, the
+    iOS LiveChatService treats a blank reply as BackendError.decoding
+    (tested), and the persona learned "canvas" is a synonym for the
+    page. Live three-turn run: turn two correctly recalls turn one.
+    api 93; Kit 115. VERIFY (clean): swiftlint 0; xcodebuild test 23
+    tests 0 failures, TEST SUCCEEDED. Installed.
