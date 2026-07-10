@@ -60,9 +60,11 @@ repo's README for setup, keys, and the image models):
 |---|---|
 | Polish / expand / tighten text | 8001 |
 | Mira chat, drafts, AI titles and captions | 8003 |
-| Quote suggestions | 8004 |
 | AI image, cutout / make sticker, Ask-AI photo edits, photo vision | 8002 |
 | Voice dictation | 8000 |
+
+The retrieval POC (:8004, quote corpus) runs server-side but has no app
+client yet -- it is on the roadmap, not in the feature set.
 
 Backends down = calm failure cards in the app, nothing breaks.
 
