@@ -190,6 +190,80 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mode.image"].exists)
     }
 
+    // Autosave semantics: leaving with Home keeps the words exactly like
+    // Done -- the silent-discard path was a data-loss bug.
+    func testHomeFilesNonEmptyCanvasLikeDone() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("home keeps my words")
+        app.buttons["keyboard.done"].tap()
+
+        app.buttons["Home"].tap()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
+        app.buttons["collection.Daily Log"].tap()
+        XCTAssertTrue(
+            app.buttons["note.home keeps my words"].waitForExistence(timeout: 5),
+            "the words were filed, not discarded"
+        )
+    }
+
+    // Backgrounding files the canvas so an app death cannot eat it: the
+    // page exists even after the canvas is emptied and abandoned, which
+    // only the background pass can explain.
+    func testBackgroundingFilesTheCanvas() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("background saves these words")
+        app.buttons["keyboard.done"].tap()
+
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 8), "back in the editor")
+
+        let block = app.staticTexts["background saves these words"]
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        block.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .withOffset(CGVector(dx: 0, dy: 300)).tap()
+        block.press(forDuration: 0.9)
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5))
+        app.buttons["Delete"].tap()
+        XCTAssertTrue(app.buttons["toast.undo"].waitForExistence(timeout: 5))
+
+        app.buttons["Home"].tap()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
+        app.buttons["collection.Daily Log"].tap()
+        XCTAssertTrue(
+            app.buttons["note.background saves these words"].waitForExistence(timeout: 5),
+            "the background hop filed the page before the canvas was emptied"
+        )
+    }
+
+    // Mira's light markdown renders as styling; asterisks never reach
+    // the glass (the scripted reply carries ** on purpose).
+    func testChatRendersMarkdownAsStyle() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("say hello")
+        app.buttons["quick.send"].tap()
+
+        XCTAssertTrue(app.staticTexts["MiraNote AI"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["A scripted reply for UI tests."].waitForExistence(timeout: 8),
+            "bold arrives as style, so the label is the plain sentence"
+        )
+        XCTAssertFalse(
+            app.staticTexts["A **scripted** reply for UI tests."].exists,
+            "no literal asterisks in the bubble"
+        )
+    }
+
     // Done on an untouched blank canvas keeps nothing.
     func testDoneOnBlankCanvasFilesNothing() {
         app.buttons["Start a memory"].tap()
