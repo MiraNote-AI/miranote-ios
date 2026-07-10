@@ -122,6 +122,56 @@ final class MiraImageTurnTests: XCTestCase {
         XCTAssertEqual(recolored.colorName, "forest")
     }
 
+    func testPlacingAChoiceLandsTheTappedOneAndReceipts() async {
+        let dir = tempDir
+        let editor = CanvasViewModel(memory: Memory())
+        let coordinator = makeCoordinator(tempDir: dir)
+        coordinator.ask("draw a paper crane", editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+
+        coordinator.placeImageChoice(1, editor: editor)
+        guard case .receipt(let receipt) = coordinator.phase else {
+            return XCTFail("expected a receipt, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(receipt.changed, "Added a picture.")
+        XCTAssertEqual(editor.items.count, 1)
+        guard case .image(let ref) = editor.items[0].content else {
+            return XCTFail("expected the placed image")
+        }
+        XCTAssertEqual(
+            ImageFileStore(directory: dir).data(forFileName: ref.fileName),
+            Data("img-B".utf8),
+            "the SECOND candidate landed, not the first"
+        )
+    }
+
+    func testStickerChoiceJoinsFavorites() async {
+        let dir = tempDir
+        let favorites = StickerFavoritesStore(url: dir.appendingPathComponent("favs.json"))
+        let editor = CanvasViewModel(memory: Memory())
+        let coordinator = makeCoordinator(tempDir: dir)
+        coordinator.ask("draw a sticker of a coffee cup", editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+        coordinator.placeImageChoice(0, editor: editor)
+        XCTAssertEqual(favorites.all().count, 1, "the placed sticker is reusable")
+        guard case .sticker = editor.items.first?.content else {
+            return XCTFail("expected a sticker element on the canvas")
+        }
+    }
+
+    func testDiscardKeepsCanvasUntouched() async {
+        let editor = CanvasViewModel(memory: Memory())
+        let coordinator = makeCoordinator(tempDir: tempDir)
+        coordinator.ask("draw a paper crane", editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+        coordinator.discardImageChoices()
+        guard case .idle = coordinator.phase else {
+            return XCTFail("expected idle after the xmark, got \(coordinator.phase)")
+        }
+        XCTAssertTrue(editor.items.isEmpty)
+        XCTAssertFalse(editor.canUndo, "no snapshot was burned by discarding")
+    }
+
     func testEmptyPhotoBytesFailCalmly() async {
         let editor = CanvasViewModel(memory: Memory())
         _ = editor.addImages(
