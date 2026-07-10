@@ -20,7 +20,7 @@ public protocol TextTransformService: Sendable {
 }
 
 /// Voice dictation entry (sketch 2.1 "voice", Home pill glyph).
-/// Backend mapping: voice-to-text POC (:8000).
+/// Backend mapping: voice-to-text POC (:8005).
 public protocol VoiceTranscriptionService: Sendable {
     func transcribe(audio: Data, filename: String) async throws -> String
 }

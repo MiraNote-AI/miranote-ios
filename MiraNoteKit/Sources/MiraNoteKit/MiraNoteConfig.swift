@@ -14,7 +14,7 @@ public enum MiraNoteConfig {
         /// text-clean-expand POC: /clean, /expand, /polish.
         public static let textBaseURL = URL(string: "http://localhost:8001")!
         /// voice-to-text POC: /transcribe.
-        public static let voiceBaseURL = URL(string: "http://localhost:8000")!
+        public static let voiceBaseURL = URL(string: "http://localhost:8005")!
         /// chatbot POC: /chat.
         public static let chatBaseURL = URL(string: "http://localhost:8003")!
         /// image-generation POC: /generate, /cutout, /stylize, /border.

@@ -137,7 +137,7 @@ extension CanvasScene {
         Task { _ = try? await abandoned?.stop() }
     }
 
-    /// Tap-to-toggle dictation: record, transcribe (:8000), append to the
+    /// Tap-to-toggle dictation: record, transcribe (:8005), append to the
     /// block being edited. The sound tool and dictation never share the
     /// recorder slot (guarded on both entry points).
     func toggleDictation() {
