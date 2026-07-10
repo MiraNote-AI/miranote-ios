@@ -1,17 +1,17 @@
 import XCTest
 
-/// UI regression tests for the v1 bug classes that unit tests cannot see
-/// (issue #5): Save wiping the canvas via a rebuilt view model, and the
-/// long-press insert menu appearing offset from the touch point.
+/// UI regression tests for the Flow 7 redesign. The v1 interaction model
+/// (empty-state hint, free-canvas long-press menu, sheet-based Save round-trip)
+/// was replaced by the Home hero + a step-based editor with a bottom
+/// instrument panel, so these assert the new flow instead.
 final class MiraNoteUITests: XCTestCase {
     private var app: XCUIApplication!
-
-    private let emptyStateHint =
-        "No collections yet. Start your first memory and it will live here."
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        // Fresh, non-persistent seed each run so collection tests are stable.
+        app.launchArguments = ["-UITEST"]
         app.launch()
     }
 
@@ -19,69 +19,185 @@ final class MiraNoteUITests: XCTestCase {
         app = nil
     }
 
-    // AC4 / decision D3: the hint is the only guidance in v1.
-    func testEmptyStateHintShownOnFirstLaunch() {
-        XCTAssertTrue(app.staticTexts[emptyStateHint].waitForExistence(timeout: 5))
+    // Home opens on the editorial hero with the primary action present.
+    func testHomeShowsHeroAndStart() {
+        XCTAssertTrue(app.staticTexts["MiraNote"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Start a memory"].exists)
+
+        // The dateline is live, not design-mock copy frozen at June 22.
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "MMMM d"
+        let today = formatter.string(from: .now).uppercased()
+        let dateline = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", today)
+        )
+        XCTAssertTrue(dateline.firstMatch.exists)
     }
 
-    // AC2 regression: in v1, Save triggered a Home re-render that rebuilt
-    // the canvas view model and wiped the items; a second Save then
-    // overwrote the filed memory with the blank canvas.
-    func testSaveKeepsCanvasAndFilesCollection() {
-        app.buttons["Start a memory"].tap()
+    // The quick-capture field is a live text input, not a static placeholder:
+    // typing and sending opens the MiraNote AI chat, seeded with the message.
+    func testQuickCaptureOpensChat() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("noodles by the river")
 
-        let textPill = app.buttons["text"]
-        XCTAssertTrue(textPill.waitForExistence(timeout: 5))
-        textPill.tap()
+        let send = app.buttons["quick.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        send.tap()
 
-        let editor = app.textViews.firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
-        editor.tap()
-        editor.typeText("Hello memory")
+        XCTAssertTrue(app.staticTexts["MiraNote AI"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["noodles by the river"].waitForExistence(timeout: 5))
+    }
+
+    // The home pill is the ask-the-past entry: results render as tappable
+    // page covers in the chat, and tapping one opens reading mode.
+    func testHomeSearchFindsPageAndOpensReading() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("noodle shop")
+        app.buttons["quick.send"].tap()
+
+        let hit = app.buttons["chat.hit.Lunch by the river"]
+        XCTAssertTrue(hit.waitForExistence(timeout: 8), "the matching page appears as a cover")
+        hit.tap()
+
+        XCTAssertTrue(app.buttons["reading.share"].waitForExistence(timeout: 8), "the hit opens reading mode")
+    }
+
+    // Collections are real data: a seeded collection opens to its notes, and a
+    // new note can be added and appears.
+    func testOpenCollectionAndAddNote() {
+        let dailyLog = app.buttons["collection.Daily Log"]
+        XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
+        dailyLog.tap()
+
+        XCTAssertTrue(app.buttons["note.Lunch by the river"].waitForExistence(timeout: 5))
+
+        app.buttons["note.add"].tap()
+        XCTAssertTrue(app.buttons["note.New note"].waitForExistence(timeout: 5))
+    }
+
+    // Tapping a page opens reading mode (looking first); Edit is one tap
+    // into the canvas editor carrying the same page.
+    func testOpenPageReadsThenEdits() {
+        app.buttons["collection.Daily Log"].tap()
+
+        let cover = app.buttons["note.Lunch by the river"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        cover.tap()
+
+        XCTAssertTrue(app.buttons["reading.share"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["reading.edit"].exists)
+
+        app.buttons["reading.edit"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5), "edit opens the canvas editor")
+    }
+
+    // The export sheet is destination-first: Save to Photos and Share lead;
+    // a page with no sound shows no audio note.
+    func testReadingShareShowsDestinations() {
+        app.buttons["collection.Daily Log"].tap()
+        let cover = app.buttons["note.Lunch by the river"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+
+        // Cover captions carry the page DATE (the cover already says the
+        // title), and a missing photo shows its placeholder glyph.
+        XCTAssertTrue(app.staticTexts["June 21"].exists, "grid caption is the page date")
+        XCTAssertTrue(
+            app.images["image.placeholder"].firstMatch.exists,
+            "a missing photo reads as a photo slot, not a bare block"
+        )
+
+        cover.tap()
+
+        let share = app.buttons["reading.share"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        share.tap()
+
+        XCTAssertTrue(app.buttons["export.photos"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Share this page"].exists)
+    }
+
+    // Deleting a page from the journal grid sends it to the 30-day bin;
+    // Restore brings it back.
+    func testDeleteGoesToBinAndRestores() {
+        app.buttons["collection.Daily Log"].tap()
+        let cover = app.buttons["note.Lunch by the river"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+
+        cover.press(forDuration: 0.9)
+        let delete = app.buttons["Delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        delete.tap()
+        XCTAssertFalse(app.buttons["note.Lunch by the river"].exists)
+
+        app.buttons["Home"].tap()
+        let trashEntry = app.buttons["home.trash"]
+        XCTAssertTrue(trashEntry.waitForExistence(timeout: 5))
+        trashEntry.tap()
+
+        let restore = app.buttons["trash.restore.Lunch by the river"]
+        XCTAssertTrue(restore.waitForExistence(timeout: 5))
+        restore.tap()
+        XCTAssertTrue(app.staticTexts["Nothing waiting here."].waitForExistence(timeout: 5))
+    }
+
+    // Mira can draft a page from the conversation: the card opens the
+    // editor with the drafted words on the canvas; Done files it.
+    func testChatDraftOpensEditorAndFiles() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("draft me a noodle page")
+        app.buttons["quick.send"].tap()
+
+        let draftCard = app.buttons["chat.draft.open"]
+        XCTAssertTrue(draftCard.waitForExistence(timeout: 5))
+        draftCard.tap()
+
+        XCTAssertTrue(app.staticTexts["Drafted by Mira"].waitForExistence(timeout: 5))
+
+        // The drafted page opens as one composition: body right under the
+        // title (chained materialization + re-measure on open).
+        let bodyText = app.staticTexts["warm broth, golden light"]
+        XCTAssertTrue(bodyText.waitForExistence(timeout: 3))
+        XCTAssertLessThan(
+            bodyText.frame.minY - app.staticTexts["Drafted by Mira"].frame.maxY, 60,
+            "title and body must not drift apart into islands"
+        )
+
         app.buttons["Done"].tap()
 
-        let canvasText = app.staticTexts["Hello memory"]
-        XCTAssertTrue(canvasText.waitForExistence(timeout: 5))
-
-        app.buttons["Save"].tap()
-        XCTAssertTrue(
-            canvasText.waitForExistence(timeout: 3),
-            "canvas content must survive Save"
-        )
-
-        // Back to Home: the memory is filed once and the hint is gone.
-        app.navigationBars.firstMatch.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.staticTexts["My memories"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["1 memories"].exists)
-        XCTAssertFalse(app.staticTexts[emptyStateHint].exists)
+        let dailyLog = app.buttons["collection.Daily Log"]
+        XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
+        dailyLog.tap()
+        XCTAssertTrue(app.buttons["note.Drafted by Mira"].waitForExistence(timeout: 5))
     }
 
-    // AC3 regression: in v1 the long-press location was measured in the
-    // safe-area-ignoring background's local space, so the menu rendered
-    // about a navigation-bar height below the finger.
-    func testLongPressMenuAppearsAtTouchPoint() {
+    // "Start a memory" opens a BLANK canvas (v2.1) with the teaching line
+    // and the instrument panel.
+    func testStartOpensBlankCanvas() {
         app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
 
-        let window = app.windows.firstMatch
-        let normalized = CGVector(dx: 0.68, dy: 0.32)
-        window.coordinate(withNormalizedOffset: normalized).press(forDuration: 0.8)
+        XCTAssertTrue(
+            app.staticTexts["Tap a tool below, or tell Mira about today."].waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(app.staticTexts["Lunch by the river"].exists, "no leftover demo content")
+        XCTAssertTrue(app.buttons["mode.text"].exists)
+        XCTAssertTrue(app.buttons["mode.image"].exists)
+    }
 
-        let menu = app.otherElements["canvas.insertMenu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+    // Done on an untouched blank canvas keeps nothing.
+    func testDoneOnBlankCanvasFilesNothing() {
+        app.buttons["Start a memory"].tap()
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
 
-        let pressPoint = CGPoint(
-            x: window.frame.minX + window.frame.width * normalized.dx,
-            y: window.frame.minY + window.frame.height * normalized.dy
-        )
-        let menuCenter = CGPoint(x: menu.frame.midX, y: menu.frame.midY)
-        XCTAssertLessThan(
-            abs(menuCenter.x - pressPoint.x), 40,
-            "menu center x \(menuCenter.x) too far from press x \(pressPoint.x)"
-        )
-        XCTAssertLessThan(
-            abs(menuCenter.y - pressPoint.y), 40,
-            "menu center y \(menuCenter.y) too far from press y \(pressPoint.y)"
-        )
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["3 notes"].exists, "Daily Log stays at its seeded 2 notes")
     }
 }
