@@ -72,4 +72,43 @@ final class MiraPageIntentTests: XCTestCase {
             "captions read under the page content"
         )
     }
+
+    // A two-line title is taller than the old fixed 60pt box: it must
+    // size to its words and push the page down, never overlap it.
+    func testLongTitleSizesItselfAndPushesContentDown() async {
+        let editor = CanvasViewModel(memory: Memory())
+        let bodyID = editor.addText(
+            "croissants at the corner bakery",
+            at: CGPoint(x: 150, y: 60),
+            pointSize: 15,
+            size: CGSize(width: 220, height: 40)
+        )
+        let coordinator = MiraCanvasCoordinator(
+            text: ScriptedText(),
+            chat: ScriptedChat(reply: "Warm flaky croissants at dawn"),
+            workingDelay: .milliseconds(1),
+            timeout: .seconds(5),
+            receiptDismiss: .seconds(60)
+        )
+
+        coordinator.ask("add a soft title", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+
+        guard let title = editor.items.first(where: { item in
+            if case .text(let block) = item.content { return block.pointSize == 30 }
+            return false
+        }), let body = editor.item(bodyID) else {
+            return XCTFail("expected a title block and the original body")
+        }
+
+        let titleBottom = title.position.y + title.size.height / 2
+        let bodyTop = body.position.y - body.size.height / 2
+        XCTAssertGreaterThan(title.size.height, 60, "two lines need more than the one-line box")
+        XCTAssertGreaterThanOrEqual(title.position.y - title.size.height / 2, 24, "title stays on the paper")
+        XCTAssertLessThanOrEqual(titleBottom, bodyTop - 8, "the title never covers the words below it")
+
+        editor.undo()
+        XCTAssertEqual(editor.item(bodyID)?.position.y, 60, "one undo restores the pushed-down page")
+        XCTAssertEqual(editor.items.count, 1, "and removes the title")
+    }
 }
