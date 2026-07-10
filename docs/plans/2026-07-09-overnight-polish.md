@@ -511,3 +511,19 @@ feat/ios-flow-v2 awaits Meng's word).
     suggestions(for:) moved to its own file to keep the coordinator
     under the type-length cap. Kit 123. VERIFY (clean): swiftlint 0;
     xcodebuild test 23 tests 0 failures, TEST SUCCEEDED. Installed.
+
+31. SHIPPED TO REVIEW (Meng: stop here, merge everything, hand off to
+    Jason). Branches pushed; PRs opened through the normal flow (no
+    admin bypass; auto-merge is disabled repo-side, so approval +
+    manual merge falls to Jason):
+    - MiraNote-AI/.github#20 (font allowlist) -- checks green, must
+      merge FIRST.
+    - MiraNote-AI/miranote-ios#11 (this branch) -- only red check is
+      the font rule, resolved by #20 + a fresh empty commit (the
+      reusable workflow resolves @main at run time).
+    - MiraNote-AI/miranote-api#23 -- carries the poc/image-generation
+      -v3 lineage; no checks reported on the branch, flagged to Jason.
+    Handoff runbook and leftovers DMed to Jason (backends, quality
+    gates, plan ledgers, known gaps: export Advanced visuals, bleed
+    clamp decision P5, English-leaning intent cues, 1h chat session
+    TTL, backfilled photo summaries).
