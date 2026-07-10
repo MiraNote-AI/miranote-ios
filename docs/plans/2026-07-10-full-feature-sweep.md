@@ -119,6 +119,19 @@ untestable, as its own minimal PR on miranote-api, flagged in the report
    background; F7 README truthful about :8004. Locks: 6 new Kit tests
    (129/129 green), 3 new UITests queued. swiftlint --strict: 0 after
    extracting landTitle (function cap) and renaming a probe param.
+6. 00:51 full suite (post-fix, probe skipped): app tests + 26 UITests
+   all green, including the three new locks on first run.
+7. 00:54 tour D filmed (127 frames), post-fix verification, 5/5 live:
+   two-line title lands clear of the words (f0029, vs tour C f0097);
+   favorites row gone (debris pruned, header hides); Home files the
+   words on the real store; REAL PhotosPicker import lands on canvas
+   via coordinate tap + Add (f0086) with background describe; export
+   confirms "Saved to Photos." (photos-add pre-granted on the sim).
+8. 00:56 freeze -- probe deleted, xcodegen regenerated, criteria sweep
+   from clean state: swiftlint --strict 0; Kit 129/129; full app + UI
+   suite green (bundles passed 00:56 / 01:01). Six commits on the
+   branch; fresh build (00:46:50 binary) installed to the user sim
+   (timestamp verified) and relaunched.
 
 ## Findings
 
@@ -132,6 +145,50 @@ untestable, as its own minimal PR on miranote-api, flagged in the report
 | F7 | Docs | iOS README maps a "quotes" feature to :8004 but the app has no :8004 client | rg MiraNoteConfig | FIXED (README row replaced with a truthful roadmap note) |
 | F8 | Mira | AI soft title lands on top of existing words (fixed 60pt box, no push-down) | tourC f0097 | FIXED (measured box + page slides down; Kit test locks frames apart + one-undo revert) |
 
+9. 01:08 fresh-context review (criteria + diff only, own command runs):
+   OVERALL DONE, 7/7 criteria. Independent sanity-check confirmed the
+   one-undo title revert, no-double-filing, prune safety, and markdown
+   fallback. Non-blocking observations folded into the report below.
+
 ## Morning report
 
-(written before 08:30)
+**Night of 2026-07-09 -> 10. Fixes froze 00:56 (budget said 07:00);
+everything verified and shipped to review well inside the window.**
+
+What ran: four film-strip tours (A: home/canvas/search, B: text
+polish/sound/import/generate/photo edit, C: converse/suggestions/
+abandon/export, D: post-fix verification), 632 frames, live backends
+(:8001/:8002/:8003), real store, real PhotosPicker. Every checklist
+area toured except dictation (skipped, :8000 reserved -- standing rule)
+and :8004 quotes (no app client exists; known roadmap gap).
+
+Findings and outcomes:
+
+- FIXED (4): F8 title-overlap (the fix of the night), F5 words lost on
+  Home/app-death (autosave made real), F2 literal `**` in chat, F4
+  blank sticker favorites. Each with locking tests: 6 Kit + 3 UI.
+- DOCS (1): F7 README no longer promises a :8004 quotes feature.
+- BY DESIGN (2): F1 home cards are book-spine color blocks (a
+  cover-thumbnail variant is a design question, not a bug); converse
+  drafts land directly on the canvas (user-approved last round).
+- NOT A BUG (2): F6 editing an old page never moves it to Daily Log
+  (file() replaces by id); PB1 keyboard accessory capsule exists and
+  works (tour A caught a transition frame).
+
+Verification at freeze: swiftlint --strict 0; MiraNoteKit 129/129;
+full app + UI suite green from clean state (00:56/01:01); post-fix
+tour D 5/5 live; fresh-context review DONE. Fresh build (binary
+00:46:50) installed on the user simulator and relaunched.
+
+Known quirks and proposals for Meng (no action taken):
+
+- P6: after a background autosave, emptying the canvas and leaving
+  keeps the earlier autosaved words as a page (reviewer flagged; locked
+  as intended for now -- deleting on empty-exit would surprise harder).
+- P7: the Home header's person icon looks tappable but is inert --
+  either a minimal profile/settings sheet or drop it until one exists.
+- P8: PhotosPicker allows up to 3 photos per import (design said
+  multi-import; confirm 3 is the intended cap).
+- Suite gap noted: no UITest covers the New-collection alert flow.
+- Shadow-sim store now carries the night's probe pages (harmless; the
+  user sim store was never touched -- only the app binary reinstalled).
