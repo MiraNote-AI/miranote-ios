@@ -62,9 +62,24 @@ extension CanvasScene {
             Button {
                 toggleDictation()
             } label: {
-                Image(systemName: dictating ? "mic.badge.xmark" : "mic")
+                // A live mic reads as ACTIVE (filled, accent, pulsing) --
+                // mic.badge.xmark said "microphone blocked" while it
+                // actually meant "tap to finish".
+                Image(systemName: dictating ? "mic.fill" : "mic")
+                    .foregroundStyle(dictating ? Palette.forest : Palette.ink)
+                    .symbolEffect(.pulse, isActive: dictating)
             }
             .accessibilityIdentifier("style.mic")
+            if dictating {
+                Text("Listening...")
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.forest)
+            } else if let dictationHint {
+                Text(dictationHint)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.textSecondary)
+                    .lineLimit(1)
+            }
             Spacer()
             Button("Done") { endTextEditing() }
                 .fontWeight(.semibold)
@@ -106,6 +121,7 @@ extension CanvasScene {
         editor.endEditingText()
         textFocus = nil
         accessoryRow = .tools
+        dictationHint = nil
     }
 
     /// The keyboard's sparkle chips: transform the block being edited via
@@ -150,16 +166,29 @@ extension CanvasScene {
             Task {
                 defer { dictating = false }
                 guard let data = try? await recorder.stop(), !data.isEmpty,
-                      let id = editor.editingTextItemID,
-                      let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
+                      let id = editor.editingTextItemID
                 else { return }
+                // A silent failure here looked like a dead feature: say
+                // why nothing landed instead of swallowing it.
+                guard let transcript = try? await transcription.transcribe(
+                    audio: data, filename: "dictation.m4a"
+                ) else {
+                    dictationHint = "Couldn't reach the transcriber -- try again?"
+                    return
+                }
+                let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !words.isEmpty else {
+                    dictationHint = "I couldn't catch any words -- try again?"
+                    return
+                }
                 if case .text(let block) = editor.item(id)?.content {
-                    let joined = block.text.isEmpty ? transcript : block.text + " " + transcript
+                    let joined = block.text.isEmpty ? words : block.text + " " + words
                     editor.setText(itemID: id, to: joined)
                 }
             }
         } else {
             guard recorder == nil else { return }
+            dictationHint = nil
             let newRecorder = recorderFactory()
             recorder = newRecorder
             Task {
@@ -168,7 +197,7 @@ extension CanvasScene {
                     dictating = true
                 } catch {
                     recorder = nil
-                    recorderNotice = error.localizedDescription
+                    dictationHint = error.localizedDescription
                 }
             }
         }

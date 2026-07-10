@@ -24,6 +24,9 @@ struct CanvasScene: View {
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
     @State var dictating = false
+    /// Inline feedback in the text accessory: "Listening..." while the
+    /// mic is live, or why nothing landed after it stopped.
+    @State var dictationHint: String?
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState private var miraFocus: Bool
 
