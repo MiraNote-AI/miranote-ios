@@ -28,6 +28,7 @@ struct CanvasScene: View {
     @FocusState private var miraFocus: Bool
 
     private let soundStore = SoundFileStore()
+    private let imageStore = ImageFileStore()
 
     var body: some View {
         EditorScaffold(
@@ -57,6 +58,7 @@ struct CanvasScene: View {
         }
         .onAppear {
             remeasureTextBlocks()
+            describeUnseenPhotos()
             consumePendingTool()
         }
         .onDisappear { cancelRecording() }
@@ -156,22 +158,25 @@ struct CanvasScene: View {
                     .padding(.horizontal, Metrics.screenPadding)
             }
             InputModeBar(active: nil, onSelect: handleTool)
-            MiraCard(
-                coordinator: mira,
-                editor: editor,
-                onAsk: { mira.ask($0, editor: editor) },
-                onRephrase: { miraFocus = true },
-                onRetry: {
-                    miraPrompt = ""
-                    mira.retry(editor: editor)
-                }
-            )
-            MiraBar(
-                coordinator: mira,
-                editor: editor,
-                prompt: $miraPrompt,
-                promptFocus: $miraFocus
-            )
+            // The card and the bar are one conversational dock.
+            VStack(spacing: 6) {
+                MiraCard(
+                    coordinator: mira,
+                    editor: editor,
+                    onAsk: { mira.ask($0, editor: editor) },
+                    onRephrase: { miraFocus = true },
+                    onRetry: {
+                        miraPrompt = ""
+                        mira.retry(editor: editor)
+                    }
+                )
+                MiraBar(
+                    coordinator: mira,
+                    editor: editor,
+                    prompt: $miraPrompt,
+                    promptFocus: $miraFocus
+                )
+            }
         case .armed:
             InputModeBar(active: .sound, onSelect: handleTool)
             armedBar
@@ -217,6 +222,25 @@ struct CanvasScene: View {
         // addText already recorded the undo point for this compound action.
         editor.startEditingText(id, recordingUndo: false)
         textFocus = id
+    }
+
+    /// Photos that predate the vision feature (or whose describe lost a
+    /// race) get looked at when the page opens -- sequentially, quietly,
+    /// best-effort.
+    private func describeUnseenPhotos() {
+        let unseen = editor.items.compactMap { item -> (CanvasItem.ID, Data)? in
+            guard case .image(let ref) = item.content,
+                  ref.summary.isEmpty, !ref.fileName.isEmpty,
+                  let data = imageStore.data(forFileName: ref.fileName) else { return nil }
+            return (item.id, data)
+        }
+        guard !unseen.isEmpty else { return }
+        Task {
+            for (id, data) in unseen {
+                guard let summary = try? await imageStudio.describe(image: data) else { continue }
+                editor.setImageSummary(itemID: id, to: summary)
+            }
+        }
     }
 
     /// Opening a page re-measures every text block against its real font

@@ -26,14 +26,12 @@ struct MiraCard: View {
             chipsRow(coordinator.suggestions(for: editor))
         case .working:
             EmptyView()
-        case .reply(let message, let chips):
+        case .reply(_, let chips):
+            // The conversation reads as one thread: a short transcript,
+            // then the follow-up chips, sitting flush on the input bar.
             card {
-                HStack(alignment: .top, spacing: 8) {
-                    avatar
-                    Text(message)
-                        .font(.miraBody)
-                        .foregroundStyle(Palette.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    Spacer()
                     Button {
                         coordinator.dismiss()
                     } label: {
@@ -44,9 +42,11 @@ struct MiraCard: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("mira.dismissReply")
                 }
+                ForEach(coordinator.conversation.suffix(4)) { turn in
+                    transcriptRow(turn)
+                }
                 chipsRow(chips)
             }
-            .onTapGesture { coordinator.dismiss() }
         case .receipt(let receipt):
             // A confirmation stamp, not a chat element (Meng, 2026-07-09):
             // one forest-tinted line with Revert, kept-line dropped, and it
@@ -99,6 +99,26 @@ struct MiraCard: View {
         }
     }
 
+    private func transcriptRow(_ turn: ChatMessage) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            if turn.role == .assistant {
+                avatar
+                Text(turn.text)
+                    .font(.miraBody)
+                    .foregroundStyle(Palette.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Spacer(minLength: 40)
+                Text(turn.text)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.onInk)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Palette.ink))
+            }
+        }
+    }
+
     private func handleFailureChip(_ chip: String) {
         switch chip {
         case "Try again":
@@ -118,6 +138,14 @@ struct MiraCard: View {
             .background(Circle().fill(Palette.ink))
     }
 
+    private func handleSuggestion(_ chip: String) {
+        if chip == MiraCanvasCoordinator.placeReplyChip {
+            coordinator.placeReply(editor: editor)
+        } else {
+            onAsk(chip)
+        }
+    }
+
     @ViewBuilder private func chipsRow(_ chips: [String]) -> some View {
         if chips.isEmpty {
             EmptyView()
@@ -127,7 +155,7 @@ struct MiraCard: View {
             HStack(spacing: 10) {
                 ForEach(chips, id: \.self) { chip in
                     Button {
-                        onAsk(chip)
+                        handleSuggestion(chip)
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "sparkle")
@@ -158,7 +186,7 @@ struct MiraCard: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(chips, id: \.self) { chip in
-                        Button(chip) { onAsk(chip) }
+                        Button(chip) { handleSuggestion(chip) }
                             .buttonStyle(SoftPill())
                             .accessibilityIdentifier("mira.suggestion.\(chip)")
                     }

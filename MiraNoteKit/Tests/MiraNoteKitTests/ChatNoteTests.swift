@@ -24,8 +24,8 @@ final class ChatNoteTests: XCTestCase {
         editor.addImages([ImageRef(displayName: "Library photo")], around: .zero)
         let note = ChatNote(page: editor.composedMemory())
         XCTAssertTrue(
-            note.body.contains("(photo) Library photo"),
-            "the model must know a photo sits on the page even without pixels"
+            note.body.contains("(photo) a photo Mira has not looked at yet"),
+            "an unseen photo says so -- names like Library photo mislead the model"
         )
     }
 
@@ -79,6 +79,32 @@ final class ChatNoteTests: XCTestCase {
         guard case .image(let back) = editor.item(id)?.content else { return XCTFail("image gone") }
         XCTAssertEqual(back.fileName, "old.png", "one undo step brings the old pixels back")
         XCTAssertEqual(back.filterName, "warm")
+    }
+
+    func testPlaceReplyLandsTheWordsWithAReceipt() async {
+        let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+        let coordinator = MiraCanvasCoordinator(
+            text: ScriptedText(),
+            chat: ScriptedChat(),
+            workingDelay: .milliseconds(1),
+            timeout: .seconds(5),
+            receiptDismiss: .seconds(60)
+        )
+        coordinator.ask("hello mira", editor: editor)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if case .reply = coordinator.phase { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        guard case .reply(_, let chips) = coordinator.phase else { return XCTFail("expected reply") }
+        XCTAssertEqual(chips.first, MiraCanvasCoordinator.placeReplyChip)
+        XCTAssertEqual(coordinator.conversation.count, 2, "the thread remembers the turn")
+
+        let countBefore = editor.items.count
+        coordinator.placeReply(editor: editor)
+        XCTAssertEqual(editor.items.count, countBefore + 1, "the reply landed as a block")
+        guard case .receipt(let receipt) = coordinator.phase else { return XCTFail("expected receipt") }
+        XCTAssertEqual(receipt.changed, "Added a few words.")
     }
 
     func testCleanTitleStripsLLMNoise() {

@@ -53,6 +53,11 @@ public struct MiraFailure: Equatable, Sendable {
 @Observable
 public final class MiraCanvasCoordinator {
     public private(set) var phase: MiraTurnPhase = .idle
+    /// The canvas conversation so far (capped) -- the reply card shows a
+    /// short transcript so turns read as one thread, not islands.
+    public private(set) var conversation: [ChatMessage] = []
+    /// The chip that lands the current reply on the page.
+    public nonisolated static let placeReplyChip = "Put this on the page"
     /// Elements currently being changed -- the board breathes and locks these.
     public private(set) var workingItemIDs: Set<CanvasItem.ID> = []
     /// Set when a turn stops or fails so the input bar can restore the words.
@@ -150,6 +155,22 @@ public final class MiraCanvasCoordinator {
     public func retry(editor: CanvasViewModel) {
         guard !lastPrompt.isEmpty else { return }
         ask(lastPrompt, editor: editor)
+    }
+
+    /// The reply's words land on the page as a text block (under the
+    /// content), with the standard receipt.
+    public func placeReply(editor: CanvasViewModel) {
+        guard case .reply(let message, _) = phase else { return }
+        editor.addText(
+            message,
+            at: CGPoint(x: 180, y: editor.contentBottom + 60),
+            pointSize: 15,
+            size: CGSize(width: 320, height: 60)
+        )
+        showReceipt(MiraReceipt(
+            changed: "Added a few words.",
+            kept: "Everything else stayed put."
+        ), editor: editor)
     }
 
     /// One-tap revert of the last applied change (the receipt's escape
@@ -277,7 +298,12 @@ public final class MiraCanvasCoordinator {
             showReceipt(receipt, editor: editor)
         case .reply(let message, let newSessionID):
             sessionID = newSessionID ?? sessionID
-            phase = .reply(message, chips: suggestions(for: editor))
+            conversation.append(ChatMessage(role: .user, text: lastPrompt))
+            conversation.append(ChatMessage(role: .assistant, text: message))
+            if conversation.count > 8 {
+                conversation.removeFirst(conversation.count - 8)
+            }
+            phase = .reply(message, chips: [Self.placeReplyChip] + suggestions(for: editor))
         }
     }
 

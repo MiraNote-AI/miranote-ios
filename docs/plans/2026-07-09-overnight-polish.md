@@ -448,3 +448,25 @@ feat/ios-flow-v2 awaits Meng's word).
     flowers" finds the page whose photo shows them. Kit 118. VERIFY
     (clean): swiftlint 0; xcodebuild test 23 tests 0 failures, TEST
     SUCCEEDED. Installed.
+
+27. Canvas conversation grows up (Meng: AI still said it cannot see
+    the photo; the reply card and input read as separate islands; and
+    generated words should land on the canvas). Three fixes:
+    - Seeing: his flower photo predated the vision feature, and the
+      empty-summary fallback sent the model the FILE NAME ("Library
+      photo" -> it hallucinated bookshelves). Old photos now get
+      described when their page opens (sequential background sweep);
+      an unseen photo's context line honestly says "a photo Mira has
+      not looked at yet".
+    - One thread: the coordinator keeps a capped conversation log;
+      the reply card renders the last turns as a transcript (user
+      pills right, Mira left) sitting flush on the input bar -- turns
+      read as one conversation, and multi-turn is visible.
+    - Words to canvas: every reply offers "Put this on the page" as
+      its first chip (lands the reply as a text block under the
+      content with the standard receipt); caption trigger words
+      broadened incl. Chinese via escapes. Kit 119 (+1 placeReply,
+      transcript, honest-fallback updated). One flaky suite run
+      (testQuickCaptureOpensChat, unrelated screen) passed in
+      isolation and in the full rerun. VERIFY (clean): swiftlint 0;
+      xcodebuild test 23 tests 0 failures, TEST SUCCEEDED. Installed.

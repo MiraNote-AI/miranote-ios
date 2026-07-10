@@ -79,11 +79,12 @@ public extension ChatNote {
             case .sticker(let sticker):
                 if !sticker.prompt.isEmpty { parts.append("(sticker) " + sticker.prompt) }
             case .image(let ref):
-                // Vision described it at import; fall back to the name.
-                let seen = ref.summary.isEmpty
-                    ? (ref.displayName.isEmpty ? "a photo" : ref.displayName)
-                    : ref.summary
-                parts.append("(photo) " + seen)
+                // Vision described it at import. If it has not looked yet,
+                // say THAT -- a file name like "Library photo" sends the
+                // model chasing bookshelves.
+                parts.append(ref.summary.isEmpty
+                    ? "(photo) a photo Mira has not looked at yet"
+                    : "(photo) " + ref.summary)
             }
         }
         self.init(

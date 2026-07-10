@@ -74,9 +74,15 @@ enum MiraIntent {
         if lowered.contains("title") {
             return .addTitle(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
-        // "\u{914D}\u{6587}" is Chinese for caption (source stays ASCII).
-        if lowered.contains("caption") || lowered.contains("add a few words")
-            || lowered.contains("write something") || lowered.contains("\u{914D}\u{6587}") {
+        // Escaped strings are Chinese for caption / add-a-passage / write-
+        // a-passage (source stays ASCII per repo rule 3).
+        let captionCues = [
+            "caption", "add a few words", "add words", "add text",
+            "write something", "write a few",
+            "\u{914D}\u{6587}", "\u{52A0}\u{4E00}\u{6BB5}", "\u{5199}\u{4E00}\u{6BB5}",
+            "\u{52A0}\u{6BB5}\u{6587}\u{5B57}", "\u{5199}\u{6BB5}"
+        ]
+        if captionCues.contains(where: lowered.contains) {
             return .addCaption(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
         if lowered.contains("tidy") || lowered.contains("layout")
