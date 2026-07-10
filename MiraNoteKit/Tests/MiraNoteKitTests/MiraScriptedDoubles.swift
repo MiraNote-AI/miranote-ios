@@ -19,13 +19,14 @@ struct ScriptedChat: ChatService {
     var sessionID: String? = "scripted-session"
     var delay: Duration = .zero
     var error: Error?
+    var pageDraft: ChatPageDraft?
     let recorder = SessionRecorder()
 
     func reply(to message: String, sessionID incoming: String?, notes: [ChatNote]) async throws -> ChatReply {
         await recorder.record(incoming, notes: notes)
         if delay > .zero { try await Task.sleep(for: delay) }
         if let error { throw error }
-        return ChatReply(text: reply, sessionID: sessionID)
+        return ChatReply(text: reply, sessionID: sessionID, pageDraft: pageDraft)
     }
 }
 

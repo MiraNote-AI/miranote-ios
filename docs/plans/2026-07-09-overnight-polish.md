@@ -482,3 +482,19 @@ feat/ios-flow-v2 awaits Meng's word).
     reply shape from Meng's screenshot. Kit 120. VERIFY (clean):
     swiftlint 0; xcodebuild test 23 tests 0 failures, TEST SUCCEEDED.
     Installed.
+
+29. Chatter kept off the paper, take two (Meng: unrelated words still
+    landed -- this reply had no quotes, just a colon lead-in and a
+    feel-free-to-tweak outro; it also said "it's ready on your page",
+    betraying that the model had called create_note and the canvas
+    path threw the structured draft away). Two-layer fix: a canvas
+    conversation whose reply carries a create_note draft now LANDS the
+    draft body directly (zero heuristics -- the model already separated
+    payload from narration; landedDraft helper keeps perform under the
+    complexity cap); and cleanPlacedText additionally drops lead-in
+    lines ending with a colon and trailing meta paragraphs (feel free /
+    it's ready / let me know...). Unit-tested with the exact reply from
+    the screenshot; ScriptedChat gained a pageDraft knob. Kit 122.
+    VERIFY (clean): swiftlint 0 (fixture literal carries a scoped
+    line-length exemption); xcodebuild test 23 tests 0 failures, TEST
+    SUCCEEDED. Installed.

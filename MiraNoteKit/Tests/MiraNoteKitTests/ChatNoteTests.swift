@@ -130,6 +130,53 @@ final class ChatNoteTests: XCTestCase {
         )
     }
 
+    func testCleanPlacedTextDropsLeadInAndTrailingChatter() {
+        // The fixture is a verbatim model reply; its lines stay unwrapped.
+        // swiftlint:disable line_length
+        let chatty = """
+        Here's a diary-style caption for your photo:
+
+        I sat by the waterfall until the sun dipped behind the rocks, and for a little while the world felt soft and still.
+
+        It's ready on your "New memory" page -- feel free to tweak it if you'd like something shorter or more playful!
+        """
+        // swiftlint:enable line_length
+        let expected = "I sat by the waterfall until the sun dipped behind the rocks, "
+            + "and for a little while the world felt soft and still."
+        XCTAssertEqual(
+            MiraIntent.cleanPlacedText(chatty), expected,
+            "lead-in announcements and feel-free-to-tweak outros stay in chat"
+        )
+    }
+
+    func testConverseLandsAStructuredDraftAsWords() async {
+        let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+        let coordinator = MiraCanvasCoordinator(
+            text: ScriptedText(),
+            chat: ScriptedChat(
+                reply: "It's ready on your page -- feel free to tweak!",
+                pageDraft: ChatPageDraft(title: "Waterfall dusk", body: "The sun dipped behind the rocks.")
+            ),
+            workingDelay: .milliseconds(1),
+            timeout: .seconds(5),
+            receiptDismiss: .seconds(60)
+        )
+        let countBefore = editor.items.count
+        coordinator.ask("hello mira, tell me about the waterfall", editor: editor)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if case .receipt = coordinator.phase { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        guard case .receipt = coordinator.phase else { return XCTFail("expected receipt") }
+        let texts = editor.items.compactMap { item -> String? in
+            if case .text(let block) = item.content { return block.text }
+            return nil
+        }
+        XCTAssertTrue(texts.contains("The sun dipped behind the rocks."), "the draft body lands, not the narration")
+        XCTAssertEqual(editor.items.count, countBefore + 1)
+    }
+
     func testCleanTitleStripsLLMNoise() {
         XCTAssertEqual(MiraIntent.cleanTitle("\"Ramen by the bridge.\"\nHope you like it!"),
                        "Ramen by the bridge")

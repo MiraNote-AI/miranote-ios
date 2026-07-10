@@ -139,6 +139,9 @@ enum MiraIntent {
             ))
         case .converse(let prompt, let pageNotes):
             let reply = try await chat.reply(to: prompt, sessionID: sessionID, notes: pageNotes)
+            if let landed = MiraIntent.landedDraft(from: reply) {
+                return landed
+            }
             return .reply(reply.text, sessionID: reply.sessionID)
         case .clarifyNoText:
             throw MiraClarifyError(
@@ -184,6 +187,19 @@ enum MiraIntent {
         ))
     }
 
+    /// The model structured a draft (create_note) mid-conversation? On
+    /// the canvas that MEANS "these words, on this page" -- land the clean
+    /// body; the chatter never touches the paper.
+    private static func landedDraft(from reply: ChatReply) -> MiraOutcome? {
+        guard let draft = reply.pageDraft else { return nil }
+        let words = cleanPlacedText(draft.body.isEmpty ? draft.title : draft.body)
+        guard !words.isEmpty else { return nil }
+        return .textAdded(words, MiraReceipt(
+            changed: "Added a few words.",
+            kept: "Everything else stayed put."
+        ))
+    }
+
     /// Words landing on the CANVAS must be plain prose: markdown line
     /// decorations go, emphasis marks go, and when the reply frames a
     /// quoted suggestion ("how about: '...'"), the quote IS the payload.
@@ -197,7 +213,21 @@ enum MiraIntent {
                 }
                 return trimmed
             }
-        var text = lines.joined(separator: "\n")
+        var kept = lines
+        // A lead-in that just announces the payload ("Here's a caption:")
+        // is chatter; so is a trailing "feel free to tweak" paragraph.
+        while let first = kept.first(where: { !$0.isEmpty }), first.hasSuffix(":"),
+              let index = kept.firstIndex(of: first) {
+            kept.remove(at: index)
+        }
+        let metaCues = ["it's ready", "feel free", "let me know", "just say", "hope you",
+                        "if you'd like", "want me to", "would you like"]
+        while let last = kept.last(where: { !$0.isEmpty }),
+              metaCues.contains(where: { last.lowercased().hasPrefix($0) || last.lowercased().contains($0) }),
+              let index = kept.lastIndex(of: last) {
+            kept.remove(at: index)
+        }
+        var text = kept.joined(separator: "\n")
         for mark in ["**", "__", "*", "_", "`"] {
             text = text.replacingOccurrences(of: mark, with: "")
         }
