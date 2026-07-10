@@ -1,8 +1,11 @@
 import Foundation
 
 /// Live `VoiceTranscriptionService`: uploads recorded audio to the voice-to-text
-/// POC and returns the transcript. Query params per spec D8: correct=true,
-/// with_emotion=false, lang defaults to "en" (English demo default, Q7).
+/// POC and returns the transcript. Query params: correct=true,
+/// with_emotion=false, and lang defaults to "auto" -- the server decodes
+/// zh and en and keeps the one Whisper scored higher, so dictation works
+/// whichever language the speaker uses (a hardcoded language garbles the
+/// other one).
 public struct LiveVoiceTranscriptionService: VoiceTranscriptionService {
     private let baseURL: URL
     private let client: HTTPClient
@@ -11,7 +14,7 @@ public struct LiveVoiceTranscriptionService: VoiceTranscriptionService {
     public init(
         baseURL: URL = MiraNoteConfig.Backend.voiceBaseURL,
         client: HTTPClient = HTTPClient(),
-        language: String = "en"
+        language: String = "auto"
     ) {
         self.baseURL = baseURL
         self.client = client

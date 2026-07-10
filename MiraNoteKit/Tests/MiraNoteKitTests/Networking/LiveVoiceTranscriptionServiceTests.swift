@@ -45,6 +45,25 @@ final class LiveVoiceTranscriptionServiceTests: XCTestCase {
         XCTAssertTrue(body.contains("AUDIODATA"), "multipart must carry the audio bytes")
     }
 
+    // The service's own default must be auto: a hardcoded language
+    // garbles dictation in the other one (the lang=en regression).
+    func testDefaultLanguageIsAuto() async throws {
+        var url: URL?
+        StubURLProtocol.handler = { request in
+            url = request.url
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"{"raw_text":"hello","corrected_text":null}"#.utf8))
+        }
+
+        let service = LiveVoiceTranscriptionService(
+            baseURL: URL(string: "http://localhost:8005")!,
+            client: HTTPClient(session: StubURLProtocol.makeSession())
+        )
+        _ = try await service.transcribe(audio: Data("x".utf8), filename: "r.m4a")
+
+        XCTAssertTrue(url?.query?.contains("lang=auto") ?? false, "got \(url?.query ?? "nil")")
+    }
+
     func testReturnsCorrectedTextWhenPresent() async throws {
         StubURLProtocol.handler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
