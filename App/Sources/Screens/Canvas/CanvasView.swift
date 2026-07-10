@@ -9,6 +9,7 @@ struct CanvasView: View {
     // would be rebuilt blank every time Home re-renders (e.g. after Save).
     @State private var viewModel: CanvasViewModel
     private let onSave: ((Memory) -> Void)?
+    @Environment(\.services) private var services
 
     /// Shared coordinate space for the long-press location, the insert
     /// menu, and item positions -- the background ignores the safe area,
@@ -133,11 +134,11 @@ struct CanvasView: View {
     @ViewBuilder private func sheetContent(for sheet: CanvasSheet) -> some View {
         switch sheet {
         case .text:
-            TextInputSheet { text in
+            TextInputSheet(services: services) { text in
                 viewModel.addText(text, at: pendingInsertPoint)
             }
         case .aiSticker:
-            AIStickerSheet { sticker in
+            AIStickerSheet(services: services) { sticker in
                 viewModel.addSticker(sticker, at: pendingInsertPoint)
             }
         case .styleTransfer:

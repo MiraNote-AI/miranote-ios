@@ -4,9 +4,17 @@ import SwiftUI
 /// Sketch 2.2 entry one (split per D2): describe a sticker, generate,
 /// place it on the canvas.
 struct AIStickerSheet: View {
-    @State private var viewModel = AIStickerViewModel()
+    @State private var viewModel: AIStickerViewModel
     @Environment(\.dismiss) private var dismiss
     let onAdd: (GeneratedSticker) -> Void
+
+    init(services: ServiceContainer, onAdd: @escaping (GeneratedSticker) -> Void) {
+        _viewModel = State(initialValue: AIStickerViewModel(
+            service: services.stickerGeneration,
+            voiceService: services.voiceTranscription
+        ))
+        self.onAdd = onAdd
+    }
 
     var body: some View {
         NavigationStack {
@@ -17,10 +25,11 @@ struct AIStickerSheet: View {
                     // A3: same voice glyph as the Home pill; dictates into
                     // the prompt field.
                     Button {
-                        Task { await viewModel.dictate() }
+                        Task { await viewModel.toggleDictation() }
                     } label: {
-                        Image(systemName: "mic.badge.plus")
+                        Image(systemName: viewModel.isRecording ? "stop.circle.fill" : "mic.badge.plus")
                     }
+                    .tint(viewModel.isRecording ? .red : nil)
                     .disabled(viewModel.isGenerating)
                 }
 
@@ -80,5 +89,5 @@ struct AIStickerSheet: View {
 }
 
 #Preview {
-    AIStickerSheet { _ in }
+    AIStickerSheet(services: .mock) { _ in }
 }

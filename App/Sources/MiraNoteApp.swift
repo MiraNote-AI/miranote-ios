@@ -8,6 +8,7 @@ struct MiraNoteApp: App {
     var body: some Scene {
         WindowGroup {
             HomeView(viewModel: homeViewModel)
+                .environment(\.services, .live)
         }
     }
 }

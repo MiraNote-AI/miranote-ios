@@ -4,9 +4,17 @@ import SwiftUI
 /// Sketch 2.1: text editor sheet over a blurred canvas, with the
 /// voice / clean / expand / polish action row.
 struct TextInputSheet: View {
-    @State private var viewModel = TextInputViewModel()
+    @State private var viewModel: TextInputViewModel
     @Environment(\.dismiss) private var dismiss
     let onDone: (String) -> Void
+
+    init(services: ServiceContainer, onDone: @escaping (String) -> Void) {
+        _viewModel = State(initialValue: TextInputViewModel(
+            textService: services.textTransform,
+            voiceService: services.voiceTranscription
+        ))
+        self.onDone = onDone
+    }
 
     var body: some View {
         NavigationStack {
@@ -57,9 +65,18 @@ struct TextInputSheet: View {
 
     private var actionRow: some View {
         HStack(spacing: 10) {
-            actionButton("voice", symbol: "mic") {
-                await viewModel.dictate()
+            Button {
+                Task { await viewModel.toggleDictation() }
+            } label: {
+                Label(
+                    viewModel.isRecording ? "stop" : "voice",
+                    systemImage: viewModel.isRecording ? "stop.circle.fill" : "mic"
+                )
+                .font(.callout)
             }
+            .buttonStyle(PillButtonStyle())
+            .tint(viewModel.isRecording ? .red : nil)
+            .disabled(viewModel.isProcessing)
             ForEach(TextTransformMode.allCases) { mode in
                 actionButton(mode.rawValue, symbol: symbolName(for: mode)) {
                     await viewModel.apply(mode)
@@ -87,7 +104,7 @@ struct TextInputSheet: View {
                 .font(.callout)
         }
         .buttonStyle(PillButtonStyle())
-        .disabled(viewModel.isProcessing)
+        .disabled(viewModel.isProcessing || viewModel.isRecording)
     }
 
     private func symbolName(for mode: TextTransformMode) -> String {
@@ -100,5 +117,5 @@ struct TextInputSheet: View {
 }
 
 #Preview {
-    TextInputSheet { _ in }
+    TextInputSheet(services: .mock) { _ in }
 }

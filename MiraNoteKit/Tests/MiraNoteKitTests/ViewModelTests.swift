@@ -86,8 +86,11 @@ final class TextInputViewModelTests: XCTestCase {
     }
 
     func testDictateAppendsTranscript() async {
-        let viewModel = TextInputViewModel(text: "existing")
-        await viewModel.dictate()
+        let viewModel = TextInputViewModel(text: "existing", recorder: MockAudioRecorder())
+        await viewModel.toggleDictation()
+        XCTAssertTrue(viewModel.isRecording, "first tap starts recording")
+        await viewModel.toggleDictation()
+        XCTAssertFalse(viewModel.isRecording, "second tap stops recording")
         XCTAssertTrue(viewModel.text.hasPrefix("existing\n"))
         XCTAssertGreaterThan(viewModel.text.count, "existing".count)
     }
@@ -108,8 +111,9 @@ final class AIStickerViewModelTests: XCTestCase {
     }
 
     func testDictateAppendsToPrompt() async {
-        let viewModel = AIStickerViewModel(prompt: "a cat")
-        await viewModel.dictate()
+        let viewModel = AIStickerViewModel(prompt: "a cat", recorder: MockAudioRecorder())
+        await viewModel.toggleDictation()
+        await viewModel.toggleDictation()
         XCTAssertTrue(viewModel.prompt.hasPrefix("a cat "), "A3: dictation appends to the prompt")
         XCTAssertGreaterThan(viewModel.prompt.count, "a cat ".count)
     }
