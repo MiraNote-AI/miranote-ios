@@ -41,7 +41,16 @@ struct ImagePanelScene: View {
             panel
             InputModeBar(active: .image, onSelect: actions.selectMode)
         }
-        .onAppear { favorites = favoritesStore.all() }
+        .onAppear {
+            // Hygiene on open: favorites whose image is gone or degenerate
+            // (mock-era 8x8 debris) would render as blank squares.
+            favorites = favoritesStore.pruned(imageSide: { name in
+                guard let image = CanvasImageCache.image(
+                    fileName: name, filterName: "", store: imageStore
+                ) else { return nil }
+                return min(image.size.width, image.size.height)
+            })
+        }
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
             importPicked(items)
