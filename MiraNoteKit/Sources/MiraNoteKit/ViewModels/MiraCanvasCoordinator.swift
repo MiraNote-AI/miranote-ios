@@ -13,6 +13,8 @@ public enum MiraTurnPhase: Equatable {
     case failure(MiraFailure)
     /// A conversational answer (no canvas change) with follow-up chips.
     case reply(String, chips: [String])
+    /// Two generated candidates awaiting the user's pick (or the xmark).
+    case imageChoices([Data], prompt: String, sticker: Bool)
 }
 
 /// The v2.1 receipt: say what changed AND what was kept.
@@ -52,7 +54,9 @@ public struct MiraFailure: Equatable, Sendable {
 @MainActor
 @Observable
 public final class MiraCanvasCoordinator {
-    public private(set) var phase: MiraTurnPhase = .idle
+    // Setter is internal (not private) so the +Images extension file can
+    // drive the choice flow; outside the module it stays read-only.
+    public internal(set) var phase: MiraTurnPhase = .idle
     /// The canvas conversation so far (capped) -- the reply card shows a
     /// short transcript so turns read as one thread, not islands.
     public private(set) var conversation: [ChatMessage] = []
@@ -69,6 +73,11 @@ public final class MiraCanvasCoordinator {
 
     private let text: TextTransformService
     private let chat: ChatService
+    let imageStudio: ImageStudioService
+    /// Generation and photo edits legitimately run past the chat timeout.
+    let imageTimeout: Duration
+    let imageStore: ImageFileStore
+    let stickerFavorites: StickerFavoritesStore
     /// How long a receipt (and its Revert) stays before keeping by
     /// itself. One line plus an inline Revert reads in a few seconds,
     /// and the header undo still covers regrets after auto-keep -- so
@@ -96,13 +105,24 @@ public final class MiraCanvasCoordinator {
         chat: ChatService,
         workingDelay: Duration = .milliseconds(400),
         timeout: Duration = .seconds(30),
-        receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss
+        receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss,
+        imageStudio: ImageStudioService = MockImageStudioService(),
+        imageTimeout: Duration = .seconds(150),
+        imageStore: ImageFileStore = ImageFileStore(),
+        stickerFavorites: StickerFavoritesStore = StickerFavoritesStore()
     ) {
         self.text = text
         self.chat = chat
         self.workingDelay = workingDelay
         self.timeout = timeout
         self.receiptDismiss = receiptDismiss
+        self.imageStudio = imageStudio
+        self.imageTimeout = imageTimeout
+        self.imageStore = imageStore
+        self.stickerFavorites = stickerFavorites
+        // classify reads photo bytes through the same store this
+        // coordinator lands images with.
+        MiraIntent.classifyImageStore = imageStore
     }
 
     public var isWorking: Bool {
@@ -235,8 +255,11 @@ public final class MiraCanvasCoordinator {
         }
 
         do {
-            let outcome = try await withTimeout(timeout) { [text, chat, sessionID] in
-                try await intent.perform(text: text, chat: chat, sessionID: sessionID)
+            let limit = intent.isSlowImageWork ? imageTimeout : timeout
+            let outcome = try await withTimeout(limit) { [text, chat, sessionID, imageStudio] in
+                try await intent.perform(
+                    text: text, chat: chat, sessionID: sessionID, imageStudio: imageStudio
+                )
             }
             indicator.cancel()
             guard !Task.isCancelled, turnGeneration == generation else { return }
@@ -290,35 +313,13 @@ public final class MiraCanvasCoordinator {
                 conversation.removeFirst(conversation.count - 8)
             }
             phase = .reply(message, chips: [Self.placeReplyChip] + suggestions(for: editor))
+        case .imageChoices, .imageReplaced, .stickerReplaced, .filterApplied,
+             .frameApplied, .textResized, .textRecolored:
+            settleImageOutcome(outcome, editor: editor)
         }
     }
 
-    /// Land the title above the current topmost element, never on top of
-    /// it: the box is sized to its words (two-line titles run taller than
-    /// one), and when the headroom cannot fit it the page slides down
-    /// rather than the title covering the content. addText snapshots
-    /// before the moves, so the receipt's Revert is one undo.
-    private func landTitle(_ title: String, receipt: MiraReceipt, editor: CanvasViewModel) {
-        let boxHeight = max(60, Memory.estimatedTextHeight(title, pointSize: 30, width: 270))
-        let currentTop = editor.items
-            .map { $0.position.y - $0.size.height / 2 }
-            .min() ?? (50 + boxHeight)
-        let titleY = currentTop - 14 - boxHeight / 2
-        let overflow = max(0, 36 - (titleY - boxHeight / 2))
-        let existing = editor.items.map { ($0.id, $0.position) }
-        editor.addText(
-            title,
-            at: CGPoint(x: 150, y: titleY + overflow),
-            pointSize: 30,
-            size: CGSize(width: 270, height: boxHeight)
-        )
-        for (id, position) in existing where overflow > 0 {
-            editor.move(itemID: id, to: CGPoint(x: position.x, y: position.y + overflow))
-        }
-        showReceipt(receipt, editor: editor)
-    }
-
-    private func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel) {
+    func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel) {
         receiptChangeCount = editor.changeCount
         phase = .receipt(receipt)
         dismissTask?.cancel()

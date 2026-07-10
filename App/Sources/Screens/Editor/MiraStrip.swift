@@ -96,6 +96,46 @@ struct MiraCard: View {
                     Spacer()
                 }
             }
+        case .imageChoices(let images, _, _):
+            // Two candidates, the human picks ("AI offers, the human
+            // shapes"); the xmark discards both without touching paper.
+            card {
+                HStack(spacing: 10) {
+                    ForEach(Array(images.enumerated()), id: \.offset) { index, data in
+                        Button {
+                            coordinator.placeImageChoice(index, editor: editor)
+                        } label: {
+                            choiceThumb(for: data)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("mira.imageChoice.\(index)")
+                    }
+                    Spacer()
+                    Button {
+                        coordinator.discardImageChoices()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Palette.textSecondary.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("mira.imageChoice.dismiss")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func choiceThumb(for data: Data) -> some View {
+        if let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 84, height: 84)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        } else {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Palette.tan.opacity(0.4))
+                .frame(width: 84, height: 84)
         }
     }
 
