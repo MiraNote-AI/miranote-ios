@@ -41,7 +41,8 @@ struct EditorFlowView: View {
         ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
-            chat: services.chat
+            chat: services.chat,
+            imageStudio: services.imageStudio
         ))
     }
 
