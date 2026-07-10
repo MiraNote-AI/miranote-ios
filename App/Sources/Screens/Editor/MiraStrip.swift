@@ -103,7 +103,7 @@ struct MiraCard: View {
         HStack(alignment: .top, spacing: 8) {
             if turn.role == .assistant {
                 avatar
-                Text(turn.text)
+                Text(ChatMarkdown.attributed(turn.text))
                     .font(.miraBody)
                     .foregroundStyle(Palette.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
