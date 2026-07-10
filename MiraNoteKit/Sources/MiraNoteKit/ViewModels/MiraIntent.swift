@@ -3,6 +3,16 @@ import Foundation
 
 struct MiraTimeoutError: Error {}
 
+private extension TextTransformMode {
+    var receiptLine: String {
+        switch self {
+        case .polish: return "Polished the text."
+        case .expand: return "Expanded the text."
+        case .clean: return "Tightened the text."
+        }
+    }
+}
+
 /// A clarify-type failure raised during classification (e.g. "polish the
 /// text" on a page with no text).
 struct MiraClarifyError: Error {
@@ -33,24 +43,50 @@ enum MiraIntent {
     /// journal-mode note so Mira knows what it is standing on).
     case converse(String, pageNotes: [ChatNote])
     case clarifyNoText
+    // Image and style families; their cues live in MiraIntent+Image.swift.
+    case generateImage(prompt: String, sticker: Bool)
+    case editPhoto(CanvasItem.ID, imageData: Data, instruction: String)
+    case makeSticker(CanvasItem.ID, imageData: Data, prompt: String)
+    case applyFilter(CanvasItem.ID, name: String)
+    case applyFrame(CanvasItem.ID, name: String)
+    case resizeText(CanvasItem.ID, up: Bool)
+    case recolorText(CanvasItem.ID, colorName: String)
+    case clarifyPhoto
+
+    /// Where classify reads photo bytes from; the coordinator points this
+    /// at its own store, tests at a temp directory.
+    @MainActor static var classifyImageStore = ImageFileStore()
+
+    /// Selected text block first; else the longest non-empty block (the
+    /// prose body -- titles and date captions are short).
+    @MainActor
+    static func targetTextBlock(editor: CanvasViewModel) -> (CanvasItem.ID, String)? {
+        let candidates = editor.orderedItems.compactMap { item -> (CanvasItem.ID, String)? in
+            guard case .text(let block) = item.content,
+                  !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return (item.id, block.text)
+        }
+        if let selected = editor.selectedItemID,
+           let match = candidates.first(where: { $0.0 == selected }) {
+            return match
+        }
+        return candidates.max { $0.1.count < $1.1.count }
+    }
 
     @MainActor
     static func classify(_ prompt: String, editor: CanvasViewModel) -> MiraIntent {
         let lowered = prompt.lowercased()
 
         func targetText() -> (CanvasItem.ID, String)? {
-            let candidates = editor.orderedItems.compactMap { item -> (CanvasItem.ID, String)? in
-                guard case .text(let block) = item.content,
-                      !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-                return (item.id, block.text)
-            }
-            if let selected = editor.selectedItemID,
-               let match = candidates.first(where: { $0.0 == selected }) {
-                return match
-            }
-            // No selection: the longest text is almost always the prose body
-            // (titles and date captions are short).
-            return candidates.max { $0.1.count < $1.1.count }
+            Self.targetTextBlock(editor: editor)
+        }
+
+        // Image and style cues run first: photo-flavored wording ("make
+        // the photo warmer") must win the filter, never fall into polish.
+        if let imageIntent = Self.classifyImageOrStyle(
+            lowered, prompt: prompt, editor: editor, imageStore: Self.classifyImageStore
+        ) {
+            return imageIntent
         }
 
         if lowered.contains("polish") || lowered.contains("warmer") || lowered.contains("softer") {
@@ -102,12 +138,28 @@ enum MiraIntent {
         case .organize: return "Tidying the layout..."
         case .converse: return "Thinking..."
         case .clarifyNoText: return "Thinking..."
+        case .generateImage: return "Painting..."
+        case .editPhoto: return "Restyling the photo..."
+        case .makeSticker: return "Cutting the sticker..."
+        // Instant local work settles before the 400 ms delay ever shows it.
+        case .applyFilter, .applyFrame, .resizeText, .recolorText: return "Working..."
+        case .clarifyPhoto: return "Thinking..."
         }
     }
 
     var affectedItems: Set<CanvasItem.ID> {
-        if case .transformText(let id, _, _) = self { return [id] }
-        return []
+        switch self {
+        case .transformText(let id, _, _),
+             .editPhoto(let id, _, _),
+             .makeSticker(let id, _, _),
+             .applyFilter(let id, _),
+             .applyFrame(let id, _),
+             .resizeText(let id, _),
+             .recolorText(let id, _):
+            return [id]
+        default:
+            return []
+        }
     }
 
     func perform(
@@ -118,14 +170,8 @@ enum MiraIntent {
         switch self {
         case .transformText(let id, let original, let mode):
             let transformed = try await text.transform(original, mode: mode)
-            let what: String
-            switch mode {
-            case .polish: what = "Polished the text."
-            case .expand: what = "Expanded the text."
-            case .clean: what = "Tightened the text."
-            }
             return .textChanged(id, transformed, MiraReceipt(
-                changed: what,
+                changed: mode.receiptLine,
                 kept: "Layout, photos, and everything else stayed put."
             ))
         case .addTitle(let pageNotes):
@@ -148,6 +194,9 @@ enum MiraIntent {
                 question: "There are no words on the page yet -- which text should I change?",
                 chips: ["Add a soft title"]
             )
+        case .generateImage, .editPhoto, .makeSticker, .applyFilter,
+             .applyFrame, .resizeText, .recolorText, .clarifyPhoto:
+            return try await performImageOrStyle()
         }
     }
 
@@ -187,83 +236,4 @@ enum MiraIntent {
         ))
     }
 
-    /// The model structured a draft (create_note) mid-conversation? On
-    /// the canvas that MEANS "these words, on this page" -- land the clean
-    /// body; the chatter never touches the paper.
-    private static func landedDraft(from reply: ChatReply) -> MiraOutcome? {
-        guard let draft = reply.pageDraft else { return nil }
-        let words = cleanPlacedText(draft.body.isEmpty ? draft.title : draft.body)
-        guard !words.isEmpty else { return nil }
-        return .textAdded(words, MiraReceipt(
-            changed: "Added a few words.",
-            kept: "Everything else stayed put."
-        ))
-    }
-
-    /// Words landing on the CANVAS must be plain prose: markdown line
-    /// decorations go, emphasis marks go, and when the reply frames a
-    /// quoted suggestion ("how about: '...'"), the quote IS the payload.
-    static func cleanPlacedText(_ raw: String) -> String {
-        let lines = raw
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { line -> String in
-                var trimmed = line.trimmingCharacters(in: .whitespaces)
-                while trimmed.hasPrefix(">") || trimmed.hasPrefix("#") {
-                    trimmed = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)
-                }
-                return trimmed
-            }
-        var kept = lines
-        // A lead-in that just announces the payload ("Here's a caption:")
-        // is chatter; so is a trailing "feel free to tweak" paragraph.
-        while let first = kept.first(where: { !$0.isEmpty }), first.hasSuffix(":"),
-              let index = kept.firstIndex(of: first) {
-            kept.remove(at: index)
-        }
-        let metaCues = ["it's ready", "feel free", "let me know", "just say", "hope you",
-                        "if you'd like", "want me to", "would you like"]
-        while let last = kept.last(where: { !$0.isEmpty }),
-              metaCues.contains(where: { last.lowercased().hasPrefix($0) || last.lowercased().contains($0) }),
-              let index = kept.lastIndex(of: last) {
-            kept.remove(at: index)
-        }
-        var text = kept.joined(separator: "\n")
-        for mark in ["**", "__", "*", "_", "`"] {
-            text = text.replacingOccurrences(of: mark, with: "")
-        }
-        text = text.replacingOccurrences(of: "\n\n\n", with: "\n\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        var longestQuote = ""
-        for (open, close) in [("\"", "\""), ("\u{201C}", "\u{201D}")] {
-            var rest = Substring(text)
-            while let start = rest.firstIndex(of: Character(open)) {
-                let after = rest.index(after: start)
-                guard let end = rest[after...].firstIndex(of: Character(close)) else { break }
-                let span = String(rest[after..<end])
-                if span.count > longestQuote.count { longestQuote = span }
-                rest = rest[rest.index(after: end)...]
-            }
-        }
-        if longestQuote.count >= 20 {
-            return longestQuote.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return text
-    }
-
-    /// LLM replies arrive with quotes, trailing periods, or a chatty
-    /// second line; a title is one clean line.
-    static func cleanTitle(_ raw: String) -> String {
-        let firstLine = raw
-            .split(separator: "\n", omittingEmptySubsequences: true)
-            .first
-            .map(String.init) ?? ""
-        let noise = CharacterSet(charactersIn: "\"'`.\u{201C}\u{201D}\u{2018}\u{2019}")
-            .union(.whitespacesAndNewlines)
-        var title = firstLine.trimmingCharacters(in: noise)
-        if title.count > 60 {
-            title = String(title.prefix(60)).trimmingCharacters(in: .whitespaces)
-        }
-        return title
-    }
 }
