@@ -166,11 +166,12 @@ enum MiraIntent {
         let reply = try await chat.reply(
             to: "Write one or two warm sentences for this page -- about "
                 + "its photo if it has one. Answer with the sentences only, "
-                + "in the language the page is written in.",
+                + "in the language the page is written in. No commentary, "
+                + "no markdown, no emoji.",
             sessionID: nil,
             notes: pageNotes
         )
-        let words = reply.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = MiraIntent.cleanPlacedText(reply.text)
         guard !words.isEmpty else {
             throw MiraClarifyError(
                 question: "I could not find words for this page -- try again?",
@@ -181,6 +182,43 @@ enum MiraIntent {
             changed: "Added a few words.",
             kept: "Everything else stayed put."
         ))
+    }
+
+    /// Words landing on the CANVAS must be plain prose: markdown line
+    /// decorations go, emphasis marks go, and when the reply frames a
+    /// quoted suggestion ("how about: '...'"), the quote IS the payload.
+    static func cleanPlacedText(_ raw: String) -> String {
+        let lines = raw
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line -> String in
+                var trimmed = line.trimmingCharacters(in: .whitespaces)
+                while trimmed.hasPrefix(">") || trimmed.hasPrefix("#") {
+                    trimmed = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)
+                }
+                return trimmed
+            }
+        var text = lines.joined(separator: "\n")
+        for mark in ["**", "__", "*", "_", "`"] {
+            text = text.replacingOccurrences(of: mark, with: "")
+        }
+        text = text.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var longestQuote = ""
+        for (open, close) in [("\"", "\""), ("\u{201C}", "\u{201D}")] {
+            var rest = Substring(text)
+            while let start = rest.firstIndex(of: Character(open)) {
+                let after = rest.index(after: start)
+                guard let end = rest[after...].firstIndex(of: Character(close)) else { break }
+                let span = String(rest[after..<end])
+                if span.count > longestQuote.count { longestQuote = span }
+                rest = rest[rest.index(after: end)...]
+            }
+        }
+        if longestQuote.count >= 20 {
+            return longestQuote.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text
     }
 
     /// LLM replies arrive with quotes, trailing periods, or a chatty

@@ -107,6 +107,29 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(receipt.changed, "Added a few words.")
     }
 
+    func testCleanPlacedTextStripsMarkdownAndExtractsTheQuote() {
+        let chatty = """
+        How about this caption for the photo?
+
+        > *"A single yellow leaf catches the light, standing apart from the green."*
+
+        If you'd like, I can save it as a new note draft -- just say the word!
+        """
+        XCTAssertEqual(
+            MiraIntent.cleanPlacedText(chatty),
+            "A single yellow leaf catches the light, standing apart from the green.",
+            "the quoted suggestion is the payload; the chatter stays in chat"
+        )
+        XCTAssertEqual(
+            MiraIntent.cleanPlacedText("> **bold** and _soft_ words"),
+            "bold and soft words"
+        )
+        XCTAssertEqual(
+            MiraIntent.cleanPlacedText("Plain words, nothing framed."),
+            "Plain words, nothing framed."
+        )
+    }
+
     func testCleanTitleStripsLLMNoise() {
         XCTAssertEqual(MiraIntent.cleanTitle("\"Ramen by the bridge.\"\nHope you like it!"),
                        "Ramen by the bridge")

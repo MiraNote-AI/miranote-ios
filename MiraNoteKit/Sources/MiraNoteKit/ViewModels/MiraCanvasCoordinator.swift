@@ -162,7 +162,7 @@ public final class MiraCanvasCoordinator {
     public func placeReply(editor: CanvasViewModel) {
         guard case .reply(let message, _) = phase else { return }
         editor.addText(
-            message,
+            MiraIntent.cleanPlacedText(message),
             at: CGPoint(x: 180, y: editor.contentBottom + 60),
             pointSize: 15,
             size: CGSize(width: 320, height: 60)

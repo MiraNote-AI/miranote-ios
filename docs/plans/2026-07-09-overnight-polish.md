@@ -470,3 +470,15 @@ feat/ios-flow-v2 awaits Meng's word).
       (testQuickCaptureOpensChat, unrelated screen) passed in
       isolation and in the full rerun. VERIFY (clean): swiftlint 0;
       xcodebuild test 23 tests 0 failures, TEST SUCCEEDED. Installed.
+
+28. Placed words become plain prose (Meng: raw markdown landed on the
+    canvas -- blockquote marks, asterisks, a tofu glyph, plus the
+    model's chatter framing the actual caption). cleanPlacedText now
+    guards both landing paths (caption intent + Put-this-on-the-page):
+    markdown line decorations and emphasis marks strip, and when the
+    reply frames a quoted suggestion the quote IS the payload -- the
+    chatter stays in chat. The caption instruction also hardened (no
+    commentary, no markdown, no emoji). Unit-tested with the exact
+    reply shape from Meng's screenshot. Kit 120. VERIFY (clean):
+    swiftlint 0; xcodebuild test 23 tests 0 failures, TEST SUCCEEDED.
+    Installed.
