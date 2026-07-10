@@ -6,17 +6,82 @@ import Foundation
 // cues so photo-flavored wording ("make the photo warmer") wins the
 // filter, never polish.
 extension MiraIntent {
+    /// Generation and photo edits run on the studio's long timeout, not
+    /// the chat one.
+    var isSlowImageWork: Bool {
+        switch self {
+        case .generateImage, .editPhoto, .makeSticker: return true
+        default: return false
+        }
+    }
+
     /// The image/style side of `perform` (delegated to keep the main
-    /// switch under the complexity cap).
-    func performImageOrStyle() async throws -> MiraOutcome {
-        if case .clarifyPhoto = self {
+    /// switch under the complexity cap). Instant local outcomes return
+    /// straight away; slow ones ride the studio.
+    func performImageOrStyle(imageStudio: ImageStudioService) async throws -> MiraOutcome {
+        if let instant = instantOutcome {
+            return instant
+        }
+        return try await performSlowImage(imageStudio: imageStudio)
+    }
+
+    /// Filter, frame, size, and color settle before the working bar's
+    /// 400 ms delay ever shows -- no network, one undo snapshot.
+    private var instantOutcome: MiraOutcome? {
+        switch self {
+        case .applyFilter(let id, let name):
+            return .filterApplied(id, name: name, MiraReceipt(
+                changed: name.isEmpty ? "Cleared the filter." : "Changed the photo's look.",
+                kept: "Undo restores it."))
+        case .applyFrame(let id, let name):
+            return .frameApplied(id, name: name, MiraReceipt(
+                changed: name.isEmpty ? "Removed the frame." : "Framed the photo.",
+                kept: "Undo restores it."))
+        case .resizeText(let id, let up):
+            return .textResized(id, up: up, MiraReceipt(
+                changed: up ? "Made the words bigger." : "Made the words smaller.",
+                kept: "Undo restores them."))
+        case .recolorText(let id, let colorName):
+            return .textRecolored(id, colorName: colorName, MiraReceipt(
+                changed: "Recolored the words.", kept: "Undo restores them."))
+        default:
+            return nil
+        }
+    }
+
+    private func performSlowImage(imageStudio: ImageStudioService) async throws -> MiraOutcome {
+        switch self {
+        case .generateImage(let prompt, let sticker):
+            let images = try await imageStudio.generate(
+                kind: sticker ? .sticker : .background, prompt: prompt)
+            guard !images.isEmpty else { throw MiraTimeoutError() }
+            return .imageChoices(Array(images.prefix(2)), prompt: prompt, sticker: sticker)
+        case .editPhoto(let id, let data, let instruction):
+            guard !data.isEmpty else { throw Self.missingPixels }
+            let styled = try await imageStudio.stylize(image: data, instruction: instruction)
+            return .imageReplaced(id, styled, MiraReceipt(
+                changed: "Restyled the photo.",
+                kept: "Undo brings the old one back."))
+        case .makeSticker(let id, let data, let prompt):
+            guard !data.isEmpty else { throw Self.missingPixels }
+            let cut = try await imageStudio.cutout(image: data, target: nil)
+            let outlined = try await imageStudio.outline(image: cut)
+            return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
+                changed: "Made it a sticker.",
+                kept: "Undo brings the photo back."))
+        default:
             throw MiraClarifyError(
                 question: "More than one photo here -- tap the one you mean and ask again.",
                 chips: []
             )
         }
-        // Wired to the image studio in the next commit of this branch.
-        throw MiraTimeoutError()
+    }
+
+    private static var missingPixels: MiraClarifyError {
+        MiraClarifyError(
+            question: "This picture has no stored pixels to work on -- try another photo?",
+            chips: []
+        )
     }
 
     enum PhotoTarget {

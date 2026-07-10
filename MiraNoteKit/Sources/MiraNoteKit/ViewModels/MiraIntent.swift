@@ -28,6 +28,14 @@ enum MiraOutcome: Sendable {
     case textAdded(String, MiraReceipt)
     case organized(MiraReceipt)
     case reply(String, sessionID: String?)
+    // Image and style families (applied in MiraCanvasCoordinator+Images).
+    case imageChoices([Data], prompt: String, sticker: Bool)
+    case imageReplaced(CanvasItem.ID, Data, MiraReceipt)
+    case stickerReplaced(CanvasItem.ID, Data, prompt: String, MiraReceipt)
+    case filterApplied(CanvasItem.ID, name: String, MiraReceipt)
+    case frameApplied(CanvasItem.ID, name: String, MiraReceipt)
+    case textResized(CanvasItem.ID, up: Bool, MiraReceipt)
+    case textRecolored(CanvasItem.ID, colorName: String, MiraReceipt)
 }
 
 /// V1 local intent rules. The structured page-draft backend (plan D3 gap)
@@ -165,7 +173,8 @@ enum MiraIntent {
     func perform(
         text: TextTransformService,
         chat: ChatService,
-        sessionID: String?
+        sessionID: String?,
+        imageStudio: ImageStudioService
     ) async throws -> MiraOutcome {
         switch self {
         case .transformText(let id, let original, let mode):
@@ -196,7 +205,7 @@ enum MiraIntent {
             )
         case .generateImage, .editPhoto, .makeSticker, .applyFilter,
              .applyFrame, .resizeText, .recolorText, .clarifyPhoto:
-            return try await performImageOrStyle()
+            return try await performImageOrStyle(imageStudio: imageStudio)
         }
     }
 
