@@ -7,9 +7,13 @@ import SwiftUI
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
     var onComplete: (Memory) -> Void = { _ in }
+    /// Files the page quietly WITHOUT leaving the editor -- the autosave
+    /// half of "editing autosaves, so Done never says Save".
+    var onAutosave: (Memory) -> Void = { _ in }
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var services: ServiceContainer = .mock
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var editor: CanvasViewModel
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
@@ -21,11 +25,13 @@ struct EditorFlowView: View {
         memory: Memory? = nil,
         onExit: @escaping () -> Void = {},
         onComplete: @escaping (Memory) -> Void = { _ in },
+        onAutosave: @escaping (Memory) -> Void = { _ in },
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
         services: ServiceContainer = .mock
     ) {
         self.onExit = onExit
         self.onComplete = onComplete
+        self.onAutosave = onAutosave
         self.recorderFactory = recorderFactory
         self.services = services
         // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
@@ -43,6 +49,25 @@ struct EditorFlowView: View {
         content
             .id(scene)
             .transition(.opacity)
+            .onChange(of: scenePhase) {
+                // Autosave against app death: words survive a backgrounded
+                // app being jettisoned. file() replaces by id, so the later
+                // Done/Home filing never duplicates this one.
+                if scenePhase == .background && !editor.items.isEmpty {
+                    onAutosave(editor.composedMemory())
+                }
+            }
+    }
+
+    /// Leaving keeps the words (autosave semantics): Done and Home both
+    /// file a non-empty canvas; only an untouched blank page keeps
+    /// nothing -- no junk "New memory" entries in the journal.
+    private func finish() {
+        if editor.items.isEmpty {
+            onExit()
+        } else {
+            onComplete(editor.composedMemory())
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -52,15 +77,7 @@ struct EditorFlowView: View {
                 editor: editor,
                 mira: mira,
                 imageStudio: services.imageStudio,
-                actions: actions(back: onExit, done: {
-                    // Done on an untouched blank page keeps nothing -- no
-                    // junk "New memory" entries in the journal.
-                    if editor.items.isEmpty {
-                        onExit()
-                    } else {
-                        onComplete(editor.composedMemory())
-                    }
-                }),
+                actions: actions(back: finish, done: finish),
                 pendingTool: $pendingTool,
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
@@ -225,6 +242,7 @@ struct HomeFlow: View {
                         viewModel.file(memory, underCollectionTitled: Self.inbox)
                         route = nil
                     },
+                    onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
@@ -236,6 +254,7 @@ struct HomeFlow: View {
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
                         route = nil
                     },
+                    onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )

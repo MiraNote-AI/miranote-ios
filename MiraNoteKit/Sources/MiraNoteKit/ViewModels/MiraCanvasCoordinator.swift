@@ -269,18 +269,7 @@ public final class MiraCanvasCoordinator {
             editor.setText(itemID: itemID, to: newText)
             showReceipt(receipt, editor: editor)
         case .titleAdded(let title, let receipt):
-            // Land above the current topmost element, never on top of it.
-            let currentTop = editor.items
-                .map { $0.position.y - $0.size.height / 2 }
-                .min() ?? 100
-            let titleY = max(36, currentTop - 44)
-            editor.addText(
-                title,
-                at: CGPoint(x: 150, y: titleY),
-                pointSize: 30,
-                size: CGSize(width: 270, height: 60)
-            )
-            showReceipt(receipt, editor: editor)
+            landTitle(title, receipt: receipt, editor: editor)
         case .textAdded(let words, let receipt):
             // A caption reads under the page's content, not on top of it.
             editor.addText(
@@ -302,6 +291,31 @@ public final class MiraCanvasCoordinator {
             }
             phase = .reply(message, chips: [Self.placeReplyChip] + suggestions(for: editor))
         }
+    }
+
+    /// Land the title above the current topmost element, never on top of
+    /// it: the box is sized to its words (two-line titles run taller than
+    /// one), and when the headroom cannot fit it the page slides down
+    /// rather than the title covering the content. addText snapshots
+    /// before the moves, so the receipt's Revert is one undo.
+    private func landTitle(_ title: String, receipt: MiraReceipt, editor: CanvasViewModel) {
+        let boxHeight = max(60, Memory.estimatedTextHeight(title, pointSize: 30, width: 270))
+        let currentTop = editor.items
+            .map { $0.position.y - $0.size.height / 2 }
+            .min() ?? (50 + boxHeight)
+        let titleY = currentTop - 14 - boxHeight / 2
+        let overflow = max(0, 36 - (titleY - boxHeight / 2))
+        let existing = editor.items.map { ($0.id, $0.position) }
+        editor.addText(
+            title,
+            at: CGPoint(x: 150, y: titleY + overflow),
+            pointSize: 30,
+            size: CGSize(width: 270, height: boxHeight)
+        )
+        for (id, position) in existing where overflow > 0 {
+            editor.move(itemID: id, to: CGPoint(x: position.x, y: position.y + overflow))
+        }
+        showReceipt(receipt, editor: editor)
     }
 
     private func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel) {

@@ -201,7 +201,9 @@ struct MiraChatView: View {
         let isUser = message.role == .user
         return HStack(spacing: 0) {
             if isUser { Spacer(minLength: 40) }
-            Text(message.text)
+            // The user's words verbatim; Mira's with her light markdown
+            // (cited titles arrive bolded) rendered, not shown as **.
+            Text(isUser ? AttributedString(message.text) : ChatMarkdown.attributed(message.text))
                 .font(.miraBody)
                 .foregroundStyle(isUser ? Palette.onInk : Palette.ink)
                 .padding(.horizontal, 15)

@@ -33,7 +33,9 @@ struct UITestScriptedChat: ChatService {
                 pageDraft: ChatPageDraft(title: "Drafted by Mira", body: "warm broth, golden light")
             )
         }
-        return ChatReply(text: "A scripted reply for UI tests.", sessionID: "ui-test")
+        // Carries markdown on purpose: the bubble must render the bold,
+        // never print the asterisks (the live persona bolds cited titles).
+        return ChatReply(text: "A **scripted** reply for UI tests.", sessionID: "ui-test")
     }
 }
 #endif

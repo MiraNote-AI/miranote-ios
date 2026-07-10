@@ -25,6 +25,26 @@ public struct StickerFavoritesStore: Sendable {
         return stickers
     }
 
+    /// One-shot hygiene at panel open: keep only stickers whose image
+    /// still decodes to something visible (missing files and degenerate
+    /// mock-era thumbnails read as blank squares), rewrite the file when
+    /// anything was dropped, and return the survivors. `imageSide`
+    /// reports the shorter decoded side for a stored file name.
+    public func pruned(
+        imageSide: (String) -> CGFloat?,
+        minSide: CGFloat = 24
+    ) -> [GeneratedSticker] {
+        let stickers = all()
+        let kept = stickers.filter {
+            guard let side = imageSide($0.fileName) else { return false }
+            return side >= minSide
+        }
+        if kept.count != stickers.count, let data = try? JSONEncoder().encode(kept) {
+            try? data.write(to: url)
+        }
+        return kept
+    }
+
     /// Adds to the front, dropping duplicates by id and anything past the cap.
     public func add(_ sticker: GeneratedSticker) {
         var stickers = all().filter { $0.id != sticker.id }
