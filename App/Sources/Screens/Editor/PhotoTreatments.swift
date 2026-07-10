@@ -31,10 +31,13 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
             filter.inputImage = image
             return filter.outputImage ?? image
         case .warm:
+            // CITemperatureAndTint runs toward LOWER Kelvin for warmth: a
+            // target above neutral cools (measured: 5200->7200 tints grey
+            // blue). Warm therefore aims the target BELOW the neutral.
             let filter = CIFilter.temperatureAndTint()
             filter.inputImage = image
-            filter.neutral = CIVector(x: 5200, y: 0)
-            filter.targetNeutral = CIVector(x: 7200, y: 20)
+            filter.neutral = CIVector(x: 6500, y: 0)
+            filter.targetNeutral = CIVector(x: 5200, y: 10)
             return filter.outputImage ?? image
         case .film:
             let filter = CIFilter.photoEffectInstant()
@@ -45,8 +48,8 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
             // saturation so photos sit into the page instead of on it.
             let warmth = CIFilter.temperatureAndTint()
             warmth.inputImage = image
-            warmth.neutral = CIVector(x: 5600, y: 0)
-            warmth.targetNeutral = CIVector(x: 6800, y: 10)
+            warmth.neutral = CIVector(x: 6500, y: 0)
+            warmth.targetNeutral = CIVector(x: 5800, y: 5)
             let soften = CIFilter.colorControls()
             soften.inputImage = warmth.outputImage ?? image
             soften.saturation = 0.86
