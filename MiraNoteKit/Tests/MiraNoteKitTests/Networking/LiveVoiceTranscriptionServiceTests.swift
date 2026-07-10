@@ -9,7 +9,7 @@ final class LiveVoiceTranscriptionServiceTests: XCTestCase {
 
     private func service(language: String = "en") -> LiveVoiceTranscriptionService {
         LiveVoiceTranscriptionService(
-            baseURL: URL(string: "http://localhost:8000")!,
+            baseURL: URL(string: "http://localhost:8005")!,
             client: HTTPClient(session: StubURLProtocol.makeSession()),
             language: language
         )
