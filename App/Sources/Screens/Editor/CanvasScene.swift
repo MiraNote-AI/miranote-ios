@@ -58,7 +58,8 @@ struct CanvasScene: View {
         }
         .onAppear {
             remeasureTextBlocks()
-            describeUnseenPhotos()
+            mira.prepareTurn = { await lookAtUnseenPhotos() }
+            Task { await lookAtUnseenPhotos() }
             consumePendingTool()
         }
         .onDisappear { cancelRecording() }
@@ -224,10 +225,11 @@ struct CanvasScene: View {
         textFocus = id
     }
 
-    /// Photos that predate the vision feature (or whose describe lost a
-    /// race) get looked at when the page opens -- sequentially, quietly,
-    /// best-effort.
-    private func describeUnseenPhotos() {
+    /// Photos that predate the vision feature -- or whose import-time
+    /// describe has not landed yet -- get looked at here. Runs on page
+    /// open AND before every Mira turn (bounded), so an ask never races
+    /// the look.
+    private func lookAtUnseenPhotos() async {
         let unseen = editor.items.compactMap { item -> (CanvasItem.ID, Data)? in
             guard case .image(let ref) = item.content,
                   ref.summary.isEmpty, !ref.fileName.isEmpty,
@@ -235,11 +237,21 @@ struct CanvasScene: View {
             return (item.id, data)
         }
         guard !unseen.isEmpty else { return }
-        Task {
-            for (id, data) in unseen {
-                guard let summary = try? await imageStudio.describe(image: data) else { continue }
-                editor.setImageSummary(itemID: id, to: summary)
+        let editor = self.editor
+        let studio = self.imageStudio
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for (id, data) in unseen {
+                    guard let summary = try? await studio.describe(image: data) else { continue }
+                    await MainActor.run { editor.setImageSummary(itemID: id, to: summary) }
+                }
             }
+            group.addTask {
+                // Vision takes seconds; never hold an ask hostage longer.
+                try? await Task.sleep(for: .seconds(8))
+            }
+            await group.next()
+            group.cancelAll()
         }
     }
 

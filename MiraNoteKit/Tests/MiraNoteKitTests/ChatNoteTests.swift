@@ -130,6 +130,34 @@ final class ChatNoteTests: XCTestCase {
         )
     }
 
+    func testAskRunsPrepareBeforeClassifyingSoTheTurnSeesTheSummaries() async {
+        let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+        let ids = editor.addImages([ImageRef(displayName: "Photo")], around: .zero)
+        let chat = ScriptedChat()
+        let coordinator = MiraCanvasCoordinator(
+            text: ScriptedText(),
+            chat: chat,
+            workingDelay: .milliseconds(1),
+            timeout: .seconds(5),
+            receiptDismiss: .seconds(60)
+        )
+        coordinator.prepareTurn = {
+            editor.setImageSummary(itemID: ids[0], to: "a waterfall in soft light")
+        }
+
+        coordinator.ask("hello mira, tell me about it", editor: editor)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if case .reply = coordinator.phase { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let sent = await chat.recorder.notes
+        XCTAssertTrue(
+            sent.first?.first?.body.contains("a waterfall in soft light") == true,
+            "the turn classifies AFTER preparation, so the note carries the summary"
+        )
+    }
+
     func testCleanPlacedTextDropsLeadInAndTrailingChatter() {
         // The fixture is a verbatim model reply; its lines stay unwrapped.
         // swiftlint:disable line_length

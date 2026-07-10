@@ -62,6 +62,10 @@ public final class MiraCanvasCoordinator {
     public private(set) var workingItemIDs: Set<CanvasItem.ID> = []
     /// Set when a turn stops or fails so the input bar can restore the words.
     public var refillPrompt: String?
+    /// Runs before a turn classifies -- the view wires page preparation
+    /// here (e.g. wait for vision to finish looking at new photos) so the
+    /// turn sees a fully-described page.
+    public var prepareTurn: (() async -> Void)?
 
     private let text: TextTransformService
     private let chat: ChatService
@@ -106,29 +110,6 @@ public final class MiraCanvasCoordinator {
         return turnTask != nil
     }
 
-    /// Context-aware idle suggestions -- PAGE-level only (Meng,
-    /// 2026-07-09): polishing belongs to the text editor's keyboard row,
-    /// where the target block is unambiguous. Every chip must be ABOUT
-    /// something already on the page, and a title is a suggestion about
-    /// words, so it waits for words.
-    public func suggestions(for editor: CanvasViewModel) -> [String] {
-        var chips: [String] = []
-        let hasText = editor.items.contains {
-            if case .text = $0.content { return true } else { return false }
-        }
-        if editor.items.count > 1 {
-            chips.append("Tidy the layout")
-        }
-        let hasTitle = editor.items.contains {
-            if case .text(let block) = $0.content { return block.pointSize >= 24 }
-            return false
-        }
-        if hasText, !hasTitle {
-            chips.append("Add a soft title")
-        }
-        return chips
-    }
-
     // MARK: Turn lifecycle
 
     public func ask(_ prompt: String, editor: CanvasViewModel) {
@@ -138,9 +119,25 @@ public final class MiraCanvasCoordinator {
         phase = .idle
         lastPrompt = trimmed
         refillPrompt = nil
-        let intent = MiraIntent.classify(trimmed, editor: editor)
         let generation = turnGeneration
-        turnTask = Task { await run(intent, prompt: trimmed, editor: editor, generation: generation) }
+        turnTask = Task {
+            if let prepareTurn {
+                // Cover the preparation with the working bar past the
+                // usual threshold, so waiting on vision reads as work.
+                let indicator = Task { [workingDelay] in
+                    try? await Task.sleep(for: workingDelay)
+                    guard !Task.isCancelled, self.turnGeneration == generation else { return }
+                    if case .idle = self.phase {
+                        self.phase = .working(verb: "Looking at the page...")
+                    }
+                }
+                await prepareTurn()
+                indicator.cancel()
+                guard self.turnGeneration == generation else { return }
+            }
+            let intent = MiraIntent.classify(trimmed, editor: editor)
+            await run(intent, prompt: trimmed, editor: editor, generation: generation)
+        }
     }
 
     /// The Stop control: cancel with no residue, give the words back.

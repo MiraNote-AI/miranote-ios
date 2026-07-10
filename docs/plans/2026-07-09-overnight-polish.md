@@ -498,3 +498,16 @@ feat/ios-flow-v2 awaits Meng's word).
     VERIFY (clean): swiftlint 0 (fixture literal carries a scoped
     line-length exemption); xcodebuild test 23 tests 0 failures, TEST
     SUCCEEDED. Installed.
+
+30. The ask no longer races the look (Meng: "the old problem is back"
+    -- the honest not-looked-yet reply, because he asked within the
+    2-4s window before import-time vision landed; the image POC was
+    up and all describes were 200s). The coordinator gained a
+    prepareTurn hook that runs BEFORE classification (covered by a
+    "Looking at the page..." working bar); the canvas wires it to a
+    bounded (8s) sweep that describes any unseen photos, which also
+    runs on page open. An ask now always sees a fully-described page;
+    Kit test proves classification happens after preparation.
+    suggestions(for:) moved to its own file to keep the coordinator
+    under the type-length cap. Kit 123. VERIFY (clean): swiftlint 0;
+    xcodebuild test 23 tests 0 failures, TEST SUCCEEDED. Installed.
