@@ -966,3 +966,8 @@ Expected: PR URL; CI green; human merges.
 ## Iterations
 
 (Ledger: one line per act+verify cycle.)
+
+1. Task 1 model+mutator -- red exposed that undo history snapshotted only items; history generalized to UndoSnapshot (items + backgroundFileName), 4/4 green, full Kit 176/176 (deviation from plan, recorded in the commit).
+2. Tasks 2+3 router+landing (compiled together per plan note) -- 186/186 green including the two updated bindings.
+3. Task 4 UI -- both UITests green on first run after xcodegen.
+4. Task 5 gates -- lint 2 -> 0 (CanvasViewModel+Sound.swift split; generateChoices extraction for complexity); full app suites SUCCEEDED; live :8002 probe passed in 30 s -- real sunset background landed full-bleed, receipt + Revert shown, undo restored the new default gradient (film-strip f024/f026/f028).
