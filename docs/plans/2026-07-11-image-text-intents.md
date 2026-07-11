@@ -622,3 +622,8 @@ Then watch CI to green; fresh-context review per maker-checker; a human merges.
 ## Iterations
 
 (Ledger: one line per act+verify cycle.)
+
+1. T1 art kind -- NSLock stub reworked to an actor (Swift 6 warnings), 190/190.
+2. T2 words-wanting guard + clarifyPhoto payload -- 195/195.
+3. T3 illustrateText -- 201/201; caps forced requirePixels + MiraIntent+Generate.swift split.
+4. T4 -- describe UITest green first run; text-into-picture needed the CanvasEditorUITests element pattern (descendants + keyboard.done); both green; full app suites SUCCEEDED; live probe 53 s: crane illustration (not wallpaper) and the harbor sentence became exactly its picture.
