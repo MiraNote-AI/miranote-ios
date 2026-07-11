@@ -102,6 +102,15 @@ final class MiraImageIntentTests: XCTestCase {
         XCTAssertTrue(instruction.contains("autumn"))
     }
 
+    func testChangeThePhotoIsAFreeEdit() {
+        let editor = editorWithPhotos(1)
+        let intent = MiraIntent.classify("change the photo to feel like winter", editor: editor)
+        guard case .editPhoto(_, _, let instruction) = intent else {
+            return XCTFail("expected editPhoto, got \(intent)")
+        }
+        XCTAssertTrue(instruction.contains("winter"))
+    }
+
     func testBiggerTargetsTheTextBlock() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("hello words", at: CGPoint(x: 150, y: 80))

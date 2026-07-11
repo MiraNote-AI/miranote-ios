@@ -10,7 +10,7 @@ extension MiraIntent {
     /// the chat one.
     var isSlowImageWork: Bool {
         switch self {
-        case .generateImage, .editPhoto, .makeSticker: return true
+        case .generateImage, .editPhoto, .makeSticker, .editSticker: return true
         default: return false
         }
     }
@@ -69,6 +69,21 @@ extension MiraIntent {
             return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
                 changed: "Made it a sticker.",
                 kept: "Undo brings the photo back."))
+        case .editSticker(let id, let data, let instruction, _):
+            guard !data.isEmpty else {
+                throw MiraClarifyError(
+                    question: "This sticker has no stored pixels to work on -- try another?",
+                    chips: []
+                )
+            }
+            let styled = try await imageStudio.stylize(image: data, instruction: instruction)
+            let cut = try await imageStudio.cutout(image: styled, target: nil)
+            let outlined = try await imageStudio.outline(image: cut)
+            return .stickerEdited(id, outlined, MiraReceipt(
+                changed: "Restyled the sticker.",
+                kept: "Undo brings the old one back."))
+        case .clarifySticker(let question):
+            throw MiraClarifyError(question: question, chips: [])
         default:
             throw MiraClarifyError(
                 question: "More than one photo here -- tap the one you mean and ask again.",
@@ -107,6 +122,67 @@ extension MiraIntent {
         return photos.isEmpty ? .none : .ambiguous
     }
 
+    enum StickerTarget {
+        case one(CanvasItem.ID, GeneratedSticker)
+        case none
+        case ambiguous
+    }
+
+    /// Selected sticker first; else the only sticker; else ambiguous.
+    @MainActor
+    static func stickerTarget(editor: CanvasViewModel) -> StickerTarget {
+        let stickers = editor.orderedItems.compactMap { item -> (CanvasItem.ID, GeneratedSticker)? in
+            guard case .sticker(let sticker) = item.content else { return nil }
+            return (item.id, sticker)
+        }
+        if let selected = editor.selectedItemID,
+           let match = stickers.first(where: { $0.0 == selected }) {
+            return .one(match.0, match.1)
+        }
+        if stickers.count == 1, let only = stickers.first {
+            return .one(only.0, only.1)
+        }
+        return stickers.isEmpty ? .none : .ambiguous
+    }
+
+    /// The words that make an ask an EDIT -- shared by the sticker and
+    /// photo free-edit families. Escaped cues: ba, gai, huan, bian, gei.
+    static func hasEditVerb(_ lowered: String) -> Bool {
+        let verbs = ["make ", "change ", "turn ", "edit ", "redraw ",
+                     "restyle ", "recolor ", "repaint ", "give ", "add ", "put ",
+                     "\u{628A}", "\u{6539}", "\u{6362}", "\u{53D8}", "\u{7ED9}"]
+        return verbs.contains(where: lowered.contains)
+    }
+
+    /// In-place sticker edit: any sticker mention ("change sticker to
+    /// blue" included) plus an edit verb -- EXCEPT the indefinite forms
+    /// that wish for a NEW one ("a sticker", "another sticker") and the
+    /// photo-conversion phrase ("into a sticker").
+    @MainActor
+    private static func stickerEditIntent(
+        _ lowered: String, prompt: String, stickerCut: Bool,
+        editor: CanvasViewModel, imageStore: ImageFileStore
+    ) -> MiraIntent? {
+        let mentionsSticker = ["sticker", "\u{8D34}\u{7EB8}"]
+            .contains(where: lowered.contains)
+        let wishesForANewOne = ["a sticker", "another sticker", "a new sticker"]
+            .contains(where: lowered.contains)
+        let editVerb = Self.hasEditVerb(lowered)
+        guard mentionsSticker, !wishesForANewOne, editVerb, !stickerCut else { return nil }
+        switch stickerTarget(editor: editor) {
+        case .none:
+            return .clarifySticker(
+                question: "No sticker on this page yet -- generate one first?")
+        case .ambiguous:
+            return .clarifySticker(
+                question: "More than one sticker here -- tap the one you mean and ask again.")
+        case .one(let id, let sticker):
+            let data = imageStore.data(forFileName: sticker.fileName) ?? Data()
+            return .editSticker(id, imageData: data, instruction: prompt,
+                                prompt: sticker.prompt)
+        }
+    }
+
     /// nil = no image or style cue matched; the text router continues.
     @MainActor
     static func classifyImageOrStyle(
@@ -118,8 +194,26 @@ extension MiraIntent {
         if let generation = generationIntent(lowered, prompt: prompt) {
             return generation
         }
+        let mentionsSticker = ["sticker", "\u{8D34}\u{7EB8}"].contains(where: lowered.contains)
+        let stickerCut = lowered.contains("into a sticker")
+            || lowered.contains("\u{62A0}\u{6210}")
         let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
             .contains(where: lowered.contains)
+        // Mixed mentions ("make the photo look like the sticker",
+        // "\u{628A}\u{7167}\u{7247}\u{53D8}\u{6210}\u{8D34}\u{7EB8}") stay
+        // with the photo family: never redraw a sticker when the words
+        // are about a photo.
+        if !mentionsPhoto, let stickerEdit = stickerEditIntent(
+            lowered, prompt: prompt, stickerCut: stickerCut,
+            editor: editor, imageStore: imageStore
+        ) {
+            return stickerEdit
+        }
+        // A sticker-flavored ask must never mutate a photo ("make the
+        // sticker warmer" used to land on the photo warm filter).
+        if mentionsSticker && !mentionsPhoto && !stickerCut {
+            return styleIntent(lowered, editor: editor)
+        }
         if let photoIntent = photoIntent(
             lowered, prompt: prompt, mentionsPhoto: mentionsPhoto,
             editor: editor, imageStore: imageStore
@@ -146,8 +240,7 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let filterName = filterCue(lowered)
         let frameName = frameCue(lowered)
-        let freeEdit = mentionsPhoto
-            && (lowered.contains("make ") || lowered.contains("\u{628A}"))
+        let freeEdit = mentionsPhoto && Self.hasEditVerb(lowered)
         guard stickerCut || filterName != nil || frameName != nil || freeEdit else {
             return nil
         }

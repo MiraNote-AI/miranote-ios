@@ -16,6 +16,8 @@ extension MiraCanvasCoordinator {
         case .stickerReplaced(let id, let data, let prompt, let receipt):
             settleStickerReplaced(id, data: data, prompt: prompt,
                                   receipt: receipt, editor: editor)
+        case .stickerEdited(let id, let data, let receipt):
+            settleStickerEdited(id, data: data, receipt: receipt, editor: editor)
         case .filterApplied(let id, let name, let receipt):
             editor.setImageFilter(itemID: id, to: name)
             showReceipt(receipt, editor: editor)
@@ -117,6 +119,26 @@ extension MiraCanvasCoordinator {
                                        fileName: fileName)
         editor.replaceImageWithSticker(itemID: id, sticker: sticker)
         stickerFavorites.add(sticker)
+        showReceipt(receipt, editor: editor)
+    }
+
+    /// The target must STILL be a sticker (an undo mid-flight can revert
+    /// a cut photo): never convert an image through this path. Label and
+    /// symbol carry over from the sticker being edited.
+    private func settleStickerEdited(_ id: CanvasItem.ID, data: Data,
+                                     receipt: MiraReceipt, editor: CanvasViewModel) {
+        guard case .sticker(let old)? = editor.item(id)?.content,
+              let fileName = try? imageStore.save(data, id: UUID()) else {
+            phase = .failure(MiraFailure(
+                kind: .retry,
+                message: "The sticker I was working on is gone, so I left everything as is.",
+                chips: ["Try again"]))
+            return
+        }
+        let edited = GeneratedSticker(prompt: old.prompt, symbolName: old.symbolName,
+                                      fileName: fileName)
+        editor.replaceSticker(itemID: id, with: edited)
+        stickerFavorites.add(edited)
         showReceipt(receipt, editor: editor)
     }
 

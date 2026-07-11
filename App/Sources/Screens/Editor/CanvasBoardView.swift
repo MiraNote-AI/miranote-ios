@@ -16,6 +16,7 @@ struct CanvasBoardView: View {
     var workingItemIDs: Set<CanvasItem.ID> = []
     /// Long-press "Edit photo" (images with stored pixels only).
     var onEditImage: (CanvasItem.ID) -> Void = { _ in }
+    var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -288,31 +289,7 @@ extension CanvasBoardView {
     // MARK: Context menu (the only delete path)
 
     @ViewBuilder private func contextMenu(for item: CanvasItem) -> some View {
-        switch item.content {
-        case .text:
-            Button {
-                editor.startEditingText(item.id)
-                textFocus.wrappedValue = item.id
-            } label: {
-                Label("Edit text", systemImage: "character.cursor.ibeam")
-            }
-        case .sound:
-            Button {
-                beginNoteEdit(item)
-            } label: {
-                Label("Edit note", systemImage: "text.bubble")
-            }
-        case .image(let ref):
-            if !ref.fileName.isEmpty {
-                Button {
-                    onEditImage(item.id)
-                } label: {
-                    Label("Edit photo", systemImage: "camera.filters")
-                }
-            }
-        case .sticker:
-            EmptyView()
-        }
+        editEntry(for: item)
 
         Button {
             editor.duplicate(itemID: item.id)
@@ -378,7 +355,8 @@ extension CanvasBoardView {
         player.toggle(clip: clip, store: soundStore)
     }
 
-    private func beginNoteEdit(_ item: CanvasItem) {
+    /// Internal (not private) so CanvasBoardView+Menu.swift can offer it.
+    func beginNoteEdit(_ item: CanvasItem) {
         guard case .sound(let clip) = item.content else { return }
         noteDraft = clip.note
         noteEditingItem = item.id

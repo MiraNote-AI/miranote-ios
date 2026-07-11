@@ -23,6 +23,7 @@ struct CanvasScene: View {
     @State private var miraPrompt = ""
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
+    @State private var editingStickerItem: CanvasItem.ID?
     @State var dictating = false
     /// Inline feedback in the text accessory: "Listening..." while the
     /// mic is live, or why nothing landed after it stopped.
@@ -54,6 +55,12 @@ struct CanvasScene: View {
                     cancelRecording()
                     cancelDictationIfNeeded()
                     editingImageItem = id
+                },
+                onEditSticker: { id in
+                    guard !mira.isWorking else { return }
+                    cancelRecording()
+                    cancelDictationIfNeeded()
+                    editingStickerItem = id
                 }
             )
         } bottom: {
@@ -85,6 +92,11 @@ struct CanvasScene: View {
             if let id = editingImageItem {
                 if case .image = editor.item(id)?.content {} else {
                     editingImageItem = nil
+                }
+            }
+            if let id = editingStickerItem {
+                if case .sticker = editor.item(id)?.content {} else {
+                    editingStickerItem = nil
                 }
             }
             // Committed changes that rewrite text from OUTSIDE typing --
@@ -146,6 +158,13 @@ struct CanvasScene: View {
                     onClose: { self.editingImageItem = nil }
                 )
                 InputModeBar(active: .image, onSelect: handleTool)
+            } else if let editingStickerItem {
+                StickerEditPanel(
+                    editor: editor,
+                    itemID: editingStickerItem,
+                    studio: imageStudio,
+                    onClose: { self.editingStickerItem = nil }
+                )
             } else {
                 recorderCluster
             }
@@ -194,9 +213,10 @@ struct CanvasScene: View {
     }
 
     private func handleTool(_ mode: EditorMode) {
-        // Any tool tap closes the photo edit panel first -- one owner of
+        // Any tool tap closes the edit panels first -- one owner of
         // the bottom cluster at a time.
         editingImageItem = nil
+        editingStickerItem = nil
         switch mode {
         case .text:
             addTextBlock()
