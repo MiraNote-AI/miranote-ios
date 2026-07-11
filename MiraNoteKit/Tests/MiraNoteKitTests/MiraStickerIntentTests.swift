@@ -91,6 +91,15 @@ final class MiraStickerIntentTests: XCTestCase {
         }
     }
 
+    func testBareStickerMentionStillEdits() {
+        // Meng's exact phrase from device testing: no article at all.
+        let editor = editorWithStickers(1)
+        let intent = MiraIntent.classify("Change sticker to blue", editor: editor)
+        guard case .editSticker = intent else {
+            return XCTFail("expected editSticker, got \(intent)")
+        }
+    }
+
     func testChangeVerbEditsTheSticker() {
         let editor = editorWithStickers(1)
         let intent = MiraIntent.classify("change the sticker to blue", editor: editor)

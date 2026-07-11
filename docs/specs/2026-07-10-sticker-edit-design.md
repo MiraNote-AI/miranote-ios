@@ -35,13 +35,15 @@ New family in the cue router (`MiraIntent+Image.swift`), checked
 between generation and the photo family:
 
 - **editSticker(itemID, imageData, instruction, prompt)** -- fires when
-  the ask mentions a sticker DEFINITELY ("the sticker", "this sticker",
-  "that sticker", "my sticker", "贴纸"), carries an edit verb ("make "
-  or "把", photo-family parity), and is NOT the photo-conversion phrase
-  ("into a sticker" / "抠成" -- "把照片抠成贴纸" mentions 贴纸 but must
-  stay makeSticker on the photo). The definite-mention rule keeps
-  "make a sticker of a cat" (indefinite: a new-sticker wish) out of the
-  edit family; it falls through to converse exactly as today.
+  the ask mentions a sticker in any form ("the sticker", bare
+  "sticker" -- "change sticker to blue" is how people actually type --
+  "贴纸"), carries an edit verb (the shared list in the 2026-07-10
+  edit-verb-widening spec), and is NOT an indefinite new-sticker wish
+  ("a sticker", "another sticker": "make a sticker of a cat" stays
+  conversational) or the photo-conversion phrase ("into a sticker" /
+  "抠成" -- "把照片抠成贴纸" mentions 贴纸 but must stay makeSticker
+  on the photo). (Amended 2026-07-10 after device testing: the original
+  definite-mention allow-list missed article-less phrasings.)
   `instruction` is the user's whole ask; `prompt` is the original
   sticker's prompt (the new favorites entry keeps its label).
 - **clarifySticker(question)** -- raised instead when the target is

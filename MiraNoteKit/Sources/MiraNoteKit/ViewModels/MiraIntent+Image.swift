@@ -154,19 +154,21 @@ extension MiraIntent {
         return verbs.contains(where: lowered.contains)
     }
 
-    /// In-place sticker edit: a DEFINITE sticker mention ("the sticker",
-    /// never "a sticker" -- that wishes for a new one) plus an edit verb,
-    /// and not the photo-conversion phrase ("into a sticker").
+    /// In-place sticker edit: any sticker mention ("change sticker to
+    /// blue" included) plus an edit verb -- EXCEPT the indefinite forms
+    /// that wish for a NEW one ("a sticker", "another sticker") and the
+    /// photo-conversion phrase ("into a sticker").
     @MainActor
     private static func stickerEditIntent(
         _ lowered: String, prompt: String, stickerCut: Bool,
         editor: CanvasViewModel, imageStore: ImageFileStore
     ) -> MiraIntent? {
-        let definite = ["the sticker", "this sticker", "that sticker",
-                        "my sticker", "\u{8D34}\u{7EB8}"]
+        let mentionsSticker = ["sticker", "\u{8D34}\u{7EB8}"]
+            .contains(where: lowered.contains)
+        let wishesForANewOne = ["a sticker", "another sticker", "a new sticker"]
             .contains(where: lowered.contains)
         let editVerb = Self.hasEditVerb(lowered)
-        guard definite, editVerb, !stickerCut else { return nil }
+        guard mentionsSticker, !wishesForANewOne, editVerb, !stickerCut else { return nil }
         switch stickerTarget(editor: editor) {
         case .none:
             return .clarifySticker(
