@@ -70,7 +70,7 @@ enum MiraIntent {
     case applyFrame(CanvasItem.ID, name: String)
     case resizeText(CanvasItem.ID, up: Bool)
     case recolorText(CanvasItem.ID, colorName: String)
-    case clarifyPhoto
+    case clarifyPhoto(question: String)
     case editSticker(CanvasItem.ID, imageData: Data, instruction: String, prompt: String)
     case clarifySticker(question: String)
     case setBackground(prompt: String)
@@ -136,10 +136,11 @@ enum MiraIntent {
         // Escaped strings are Chinese for caption / add-a-passage / write-
         // a-passage (source stays ASCII per repo rule 3).
         let captionCues = [
-            "caption", "add a few words", "add words", "add text",
-            "write something", "write a few",
+            "caption", "add a few words", "add words", "add text", "add a text",
+            "write something", "write a few", "describe",
             "\u{914D}\u{6587}", "\u{52A0}\u{4E00}\u{6BB5}", "\u{5199}\u{4E00}\u{6BB5}",
-            "\u{52A0}\u{6BB5}\u{6587}\u{5B57}", "\u{5199}\u{6BB5}"
+            "\u{52A0}\u{6BB5}\u{6587}\u{5B57}", "\u{5199}\u{6BB5}",
+            "\u{63CF}\u{8FF0}", "\u{5199}\u{51E0}\u{53E5}"
         ]
         if captionCues.contains(where: lowered.contains) {
             return .addCaption(pageNotes: [ChatNote(page: editor.composedMemory())])

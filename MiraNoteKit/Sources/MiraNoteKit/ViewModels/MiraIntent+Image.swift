@@ -99,7 +99,7 @@ extension MiraIntent {
             return .stickerEdited(id, outlined, MiraReceipt(
                 changed: "Restyled the sticker.",
                 kept: "Undo brings the old one back."))
-        case .clarifySticker(let question):
+        case .clarifySticker(let question), .clarifyPhoto(let question):
             throw MiraClarifyError(question: question, chips: [])
         default:
             throw MiraClarifyError(
@@ -295,7 +295,15 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let filterName = filterCue(lowered)
         let frameName = frameCue(lowered)
-        let freeEdit = mentionsPhoto && Self.hasEditVerb(lowered)
+        // Words-wanting asks ("Add a text to describe the picture") are
+        // caption wishes: the free edit must decline so classify falls
+        // through to addCaption instead of painting words INTO the photo.
+        let wantsWords = ["describe", "add a text", "add text", "caption",
+                          "write about", "in words",
+                          "\u{63CF}\u{8FF0}", "\u{5199}\u{4E00}\u{6BB5}",
+                          "\u{914D}\u{6587}", "\u{5199}\u{51E0}\u{53E5}"]
+            .contains(where: lowered.contains)
+        let freeEdit = mentionsPhoto && !wantsWords && Self.hasEditVerb(lowered)
         guard stickerCut || filterName != nil || frameName != nil || freeEdit else {
             return nil
         }
@@ -303,9 +311,12 @@ extension MiraIntent {
         case .none:
             // A photo-flavored ask with no photo on the page: only claim
             // it when the words really are about a photo.
-            return (stickerCut || mentionsPhoto) ? .clarifyPhoto : nil
+            return (stickerCut || mentionsPhoto)
+                ? .clarifyPhoto(question: "No photo on this page yet -- add one first?")
+                : nil
         case .ambiguous:
-            return .clarifyPhoto
+            return .clarifyPhoto(
+                question: "More than one photo here -- tap the one you mean and ask again.")
         case .one(let id, let ref):
             let data = imageStore.data(forFileName: ref.fileName) ?? Data()
             if stickerCut {
