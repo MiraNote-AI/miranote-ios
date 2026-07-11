@@ -108,17 +108,10 @@ struct CanvasBoardView: View {
         max(minBoardHeight, editor.contentBottom + 240)
     }
 
-    /// The page itself -- a warm paper sheet whose soft gradient stretches
-    /// with the content, so the background never "runs out".
+    /// The page itself -- its backdrop stretches with the content, so the
+    /// background never "runs out".
     private var paper: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(
-                LinearGradient(
-                    colors: [Palette.onInk, Palette.cardFill.opacity(0.8)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+        PageBackdrop(backgroundFileName: editor.memory.backgroundFileName)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
                     .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
