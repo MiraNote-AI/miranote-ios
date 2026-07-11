@@ -91,6 +91,58 @@ final class MiraStickerIntentTests: XCTestCase {
         }
     }
 
+    func testChangeVerbEditsTheSticker() {
+        let editor = editorWithStickers(1)
+        let intent = MiraIntent.classify("change the sticker to blue", editor: editor)
+        guard case .editSticker = intent else {
+            return XCTFail("expected editSticker, got \(intent)")
+        }
+    }
+
+    func testTurnTheStickerIntoADragonEdits() {
+        let editor = editorWithStickers(1)
+        let intent = MiraIntent.classify("turn the sticker into a dragon", editor: editor)
+        guard case .editSticker = intent else {
+            return XCTFail("expected editSticker, got \(intent)")
+        }
+    }
+
+    func testAddAHatToTheStickerEdits() {
+        let editor = editorWithStickers(1)
+        let intent = MiraIntent.classify("add a hat to the sticker", editor: editor)
+        guard case .editSticker = intent else {
+            return XCTFail("expected editSticker, got \(intent)")
+        }
+    }
+
+    func testChineseGaiWithoutBaEdits() {
+        let editor = editorWithStickers(1)
+        // "tie zhi gai cheng lan se" -- sticker, change to blue (no ba).
+        let intent = MiraIntent.classify(
+            "\u{8D34}\u{7EB8}\u{6539}\u{6210}\u{84DD}\u{8272}", editor: editor)
+        guard case .editSticker = intent else {
+            return XCTFail("expected editSticker, got \(intent)")
+        }
+    }
+
+    func testChineseGeiAccessoryEdits() {
+        let editor = editorWithStickers(1)
+        // "gei tie zhi jia ding mao zi" -- give the sticker a hat.
+        let intent = MiraIntent.classify(
+            "\u{7ED9}\u{8D34}\u{7EB8}\u{52A0}\u{9876}\u{5E3D}\u{5B50}", editor: editor)
+        guard case .editSticker = intent else {
+            return XCTFail("expected editSticker, got \(intent)")
+        }
+    }
+
+    func testAddAStickerOfACatStaysConverse() {
+        let editor = editorWithStickers(1)
+        let intent = MiraIntent.classify("add a sticker of a cat", editor: editor)
+        guard case .converse = intent else {
+            return XCTFail("expected converse, got \(intent)")
+        }
+    }
+
     func testPhotoLikeTheStickerStaysAPhotoEdit() {
         let editor = editorWithStickers(1, addPhoto: true)
         let intent = MiraIntent.classify("make the photo look like the sticker", editor: editor)

@@ -145,6 +145,15 @@ extension MiraIntent {
         return stickers.isEmpty ? .none : .ambiguous
     }
 
+    /// The words that make an ask an EDIT -- shared by the sticker and
+    /// photo free-edit families. Escaped cues: ba, gai, huan, bian, gei.
+    static func hasEditVerb(_ lowered: String) -> Bool {
+        let verbs = ["make ", "change ", "turn ", "edit ", "redraw ",
+                     "restyle ", "recolor ", "repaint ", "give ", "add ", "put ",
+                     "\u{628A}", "\u{6539}", "\u{6362}", "\u{53D8}", "\u{7ED9}"]
+        return verbs.contains(where: lowered.contains)
+    }
+
     /// In-place sticker edit: a DEFINITE sticker mention ("the sticker",
     /// never "a sticker" -- that wishes for a new one) plus an edit verb,
     /// and not the photo-conversion phrase ("into a sticker").
@@ -156,7 +165,7 @@ extension MiraIntent {
         let definite = ["the sticker", "this sticker", "that sticker",
                         "my sticker", "\u{8D34}\u{7EB8}"]
             .contains(where: lowered.contains)
-        let editVerb = lowered.contains("make ") || lowered.contains("\u{628A}")
+        let editVerb = Self.hasEditVerb(lowered)
         guard definite, editVerb, !stickerCut else { return nil }
         switch stickerTarget(editor: editor) {
         case .none:
@@ -229,8 +238,7 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let filterName = filterCue(lowered)
         let frameName = frameCue(lowered)
-        let freeEdit = mentionsPhoto
-            && (lowered.contains("make ") || lowered.contains("\u{628A}"))
+        let freeEdit = mentionsPhoto && Self.hasEditVerb(lowered)
         guard stickerCut || filterName != nil || frameName != nil || freeEdit else {
             return nil
         }
