@@ -194,3 +194,5 @@ Then edit the PR body to add `Closes #23` next to `Closes #21` (gh pr edit 22 --
 ## Iterations
 
 (Ledger: one line per act+verify cycle.)
+
+1. Helper + both call sites -- 6 red (5 sticker verbs + photo change), then Kit 171/171 green, lint 0, full app suites SUCCEEDED, CI green on ae1df0e. No deviations.
