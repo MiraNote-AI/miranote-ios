@@ -265,13 +265,6 @@ extension CanvasViewModel {
         memory.items[index].content = .image(ref)
     }
 
-    public func setSoundNote(itemID: CanvasItem.ID, to note: String) {
-        guard let index = index(of: itemID),
-              case .sound(var clip) = memory.items[index].content else { return }
-        beginChange()
-        clip.note = note
-        memory.items[index].content = .sound(clip)
-    }
 }
 
 // MARK: - Element operations
