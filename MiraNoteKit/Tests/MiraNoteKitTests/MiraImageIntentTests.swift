@@ -60,9 +60,10 @@ final class MiraImageIntentTests: XCTestCase {
     func testAmbiguousPhotoAsksToTap() {
         let editor = editorWithPhotos(2)
         let intent = MiraIntent.classify("make the photo black and white", editor: editor)
-        guard case .clarifyPhoto = intent else {
+        guard case .clarifyPhoto(let question) = intent else {
             return XCTFail("expected clarifyPhoto, got \(intent)")
         }
+        XCTAssertTrue(question.contains("tap the one you mean"))
     }
 
     func testSelectedPhotoWinsWhenSeveral() {

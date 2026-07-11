@@ -10,7 +10,9 @@ extension MiraIntent {
     /// the chat one.
     var isSlowImageWork: Bool {
         switch self {
-        case .generateImage, .editPhoto, .makeSticker, .editSticker, .setBackground: return true
+        case .generateImage, .editPhoto, .makeSticker, .editSticker, .setBackground,
+             .illustrateText:
+            return true
         default: return false
         }
     }
@@ -53,53 +55,41 @@ extension MiraIntent {
         }
     }
 
-    /// Two candidates from the studio, or the timeout error when it
-    /// returns none. Shared by picture, sticker, and background asks.
-    private func generateChoices(
-        _ imageStudio: ImageStudioService, kind: GeneratedImageKind,
-        prompt: String, placement: ImageChoicePlacement
-    ) async throws -> MiraOutcome {
-        let images = try await imageStudio.generate(kind: kind, prompt: prompt)
-        guard !images.isEmpty else { throw MiraTimeoutError() }
-        return .imageChoices(Array(images.prefix(2)), prompt: prompt, placement: placement)
-    }
-
     private func performSlowImage(imageStudio: ImageStudioService) async throws -> MiraOutcome {
         switch self {
         case .generateImage(let prompt, let sticker):
             return try await generateChoices(
-                imageStudio, kind: sticker ? .sticker : .background,
+                imageStudio, kind: sticker ? .sticker : .art,
                 prompt: prompt, placement: sticker ? .sticker : .picture)
         case .setBackground(let prompt):
             return try await generateChoices(
                 imageStudio, kind: .background, prompt: prompt, placement: .background)
+        case .illustrateText(let prompt):
+            return try await generateChoices(
+                imageStudio, kind: .art, prompt: prompt, placement: .picture)
         case .editPhoto(let id, let data, let instruction):
-            guard !data.isEmpty else { throw Self.missingPixels }
+            try Self.requirePixels(data)
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
             return .imageReplaced(id, styled, MiraReceipt(
                 changed: "Restyled the photo.",
                 kept: "Undo brings the old one back."))
         case .makeSticker(let id, let data, let prompt):
-            guard !data.isEmpty else { throw Self.missingPixels }
+            try Self.requirePixels(data)
             let cut = try await imageStudio.cutout(image: data, target: nil)
             let outlined = try await imageStudio.outline(image: cut)
             return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
                 changed: "Made it a sticker.",
                 kept: "Undo brings the photo back."))
         case .editSticker(let id, let data, let instruction, _):
-            guard !data.isEmpty else {
-                throw MiraClarifyError(
-                    question: "This sticker has no stored pixels to work on -- try another?",
-                    chips: []
-                )
-            }
+            try Self.requirePixels(
+                data, question: "This sticker has no stored pixels to work on -- try another?")
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
             let cut = try await imageStudio.cutout(image: styled, target: nil)
             let outlined = try await imageStudio.outline(image: cut)
             return .stickerEdited(id, outlined, MiraReceipt(
                 changed: "Restyled the sticker.",
                 kept: "Undo brings the old one back."))
-        case .clarifySticker(let question):
+        case .clarifySticker(let question), .clarifyPhoto(let question):
             throw MiraClarifyError(question: question, chips: [])
         default:
             throw MiraClarifyError(
@@ -109,11 +99,14 @@ extension MiraIntent {
         }
     }
 
-    private static var missingPixels: MiraClarifyError {
-        MiraClarifyError(
-            question: "This picture has no stored pixels to work on -- try another photo?",
-            chips: []
-        )
+    /// The calm clarify for edits whose source bytes are gone (legacy
+    /// items, cleaned stores). One branch point instead of one per case.
+    private static func requirePixels(
+        _ data: Data,
+        question: String = "This picture has no stored pixels to work on -- try another photo?"
+    ) throws {
+        guard data.isEmpty else { return }
+        throw MiraClarifyError(question: question, chips: [])
     }
 
     enum PhotoTarget {
@@ -213,6 +206,9 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
             .contains(where: lowered.contains)
+        if let illustration = illustrateTextIntent(lowered, editor: editor) {
+            return illustration
+        }
         if let generative = generativeIntent(
             lowered, prompt: prompt,
             mentionsPhoto: mentionsPhoto, mentionsSticker: mentionsSticker
@@ -243,49 +239,6 @@ extension MiraIntent {
         return styleIntent(lowered, editor: editor)
     }
 
-    /// The page-background family outranks generation ("draw a starry
-    /// background" is a backdrop wish), but photo- and sticker-flavored
-    /// background words ("remove the photo's background") stay out.
-    private static func generativeIntent(
-        _ lowered: String, prompt: String,
-        mentionsPhoto: Bool, mentionsSticker: Bool
-    ) -> MiraIntent? {
-        if !mentionsPhoto, !mentionsSticker,
-           let background = backgroundIntent(lowered, prompt: prompt) {
-            return background
-        }
-        return generationIntent(lowered, prompt: prompt)
-    }
-
-    /// The page-background family ("give this page a sunset background",
-    /// "\u{6362}\u{4E2A}\u{661F}\u{7A7A}\u{80CC}\u{666F}"). Callers must
-    /// already have excluded photo- and sticker-flavored asks.
-    private static func backgroundIntent(_ lowered: String, prompt: String) -> MiraIntent? {
-        let mentions = ["background", "backdrop", "\u{80CC}\u{666F}", "\u{5E95}\u{8272}"]
-            .contains(where: lowered.contains)
-        guard mentions else { return nil }
-        let clears = ["remove the background", "no background", "default background",
-                      "clear the background",
-                      "\u{53BB}\u{6389}\u{80CC}\u{666F}", "\u{6E05}\u{7A7A}\u{80CC}\u{666F}"]
-        if clears.contains(where: lowered.contains) {
-            return .clearBackground
-        }
-        let generationCues = ["draw ", "paint ", "generate ", "\u{753B}",
-                              "\u{751F}\u{6210}", "\u{6765}\u{4E00}\u{5F20}", "\u{6765}\u{4E2A}"]
-        guard hasEditVerb(lowered) || generationCues.contains(where: lowered.contains) else {
-            return nil
-        }
-        return .setBackground(prompt: prompt)
-    }
-
-    private static func generationIntent(_ lowered: String, prompt: String) -> MiraIntent? {
-        let cues = ["draw ", "paint ", "generate ", "\u{753B}",
-                    "\u{751F}\u{6210}", "\u{6765}\u{4E00}\u{5F20}"]
-        guard cues.contains(where: lowered.contains) else { return nil }
-        let sticker = lowered.contains("sticker") || lowered.contains("\u{8D34}\u{7EB8}")
-        return .generateImage(prompt: prompt, sticker: sticker)
-    }
-
     @MainActor
     private static func photoIntent(
         _ lowered: String, prompt: String, mentionsPhoto: Bool,
@@ -295,7 +248,14 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let filterName = filterCue(lowered)
         let frameName = frameCue(lowered)
-        let freeEdit = mentionsPhoto && Self.hasEditVerb(lowered)
+        // Words-wanting asks ("Add a text to describe the picture") are
+        // caption wishes: the free edit must decline so classify falls
+        // through to addCaption instead of painting words INTO the photo.
+        // The SHARED caption list plus guard-only extras -- two lists
+        // drifting apart is how this bug class survived one fix already.
+        let wantsWords = (Self.captionCues + ["in words", "write about"])
+            .contains(where: lowered.contains)
+        let freeEdit = mentionsPhoto && !wantsWords && Self.hasEditVerb(lowered)
         guard stickerCut || filterName != nil || frameName != nil || freeEdit else {
             return nil
         }
@@ -303,9 +263,12 @@ extension MiraIntent {
         case .none:
             // A photo-flavored ask with no photo on the page: only claim
             // it when the words really are about a photo.
-            return (stickerCut || mentionsPhoto) ? .clarifyPhoto : nil
+            return (stickerCut || mentionsPhoto)
+                ? .clarifyPhoto(question: "No photo on this page yet -- add one first?")
+                : nil
         case .ambiguous:
-            return .clarifyPhoto
+            return .clarifyPhoto(
+                question: "More than one photo here -- tap the one you mean and ask again.")
         case .one(let id, let ref):
             let data = imageStore.data(forFileName: ref.fileName) ?? Data()
             if stickerCut {

@@ -4,9 +4,10 @@ import Foundation
 public enum GeneratedImageKind: String, Sendable {
     /// Transparent-background subject art (the POC removes the background).
     case sticker
-    /// Full-bleed art -- also the closest match for the photo / illustration
-    /// / watercolor generate styles until a dedicated command exists.
+    /// Full-bleed page backdrop art (the api's background command).
     case background
+    /// Standalone subject illustration (the api's art command).
+    case art
 }
 
 /// The image pipelines behind the Image panel and photo editing. Backend

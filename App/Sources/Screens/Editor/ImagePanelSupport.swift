@@ -3,8 +3,7 @@ import SwiftUI
 import UIKit
 
 /// v2.1 generate styles; sticker is just one of them. Photo / illustration /
-/// watercolor ride the POC's background command with a style-carrying prompt
-/// until a dedicated command exists (recorded in the plan).
+/// watercolor ride the api's art command with a style-carrying prompt.
 enum GenerateStyle: String, CaseIterable, Identifiable {
     case photo, illustration, watercolor, sticker
 
@@ -13,7 +12,7 @@ enum GenerateStyle: String, CaseIterable, Identifiable {
     var label: String { rawValue.capitalized }
 
     var kind: GeneratedImageKind {
-        self == .sticker ? .sticker : .background
+        self == .sticker ? .sticker : .art
     }
 
     func fullPrompt(_ core: String) -> String {
