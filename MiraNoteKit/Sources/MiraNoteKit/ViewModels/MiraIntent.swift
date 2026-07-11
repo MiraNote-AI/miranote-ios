@@ -75,6 +75,7 @@ enum MiraIntent {
     case clarifySticker(question: String)
     case setBackground(prompt: String)
     case clearBackground
+    case illustrateText(prompt: String)
 
     /// Where classify reads photo bytes from; the coordinator points this
     /// at its own store, tests at a temp directory.
@@ -167,6 +168,7 @@ enum MiraIntent {
         case .makeSticker: return "Cutting the sticker..."
         case .editSticker: return "Redrawing the sticker..."
         case .setBackground: return "Painting the backdrop..."
+        case .illustrateText: return "Painting..."
         // Instant local work settles before the 400 ms delay ever shows it.
         case .applyFilter, .applyFrame, .resizeText, .recolorText, .clearBackground:
             return "Working..."
@@ -225,7 +227,8 @@ enum MiraIntent {
             )
         case .generateImage, .editPhoto, .makeSticker, .applyFilter,
              .applyFrame, .resizeText, .recolorText, .clarifyPhoto,
-             .editSticker, .clarifySticker, .setBackground, .clearBackground:
+             .editSticker, .clarifySticker, .setBackground, .clearBackground,
+             .illustrateText:
             return try await performImageOrStyle(imageStudio: imageStudio)
         }
     }
