@@ -902,3 +902,10 @@ Expected: PR URL printed; CI (checks + iOS suite) goes green. A human merges -- 
 ## Iterations
 
 (Ledger per run-loop: one line per act+verify cycle.)
+
+1. Task 1 intents + cues -- 8 new classification tests, filtered run 29/29 green.
+2. Task 2 replaceSticker + settle branch -- red confirmed (pixels stayed "orig"; undo removed the item entirely, worse than the plan predicted), then 3/3 + neighbors 9/9 green.
+3. Task 3 UI -- first red run executed 0 tests: the generated MiraNote.xcodeproj is gitignored (xcodegen), so new files need `xcodegen generate`, not the plan's folder-sync assumption; after regen, red failed at the missing menu entry as intended, then both UITests green.
+4. Task 4 gates -- swiftlint strict 2 -> 0 via two size-cap splits (CanvasBoardView+Menu.swift, CanvasViewModel+Stickers.swift; access relaxations: index(of:) and beginNoteEdit to internal, memory to internal(set)); Kit 162/162; full app suites SUCCEEDED on the shadow sim; live :8002 probe passed in 218 s (blue recolor kept the cup, scarf edit grew past the old silhouette with the die-cut edge following).
+
+Deviation from plan: project-file registration replaced by `xcodegen generate`; splits and access relaxations above were not in the plan (forced by the strict caps).
