@@ -23,9 +23,11 @@ struct PageBackdrop: View {
     }
 
     @ViewBuilder private var backgroundImage: some View {
-        if !backgroundFileName.isEmpty,
-           let data = imageStore.data(forFileName: backgroundFileName),
-           let image = UIImage(data: data) {
+        // Through the shared cache: journal covers render many pages,
+        // and a full-bleed re-decode per appearance stutters the grid.
+        if let image = CanvasImageCache.image(
+            fileName: backgroundFileName, filterName: "", store: imageStore
+        ) {
             GeometryReader { geo in
                 Image(uiImage: image)
                     .resizable()

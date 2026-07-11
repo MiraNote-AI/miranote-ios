@@ -31,6 +31,12 @@ final class MemoryBackgroundTests: XCTestCase {
         XCTAssertEqual(editor.memory.backgroundFileName, "", "one undo clears it back")
     }
 
+    func testClearingAnAlreadyDefaultPageBurnsNoUndo() {
+        let editor = CanvasViewModel(memory: Memory())
+        editor.setBackground(fileName: "")
+        XCTAssertFalse(editor.canUndo, "a no-change call records no snapshot")
+    }
+
     func testClearViaEmptyFileName() {
         let editor = CanvasViewModel(memory: Memory(backgroundFileName: "bg.png"))
         editor.setBackground(fileName: "")
