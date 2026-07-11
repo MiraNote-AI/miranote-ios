@@ -68,7 +68,7 @@ extension MiraIntent {
         switch self {
         case .generateImage(let prompt, let sticker):
             return try await generateChoices(
-                imageStudio, kind: sticker ? .sticker : .background,
+                imageStudio, kind: sticker ? .sticker : .art,
                 prompt: prompt, placement: sticker ? .sticker : .picture)
         case .setBackground(let prompt):
             return try await generateChoices(
