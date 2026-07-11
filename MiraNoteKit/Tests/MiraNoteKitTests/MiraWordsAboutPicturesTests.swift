@@ -38,6 +38,26 @@ final class MiraWordsAboutPicturesTests: XCTestCase {
         }
     }
 
+    func testAddAFewWordsAboutThePhotoIsACaption() {
+        // Review catch: same bug class, different phrasing -- the guard
+        // list and the caption list must be ONE list.
+        let editor = editorWithPhoto()
+        let intent = MiraIntent.classify("add a few words about the photo", editor: editor)
+        guard case .addCaption = intent else {
+            return XCTFail("expected addCaption, got \(intent)")
+        }
+    }
+
+    func testChineseAddWordsToThePhotoIsACaption() {
+        let editor = editorWithPhoto()
+        // "gei zhaopian jia yi duan wenzi" -- add a passage to the photo.
+        let intent = MiraIntent.classify(
+            "\u{7ED9}\u{7167}\u{7247}\u{52A0}\u{4E00}\u{6BB5}\u{6587}\u{5B57}", editor: editor)
+        guard case .addCaption = intent else {
+            return XCTFail("expected addCaption, got \(intent)")
+        }
+    }
+
     func testFreeEditStillWorksWithoutWordCues() {
         let editor = editorWithPhoto()
         let intent = MiraIntent.classify("make the photo feel like autumn", editor: editor)

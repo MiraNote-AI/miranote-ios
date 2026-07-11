@@ -81,6 +81,19 @@ enum MiraIntent {
     /// at its own store, tests at a temp directory.
     @MainActor static var classifyImageStore = ImageFileStore()
 
+    /// Asks that want WORDS on the page. ONE list, two consumers: the
+    /// caption branch of classify, and the photo family's free-edit guard
+    /// (a photo mention must never steal a caption wish). Escaped cues:
+    /// peiwen, jia-yi-duan, xie-yi-duan, jia-duan-wenzi, xie-duan,
+    /// miaoshu, xie-ji-ju.
+    static let captionCues = [
+        "caption", "add a few words", "add words", "add text", "add a text",
+        "write something", "write a few", "describe",
+        "\u{914D}\u{6587}", "\u{52A0}\u{4E00}\u{6BB5}", "\u{5199}\u{4E00}\u{6BB5}",
+        "\u{52A0}\u{6BB5}\u{6587}\u{5B57}", "\u{5199}\u{6BB5}",
+        "\u{63CF}\u{8FF0}", "\u{5199}\u{51E0}\u{53E5}"
+    ]
+
     /// Selected text block first; else the longest non-empty block (the
     /// prose body -- titles and date captions are short).
     @MainActor
@@ -134,16 +147,7 @@ enum MiraIntent {
         if lowered.contains("title") {
             return .addTitle(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
-        // Escaped strings are Chinese for caption / add-a-passage / write-
-        // a-passage (source stays ASCII per repo rule 3).
-        let captionCues = [
-            "caption", "add a few words", "add words", "add text", "add a text",
-            "write something", "write a few", "describe",
-            "\u{914D}\u{6587}", "\u{52A0}\u{4E00}\u{6BB5}", "\u{5199}\u{4E00}\u{6BB5}",
-            "\u{52A0}\u{6BB5}\u{6587}\u{5B57}", "\u{5199}\u{6BB5}",
-            "\u{63CF}\u{8FF0}", "\u{5199}\u{51E0}\u{53E5}"
-        ]
-        if captionCues.contains(where: lowered.contains) {
+        if Self.captionCues.contains(where: lowered.contains) {
             return .addCaption(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
         if lowered.contains("tidy") || lowered.contains("layout")

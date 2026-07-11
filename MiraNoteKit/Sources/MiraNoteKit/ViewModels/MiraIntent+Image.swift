@@ -251,10 +251,9 @@ extension MiraIntent {
         // Words-wanting asks ("Add a text to describe the picture") are
         // caption wishes: the free edit must decline so classify falls
         // through to addCaption instead of painting words INTO the photo.
-        let wantsWords = ["describe", "add a text", "add text", "caption",
-                          "write about", "in words",
-                          "\u{63CF}\u{8FF0}", "\u{5199}\u{4E00}\u{6BB5}",
-                          "\u{914D}\u{6587}", "\u{5199}\u{51E0}\u{53E5}"]
+        // The SHARED caption list plus guard-only extras -- two lists
+        // drifting apart is how this bug class survived one fix already.
+        let wantsWords = (Self.captionCues + ["in words", "write about"])
             .contains(where: lowered.contains)
         let freeEdit = mentionsPhoto && !wantsWords && Self.hasEditVerb(lowered)
         guard stickerCut || filterName != nil || frameName != nil || freeEdit else {
