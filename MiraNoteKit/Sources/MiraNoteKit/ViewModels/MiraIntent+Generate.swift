@@ -6,9 +6,13 @@ import Foundation
 // helper (split from MiraIntent+Image.swift for the file-length cap).
 extension MiraIntent {
     /// Pictures FROM the page's words ("turn this text into a picture",
-    /// "\u{628A}\u{8FD9}\u{6BB5}\u{6587}\u{5B57}\u{753B}\u{6210}\u{56FE}").
-    /// Checked before generation (the hua in hua-cheng-tu) and before the
-    /// photo family (the word "picture").
+    /// "Add a picture based on the text",
+    /// "\u{7ED9}\u{8FD9}\u{6BB5}\u{6587}\u{5B57}\u{914D}\u{4E00}\u{5F20}\u{56FE}").
+    /// A composed check, not fixed phrases: a text mention plus a
+    /// picture-word plus a verb or a direction word. Checked before
+    /// generation (the hua in hua-cheng-tu) and before the photo family
+    /// (the word "picture"). "photo" is deliberately NOT a picture-word:
+    /// mixed asks like "make the photo match the text" stay photo edits.
     @MainActor
     static func illustrateTextIntent(
         _ lowered: String, editor: CanvasViewModel
@@ -17,10 +21,15 @@ extension MiraIntent {
                             "\u{8FD9}\u{6BB5}\u{6587}\u{5B57}", "\u{8FD9}\u{6BB5}\u{8BDD}",
                             "\u{6587}\u{5B57}"]
             .contains(where: lowered.contains)
-        let intoPicture = ["into a picture", "into an image", "as a picture",
-                           "\u{753B}\u{6210}", "\u{53D8}\u{6210}\u{56FE}"]
+        let pictureWish = ["picture", "image", "\u{56FE}"]
             .contains(where: lowered.contains)
-        guard mentionsText, intoPicture else { return nil }
+        let directed = ["based on", "from the text", "\u{914D}"]
+            .contains(where: lowered.contains)
+        let verbish = Self.hasEditVerb(lowered)
+            || ["draw ", "paint ", "generate ", "create ",
+                "\u{753B}", "\u{751F}\u{6210}", "\u{6765}\u{4E00}\u{5F20}"]
+                .contains(where: lowered.contains)
+        guard mentionsText, pictureWish, verbish || directed else { return nil }
         guard let (_, words) = targetTextBlock(editor: editor) else {
             return .clarifyNoText
         }

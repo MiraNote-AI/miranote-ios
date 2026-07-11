@@ -30,6 +30,28 @@ final class MiraIllustrateTextTests: XCTestCase {
         XCTAssertTrue(prompt.contains("a quiet morning by the sea"))
     }
 
+    func testAddAPictureBasedOnTheTextIllustrates() {
+        // Device repro 2026-07-11 (second round): this hit the photo
+        // family's zero-photo clarify instead of illustrating.
+        let editor = editorWithText("today I visited Disney and took a picture with Mickey Mouse.")
+        let intent = MiraIntent.classify("Add a picture based on the text", editor: editor)
+        guard case .illustrateText(let prompt) = intent else {
+            return XCTFail("expected illustrateText, got \(intent)")
+        }
+        XCTAssertTrue(prompt.contains("Disney"))
+    }
+
+    func testChinesePeiTuIllustrates() {
+        let editor = editorWithText()
+        // "gei zhe duan wenzi pei yi zhang tu" -- give this text a picture.
+        let intent = MiraIntent.classify(
+            "\u{7ED9}\u{8FD9}\u{6BB5}\u{6587}\u{5B57}\u{914D}\u{4E00}\u{5F20}\u{56FE}",
+            editor: editor)
+        guard case .illustrateText = intent else {
+            return XCTFail("expected illustrateText, got \(intent)")
+        }
+    }
+
     func testNoTextClarifies() {
         let editor = CanvasViewModel(memory: Memory())
         let intent = MiraIntent.classify("turn this text into a picture", editor: editor)
