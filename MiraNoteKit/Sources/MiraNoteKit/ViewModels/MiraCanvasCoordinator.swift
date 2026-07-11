@@ -14,7 +14,7 @@ public enum MiraTurnPhase: Equatable {
     /// A conversational answer (no canvas change) with follow-up chips.
     case reply(String, chips: [String])
     /// Two generated candidates awaiting the user's pick (or the xmark).
-    case imageChoices([Data], prompt: String, sticker: Bool)
+    case imageChoices([Data], prompt: String, placement: ImageChoicePlacement)
 }
 
 /// The v2.1 receipt: say what changed AND what was kept.
@@ -314,7 +314,8 @@ public final class MiraCanvasCoordinator {
             }
             phase = .reply(message, chips: [Self.placeReplyChip] + suggestions(for: editor))
         case .imageChoices, .imageReplaced, .stickerReplaced, .stickerEdited,
-             .filterApplied, .frameApplied, .textResized, .textRecolored:
+             .filterApplied, .frameApplied, .textResized, .textRecolored,
+             .backgroundCleared:
             settleImageOutcome(outcome, editor: editor)
         }
     }

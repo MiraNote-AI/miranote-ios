@@ -45,11 +45,11 @@ final class MiraImageTurnTests: XCTestCase {
         let coordinator = makeCoordinator(tempDir: tempDir)
         coordinator.ask("draw a paper crane", editor: editor)
         await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
-        guard case .imageChoices(let images, _, let sticker) = coordinator.phase else {
+        guard case .imageChoices(let images, _, let placement) = coordinator.phase else {
             return XCTFail("expected imageChoices, got \(coordinator.phase)")
         }
         XCTAssertEqual(images.count, 2)
-        XCTAssertFalse(sticker)
+        XCTAssertEqual(placement, .picture)
         XCTAssertTrue(editor.items.isEmpty, "nothing lands until a tap")
     }
 

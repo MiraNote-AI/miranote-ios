@@ -9,8 +9,11 @@ extension MiraCanvasCoordinator {
     /// Apply an image/style outcome from settle().
     func settleImageOutcome(_ outcome: MiraOutcome, editor: CanvasViewModel) {
         switch outcome {
-        case .imageChoices(let images, let prompt, let sticker):
-            phase = .imageChoices(images, prompt: prompt, sticker: sticker)
+        case .imageChoices(let images, let prompt, let placement):
+            phase = .imageChoices(images, prompt: prompt, placement: placement)
+        case .backgroundCleared(let receipt):
+            editor.setBackground(fileName: "")
+            showReceipt(receipt, editor: editor)
         case .imageReplaced(let id, let data, let receipt):
             settleImageReplaced(id, data: data, receipt: receipt, editor: editor)
         case .stickerReplaced(let id, let data, let prompt, let receipt):
@@ -62,12 +65,13 @@ extension MiraCanvasCoordinator {
 
     /// Tap on candidate `index`: write the file, land it, receipt.
     public func placeImageChoice(_ index: Int, editor: CanvasViewModel) {
-        guard case .imageChoices(let images, let prompt, let sticker) = phase,
+        guard case .imageChoices(let images, let prompt, let placement) = phase,
               images.indices.contains(index),
               let fileName = try? imageStore.save(images[index], id: UUID())
         else { return }
         let position = CGPoint(x: 180, y: min(editor.contentBottom + 90, 4000))
-        if sticker {
+        switch placement {
+        case .sticker:
             let generated = GeneratedSticker(
                 prompt: prompt, symbolName: "sparkles", fileName: fileName)
             editor.addSticker(generated, at: position)
@@ -75,12 +79,17 @@ extension MiraCanvasCoordinator {
             showReceipt(MiraReceipt(
                 changed: "Added a sticker.",
                 kept: "Everything else is untouched."), editor: editor)
-        } else {
+        case .picture:
             editor.addImages(
                 [ImageRef(displayName: prompt, fileName: fileName)],
                 around: position)
             showReceipt(MiraReceipt(
                 changed: "Added a picture.",
+                kept: "Everything else is untouched."), editor: editor)
+        case .background:
+            editor.setBackground(fileName: fileName)
+            showReceipt(MiraReceipt(
+                changed: "Set the page background.",
                 kept: "Everything else is untouched."), editor: editor)
         }
     }
