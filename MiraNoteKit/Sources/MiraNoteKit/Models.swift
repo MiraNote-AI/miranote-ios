@@ -26,6 +26,9 @@ public struct Memory: Identifiable, Equatable, Sendable {
     public var memoryDate: Date
     public var savedAt: Date?
     public var items: [CanvasItem]
+    /// File name of the page's full-bleed background in the ImageFileStore;
+    /// empty = the default gradient backdrop.
+    public var backgroundFileName: String
 
     public init(
         id: UUID = UUID(),
@@ -34,7 +37,8 @@ public struct Memory: Identifiable, Equatable, Sendable {
         createdAt: Date = .now,
         memoryDate: Date? = nil,
         savedAt: Date? = nil,
-        items: [CanvasItem] = []
+        items: [CanvasItem] = [],
+        backgroundFileName: String = ""
     ) {
         self.id = id
         self.title = title
@@ -43,6 +47,7 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.memoryDate = memoryDate ?? createdAt
         self.savedAt = savedAt
         self.items = items
+        self.backgroundFileName = backgroundFileName
     }
 }
 
@@ -56,7 +61,7 @@ extension Memory: Hashable {
 /// full canvas item list. Older saves without `items` decode to empty.
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, title, body, createdAt, memoryDate, savedAt, items
+        case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
     }
 
     public init(from decoder: Decoder) throws {
@@ -69,7 +74,8 @@ extension Memory: Codable {
             createdAt: created,
             memoryDate: try container.decodeIfPresent(Date.self, forKey: .memoryDate) ?? created,
             savedAt: try container.decodeIfPresent(Date.self, forKey: .savedAt),
-            items: try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
+            items: try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? [],
+            backgroundFileName: try container.decodeIfPresent(String.self, forKey: .backgroundFileName) ?? ""
         )
     }
 
@@ -82,6 +88,7 @@ extension Memory: Codable {
         try container.encode(memoryDate, forKey: .memoryDate)
         try container.encodeIfPresent(savedAt, forKey: .savedAt)
         try container.encode(items, forKey: .items)
+        try container.encode(backgroundFileName, forKey: .backgroundFileName)
     }
 }
 

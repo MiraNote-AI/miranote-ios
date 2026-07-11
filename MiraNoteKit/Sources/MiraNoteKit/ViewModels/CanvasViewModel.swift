@@ -21,7 +21,15 @@ public final class CanvasViewModel {
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
 
-    private var history: [[CanvasItem]] = []
+    /// One undo step: the canvas elements plus the page background.
+    private struct UndoSnapshot: Equatable {
+        let items: [CanvasItem]
+        let backgroundFileName: String
+    }
+    private var history: [UndoSnapshot] = []
+    private var currentSnapshot: UndoSnapshot {
+        UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName)
+    }
     private static let historyCap = 50
 
     public init(memory: Memory) {
@@ -48,7 +56,7 @@ public final class CanvasViewModel {
 
     public func beginChange() {
         changeCount += 1
-        history.append(memory.items)
+        history.append(currentSnapshot)
         if history.count > Self.historyCap {
             history.removeFirst()
         }
@@ -57,7 +65,8 @@ public final class CanvasViewModel {
     public func undo() {
         guard let snapshot = history.popLast() else { return }
         changeCount += 1
-        memory.items = snapshot
+        memory.items = snapshot.items
+        memory.backgroundFileName = snapshot.backgroundFileName
         if let selected = selectedItemID, item(selected) == nil {
             selectedItemID = nil
         }
@@ -302,7 +311,7 @@ extension CanvasViewModel {
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
-        while let last = history.last, last == memory.items {
+        while let last = history.last, last == currentSnapshot {
             history.removeLast()
         }
     }
