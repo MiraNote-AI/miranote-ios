@@ -105,7 +105,7 @@ extension MiraCanvasCoordinator {
 
     private func settleStickerReplaced(_ id: CanvasItem.ID, data: Data, prompt: String,
                                        receipt: MiraReceipt, editor: CanvasViewModel) {
-        guard editor.item(id) != nil,
+        guard let item = editor.item(id),
               let fileName = try? imageStore.save(data, id: UUID()) else {
             phase = .failure(MiraFailure(
                 kind: .retry,
@@ -115,7 +115,11 @@ extension MiraCanvasCoordinator {
         }
         let sticker = GeneratedSticker(prompt: prompt, symbolName: "sparkles",
                                        fileName: fileName)
-        editor.replaceImageWithSticker(itemID: id, sticker: sticker)
+        if case .sticker = item.content {
+            editor.replaceSticker(itemID: id, with: sticker)
+        } else {
+            editor.replaceImageWithSticker(itemID: id, sticker: sticker)
+        }
         stickerFavorites.add(sticker)
         showReceipt(receipt, editor: editor)
     }

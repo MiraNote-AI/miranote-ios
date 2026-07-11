@@ -261,6 +261,13 @@ extension CanvasViewModel {
         memory.items[index].content = .sticker(sticker)
     }
 
+    public func replaceSticker(itemID: CanvasItem.ID, with sticker: GeneratedSticker) {
+        guard let index = index(of: itemID),
+              case .sticker = memory.items[index].content else { return }
+        beginChange()
+        memory.items[index].content = .sticker(sticker)
+    }
+
     public func setSoundNote(itemID: CanvasItem.ID, to note: String) {
         guard let index = index(of: itemID),
               case .sound(var clip) = memory.items[index].content else { return }
