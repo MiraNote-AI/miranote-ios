@@ -16,6 +16,7 @@ struct CanvasBoardView: View {
     var workingItemIDs: Set<CanvasItem.ID> = []
     /// Long-press "Edit photo" (images with stored pixels only).
     var onEditImage: (CanvasItem.ID) -> Void = { _ in }
+    var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -310,8 +311,14 @@ extension CanvasBoardView {
                     Label("Edit photo", systemImage: "camera.filters")
                 }
             }
-        case .sticker:
-            EmptyView()
+        case .sticker(let sticker):
+            if !sticker.fileName.isEmpty {
+                Button {
+                    onEditSticker(item.id)
+                } label: {
+                    Label("Edit sticker", systemImage: "wand.and.stars")
+                }
+            }
         }
 
         Button {
