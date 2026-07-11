@@ -96,7 +96,7 @@ struct MiraCard: View {
                     Spacer()
                 }
             }
-        case .imageChoices(let images, _, _):
+        case .imageChoices(let images, _, let placement):
             // Two candidates, the human picks ("AI offers, the human
             // shapes"); the xmark discards both without touching paper.
             card {
@@ -105,7 +105,7 @@ struct MiraCard: View {
                         Button {
                             coordinator.placeImageChoice(index, editor: editor)
                         } label: {
-                            choiceThumb(for: data)
+                            choiceThumb(for: data, tall: placement == .background)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("mira.imageChoice.\(index)")
@@ -125,17 +125,19 @@ struct MiraCard: View {
         }
     }
 
-    @ViewBuilder private func choiceThumb(for data: Data) -> some View {
+    @ViewBuilder private func choiceThumb(for data: Data, tall: Bool) -> some View {
+        let width: CGFloat = tall ? 64 : 84
+        let height: CGFloat = tall ? 114 : 84
         if let image = UIImage(data: data) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
-                .frame(width: 84, height: 84)
+                .frame(width: width, height: height)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         } else {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Palette.tan.opacity(0.4))
-                .frame(width: 84, height: 84)
+                .frame(width: width, height: height)
         }
     }
 

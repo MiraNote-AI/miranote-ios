@@ -11,6 +11,9 @@ enum Palette {
     static let tan = Color(hex: 0xC9B295)
     static let sage = Color(hex: 0x8E8D77)
     static let paper = Color(hex: 0xF4F0E7)
+    /// Default page backdrop (mockup, 2026-07-11): dawn peach into dusk plum.
+    static let backdropDawn = Color(hex: 0xF0B78E)
+    static let backdropDusk = Color(hex: 0x702E4E)
     static let cardFill = Color(hex: 0xE7DFD1)
     static let sheetFill = Color(hex: 0xDCD5C6)
     static let hairline = Color(hex: 0xE2DBCD)

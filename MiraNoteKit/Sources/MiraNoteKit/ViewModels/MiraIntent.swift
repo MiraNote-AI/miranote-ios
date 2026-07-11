@@ -20,6 +20,13 @@ struct MiraClarifyError: Error {
     let chips: [String]
 }
 
+/// Where a picked image candidate lands.
+public enum ImageChoicePlacement: Equatable, Sendable {
+    case picture
+    case sticker
+    case background
+}
+
 /// What a successful turn produced. Mutations are described, not applied --
 /// the coordinator applies them on the main actor after the await returns.
 enum MiraOutcome: Sendable {
@@ -29,7 +36,7 @@ enum MiraOutcome: Sendable {
     case organized(MiraReceipt)
     case reply(String, sessionID: String?)
     // Image and style families (applied in MiraCanvasCoordinator+Images).
-    case imageChoices([Data], prompt: String, sticker: Bool)
+    case imageChoices([Data], prompt: String, placement: ImageChoicePlacement)
     case imageReplaced(CanvasItem.ID, Data, MiraReceipt)
     case stickerReplaced(CanvasItem.ID, Data, prompt: String, MiraReceipt)
     /// Edit of an EXISTING sticker: label and symbol are read from the
@@ -39,6 +46,7 @@ enum MiraOutcome: Sendable {
     case frameApplied(CanvasItem.ID, name: String, MiraReceipt)
     case textResized(CanvasItem.ID, up: Bool, MiraReceipt)
     case textRecolored(CanvasItem.ID, colorName: String, MiraReceipt)
+    case backgroundCleared(MiraReceipt)
 }
 
 /// V1 local intent rules. The structured page-draft backend (plan D3 gap)
@@ -65,6 +73,8 @@ enum MiraIntent {
     case clarifyPhoto
     case editSticker(CanvasItem.ID, imageData: Data, instruction: String, prompt: String)
     case clarifySticker(question: String)
+    case setBackground(prompt: String)
+    case clearBackground
 
     /// Where classify reads photo bytes from; the coordinator points this
     /// at its own store, tests at a temp directory.
@@ -155,8 +165,10 @@ enum MiraIntent {
         case .editPhoto: return "Restyling the photo..."
         case .makeSticker: return "Cutting the sticker..."
         case .editSticker: return "Redrawing the sticker..."
+        case .setBackground: return "Painting the backdrop..."
         // Instant local work settles before the 400 ms delay ever shows it.
-        case .applyFilter, .applyFrame, .resizeText, .recolorText: return "Working..."
+        case .applyFilter, .applyFrame, .resizeText, .recolorText, .clearBackground:
+            return "Working..."
         case .clarifyPhoto, .clarifySticker: return "Thinking..."
         }
     }
@@ -212,7 +224,7 @@ enum MiraIntent {
             )
         case .generateImage, .editPhoto, .makeSticker, .applyFilter,
              .applyFrame, .resizeText, .recolorText, .clarifyPhoto,
-             .editSticker, .clarifySticker:
+             .editSticker, .clarifySticker, .setBackground, .clearBackground:
             return try await performImageOrStyle(imageStudio: imageStudio)
         }
     }

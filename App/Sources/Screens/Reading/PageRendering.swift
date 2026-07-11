@@ -20,14 +20,7 @@ struct StaticPageView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 24)
-                .fill(
-                    LinearGradient(
-                        colors: [Palette.onInk, Palette.cardFill.opacity(0.8)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+            PageBackdrop(backgroundFileName: memory.backgroundFileName)
             if memory.items.isEmpty {
                 metadataFallback
             }

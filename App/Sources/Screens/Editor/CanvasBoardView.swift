@@ -76,11 +76,20 @@ struct CanvasBoardView: View {
         ZStack(alignment: .topLeading) {
             paper
             if editor.items.isEmpty {
+                // On a soft paper chip: the grey was tuned for cream paper
+                // and vanishes mid-gradient (Meng, 2026-07-11); the chip
+                // keeps the pairing readable on ANY backdrop.
                 Text("Tap a tool below, or tell Mira about today.")
                     .font(.miraBody)
                     .foregroundStyle(Palette.textSecondary)
                     .frame(width: 240)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Palette.paper.opacity(0.78))
+                    )
                     .position(x: 180, y: 200)
                     .allowsHitTesting(false)
             }
@@ -108,17 +117,10 @@ struct CanvasBoardView: View {
         max(minBoardHeight, editor.contentBottom + 240)
     }
 
-    /// The page itself -- a warm paper sheet whose soft gradient stretches
-    /// with the content, so the background never "runs out".
+    /// The page itself -- its backdrop stretches with the content, so the
+    /// background never "runs out".
     private var paper: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(
-                LinearGradient(
-                    colors: [Palette.onInk, Palette.cardFill.opacity(0.8)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+        PageBackdrop(backgroundFileName: editor.memory.backgroundFileName)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
                     .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)

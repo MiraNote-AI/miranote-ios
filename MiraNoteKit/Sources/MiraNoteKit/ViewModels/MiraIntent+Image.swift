@@ -10,7 +10,7 @@ extension MiraIntent {
     /// the chat one.
     var isSlowImageWork: Bool {
         switch self {
-        case .generateImage, .editPhoto, .makeSticker, .editSticker: return true
+        case .generateImage, .editPhoto, .makeSticker, .editSticker, .setBackground: return true
         default: return false
         }
     }
@@ -44,18 +44,35 @@ extension MiraIntent {
         case .recolorText(let id, let colorName):
             return .textRecolored(id, colorName: colorName, MiraReceipt(
                 changed: "Recolored the words.", kept: "Undo restores them."))
+        case .clearBackground:
+            return .backgroundCleared(MiraReceipt(
+                changed: "Cleared the background.",
+                kept: "Undo restores it."))
         default:
             return nil
         }
     }
 
+    /// Two candidates from the studio, or the timeout error when it
+    /// returns none. Shared by picture, sticker, and background asks.
+    private func generateChoices(
+        _ imageStudio: ImageStudioService, kind: GeneratedImageKind,
+        prompt: String, placement: ImageChoicePlacement
+    ) async throws -> MiraOutcome {
+        let images = try await imageStudio.generate(kind: kind, prompt: prompt)
+        guard !images.isEmpty else { throw MiraTimeoutError() }
+        return .imageChoices(Array(images.prefix(2)), prompt: prompt, placement: placement)
+    }
+
     private func performSlowImage(imageStudio: ImageStudioService) async throws -> MiraOutcome {
         switch self {
         case .generateImage(let prompt, let sticker):
-            let images = try await imageStudio.generate(
-                kind: sticker ? .sticker : .background, prompt: prompt)
-            guard !images.isEmpty else { throw MiraTimeoutError() }
-            return .imageChoices(Array(images.prefix(2)), prompt: prompt, sticker: sticker)
+            return try await generateChoices(
+                imageStudio, kind: sticker ? .sticker : .background,
+                prompt: prompt, placement: sticker ? .sticker : .picture)
+        case .setBackground(let prompt):
+            return try await generateChoices(
+                imageStudio, kind: .background, prompt: prompt, placement: .background)
         case .editPhoto(let id, let data, let instruction):
             guard !data.isEmpty else { throw Self.missingPixels }
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
@@ -191,14 +208,17 @@ extension MiraIntent {
         editor: CanvasViewModel,
         imageStore: ImageFileStore
     ) -> MiraIntent? {
-        if let generation = generationIntent(lowered, prompt: prompt) {
-            return generation
-        }
         let mentionsSticker = ["sticker", "\u{8D34}\u{7EB8}"].contains(where: lowered.contains)
         let stickerCut = lowered.contains("into a sticker")
             || lowered.contains("\u{62A0}\u{6210}")
         let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
             .contains(where: lowered.contains)
+        if let generative = generativeIntent(
+            lowered, prompt: prompt,
+            mentionsPhoto: mentionsPhoto, mentionsSticker: mentionsSticker
+        ) {
+            return generative
+        }
         // Mixed mentions ("make the photo look like the sticker",
         // "\u{628A}\u{7167}\u{7247}\u{53D8}\u{6210}\u{8D34}\u{7EB8}") stay
         // with the photo family: never redraw a sticker when the words
@@ -221,6 +241,41 @@ extension MiraIntent {
             return photoIntent
         }
         return styleIntent(lowered, editor: editor)
+    }
+
+    /// The page-background family outranks generation ("draw a starry
+    /// background" is a backdrop wish), but photo- and sticker-flavored
+    /// background words ("remove the photo's background") stay out.
+    private static func generativeIntent(
+        _ lowered: String, prompt: String,
+        mentionsPhoto: Bool, mentionsSticker: Bool
+    ) -> MiraIntent? {
+        if !mentionsPhoto, !mentionsSticker,
+           let background = backgroundIntent(lowered, prompt: prompt) {
+            return background
+        }
+        return generationIntent(lowered, prompt: prompt)
+    }
+
+    /// The page-background family ("give this page a sunset background",
+    /// "\u{6362}\u{4E2A}\u{661F}\u{7A7A}\u{80CC}\u{666F}"). Callers must
+    /// already have excluded photo- and sticker-flavored asks.
+    private static func backgroundIntent(_ lowered: String, prompt: String) -> MiraIntent? {
+        let mentions = ["background", "backdrop", "\u{80CC}\u{666F}", "\u{5E95}\u{8272}"]
+            .contains(where: lowered.contains)
+        guard mentions else { return nil }
+        let clears = ["remove the background", "no background", "default background",
+                      "clear the background",
+                      "\u{53BB}\u{6389}\u{80CC}\u{666F}", "\u{6E05}\u{7A7A}\u{80CC}\u{666F}"]
+        if clears.contains(where: lowered.contains) {
+            return .clearBackground
+        }
+        let generationCues = ["draw ", "paint ", "generate ", "\u{753B}",
+                              "\u{751F}\u{6210}", "\u{6765}\u{4E00}\u{5F20}", "\u{6765}\u{4E2A}"]
+        guard hasEditVerb(lowered) || generationCues.contains(where: lowered.contains) else {
+            return nil
+        }
+        return .setBackground(prompt: prompt)
     }
 
     private static func generationIntent(_ lowered: String, prompt: String) -> MiraIntent? {
