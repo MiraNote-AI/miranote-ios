@@ -60,6 +60,8 @@ enum MiraIntent {
     case resizeText(CanvasItem.ID, up: Bool)
     case recolorText(CanvasItem.ID, colorName: String)
     case clarifyPhoto
+    case editSticker(CanvasItem.ID, imageData: Data, instruction: String, prompt: String)
+    case clarifySticker(question: String)
 
     /// Where classify reads photo bytes from; the coordinator points this
     /// at its own store, tests at a temp directory.
@@ -149,9 +151,10 @@ enum MiraIntent {
         case .generateImage: return "Painting..."
         case .editPhoto: return "Restyling the photo..."
         case .makeSticker: return "Cutting the sticker..."
+        case .editSticker: return "Redrawing the sticker..."
         // Instant local work settles before the 400 ms delay ever shows it.
         case .applyFilter, .applyFrame, .resizeText, .recolorText: return "Working..."
-        case .clarifyPhoto: return "Thinking..."
+        case .clarifyPhoto, .clarifySticker: return "Thinking..."
         }
     }
 
@@ -163,7 +166,8 @@ enum MiraIntent {
              .applyFilter(let id, _),
              .applyFrame(let id, _),
              .resizeText(let id, _),
-             .recolorText(let id, _):
+             .recolorText(let id, _),
+             .editSticker(let id, _, _, _):
             return [id]
         default:
             return []
@@ -204,7 +208,8 @@ enum MiraIntent {
                 chips: ["Add a soft title"]
             )
         case .generateImage, .editPhoto, .makeSticker, .applyFilter,
-             .applyFrame, .resizeText, .recolorText, .clarifyPhoto:
+             .applyFrame, .resizeText, .recolorText, .clarifyPhoto,
+             .editSticker, .clarifySticker:
             return try await performImageOrStyle(imageStudio: imageStudio)
         }
     }
