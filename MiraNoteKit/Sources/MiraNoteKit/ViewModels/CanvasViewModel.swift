@@ -8,7 +8,9 @@ import Observation
 @MainActor
 @Observable
 public final class CanvasViewModel {
-    public private(set) var memory: Memory
+    // internal(set): same-module extension files mutate items too
+    // (CanvasViewModel+Stickers.swift); still read-only outside the Kit.
+    public internal(set) var memory: Memory
 
     /// The currently selected element, if any (shows handles in the view).
     public var selectedItemID: CanvasItem.ID?
@@ -254,20 +256,6 @@ extension CanvasViewModel {
         memory.items[index].content = .image(ref)
     }
 
-    public func replaceImageWithSticker(itemID: CanvasItem.ID, sticker: GeneratedSticker) {
-        guard let index = index(of: itemID),
-              case .image = memory.items[index].content else { return }
-        beginChange()
-        memory.items[index].content = .sticker(sticker)
-    }
-
-    public func replaceSticker(itemID: CanvasItem.ID, with sticker: GeneratedSticker) {
-        guard let index = index(of: itemID),
-              case .sticker = memory.items[index].content else { return }
-        beginChange()
-        memory.items[index].content = .sticker(sticker)
-    }
-
     public func setSoundNote(itemID: CanvasItem.ID, to note: String) {
         guard let index = index(of: itemID),
               case .sound(var clip) = memory.items[index].content else { return }
@@ -398,7 +386,9 @@ extension CanvasViewModel {
 
     // MARK: Private
 
-    private func index(of id: CanvasItem.ID) -> Int? {
+    /// Internal (not private) so same-module extension files can mutate
+    /// items too (CanvasViewModel+Stickers.swift).
+    func index(of id: CanvasItem.ID) -> Int? {
         memory.items.firstIndex { $0.id == id }
     }
 
