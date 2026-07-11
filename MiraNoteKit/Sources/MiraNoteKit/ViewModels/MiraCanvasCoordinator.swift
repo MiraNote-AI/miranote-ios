@@ -313,8 +313,8 @@ public final class MiraCanvasCoordinator {
                 conversation.removeFirst(conversation.count - 8)
             }
             phase = .reply(message, chips: [Self.placeReplyChip] + suggestions(for: editor))
-        case .imageChoices, .imageReplaced, .stickerReplaced, .filterApplied,
-             .frameApplied, .textResized, .textRecolored:
+        case .imageChoices, .imageReplaced, .stickerReplaced, .stickerEdited,
+             .filterApplied, .frameApplied, .textResized, .textRecolored:
             settleImageOutcome(outcome, editor: editor)
         }
     }

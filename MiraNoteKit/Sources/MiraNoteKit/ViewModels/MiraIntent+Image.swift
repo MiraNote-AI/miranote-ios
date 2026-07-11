@@ -69,7 +69,7 @@ extension MiraIntent {
             return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
                 changed: "Made it a sticker.",
                 kept: "Undo brings the photo back."))
-        case .editSticker(let id, let data, let instruction, let prompt):
+        case .editSticker(let id, let data, let instruction, _):
             guard !data.isEmpty else {
                 throw MiraClarifyError(
                     question: "This sticker has no stored pixels to work on -- try another?",
@@ -79,7 +79,7 @@ extension MiraIntent {
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
             let cut = try await imageStudio.cutout(image: styled, target: nil)
             let outlined = try await imageStudio.outline(image: cut)
-            return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
+            return .stickerEdited(id, outlined, MiraReceipt(
                 changed: "Restyled the sticker.",
                 kept: "Undo brings the old one back."))
         case .clarifySticker(let question):
@@ -186,14 +186,18 @@ extension MiraIntent {
         let mentionsSticker = ["sticker", "\u{8D34}\u{7EB8}"].contains(where: lowered.contains)
         let stickerCut = lowered.contains("into a sticker")
             || lowered.contains("\u{62A0}\u{6210}")
-        if let stickerEdit = stickerEditIntent(
+        let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
+            .contains(where: lowered.contains)
+        // Mixed mentions ("make the photo look like the sticker",
+        // "\u{628A}\u{7167}\u{7247}\u{53D8}\u{6210}\u{8D34}\u{7EB8}") stay
+        // with the photo family: never redraw a sticker when the words
+        // are about a photo.
+        if !mentionsPhoto, let stickerEdit = stickerEditIntent(
             lowered, prompt: prompt, stickerCut: stickerCut,
             editor: editor, imageStore: imageStore
         ) {
             return stickerEdit
         }
-        let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
-            .contains(where: lowered.contains)
         // A sticker-flavored ask must never mutate a photo ("make the
         // sticker warmer" used to land on the photo warm filter).
         if mentionsSticker && !mentionsPhoto && !stickerCut {

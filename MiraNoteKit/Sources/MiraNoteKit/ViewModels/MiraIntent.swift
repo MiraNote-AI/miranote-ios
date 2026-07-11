@@ -32,6 +32,9 @@ enum MiraOutcome: Sendable {
     case imageChoices([Data], prompt: String, sticker: Bool)
     case imageReplaced(CanvasItem.ID, Data, MiraReceipt)
     case stickerReplaced(CanvasItem.ID, Data, prompt: String, MiraReceipt)
+    /// Edit of an EXISTING sticker: label and symbol are read from the
+    /// item at settle time, so only the pixels ride along.
+    case stickerEdited(CanvasItem.ID, Data, MiraReceipt)
     case filterApplied(CanvasItem.ID, name: String, MiraReceipt)
     case frameApplied(CanvasItem.ID, name: String, MiraReceipt)
     case textResized(CanvasItem.ID, up: Bool, MiraReceipt)

@@ -91,6 +91,25 @@ final class MiraStickerIntentTests: XCTestCase {
         }
     }
 
+    func testPhotoLikeTheStickerStaysAPhotoEdit() {
+        let editor = editorWithStickers(1, addPhoto: true)
+        let intent = MiraIntent.classify("make the photo look like the sticker", editor: editor)
+        guard case .editPhoto = intent else {
+            return XCTFail("expected editPhoto, got \(intent)")
+        }
+    }
+
+    func testChineseTurnPhotoIntoStickerTargetsThePhoto() {
+        let editor = editorWithStickers(0, addPhoto: true)
+        // "ba zhaopian biancheng tiezhi" -- turn the photo into a sticker
+        // (the soft phrasing, without the cutout verb).
+        let intent = MiraIntent.classify(
+            "\u{628A}\u{7167}\u{7247}\u{53D8}\u{6210}\u{8D34}\u{7EB8}", editor: editor)
+        guard case .editPhoto = intent else {
+            return XCTFail("expected editPhoto, got \(intent)")
+        }
+    }
+
     func testPhotoCutoutPhraseStillConvertsThePhoto() {
         let editor = editorWithStickers(1, addPhoto: true)
         // "ba zhaopian koucheng tiezhi" -- cut the photo into a sticker.
