@@ -98,3 +98,12 @@ miranote-api PR, flagged here.
    characters. Locks: 2 Kit tests + TextRenderingUITests (mutation
    evidence: UITest FAILS with the display fix stashed). Kit suite
    green, swiftlint --strict 0. F2-F4 closed, F5 to go.
+6. F5 NOT REPRODUCIBLE on this base. Two probe journeys under -UITEST:
+   (a) file -> read -> edit -> Done keeps exactly ONE entry (file()
+   replaces by id, verified in code and on screen); (b) background
+   mid-edit (autosave fires) -> resume -> more words -> Done: one entry
+   carrying all words, no lingering autosave snapshot. Both passed.
+   Likely explanation: the meeting build predated d402711 (autosave for
+   real, merged 07-10 evening) -- same staleness as F3. The one
+   ambiguous signal (multiple "orchid diary" matches in the editor) is
+   the stacked-covers accessibility-tree effect, not duplication.
