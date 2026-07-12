@@ -61,3 +61,9 @@ the folder from the photo edit panel.
 3. Fresh-context subagent review (criteria + diff only): DONE, all nine
    criteria confirmed; one cosmetic flag (InputModeBar doc comment
    still listed three modes) fixed in the same iteration.
+4. Clean-state full suite: first run TEST FAILED on a single signal-kill
+   crash of testPhotoEditMakeStickerReplacesInPlace (no assertion
+   failure; passes in isolation); clean rerun 39 tests 0 failures,
+   TEST SUCCEEDED. swiftlint 0; governance + PR preflight pass.
+   SUCCESS: PR #31 open, CI green. HUMAN: review + merge; display-name
+   overlap with the photo-library chip flagged for Gloria/Meng.
