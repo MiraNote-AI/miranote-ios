@@ -28,4 +28,23 @@ final class ChatMarkdownTests: XCTestCase {
         let rendered = ChatMarkdown.attributed("first line\nsecond line")
         XCTAssertTrue(String(rendered.characters).contains("first line\nsecond line"))
     }
+
+    // Expanded text and drafts carry "- " list lines; the screen shows
+    // real bullets, not raw markers (issue #28 F4).
+    func testListMarkersBecomeBullets() {
+        let rendered = ChatMarkdown.attributed("groceries\n- eggs\n- milk\n* bread")
+        let characters = String(rendered.characters)
+        XCTAssertFalse(characters.contains("- eggs"), "raw dash markers must not reach the screen")
+        XCTAssertTrue(characters.contains("\u{2022}  eggs"))
+        XCTAssertTrue(characters.contains("\u{2022}  milk"))
+        XCTAssertTrue(characters.contains("\u{2022}  bread"), "asterisk markers count too")
+    }
+
+    // Indented markers keep their indentation; mid-sentence dashes stay.
+    func testBulletSwapIsConservative() {
+        XCTAssertEqual(
+            ChatMarkdown.withBullets("  - nested\nwell - not a list"),
+            "  \u{2022}  nested\nwell - not a list"
+        )
+    }
 }

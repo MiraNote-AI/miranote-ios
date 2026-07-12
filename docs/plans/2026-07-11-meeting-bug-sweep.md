@@ -73,3 +73,28 @@ miranote-api PR, flagged here.
    testFindHitRoundTripKeepsConversation ships with mutation evidence:
    FAILS with the fix stashed, passes restored. swiftlint --strict 0.
    Criteria progress: F1 closed, 4 findings to go.
+3. F2 NOT REPRODUCIBLE on this base: live probe (Chinese ask via the
+   simulator pasteboard, real :8003) produced the draft card, and it
+   opened as a clean Chinese page in the editor (film). Backend traces
+   confirm create_note fires for explicit and casual Chinese asks.
+   Likely fixed by the 07-10 api journal-mode/docs-root work before this
+   loop started. No app change.
+4. F3 record path healthy in both variants on the shadow sim: pre-granted
+   mic, and first-run permission alert -> Allow -> recording (films).
+   Root cause of the meeting report identified as environment skew:
+   ios#16 pointed dictation at :8005 on 07-10, but long-running local
+   backends still served voice on :8000 (this machine had nothing on
+   :8005 until this loop started it). Fix is operational: restart
+   start-all.sh after pulling miranote-api. No app change; playback's
+   silent return on a missing sound file noted for the report.
+5. F4 probed live: the loading affordance EXISTS (working bar "Expanding
+   the text..." + Stop, film f035; BreathingLock covers the block), so
+   the no-loading half is stale on this base. The bullet half is real:
+   /expand output and drafts carry "- " lines and both canvas display
+   and reading mode printed them raw. Fixed: ChatMarkdown.withBullets
+   swaps leading -/* markers for bullet glyphs (indentation kept,
+   mid-sentence dashes untouched); canvas display and reading mode now
+   render through ChatMarkdown; editing still round-trips the raw
+   characters. Locks: 2 Kit tests + TextRenderingUITests (mutation
+   evidence: UITest FAILS with the display fix stashed). Kit suite
+   green, swiftlint --strict 0. F2-F4 closed, F5 to go.

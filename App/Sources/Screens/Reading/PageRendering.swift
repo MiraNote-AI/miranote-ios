@@ -76,7 +76,8 @@ struct StaticElementView: View {
     var body: some View {
         switch item.content {
         case .text(let block):
-            Text(block.text)
+            // Same light markdown treatment as the editor's display state.
+            Text(ChatMarkdown.attributed(block.text))
                 .font(
                     block.pointSize >= 24
                         ? Serif.font(size: block.pointSize, weight: 560, optical: 72)

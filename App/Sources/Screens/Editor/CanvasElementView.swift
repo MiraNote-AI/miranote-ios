@@ -102,7 +102,11 @@ struct CanvasElementView: View {
                         .fill(Palette.paper.opacity(0.75))
                 )
         } else {
-            Text(block.text.isEmpty ? "Say something..." : block.text)
+            // Display renders light markdown (bullets, bold); the raw
+            // characters come back untouched when editing resumes.
+            Text(block.text.isEmpty
+                ? AttributedString("Say something...")
+                : ChatMarkdown.attributed(block.text))
                 .font(font(for: block))
                 .foregroundStyle(
                     block.text.isEmpty
