@@ -135,6 +135,9 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
+    /// A page opened from Mira's find results, shown over the chat so the
+    /// conversation survives the round trip.
+    @State private var chatHit: PageHit?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -267,14 +270,10 @@ struct HomeFlow: View {
                     seed: seed,
                     onExit: { route = nil },
                     findPages: { LibrarySearch.find($0, in: viewModel.library) },
-                    onOpenPage: { hit in
-                        route = nil
-                        // Let the cover dismiss before pushing reading mode.
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(300))
-                            path.append(NoteRef(collectionID: hit.collectionID, noteID: hit.memory.id))
-                        }
-                    },
+                    // Present the page over the chat: dismissing the chat
+                    // cover here would throw the conversation away and dump
+                    // the user on Home when they tap back.
+                    onOpenPage: { chatHit = $0 },
                     onOpenDraft: { draft in
                         route = nil
                         // Same dance: swap covers only after this one is gone.
@@ -284,6 +283,22 @@ struct HomeFlow: View {
                         }
                     }
                 )
+                .fullScreenCover(item: $chatHit) { hit in
+                    ReadingView(
+                        memory: viewModel.note(hit.memory.id, in: hit.collectionID) ?? hit.memory,
+                        onBack: { chatHit = nil },
+                        onEdit: {
+                            // Editing leaves the chat: drop both covers,
+                            // then reopen the note in the editor.
+                            chatHit = nil
+                            route = nil
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(300))
+                                route = .editMemory(hit.memory)
+                            }
+                        }
+                    )
+                }
             }
         }
     }

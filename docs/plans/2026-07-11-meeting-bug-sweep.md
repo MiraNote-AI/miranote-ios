@@ -62,3 +62,14 @@ miranote-api PR, flagged here.
 ## Iterations
 
 (appended as they complete)
+
+1. F1 probed live on the shadow sim. Opening a hit works (film f040);
+   the defect is the way BACK: reading.back landed on Home with the
+   conversation gone (probe asserts failed). Root cause: onOpenPage
+   dismissed the chat cover and pushed the note onto the home stack.
+2. F1 fixed: found pages now present OVER the chat (fullScreenCover on
+   a chatHit state); back returns to the intact transcript -- film shows
+   user message, hits row, and live reply all preserved. Locking test
+   testFindHitRoundTripKeepsConversation ships with mutation evidence:
+   FAILS with the fix stashed, passes restored. swiftlint --strict 0.
+   Criteria progress: F1 closed, 4 findings to go.

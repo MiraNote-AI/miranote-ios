@@ -67,6 +67,34 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.share"].waitForExistence(timeout: 8), "the hit opens reading mode")
     }
 
+    // Opening a found page must not tear the conversation down: back from
+    // reading mode returns to the chat with the transcript intact, not Home.
+    // (Occluded layers stay in the accessibility tree under stacked covers,
+    // so the Home check uses isHittable, not exists.)
+    func testFindHitRoundTripKeepsConversation() {
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("noodle shop")
+        app.buttons["quick.send"].tap()
+
+        let hit = app.buttons["chat.hit.Lunch by the river"]
+        XCTAssertTrue(hit.waitForExistence(timeout: 8))
+        hit.tap()
+
+        let back = app.buttons["reading.back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 8), "the hit opens reading mode")
+        back.tap()
+
+        let chatTitle = app.staticTexts["MiraNote AI"]
+        XCTAssertTrue(chatTitle.waitForExistence(timeout: 5),
+                      "back from the found page returns to the conversation")
+        XCTAssertTrue(app.staticTexts["noodle shop"].firstMatch.isHittable,
+                      "the transcript survives the round trip")
+        XCTAssertFalse(app.buttons["Start a memory"].isHittable,
+                       "the user is not dumped on Home")
+    }
+
     // Collections are real data: a seeded collection opens to its notes, and a
     // new note can be added and appears.
     func testOpenCollectionAndAddNote() {
