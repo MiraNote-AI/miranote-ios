@@ -58,3 +58,6 @@ the folder from the photo edit panel.
    green. Mutation evidence: with App+Kit sources stashed the test
    build fails (2 errors) -- the suite cannot pass without the feature.
    swiftlint --strict 0; Kit 207 green.
+3. Fresh-context subagent review (criteria + diff only): DONE, all nine
+   criteria confirmed; one cosmetic flag (InputModeBar doc comment
+   still listed three modes) fixed in the same iteration.

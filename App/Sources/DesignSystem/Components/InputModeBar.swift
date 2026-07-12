@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The bottom "instrument panel": Sound / Text / Image. The active mode is
-/// an ink pill; the rest are quiet icon+label targets, spread evenly.
+/// The bottom "instrument panel": Sound / Text / Image / Library. The active
+/// mode is an ink pill; the rest are quiet icon+label targets, spread evenly.
 struct InputModeBar: View {
     var active: EditorMode?
     var onSelect: (EditorMode) -> Void = { _ in }
