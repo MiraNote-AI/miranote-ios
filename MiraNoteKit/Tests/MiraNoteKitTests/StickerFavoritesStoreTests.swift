@@ -39,4 +39,34 @@ final class StickerFavoritesStoreTests: XCTestCase {
         XCTAssertEqual(kept.count, 2)
         XCTAssertEqual(store.all().count, 2)
     }
+
+    // The folder is shared by stickers and images (issue #30); the kind
+    // round-trips through persistence.
+    func testImageEntriesKeepTheirKind() {
+        let (store, url) = makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        store.add(GeneratedSticker(
+            prompt: "Beach photo", symbolName: "photo",
+            fileName: "beach.png", kind: .image
+        ))
+        store.add(sticker("cat.png"))
+
+        XCTAssertEqual(store.all().map(\.kind), [.sticker, .image])
+    }
+
+    // Favorites persisted before the kind field existed decode as stickers.
+    func testPreWideningJSONDecodesAsSticker() throws {
+        let (store, url) = makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let legacy = """
+        [{"id":"11111111-2222-3333-4444-555555555555","prompt":"old friend",\
+        "symbolName":"sparkles","fileName":"old.png"}]
+        """
+        try legacy.data(using: .utf8)!.write(to: url)
+
+        let entries = store.all()
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].kind, .sticker)
+        XCTAssertEqual(entries[0].fileName, "old.png")
+    }
 }

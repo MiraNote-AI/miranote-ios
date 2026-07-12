@@ -235,6 +235,9 @@ struct CanvasScene: View {
         case .image:
             cancelRecording()
             actions.selectMode(.image)
+        case .library:
+            cancelRecording()
+            actions.selectMode(.library)
         }
     }
 

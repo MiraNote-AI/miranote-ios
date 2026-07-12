@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// The three ways to add to a memory page -- the bottom "instrument panel".
-/// Sticker creation lives inside the Image panel (v2.1), not on the bar.
+/// The ways to add to a memory page -- the bottom "instrument panel".
+/// Sticker creation lives inside the Image panel (v2.1), not on the bar;
+/// Library is the shared folder of saved stickers and images (issue #30).
 enum EditorMode: String, CaseIterable, Identifiable {
-    case sound, text, image
+    case sound, text, image, library
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum EditorMode: String, CaseIterable, Identifiable {
         case .sound: return "waveform"
         case .text: return "textformat"
         case .image: return "photo"
+        case .library: return "books.vertical"
         }
     }
 }

@@ -44,3 +44,17 @@ the folder from the photo edit panel.
 ## Iterations
 
 (appended as they complete)
+
+1. Kit: GeneratedSticker.kind (sticker | image) with decode fallback to
+   sticker; store tests for kind round-trip + legacy JSON. 4/4 store
+   tests green.
+2. App: EditorMode.library (books.vertical) -> FlowScene.libraryPanel ->
+   LibraryPanelScene (grid over the user's page, empty state, tap
+   places by kind); PhotoEditPanel bookmark files the photo as an image
+   entry (idempotent per file, noticed). First UITest run: 2/3 failed --
+   the panel's prune-on-open used the Image panel's minSide 24, which
+   ate the deliberately tiny -UITEST artwork. Library hygiene relaxed to
+   missing-file pruning only (minSide 1, reasoned in code); 3/3 UITests
+   green. Mutation evidence: with App+Kit sources stashed the test
+   build fails (2 errors) -- the suite cannot pass without the feature.
+   swiftlint --strict 0; Kit 207 green.

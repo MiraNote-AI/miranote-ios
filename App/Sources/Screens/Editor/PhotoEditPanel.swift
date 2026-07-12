@@ -29,6 +29,17 @@ struct PhotoEditPanel: View {
                     sectionTab("Make sticker", .sticker)
                     sectionTab("Ask AI", .ai, icon: "sparkles")
                     Spacer()
+                    // The images half of the shared library folder
+                    // (issue #30): one tap files this photo for reuse.
+                    Button {
+                        saveToLibrary()
+                    } label: {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("photo.saveToLibrary")
                     Button("Done") { onClose() }
                         .font(.miraLabel)
                         .foregroundStyle(Palette.ink)
@@ -55,6 +66,22 @@ struct PhotoEditPanel: View {
     private var currentRef: ImageRef? {
         if case .image(let ref) = editor.item(itemID)?.content { return ref }
         return nil
+    }
+
+    /// Files the photo into the shared library folder; once per file.
+    private func saveToLibrary() {
+        guard let ref = currentRef else { return }
+        guard !favoritesStore.all().contains(where: { $0.fileName == ref.fileName }) else {
+            notice = "Already in your library."
+            return
+        }
+        favoritesStore.add(GeneratedSticker(
+            prompt: ref.displayName,
+            symbolName: "photo",
+            fileName: ref.fileName,
+            kind: .image
+        ))
+        notice = "Saved to your library."
     }
 
     /// Sections are TABS (text + underline), one level above the option
