@@ -63,4 +63,16 @@ final class HTTPClientTests: XCTestCase {
             XCTFail("expected BackendError, got \(error)")
         }
     }
+
+    func testTimeoutMapsToTimedOut() async {
+        StubURLProtocol.handler = { _ in throw URLError(.timedOut) }
+        do {
+            let _: Echo = try await makeClient().postJSON(to: url, body: Echo(value: "x"))
+            XCTFail("expected an error")
+        } catch let error as BackendError {
+            XCTAssertEqual(error, .timedOut)
+        } catch {
+            XCTFail("expected BackendError, got \(error)")
+        }
+    }
 }

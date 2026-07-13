@@ -4,8 +4,10 @@ import Foundation
 /// what the view models put into `lastError` for the user to see (spec D9 --
 /// failures are visible, never silently faked).
 public enum BackendError: Error, Equatable {
-    /// Transport failure: server down, DNS, timeout, no network.
+    /// Transport failure: server down, DNS, no network.
     case unreachable
+    /// The server accepted the connection but never answered in time.
+    case timedOut
     /// Server returned a non-2xx status. `detail` is the response body, if any.
     case server(status: Int, detail: String?)
     /// Response body could not be decoded into the expected shape.
@@ -17,6 +19,8 @@ extension BackendError: LocalizedError {
         switch self {
         case .unreachable:
             return "Couldn't reach the server. Make sure the backend is running."
+        case .timedOut:
+            return "The server took too long to respond. It may be stuck -- try restarting the backend."
         case .server(let status, _):
             return "The server returned an error (status \(status))."
         case .decoding:
@@ -42,6 +46,9 @@ public struct HTTPClient: Sendable {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            if (error as? URLError)?.code == .timedOut {
+                throw BackendError.timedOut
+            }
             throw BackendError.unreachable
         }
         guard let http = response as? HTTPURLResponse else {
