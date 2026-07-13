@@ -67,6 +67,28 @@ extension MiraIntent {
         return text
     }
 
+    /// The part of a conversational reply that is actually meant for the
+    /// page: a quoted or emphasized suggestion of real length. Plain
+    /// banter has no payload -- the place-on-page chip should not appear
+    /// for "I'm good, thanks for asking!".
+    static func placeablePayload(_ raw: String) -> String? {
+        var longest = ""
+        for (open, close) in [
+            ("\"", "\""), ("\u{201C}", "\u{201D}"), ("*", "*"), ("_", "_"),
+        ] {
+            var rest = Substring(raw)
+            while let start = rest.firstIndex(of: Character(open)) {
+                let after = rest.index(after: start)
+                guard let end = rest[after...].firstIndex(of: Character(close)) else { break }
+                let span = String(rest[after..<end])
+                if span.count > longest.count { longest = span }
+                rest = rest[rest.index(after: end)...]
+            }
+        }
+        let cleaned = cleanPlacedText(longest)
+        return cleaned.count >= 20 ? cleaned : nil
+    }
+
     /// LLM replies arrive with quotes, trailing periods, or a chatty
     /// second line; a title is one clean line.
     static func cleanTitle(_ raw: String) -> String {

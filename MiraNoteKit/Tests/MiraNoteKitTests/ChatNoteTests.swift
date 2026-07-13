@@ -81,11 +81,11 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(back.filterName, "warm")
     }
 
-    func testPlaceReplyLandsTheWordsWithAReceipt() async {
+    func testPlaceReplyLandsTheQuotedSuggestionWithAReceipt() async {
         let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
         let coordinator = MiraCanvasCoordinator(
             text: ScriptedText(),
-            chat: ScriptedChat(),
+            chat: ScriptedChat(reply: "How about: \"a quiet line for this page of yours\"?"),
             workingDelay: .milliseconds(1),
             timeout: .seconds(5),
             receiptDismiss: .seconds(60)
@@ -102,9 +102,53 @@ final class ChatNoteTests: XCTestCase {
 
         let countBefore = editor.items.count
         coordinator.placeReply(editor: editor)
-        XCTAssertEqual(editor.items.count, countBefore + 1, "the reply landed as a block")
+        XCTAssertEqual(editor.items.count, countBefore + 1, "the suggestion landed as a block")
+        if case .text(let block) = editor.items.last?.content {
+            XCTAssertEqual(block.text, "a quiet line for this page of yours",
+                           "only the quoted words land, never the chatty wrapping")
+        } else {
+            XCTFail("expected a text block")
+        }
         guard case .receipt(let receipt) = coordinator.phase else { return XCTFail("expected receipt") }
         XCTAssertEqual(receipt.changed, "Added a few words.")
+    }
+
+    func testBanterReplyOffersNoPlaceChip() async {
+        let editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+        let coordinator = MiraCanvasCoordinator(
+            text: ScriptedText(),
+            chat: ScriptedChat(reply: "I'm good, thanks for asking! Just here with you."),
+            workingDelay: .milliseconds(1),
+            timeout: .seconds(5),
+            receiptDismiss: .seconds(60)
+        )
+        coordinator.ask("how are you", editor: editor)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if case .reply = coordinator.phase { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        guard case .reply(_, let chips) = coordinator.phase else { return XCTFail("expected reply") }
+        XCTAssertFalse(chips.contains(MiraCanvasCoordinator.placeReplyChip),
+                       "plain conversation has nothing to put on the page")
+
+        let countBefore = editor.items.count
+        coordinator.placeReply(editor: editor)
+        XCTAssertEqual(editor.items.count, countBefore, "nothing lands without a payload")
+    }
+
+    func testPlaceablePayloadFindsQuotesAndEmphasisOnly() {
+        XCTAssertEqual(
+            MiraIntent.placeablePayload("Maybe: \"golden light over the quiet bridge tonight\"?"),
+            "golden light over the quiet bridge tonight"
+        )
+        XCTAssertEqual(
+            MiraIntent.placeablePayload("Or even warmer:\n\n*a tiny noodle shop by the bridge, lunch in the sun*\n\nDoes that feel right?"),
+            "a tiny noodle shop by the bridge, lunch in the sun"
+        )
+        XCTAssertNil(MiraIntent.placeablePayload("What's on your mind today? Can I help with the page?"))
+        XCTAssertNil(MiraIntent.placeablePayload("According to \"Lunch\", you had noodles."),
+                     "a short cited title is not a page suggestion")
     }
 
     func testCleanPlacedTextStripsMarkdownAndExtractsTheQuote() {

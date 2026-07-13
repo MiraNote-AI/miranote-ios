@@ -27,8 +27,9 @@ struct MiraCard: View {
         case .working:
             EmptyView()
         case .reply(_, let chips):
-            // The conversation reads as one thread: a short transcript,
-            // then the follow-up chips, sitting flush on the input bar.
+            // The conversation reads as one thread: the transcript scrolls
+            // (newest pinned), then the follow-up chips, sitting flush on
+            // the input bar. Full messages -- no truncation.
             card {
                 HStack {
                     Spacer()
@@ -42,8 +43,26 @@ struct MiraCard: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("mira.dismissReply")
                 }
-                ForEach(coordinator.conversation.suffix(4)) { turn in
-                    transcriptRow(turn)
+                ScrollViewReader { proxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(coordinator.conversation) { turn in
+                                transcriptRow(turn).id(turn.id)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 250)
+                    .onAppear {
+                        if let last = coordinator.conversation.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
+                    .onChange(of: coordinator.conversation.count) {
+                        guard let last = coordinator.conversation.last else { return }
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
                 }
                 chipsRow(chips)
             }
@@ -148,6 +167,9 @@ struct MiraCard: View {
                 Text(ChatMarkdown.attributed(turn.text))
                     .font(.miraBody)
                     .foregroundStyle(Palette.ink)
+                    // Full prose, never an ellipsis: height-squeezed Text
+                    // truncates unless it may grow vertically.
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Spacer(minLength: 40)
