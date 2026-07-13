@@ -12,6 +12,36 @@ final class StickerFavoritesStoreTests: XCTestCase {
         GeneratedSticker(prompt: file, symbolName: "sparkles", fileName: file)
     }
 
+    func testRemoveDropsOnlyThatFavorite() {
+        let (store, url) = makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let keep = sticker("keep.png")
+        let drop = sticker("drop.png")
+        store.add(keep)
+        store.add(drop)
+
+        store.remove(id: drop.id)
+
+        XCTAssertEqual(store.all().map(\.fileName), ["keep.png"])
+    }
+
+    func testDecodingPreKindJSONDefaultsToSticker() throws {
+        // Favorites persisted before `kind` existed must load as stickers.
+        let json = #"[{"id":"00000000-0000-0000-0000-000000000001","prompt":"p","symbolName":"sparkles","fileName":"a.png"}]"#
+        let decoded = try JSONDecoder().decode([GeneratedSticker].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.first?.kind, .sticker)
+    }
+
+    func testImageKindRoundTripsThroughTheStore() {
+        let (store, url) = makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        store.add(GeneratedSticker(
+            prompt: "Library photo", symbolName: "photo", fileName: "p.png", kind: .image
+        ))
+
+        XCTAssertEqual(store.all().first?.kind, .image)
+    }
+
     func testPrunedDropsMissingAndDegenerateThumbnails() {
         let (store, url) = makeStore()
         defer { try? FileManager.default.removeItem(at: url) }

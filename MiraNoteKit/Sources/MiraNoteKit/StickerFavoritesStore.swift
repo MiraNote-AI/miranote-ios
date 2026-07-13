@@ -1,13 +1,14 @@
 import Foundation
 
-/// "My stickers": every generated or cut-out sticker lands here for reuse
-/// (v2.1 -- the favorites row doubles as the sticker feature's shop window).
-/// Newest first, capped, persisted as JSON next to the collections file.
+/// The Favorites panel's store: generated stickers land here automatically,
+/// and any canvas image/sticker can be saved manually via its context menu.
+/// Global across memories. Newest first, capped, persisted as JSON next to
+/// the collections file.
 public struct StickerFavoritesStore: Sendable {
     private let url: URL
     private let cap: Int
 
-    public init(url: URL? = nil, cap: Int = 12) {
+    public init(url: URL? = nil, cap: Int = 48) {
         if let url {
             self.url = url
         } else {
@@ -52,6 +53,13 @@ public struct StickerFavoritesStore: Sendable {
         if stickers.count > cap {
             stickers.removeLast(stickers.count - cap)
         }
+        if let data = try? JSONEncoder().encode(stickers) {
+            try? data.write(to: url)
+        }
+    }
+
+    public func remove(id: GeneratedSticker.ID) {
+        let stickers = all().filter { $0.id != id }
         if let data = try? JSONEncoder().encode(stickers) {
             try? data.write(to: url)
         }

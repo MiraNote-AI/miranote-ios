@@ -17,6 +17,8 @@ struct CanvasBoardView: View {
     /// Long-press "Edit photo" (images with stored pixels only).
     var onEditImage: (CanvasItem.ID) -> Void = { _ in }
     var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
+    /// Long-press "Favorite": saves the image/sticker to the Favorites shelf.
+    var onFavorite: (CanvasItem) -> Void = { _ in }
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -28,8 +30,11 @@ struct CanvasBoardView: View {
     @GestureState private var activeRotation: ActiveRotation?
     @State private var noteDraft = ""
     @State private var noteEditingItem: CanvasItem.ID?
-    @State private var showsDeleteToast = false
+    @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
+
+    /// Bottom-edge receipts; deleted carries the one-tap Undo.
+    enum Toast { case deleted, favorited }
 
     private let minBoardHeight: CGFloat = 620
 
@@ -52,8 +57,8 @@ struct CanvasBoardView: View {
         // with none, dragging scrolls the page.
         .scrollDisabled(editor.selectedItemID != nil)
         .overlay(alignment: .bottom) {
-            if showsDeleteToast {
-                deleteToast
+            if let toast {
+                toastView(toast)
                     .padding(.bottom, 10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -292,6 +297,7 @@ extension CanvasBoardView {
 
     @ViewBuilder private func contextMenu(for item: CanvasItem) -> some View {
         editEntry(for: item)
+        favoriteEntry(for: item)
 
         Button {
             editor.duplicate(itemID: item.id)
@@ -317,28 +323,42 @@ extension CanvasBoardView {
 
     private func deleteWithToast(_ id: CanvasItem.ID) {
         editor.delete(itemID: id)
+        show(toast: .deleted)
+    }
+
+    func show(toast kind: Toast) {
         toastDismiss?.cancel()
-        withAnimation(.easeOut(duration: 0.18)) { showsDeleteToast = true }
+        withAnimation(.easeOut(duration: 0.18)) { toast = kind }
         toastDismiss = Task {
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeIn(duration: 0.18)) { showsDeleteToast = false }
+            withAnimation(.easeIn(duration: 0.18)) { toast = nil }
         }
     }
 
-    private var deleteToast: some View {
+    @ViewBuilder private func toastView(_ kind: Toast) -> some View {
         HStack(spacing: 14) {
-            Text("Deleted")
-                .font(.miraLabel)
+            switch kind {
+            case .deleted:
+                Text("Deleted")
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.onInk)
+                Button("Undo") {
+                    editor.undo()
+                    toastDismiss?.cancel()
+                    withAnimation(.easeIn(duration: 0.18)) { toast = nil }
+                }
+                .font(.miraLabel.weight(.semibold))
                 .foregroundStyle(Palette.onInk)
-            Button("Undo") {
-                editor.undo()
-                toastDismiss?.cancel()
-                withAnimation(.easeIn(duration: 0.18)) { showsDeleteToast = false }
+                .accessibilityIdentifier("toast.undo")
+            case .favorited:
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.onInk)
+                Text("Saved to Favorites")
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.onInk)
             }
-            .font(.miraLabel.weight(.semibold))
-            .foregroundStyle(Palette.onInk)
-            .accessibilityIdentifier("toast.undo")
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 10)

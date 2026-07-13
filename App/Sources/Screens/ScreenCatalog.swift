@@ -7,6 +7,7 @@ enum FlowScene: String, CaseIterable {
     case home
     case canvas
     case imageStart
+    case library
     case export
     case chat
     case collection
@@ -17,6 +18,7 @@ enum FlowScene: String, CaseIterable {
         case .home: HomeView(viewModel: HomeViewModel(collections: MemoryCollection.seed))
         case .canvas: CanvasCatalogPreview()
         case .imageStart: ImagePanelCatalogPreview()
+        case .library: LibraryPanelCatalogPreview()
         case .export: ExportScene()
         case .chat:
             MiraChatView(
@@ -37,6 +39,15 @@ private struct ImagePanelCatalogPreview: View {
 
     var body: some View {
         ImagePanelScene(editor: editor, studio: MockImageStudioService())
+    }
+}
+
+/// Renders the Library panel for the DEBUG catalog.
+private struct LibraryPanelCatalogPreview: View {
+    @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+
+    var body: some View {
+        LibraryPanelScene(editor: editor)
     }
 }
 

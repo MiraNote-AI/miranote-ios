@@ -1,19 +1,27 @@
 import SwiftUI
 
-/// The three ways to add to a memory page -- the bottom "instrument panel".
-/// Sticker creation lives inside the Image panel (v2.1), not on the bar.
+/// The bottom "instrument panel": three ways to add to a memory page, plus
+/// the library of saved images/stickers (one Favorites group for now, more
+/// groups later). Sticker creation lives inside the Image panel (v2.1),
+/// not on the bar.
 enum EditorMode: String, CaseIterable, Identifiable {
-    case sound, text, image
+    case sound, text, image, library
 
     var id: String { rawValue }
 
-    var title: String { rawValue.capitalized }
+    /// User-facing labels. The saved-material library shows as "Saved":
+    /// "Library" on screen would collide with the Image panel's photo-library
+    /// chip, which keeps the standard iOS wording.
+    var title: String {
+        self == .library ? "Saved" : rawValue.capitalized
+    }
 
     var symbol: String {
         switch self {
         case .sound: return "waveform"
         case .text: return "textformat"
         case .image: return "photo"
+        case .library: return "square.grid.2x2"
         }
     }
 }
