@@ -89,6 +89,11 @@ struct EditorFlowView: View {
                 studio: services.imageStudio,
                 actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) })
             )
+        case .library:
+            LibraryPanelScene(
+                editor: editor,
+                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) })
+            )
         case .home, .chat, .collection, .note, .export:
             // Export left the main flow in v2.1 (share/export moves to
             // reading mode in Phase E); the scene stays catalog-only.
@@ -115,6 +120,8 @@ struct EditorFlowView: View {
         switch mode {
         case .image:
             navigate(.imageStart)
+        case .library:
+            navigate(.library)
         case .text, .sound:
             pendingTool = mode
             navigate(.canvas)

@@ -8,7 +8,8 @@ private extension TextTransformMode {
         switch self {
         case .polish: return "Polished the text."
         case .expand: return "Expanded the text."
-        case .clean: return "Tightened the text."
+        case .clean: return "Cleaned up the text."
+        case .shorten: return "Shortened the text."
         }
     }
 }
@@ -138,7 +139,13 @@ enum MiraIntent {
             }
             return .clarifyNoText
         }
-        if lowered.contains("shorten") || lowered.contains("clean") || lowered.contains("tighten") {
+        if lowered.contains("shorten") || lowered.contains("shorter") {
+            if let (id, original) = targetText() {
+                return .transformText(id, original: original, .shorten)
+            }
+            return .clarifyNoText
+        }
+        if lowered.contains("clean") || lowered.contains("tighten") {
             if let (id, original) = targetText() {
                 return .transformText(id, original: original, .clean)
             }
@@ -161,7 +168,8 @@ enum MiraIntent {
         switch self {
         case .transformText(_, _, .polish): return "Polishing the text..."
         case .transformText(_, _, .expand): return "Expanding the text..."
-        case .transformText(_, _, .clean): return "Tightening the text..."
+        case .transformText(_, _, .clean): return "Cleaning up the text..."
+        case .transformText(_, _, .shorten): return "Shortening the text..."
         case .addTitle: return "Adding a title..."
         case .addCaption: return "Writing a few words..."
         case .organize: return "Tidying the layout..."

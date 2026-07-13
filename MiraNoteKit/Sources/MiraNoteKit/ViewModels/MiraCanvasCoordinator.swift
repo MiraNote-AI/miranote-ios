@@ -174,12 +174,14 @@ public final class MiraCanvasCoordinator {
         ask(lastPrompt, editor: editor)
     }
 
-    /// The reply's words land on the page as a text block (under the
-    /// content), with the standard receipt.
+    /// The reply's suggested words land on the page as a text block (under
+    /// the content), with the standard receipt. Only the quoted/emphasized
+    /// suggestion lands -- never the conversational wrapping.
     public func placeReply(editor: CanvasViewModel) {
-        guard case .reply(let message, _) = phase else { return }
+        guard case .reply(let message, _) = phase,
+              let payload = MiraIntent.placeablePayload(message) else { return }
         editor.addText(
-            MiraIntent.cleanPlacedText(message),
+            payload,
             at: CGPoint(x: 180, y: editor.contentBottom + 60),
             pointSize: 15,
             size: CGSize(width: 320, height: 60)
@@ -309,10 +311,14 @@ public final class MiraCanvasCoordinator {
             sessionID = newSessionID ?? sessionID
             conversation.append(ChatMessage(role: .user, text: lastPrompt))
             conversation.append(ChatMessage(role: .assistant, text: message))
-            if conversation.count > 8 {
-                conversation.removeFirst(conversation.count - 8)
+            if conversation.count > 24 {
+                conversation.removeFirst(conversation.count - 24)
             }
-            phase = .reply(message, chips: [Self.placeReplyChip] + suggestions(for: editor))
+            // The place chip appears only when the reply carries words meant
+            // for the page (a quoted/emphasized suggestion) -- plain banter
+            // has nothing to place.
+            let placeChips = MiraIntent.placeablePayload(message) != nil ? [Self.placeReplyChip] : []
+            phase = .reply(message, chips: placeChips + suggestions(for: editor))
         case .imageChoices, .imageReplaced, .stickerReplaced, .stickerEdited,
              .filterApplied, .frameApplied, .textResized, .textRecolored,
              .backgroundCleared:

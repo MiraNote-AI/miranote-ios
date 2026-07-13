@@ -9,6 +9,7 @@ public enum TextTransformMode: String, CaseIterable, Identifiable, Sendable {
     case clean
     case expand
     case polish
+    case shorten
 
     public var id: String { rawValue }
 
@@ -50,6 +51,8 @@ public struct MockTextTransformService: TextTransformService {
             return trimmed + "\n\n(expanded draft -- mock)"
         case .polish:
             return "(polished -- mock) " + trimmed
+        case .shorten:
+            return "(shortened -- mock) " + trimmed
         }
     }
 }

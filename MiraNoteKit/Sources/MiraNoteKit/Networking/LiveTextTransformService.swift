@@ -3,7 +3,8 @@ import Foundation
 /// Live `TextTransformService`: posts the user's text to the text-clean-expand
 /// POC and returns the transformed string. Endpoint/field mapping per the
 /// integration spec (T3 table): clean -> /clean -> `cleaned`,
-/// expand -> /expand -> `expanded`, polish -> /polish -> `polished`.
+/// expand -> /expand -> `expanded`, polish -> /polish -> `polished`,
+/// shorten -> /shorten -> `shortened` (the POC's target defaults to 50%).
 public struct LiveTextTransformService: TextTransformService {
     private let baseURL: URL
     private let client: HTTPClient
@@ -33,12 +34,14 @@ public struct LiveTextTransformService: TextTransformService {
         let cleaned: String?
         let expanded: String?
         let polished: String?
+        let shortened: String?
 
         func value(for mode: TextTransformMode) -> String? {
             switch mode {
             case .clean: return cleaned
             case .expand: return expanded
             case .polish: return polished
+            case .shorten: return shortened
             }
         }
     }
@@ -50,6 +53,7 @@ private extension TextTransformMode {
         case .clean: return "clean"
         case .expand: return "expand"
         case .polish: return "polish"
+        case .shorten: return "shorten"
         }
     }
 }

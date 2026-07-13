@@ -33,6 +33,7 @@ struct CanvasScene: View {
 
     private let soundStore = SoundFileStore()
     private let imageStore = ImageFileStore()
+    private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     var body: some View {
         EditorScaffold(
@@ -61,6 +62,21 @@ struct CanvasScene: View {
                     cancelRecording()
                     cancelDictationIfNeeded()
                     editingStickerItem = id
+                },
+                onFavorite: { item in
+                    switch item.content {
+                    case .sticker(let sticker):
+                        favoritesStore.add(sticker)
+                    case .image(let ref):
+                        favoritesStore.add(GeneratedSticker(
+                            prompt: ref.displayName,
+                            symbolName: "photo",
+                            fileName: ref.fileName,
+                            kind: .image
+                        ))
+                    case .text, .sound:
+                        break
+                    }
                 }
             )
         } bottom: {
@@ -235,6 +251,9 @@ struct CanvasScene: View {
         case .image:
             cancelRecording()
             actions.selectMode(.image)
+        case .library:
+            cancelRecording()
+            actions.selectMode(.library)
         }
     }
 

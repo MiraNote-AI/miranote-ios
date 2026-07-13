@@ -37,4 +37,26 @@ extension CanvasBoardView {
             }
         }
     }
+
+    /// "Favorite" for anything with stored pixels: saves a copy to the
+    /// Favorites shelf for reuse across memories.
+    @ViewBuilder func favoriteEntry(for item: CanvasItem) -> some View {
+        switch item.content {
+        case .image(let ref):
+            if !ref.fileName.isEmpty { favoriteButton(item) }
+        case .sticker(let sticker):
+            if !sticker.fileName.isEmpty { favoriteButton(item) }
+        case .text, .sound:
+            EmptyView()
+        }
+    }
+
+    private func favoriteButton(_ item: CanvasItem) -> some View {
+        Button {
+            onFavorite(item)
+            show(toast: .favorited)
+        } label: {
+            Label("Favorite", systemImage: "heart")
+        }
+    }
 }

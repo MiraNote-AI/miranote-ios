@@ -253,24 +253,40 @@ public struct ImageRef: Identifiable, Equatable, Sendable, Codable {
     }
 }
 
-/// Output of the AI sticker generator. Real artwork lives in the
-/// ImageFileStore under `fileName`; when empty, `symbolName` renders a
-/// placeholder glyph.
+/// Output of the AI sticker generator -- and, since favorites became a
+/// first-class panel, any canvas image saved for reuse (`kind` tells the
+/// panel whether re-inserting makes a sticker or a photo). Real artwork
+/// lives in the ImageFileStore under `fileName`; when empty, `symbolName`
+/// renders a placeholder glyph.
 public struct GeneratedSticker: Identifiable, Equatable, Sendable, Codable {
+    /// What re-inserting this favorite puts on the canvas.
+    public enum Kind: String, Sendable, Codable {
+        case sticker
+        case image
+    }
+
     public let id: UUID
     public var prompt: String
     public var symbolName: String
     public var fileName: String
+    public var kind: Kind
 
-    public init(id: UUID = UUID(), prompt: String, symbolName: String, fileName: String = "") {
+    public init(
+        id: UUID = UUID(),
+        prompt: String,
+        symbolName: String,
+        fileName: String = "",
+        kind: Kind = .sticker
+    ) {
         self.id = id
         self.prompt = prompt
         self.symbolName = symbolName
         self.fileName = fileName
+        self.kind = kind
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, prompt, symbolName, fileName
+        case id, prompt, symbolName, fileName, kind
     }
 
     public init(from decoder: Decoder) throws {
@@ -279,7 +295,8 @@ public struct GeneratedSticker: Identifiable, Equatable, Sendable, Codable {
             id: try container.decode(UUID.self, forKey: .id),
             prompt: try container.decode(String.self, forKey: .prompt),
             symbolName: try container.decode(String.self, forKey: .symbolName),
-            fileName: try container.decodeIfPresent(String.self, forKey: .fileName) ?? ""
+            fileName: try container.decodeIfPresent(String.self, forKey: .fileName) ?? "",
+            kind: try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .sticker
         )
     }
 }

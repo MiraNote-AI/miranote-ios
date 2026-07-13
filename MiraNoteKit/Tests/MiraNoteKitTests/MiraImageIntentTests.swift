@@ -57,6 +57,24 @@ final class MiraImageIntentTests: XCTestCase {
         }
     }
 
+    func testShortenRoutesToShortenNotClean() {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addText("a rather long note about the afternoon", at: CGPoint(x: 150, y: 80))
+        let intent = MiraIntent.classify("shorten the text", editor: editor)
+        guard case .transformText(_, _, .shorten) = intent else {
+            return XCTFail("expected transformText(.shorten), got \(intent)")
+        }
+    }
+
+    func testCleanUpRoutesToClean() {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addText("messy words all over", at: CGPoint(x: 150, y: 80))
+        let intent = MiraIntent.classify("clean up the text", editor: editor)
+        guard case .transformText(_, _, .clean) = intent else {
+            return XCTFail("expected transformText(.clean), got \(intent)")
+        }
+    }
+
     func testAmbiguousPhotoAsksToTap() {
         let editor = editorWithPhotos(2)
         let intent = MiraIntent.classify("make the photo black and white", editor: editor)

@@ -254,12 +254,13 @@ final class MiraNoteUITests: XCTestCase {
         app.buttons["quick.send"].tap()
 
         XCTAssertTrue(app.staticTexts["MiraNote AI"].waitForExistence(timeout: 5))
+        let rendered = "A scripted reply for UI tests. How about: \"a quiet line for the page\"?"
         XCTAssertTrue(
-            app.staticTexts["A scripted reply for UI tests."].waitForExistence(timeout: 8),
+            app.staticTexts[rendered].waitForExistence(timeout: 8),
             "bold arrives as style, so the label is the plain sentence"
         )
         XCTAssertFalse(
-            app.staticTexts["A **scripted** reply for UI tests."].exists,
+            app.staticTexts["A **scripted** reply for UI tests. How about: \"a quiet line for the page\"?"].exists,
             "no literal asterisks in the bubble"
         )
     }

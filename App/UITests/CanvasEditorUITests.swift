@@ -202,6 +202,44 @@ final class CanvasEditorUITests: XCTestCase {
         )
     }
 
+    // "Put this on the page" lands ONLY the current reply as one text
+    // block -- never the running transcript the reply card displays.
+    func testPlaceReplyPutsOnlyTheLastReplyOnThePage() {
+        app.buttons["Start a memory"].tap()
+
+        let input = app.textFields["mira.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("just chatting with you")
+        app.buttons["mira.go"].tap()
+
+        let chip = app.buttons["Put this on the page"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 8), "reply card shows the place chip")
+
+        // Second turn: the card now shows a multi-message transcript.
+        input.tap()
+        input.typeText("still just chatting")
+        app.buttons["mira.go"].tap()
+        XCTAssertTrue(chip.waitForExistence(timeout: 8))
+
+        chip.tap()
+
+        // Exactly the quoted suggestion lands -- an exact label match
+        // fails if the transcript or the chatty wrapping were glued in.
+        XCTAssertTrue(
+            app.staticTexts["a quiet line for the page"].waitForExistence(timeout: 5),
+            "the placed block is the quoted suggestion only"
+        )
+        for chatter in ["just chatting with you", "still just chatting", "How about"] {
+            XCTAssertFalse(
+                app.staticTexts.matching(
+                    NSPredicate(format: "label CONTAINS %@", chatter)
+                ).firstMatch.exists,
+                "conversation must not land on the page: \(chatter)"
+            )
+        }
+    }
+
     // Past the threshold the bar shows verb-specific work with Stop; Stop
     // applies nothing and gives the words back.
     func testMiraStopRefillsPromptAndAppliesNothing() {

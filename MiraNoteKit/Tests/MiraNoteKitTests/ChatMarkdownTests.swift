@@ -28,4 +28,30 @@ final class ChatMarkdownTests: XCTestCase {
         let rendered = ChatMarkdown.attributed("first line\nsecond line")
         XCTAssertTrue(String(rendered.characters).contains("first line\nsecond line"))
     }
+
+    // The live persona decorates greetings with emoji (wave, smile) and
+    // symbol+VS16 sequences (sun). None of them may corrupt into U+FFFD
+    // or lose their variation selector on the way through the parser.
+    func testEmojiAndVariationSelectorsSurviveMarkdownParsing() {
+        let samples = [
+            "Hi! \u{1F44B} How can I help?",
+            "hey \u{1F60A} not bad!",
+            "Good morning! \u{2600}\u{FE0F} Ready when you are.",
+            "**Bold** with a wave \u{1F44B} and sun \u{2600}\u{FE0F} together.",
+            "\u{1F44B} leading emoji, **then** markdown",
+        ]
+        for sample in samples {
+            let rendered = String(ChatMarkdown.attributed(sample).characters)
+            XCTAssertFalse(
+                rendered.unicodeScalars.contains("\u{FFFD}"),
+                "replacement character leaked for: \(sample)"
+            )
+            for scalar in sample.unicodeScalars where scalar.value > 0x7F {
+                XCTAssertTrue(
+                    rendered.unicodeScalars.contains(scalar),
+                    "lost U+\(String(scalar.value, radix: 16)) in: \(sample)"
+                )
+            }
+        }
+    }
 }

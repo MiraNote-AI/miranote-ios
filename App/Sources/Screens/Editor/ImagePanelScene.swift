@@ -3,8 +3,8 @@ import PhotosUI
 import SwiftUI
 
 /// The Image panel (v2.1): three sources -- Library, Camera, Generate --
-/// with sticker creation living inside Generate as a style, and the
-/// "My stickers" favorites row always in view.
+/// with sticker creation living inside Generate as a style. Saved favorites
+/// moved to their own panel (the bar's fourth mode).
 struct ImagePanelScene: View {
     @Bindable var editor: CanvasViewModel
     var studio: ImageStudioService = MockImageStudioService()
@@ -20,7 +20,6 @@ struct ImagePanelScene: View {
     @State private var results: [GeneratedResult] = []
     @State private var generating = false
     @State private var notice: String?
-    @State private var favorites: [GeneratedSticker] = []
 
     private let imageStore = ImageFileStore()
     private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
@@ -40,16 +39,6 @@ struct ImagePanelScene: View {
         } bottom: {
             panel
             InputModeBar(active: .image, onSelect: actions.selectMode)
-        }
-        .onAppear {
-            // Hygiene on open: favorites whose image is gone or degenerate
-            // (mock-era 8x8 debris) would render as blank squares.
-            favorites = favoritesStore.pruned(imageSide: { name in
-                guard let image = CanvasImageCache.image(
-                    fileName: name, filterName: "", store: imageStore
-                ) else { return nil }
-                return min(image.size.width, image.size.height)
-            })
         }
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -125,10 +114,6 @@ struct ImagePanelScene: View {
                     Text(notice)
                         .font(.miraCaption)
                         .foregroundStyle(Palette.textSecondary)
-                }
-
-                if !favorites.isEmpty {
-                    favoritesRow
                 }
             }
         }
@@ -262,56 +247,10 @@ extension ImagePanelScene {
             let sticker = GeneratedSticker(prompt: result.prompt, symbolName: "sparkles", fileName: fileName)
             editor.addSticker(sticker, at: position)
             favoritesStore.add(sticker)
-            favorites = favoritesStore.all()
         } else {
             editor.addImages([ImageRef(displayName: result.prompt, fileName: fileName)], around: position)
         }
         actions.leading()
-    }
-
-    // MARK: Favorites
-
-    private var favoritesRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("MY STICKERS")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Palette.textSecondary)
-                .kerning(1.4)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(favorites) { sticker in
-                        Button {
-                            placeFavorite(sticker)
-                        } label: {
-                            favoriteThumb(sticker)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("image.favorite.\(sticker.id.uuidString)")
-                    }
-                }
-            }
-        }
-    }
-
-    private func placeFavorite(_ sticker: GeneratedSticker) {
-        let position = CGPoint(x: 180, y: min(editor.contentBottom + 80, 4000))
-        editor.addSticker(sticker, at: position)
-        actions.leading()
-    }
-
-    @ViewBuilder private func favoriteThumb(_ sticker: GeneratedSticker) -> some View {
-        if let image = CanvasImageCache.image(fileName: sticker.fileName, filterName: "", store: imageStore) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Palette.paper))
-        } else {
-            Image(systemName: sticker.symbolName)
-                .frame(width: 44, height: 44)
-                .foregroundStyle(Palette.taupe)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Palette.paper))
-        }
     }
 
     // MARK: Shared bits
