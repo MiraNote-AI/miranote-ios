@@ -109,7 +109,7 @@ extension CanvasScene {
             Spacer()
             Button("Back") { accessoryRow = .tools }
         case .ai:
-            ForEach(["Polish", "Expand", "Tighten"], id: \.self) { action in
+            ForEach(["Clean up", "Expand"], id: \.self) { action in
                 Button(action) { runTextAI(action) }
             }
             Spacer()

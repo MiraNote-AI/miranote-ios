@@ -58,6 +58,18 @@ final class LiveTextTransformServiceTests: XCTestCase {
         XCTAssertEqual(result, "A.")
     }
 
+    func testShortenPostsToShortenAndReturnsShortenedField() async throws {
+        var path: String?
+        StubURLProtocol.handler = { request in
+            path = request.url?.path
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"{"original":"a long note","shortened":"a note","target":"50%"}"#.utf8))
+        }
+        let result = try await service().transform("a long note", mode: .shorten)
+        XCTAssertEqual(path, "/shorten")
+        XCTAssertEqual(result, "a note")
+    }
+
     func testServerErrorPropagatesAsBackendError() async {
         StubURLProtocol.handler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 502, httpVersion: nil, headerFields: nil)!
