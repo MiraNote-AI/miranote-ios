@@ -58,7 +58,7 @@ repo's README for setup, keys, and the image models):
 
 | Feature | Port |
 |---|---|
-| Polish / expand / tighten text | 8001 |
+| Clean up / Expand chips, shorten via Mira | 8001 |
 | Mira chat, drafts, AI titles and captions | 8003 |
 | AI image, cutout / make sticker, Ask-AI photo edits, photo vision | 8002 |
 | Voice dictation | 8005 |
@@ -67,6 +67,22 @@ The retrieval POC (:8004, quote corpus) runs server-side but has no app
 client yet -- it is on the roadmap, not in the feature set.
 
 Backends down = calm failure cards in the app, nothing breaks.
+
+## Using the app (60-second tour)
+
+1. Home -> **Start a memory**: a blank canvas page opens.
+2. The bottom bar has four modes: **Sound** (record, auto-transcribed),
+   **Text** (type in place; while editing, AI chips offer **Clean up**
+   and **Expand**), **Image** (photo library / camera / **AI image**
+   with Photo, Illustration, Watercolor, and Sticker styles), and
+   **Saved** (your favorites shelf -- tap to place on the page).
+3. **Long-press any element** for its menu: Edit, Favorite (saves it to
+   the Saved shelf), Duplicate, layer order, Delete.
+4. The **Ask Mira** bar drives everything in words: "clean up the
+   text", "make it shorter", "make it a sticker", "tidy the layout",
+   or just chat -- when Mira suggests words in quotes, a one-tap chip
+   places exactly those words on the page.
+5. **Done** files the page into your journal on Home.
 
 ## Layout
 
