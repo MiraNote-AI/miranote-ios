@@ -93,7 +93,8 @@ struct ImagePanelScene: View {
                     .accessibilityIdentifier("image.source.generate")
 
                     #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+                    if ProcessInfo.processInfo.arguments.contains("-UITEST")
+                        || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES") {
                         Button {
                             addSamplePhotos()
                         } label: {
@@ -140,8 +141,16 @@ struct ImagePanelScene: View {
     #if DEBUG
     /// -UITEST only: two canned images straight through the real pipeline.
     /// The second is portrait so tests can lock aspect-true boxes and
-    /// overflow-free rendering.
+    /// overflow-free rendering. -DEMO-SAMPLES (demo-video recorder, live
+    /// services) instead stages ONE painted photo big enough for a real
+    /// cutout -- the system photo picker is a remote view XCUITest cannot
+    /// drive reliably.
     private func addSamplePhotos() {
+        if ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES") {
+            add(imageData: Self.demoBowlPhoto(), name: "Noodle lunch", returnToCanvas: false)
+            actions.leading()
+            return
+        }
         add(imageData: MockImageStudioService.tinyPNG, name: "Sample one", returnToCanvas: false)
         let tall = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 16)).pngData { context in
             UIColor(red: 0.79, green: 0.70, blue: 0.58, alpha: 1).setFill()
@@ -149,6 +158,32 @@ struct ImagePanelScene: View {
         }
         add(imageData: tall, name: "Sample two", returnToCanvas: false)
         actions.leading()
+    }
+
+    /// A warm bowl-of-noodles still life, painted at photo size so the
+    /// live /cutout has a real subject to lift.
+    private static func demoBowlPhoto() -> Data {
+        UIGraphicsImageRenderer(size: CGSize(width: 900, height: 1200)).pngData { context in
+            let c = context.cgContext
+            UIColor(red: 0.93, green: 0.88, blue: 0.80, alpha: 1).setFill()
+            c.fill(CGRect(x: 0, y: 0, width: 900, height: 1200))
+            UIColor(red: 0.77, green: 0.66, blue: 0.51, alpha: 1).setFill()
+            c.fill(CGRect(x: 0, y: 750, width: 900, height: 450))
+            UIColor(red: 0.35, green: 0.23, blue: 0.16, alpha: 1).setFill()
+            c.fillEllipse(in: CGRect(x: 240, y: 620, width: 420, height: 300))
+            UIColor(red: 0.89, green: 0.70, blue: 0.36, alpha: 1).setFill()
+            c.fillEllipse(in: CGRect(x: 270, y: 640, width: 360, height: 190))
+            UIColor(red: 0.96, green: 0.91, blue: 0.70, alpha: 1).setStroke()
+            c.setLineWidth(7)
+            for i in 0..<12 {
+                let x = CGFloat(300 + i * 25)
+                c.strokeEllipse(in: CGRect(x: x, y: 660, width: 60, height: 110))
+            }
+            UIColor(red: 0.98, green: 0.96, blue: 0.93, alpha: 1).setFill()
+            c.fillEllipse(in: CGRect(x: 400, y: 590, width: 100, height: 100))
+            UIColor(red: 0.93, green: 0.67, blue: 0.26, alpha: 1).setFill()
+            c.fillEllipse(in: CGRect(x: 425, y: 615, width: 50, height: 50))
+        }
     }
     #endif
 }
