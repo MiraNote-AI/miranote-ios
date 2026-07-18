@@ -118,7 +118,13 @@ extension UIImage {
         }
         let scaleFactor = maxDimension / largest
         let target = CGSize(width: size.width * scaleFactor, height: size.height * scaleFactor)
-        let renderer = UIGraphicsImageRenderer(size: target)
+        // Render at scale 1: the renderer's default format multiplies by
+        // the SCREEN scale (3x on Pro phones), silently storing a 4320px
+        // image where 1440 was intended -- 9x the pixels, and minutes of
+        // extra /cutout time per sticker.
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: target, format: format)
         let resized = renderer.image { _ in
             draw(in: CGRect(origin: .zero, size: target))
         }

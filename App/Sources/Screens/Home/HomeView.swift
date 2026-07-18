@@ -107,6 +107,7 @@ struct HomeView: View {
                 .tint(Palette.forest)
                 .submitLabel(.send)
                 .onSubmit(submitPrompt)
+                .accessibilityIdentifier("quick.field")
                 .overlay(alignment: .leading) {
                     if prompt.isEmpty {
                         Text("When was my Paris trip?")
