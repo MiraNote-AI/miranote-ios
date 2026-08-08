@@ -6,8 +6,10 @@ have shipped bugs (a hardcoded 360pt canvas width, an undo step per
 changed field, and point sizes applied without re-measuring the text
 box). Mira on the canvas today receives a flat string of words and
 nothing about the page's appearance; this spec gives her the geometry
-always, the pixels on demand, and the ability to act on both. Issue:
-to be filed before the first PR (Rule 6).
+always, the pixels on demand, and the ability to act on both.
+
+Tracked as miranote-api#38 (backend, lands first) and
+miranote-ios#41 (app).
 
 ## Goal
 
@@ -438,10 +440,10 @@ The work spans two repos and the api side must land first -- the app
 cannot call tools that do not exist yet. Both PRs base on `main`
 independently; nothing is stacked.
 
-1. `miranote-api`: canvas mode on `/chat`, the three tools, the
+1. `miranote-api` (#38): canvas mode on `/chat`, the three tools, the
    `prompt` parameter on `/describe`, `image_client.py`.
-2. `miranote-ios`: the page map, the render closure, the guards, the
-   apply path, the timeout ladder, mocks and tests.
+2. `miranote-ios` (#41): the page map, the render closure, the guards,
+   the apply path, the timeout ladder, mocks and tests.
 
 ## Found on the way, not fixed here
 
