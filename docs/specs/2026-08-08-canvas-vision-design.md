@@ -1,10 +1,13 @@
 # Mira sees the canvas -- design
 
-Approved by Meng on 2026-08-08, section by section. Mira on the canvas
-today receives a flat string of words and nothing about the page's
-appearance; this spec gives her the geometry always, the pixels on
-demand, and the ability to act on both. Issue: to be filed before the
-first PR (Rule 6).
+Approved by Meng on 2026-08-08, section by section, then revised after
+an adversarial review pass that found three ways the first draft would
+have shipped bugs (a hardcoded 360pt canvas width, an undo step per
+changed field, and point sizes applied without re-measuring the text
+box). Mira on the canvas today receives a flat string of words and
+nothing about the page's appearance; this spec gives her the geometry
+always, the pixels on demand, and the ability to act on both. Issue:
+to be filed before the first PR (Rule 6).
 
 ## Goal
 
@@ -125,7 +128,7 @@ mode: the page-edit tools are released only then.
 Rendered as a compact block, not JSON -- fewer tokens, and the model
 reads a labeled table fine:
 
-    [The page open in the editor -- 360 wide, 812 tall, default
+    [The page open in the editor -- 393 wide, 812 tall, default
     gradient background]
     t1  text     (28,40)   304x44   30pt      "Noodle shop by the bridge"
     p1  photo    (40,110)  280x200  film      a steaming bowl on a wooden counter, evening light
@@ -136,9 +139,30 @@ reads a labeled table fine:
 
 Rules:
 
+- **The canvas is device-width, and the map says which width.** The
+  board is `.frame(maxWidth: .infinity)` and reports its real width
+  into `editor.canvasWidth` (CanvasBoardView.swift:105,113), so
+  element positions are stored in device points -- 393 on an iPhone
+  15, 440 on a Pro Max, far more on iPad. 360 is only the width the
+  reading/export renderer draws at. The map therefore carries this
+  device's actual canvas width, and every coordinate in and out is in
+  that same space. **No layer of this feature may hardcode 360**; a
+  map that says 360 on a 393pt screen puts "centered" 21pt left of
+  center, and pushes "over to the right" off the visible page.
 - **Handles.** `t`/`p`/`s`/`a` plus an index, assigned per turn and
   mapped back to `CanvasItem.ID` on device. UUIDs would burn tokens
   and invite transcription errors.
+- **Exactly one map is ever in context, and it is always current.**
+  `run_turn` appends the *composed* message -- context block included
+  -- to the session history (chat_loop.py:52), and history runs 40
+  messages deep. Left alone, turn 4 would show the model four
+  contradicting maps, and because handles are re-numbered by y every
+  turn, turn 1's `t1` may be a different element than turn 4's. The
+  model would move the wrong thing with full confidence. So in canvas
+  mode the history stores the user's raw words only, and the current
+  map is injected fresh for each model call without being persisted.
+  This matters far more than the equivalent staleness in `notes`:
+  coordinates and handles are acted on, not just read.
 - **Order.** Sorted by y, top to bottom. This is the fix for the
   creation-order bug above; "the first block", "the one above it" now
   mean what the user means.
@@ -174,8 +198,15 @@ step. Each entry names a handle and only the fields that change:
 `color` takes a palette name, not a hex value -- `TextBlock.colorName`
 is resolved by the App layer. The tool description enumerates the
 legal names so the model picks from the palette instead of inventing
-"warm beige". `layer` takes `front` or `back` and maps onto the
-existing `bringToFront` / `sendToBack`.
+"warm beige". `layer` takes `front` or `back` and means the same as
+the existing `bringToFront` / `sendToBack` (but see the apply
+section -- it must not call them).
+
+`size` is a free point size clamped to 11-48, not one of the three
+steps (13/17/30) the existing +/- intent walks. Decided by Meng: the
+ladder cannot answer "just a little bigger", and the app already
+places titles at 30 and captions at 15, so the ladder was never the
+whole vocabulary anyway.
 
     move the title above the photo -> [{id:t1, x:28, y:24}]
     make this picture bigger       -> [{id:p1, w:320, h:228}]
@@ -201,6 +232,14 @@ seconds, background generation runs up to 150s (`imageTimeout`).
 The backend does no work -- it records the call in `tool_trace`, the
 app reads it and runs the existing slow image path on its own budget.
 This is `create_note`'s pattern, second use.
+
+**The slow work is a new turn, not a continuation.** By the time the
+app reads the instruction, the chat turn has already settled --
+`turnTask` is nil and the phase is `.reply`. The app therefore starts
+a fresh turn for the image work: bump `turnGeneration`, replace the
+reply card with the working bar, and run under `imageTimeout`. Left
+implicit, Stop would have nothing to cancel and a late receipt could
+land on top of whatever the user did next.
 
 ### `look_at_page()`
 
@@ -231,9 +270,12 @@ arrangement, crowding, emphasis, and how the colors sit.
   model could look six times. A second call returns "you already
   looked at this page this turn" without a vision call.
 - **JPEG, long edge 1536.** The canvas scrolls without limit, so a
-  page can be 360x3000; at 2x that is enormous. Downscaling makes a
+  page can be 393x3000; at 2x that is enormous. Downscaling makes a
   very tall page coarse, which is acceptable: precision lives in the
   map, the image only carries impression.
+- **Rendered at the real canvas width, not 360.** `StaticPageView`
+  defaults `designWidth` to 360, but the model must be shown what the
+  user is looking at. The look render passes `editor.canvasWidth`.
 - **Failure is not turn failure.** If the render is unavailable (the
   App-layer closure unwired, as in tests and previews) or :8002 is
   down, the tool returns that it could not look and the model answers
@@ -272,27 +314,67 @@ model to answer from the map.
 ## Applying edits on device
 
 `MiraOutcome` gains `pageEdited([ElementChange], MiraReceipt)`.
-`settle` applies it in the existing shape:
+`settle` applies it as one snapshot, one receipt, one Revert --
+reusing Keep-pattern behavior (6s auto-keep, inline Revert, header
+undo as the backstop) untouched.
 
-    editor.beginChange()      // one snapshot
-    apply every change
-    showReceipt(...)          // one receipt, one Revert
+### One undo step means bypassing the snapshotting helpers
 
-Keep-pattern behavior (6s auto-keep, inline Revert, header undo as
-the backstop) is reused untouched.
+`setTextPointSize` (CanvasViewModel.swift:215), `setTextColorName`
+(:223), `bringToFront` (:314) and `sendToBack` (:320) each call
+`beginChange()` themselves, while `resize`, `setText`,
+`autosizeTextHeight` and `rotate` do not. Driving the apply path
+through the first group would push one snapshot per changed field,
+and `revert()` pops exactly one (`undo()`), so the user would tap
+Revert on a five-element change and watch four fifths of it stay.
+That breaks the promise the receipt makes.
 
-Three guards run before anything is applied. All are pure functions
-on device:
+So the apply path takes its own single `beginChange()` and then
+mutates `memory.items` directly, in the style of `resize` / `setText`
+/ `rotate`. It never calls the four snapshotting helpers. Either a
+non-snapshotting variant of each is added, or the mutation is written
+inline in the apply function -- an implementation call, but the
+one-snapshot invariant is not.
+
+### Point sizes are applied before positions, with a re-measure between
+
+The existing text-resize intent never changes a point size alone: it
+pairs `setTextPointSize` with `autosizeTextHeight` fed by
+`Memory.estimatedTextHeight` (MiraCanvasCoordinator+Images.swift:163).
+Skip that and 34pt text clips inside a box measured for 15pt.
+
+It compounds within a single `edit_page`: the model computed its y
+coordinates against the heights it saw in the map, so changing a
+point size silently invalidates every position below it. The apply
+order is therefore fixed:
+
+1. apply `size` and `color` changes,
+2. re-measure every touched text box with `estimatedTextHeight` and
+   autosize it,
+3. apply `x` / `y` / `w` / `h` / `layer`.
+
+Positions win because they are what the user asked for most
+literally; the re-measure sits between so the boxes are honest before
+anything is placed against them.
+
+### Guards
+
+Run before anything is applied; all pure functions on device.
 
 1. **Unknown handle -> skip that entry; unknown palette color -> drop
    that field, keep the rest of the entry.** Models occasionally
    invent a `t9`, or a color name that is not in the palette.
-2. **Coordinates clamped into the page.** Width is locked at 360, so
-   nothing may be pushed off the sides; y may grow downward (the
-   canvas scrolls) but never negative.
-3. **Every entry invalid -> treat the turn as a failure.** Showing a
+2. **Coordinates clamped into the page, at the real canvas width.**
+   Nothing may be pushed off the sides of `editor.canvasWidth`; y may
+   grow downward (the canvas scrolls) but never negative. Clamping
+   against a hardcoded 360 on a wider screen would itself be the bug.
+3. **Point sizes clamped to 11-48.**
+4. **Every entry invalid -> treat the turn as a failure.** Showing a
    receipt when nothing landed would be a lie. Falls to the `clarify`
    card: Mira did not find the element and asks which one was meant.
+5. **Nothing to arrange -> clarify, not an empty edit.** An empty
+   page, or a page with one element, answers "tidy this up" with the
+   clarify card rather than a receipt for a change that did nothing.
 
 ## Error handling
 
@@ -319,18 +401,31 @@ Swift:
 
 - Page map: y ordering, handle assignment, center-to-corner
   conversion, omitted defaults, the 24-element cap and its stated
-  remainder.
-- Guards: unknown handle skipped, out-of-range coordinates clamped,
-  all-invalid becomes a clarify failure with the canvas untouched.
-- Apply: several changes produce exactly one undo step; Revert
-  restores the page; a canvas edit between receipt and Revert makes
-  Revert decline (existing `receiptChangeCount` rule).
-- Merging: two `edit_page` calls in one trace produce one receipt.
+  remainder, and that the width in the header is `canvasWidth` rather
+  than a constant (assert with a width that is not 360).
+- Guards: unknown handle skipped, out-of-range coordinates clamped at
+  a non-360 canvas width, point size clamped, all-invalid becomes a
+  clarify failure with the canvas untouched, one-element page answers
+  "tidy" with clarify.
+- Apply: a change set touching point size, color, layer and position
+  at once produces **exactly one** undo step -- the regression test
+  for the snapshotting-helper trap; Revert restores the page whole; a
+  canvas edit between receipt and Revert makes Revert decline
+  (existing `receiptChangeCount` rule).
+- Apply order: raising a point size grows the text box before the new
+  positions land, and the result has no overlap the model did not
+  ask for.
+- Merging: two `edit_page` calls in one trace produce one receipt,
+  with the later call winning field by field.
+- `set_background` from tool_trace runs as a fresh turn: Stop cancels
+  it, and its receipt cannot land after the user has moved on.
 
 Python:
 
 - Canvas mode gates the tools: `page` present releases the page
   tools, absent withholds them.
+- Canvas mode stores raw words in history: after three turns the
+  session holds three user messages and zero page maps.
 - `edit_page` argument validation and the tool_trace shape the app
   parses.
 - `look_at_page` calls the image client, and the second call in a
@@ -347,6 +442,15 @@ independently; nothing is stacked.
    `prompt` parameter on `/describe`, `image_client.py`.
 2. `miranote-ios`: the page map, the render closure, the guards, the
    apply path, the timeout ladder, mocks and tests.
+
+## Found on the way, not fixed here
+
+Reading mode and export render with `StaticPageView(designWidth: 360)`
+while the editor lays elements out at the device width. On any screen
+wider than 360 -- which is every current iPhone -- the exported long
+image is already squeezing the page. This predates this work and is
+not in its scope, but it is the same root confusion, so it should get
+its own ticket rather than being discovered again later.
 
 ## Follow-ups
 
