@@ -57,8 +57,6 @@ by y for the same job. The page map below fixes this.
   on the keyword path; the tool_trace pattern makes it a cheap
   follow-up once `set_background` proves out.
 - No background prompt in the data model (see Follow-ups).
-- No real-device networking. Backends stay on localhost per
-  `MiraNoteConfig`.
 
 ## Approach: geometry always, pixels on demand
 
@@ -293,6 +291,15 @@ Privacy: the page image leaves the device. Photos already do, at
 import (`/describe`) and on edit (`/stylize`), so this introduces no
 new category of data leaving.
 
+**Real devices are no longer on loopback.** `MiraNoteConfig.Backend`
+now resolves a real device to the shared beta Mac over Wi-Fi
+(miranote-ios#40), so the per-turn upload is real bytes on a real
+network rather than a memcpy. It is still the right trade at LAN
+speeds -- a few hundred KB is well under a second, and the alternative
+(fetching the image only after the model asks for it) costs a second
+round trip on exactly the turns that are already the slowest. Revisit
+if the app ever talks to a backend off the local network.
+
 ## Timeouts
 
 A ladder, innermost first, so exactly one clock can fire and the
@@ -462,6 +469,6 @@ its own ticket rather than being discovered again later.
   and gets its own decision.
 - `restyle_photo` as a fourth tool, once `set_background` has proven
   the tool-as-instruction path a second time.
-- Real-device networking will make a per-turn image upload real cost;
-  the answer then is to upload only after the model asks, or to drop
-  quality further.
+- If a backend ever moves off the local network, revisit the per-turn
+  image upload: fetch it only after the model asks, or drop quality
+  further.
