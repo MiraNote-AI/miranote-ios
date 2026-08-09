@@ -394,6 +394,8 @@ extension CanvasViewModel {
         memory.items.firstIndex { $0.id == id }
     }
 
-    private var topZ: Int { memory.items.map(\.zIndex).max() ?? 0 }
-    private var bottomZ: Int { memory.items.map(\.zIndex).min() ?? 0 }
+    // Internal, not private: the page-edit apply path (+PageEdits) restacks
+    // without going through bringToFront/sendToBack, which snapshot.
+    var topZ: Int { memory.items.map(\.zIndex).max() ?? 0 }
+    var bottomZ: Int { memory.items.map(\.zIndex).min() ?? 0 }
 }
