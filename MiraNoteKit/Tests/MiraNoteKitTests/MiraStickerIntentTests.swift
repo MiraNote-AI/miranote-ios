@@ -75,11 +75,13 @@ final class MiraStickerIntentTests: XCTestCase {
         XCTAssertTrue(question.contains("No sticker"))
     }
 
-    func testIndefiniteStickerWishStaysConverse() {
+    func testIndefiniteStickerWishGoesToTheCanvasTurn() {
         let editor = editorWithStickers(1)
         let intent = MiraIntent.classify("make a sticker of a cat", editor: editor)
-        guard case .converse = intent else {
-            return XCTFail("expected converse, got \(intent)")
+        // The keyword ladder must not claim this; it falls through to
+        // the model, which can see the page.
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected a canvas turn, got \(intent)")
         }
     }
 
@@ -144,11 +146,13 @@ final class MiraStickerIntentTests: XCTestCase {
         }
     }
 
-    func testAddAStickerOfACatStaysConverse() {
+    func testAddAStickerOfACatGoesToTheCanvasTurn() {
         let editor = editorWithStickers(1)
         let intent = MiraIntent.classify("add a sticker of a cat", editor: editor)
-        guard case .converse = intent else {
-            return XCTFail("expected converse, got \(intent)")
+        // The keyword ladder must not claim this; it falls through to
+        // the model, which can see the page.
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected a canvas turn, got \(intent)")
         }
     }
 

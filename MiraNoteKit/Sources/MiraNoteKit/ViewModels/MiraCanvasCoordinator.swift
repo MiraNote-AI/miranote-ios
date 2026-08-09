@@ -70,6 +70,11 @@ public final class MiraCanvasCoordinator {
     /// here (e.g. wait for vision to finish looking at new photos) so the
     /// turn sees a fully-described page.
     public var prepareTurn: (() async -> Void)?
+    /// Renders the page as the user sees it, for Mira's look_at_page.
+    /// Wired by the view because the renderer lives in the App layer.
+    /// Nil in tests and previews -- Mira then answers from the map
+    /// alone, which is not a failure.
+    public var renderPage: (() -> Data?)?
 
     private let text: TextTransformService
     private let chat: ChatService
@@ -162,7 +167,7 @@ public final class MiraCanvasCoordinator {
                 indicator.cancel()
                 guard self.turnGeneration == generation else { return }
             }
-            let intent = MiraIntent.classify(trimmed, editor: editor)
+            let intent = MiraIntent.classify(trimmed, editor: editor, render: self.renderPage)
             await run(intent, prompt: trimmed, editor: editor, generation: generation)
         }
     }
@@ -311,9 +316,25 @@ public final class MiraCanvasCoordinator {
                 size: CGSize(width: 320, height: 60)
             )
             showReceipt(receipt, editor: editor)
-        case .organized(let receipt):
-            editor.quickOrganize(canvasWidth: editor.canvasWidth ?? 360)
-            showReceipt(receipt, editor: editor)
+        case .pageEdited(let changes, let handles):
+            // Guards run here, on the main actor, against the page as it
+            // stands now -- perform ran off it and the page may have
+            // moved underneath.
+            let resolved = PageEditGuard.resolve(
+                changes, handles: handles, canvasWidth: editor.canvasWidth ?? 393
+            )
+            guard editor.applyPageEdits(resolved) else {
+                refillPrompt = lastPrompt
+                phase = .failure(MiraFailure(
+                    kind: .clarify,
+                    message: "I could not tell which piece you meant -- which one should I move?",
+                    chips: ["Try again"]
+                ))
+                return
+            }
+            showReceipt(Self.receipt(for: resolved, editor: editor), editor: editor)
+        case .backgroundRequested(let request, _):
+            startBackgroundTurn(request, editor: editor)
         case .reply(let message, let newSessionID):
             sessionID = newSessionID ?? sessionID
             conversation.append(ChatMessage(role: .user, text: lastPrompt))
@@ -330,6 +351,66 @@ public final class MiraCanvasCoordinator {
              .filterApplied, .frameApplied, .textResized, .textRecolored,
              .backgroundCleared:
             settleImageOutcome(outcome, editor: editor)
+        }
+    }
+
+    /// Slow image work Mira asked for. It is a NEW turn, not the tail of
+    /// the chat turn: that one has already settled, so without its own
+    /// generation Stop would have nothing to cancel and a late receipt
+    /// could land on top of whatever the user did next.
+    private func startBackgroundTurn(_ request: BackgroundRequest, editor: CanvasViewModel) {
+        switch request {
+        case .clear:
+            // The same call the existing .backgroundCleared branch makes.
+            editor.beginChange()
+            editor.setBackground(fileName: "")
+            showReceipt(MiraReceipt(
+                changed: "Cleared the backdrop.",
+                kept: "Your words and photos are unchanged."
+            ), editor: editor)
+        case .set(let prompt):
+            cancelTurn()
+            let generation = turnGeneration
+            phase = .working(verb: "Painting the backdrop...")
+            turnTask = Task { [lastPrompt] in
+                await run(
+                    .setBackground(prompt: prompt), prompt: lastPrompt,
+                    editor: editor, generation: generation
+                )
+            }
+        }
+    }
+
+    /// The receipt says what changed, in the app's voice -- the strip is
+    /// a fixed UI element (one line, check mark, Revert, 6s auto-keep),
+    /// so its wording must stay steady. Mira owns the conversational
+    /// reply, where variety is welcome.
+    static func receipt(
+        for changes: [ResolvedChange], editor: CanvasViewModel
+    ) -> MiraReceipt {
+        let kept = "Everything else stayed put."
+        if changes.count >= 3 {
+            return MiraReceipt(changed: "Rearranged the page.", kept: kept)
+        }
+        let noun = changes.count == 1
+            ? Self.noun(for: changes[0].id, editor: editor) : "a few things"
+        let moved = changes.contains { $0.x != nil || $0.y != nil }
+        let resized = changes.contains { $0.w != nil || $0.h != nil || $0.pointSize != nil }
+        if moved && !resized { return MiraReceipt(changed: "Moved \(noun).", kept: kept) }
+        if resized && !moved { return MiraReceipt(changed: "Resized \(noun).", kept: kept) }
+        if changes.contains(where: { $0.colorName != nil }) {
+            return MiraReceipt(changed: "Recolored \(noun).", kept: kept)
+        }
+        return MiraReceipt(changed: "Adjusted \(noun).", kept: kept)
+    }
+
+    private static func noun(for id: CanvasItem.ID, editor: CanvasViewModel) -> String {
+        switch editor.item(id)?.content {
+        case .text(let block): return block.pointSize >= 24 ? "the title" : "the text"
+        case .image: return "the photo"
+        case .sticker: return "the sticker"
+        case .sound: return "the sound"
+        case nil: return "it"
         }
     }
 

@@ -34,7 +34,13 @@ enum MiraOutcome: Sendable {
     case textChanged(CanvasItem.ID, String, MiraReceipt)
     case titleAdded(String, MiraReceipt)
     case textAdded(String, MiraReceipt)
-    case organized(MiraReceipt)
+    /// Handles ride along unresolved: the guards run on the main actor at
+    /// settle time, against the page as it stands then, because `perform`
+    /// runs off it and the page can move underneath.
+    case pageEdited([ElementChange], handles: [String: CanvasItem.ID])
+    /// Slow image work Mira asked for; the coordinator runs it as its own
+    /// turn under the image budget.
+    case backgroundRequested(BackgroundRequest, reply: String)
     case reply(String, sessionID: String?)
     // Image and style families (applied in MiraCanvasCoordinator+Images).
     case imageChoices([Data], prompt: String, placement: ImageChoicePlacement)
@@ -58,11 +64,15 @@ enum MiraIntent {
     case addTitle(pageNotes: [ChatNote])
     /// AI-driven: a few warm sentences about the page (its photo included).
     case addCaption(pageNotes: [ChatNote])
-    case organize
-    /// Free conversation, grounded in the page being edited (sent as a
-    /// journal-mode note so Mira knows what it is standing on).
-    case converse(String, pageNotes: [ChatNote])
+    /// Anything the keyword ladder does not catch. The page rides along
+    /// as a map of numbered elements plus a rendering, and whatever Mira
+    /// decides to do with it comes back as edits. This replaces both the
+    /// old free-conversation fallback and the hardcoded local rearrange:
+    /// with the page in front of her, "tidy this up" is a judgment, not a
+    /// fixed single-column stack.
+    case canvasTurn(String, PageContext, handles: [String: CanvasItem.ID])
     case clarifyNoText
+    case clarifyNothingToArrange
     // Image and style families; their cues live in MiraIntent+Image.swift.
     case generateImage(prompt: String, sticker: Bool)
     case editPhoto(CanvasItem.ID, imageData: Data, instruction: String)
@@ -111,8 +121,40 @@ enum MiraIntent {
         return candidates.max { $0.1.count < $1.1.count }
     }
 
+    /// Asks that want a title WRITTEN, as opposed to asks about the title
+    /// that is already there. English only, because the branch it gates
+    /// is: the title cue has always been the literal word "title", so a
+    /// Chinese ask has never reached it and goes to the canvas turn.
+    static func wantsANewTitle(_ lowered: String) -> Bool {
+        let cues = ["add", "give", "write", "name", "come up with", "suggest", "need a"]
+        return cues.contains { lowered.contains($0) }
+    }
+
+    /// The layout vocabulary. Shared by the nothing-to-arrange guard and
+    /// the offline fallback so the two cannot drift apart.
+    static func isLayoutAsk(_ words: String) -> Bool {
+        let lowered = words.lowercased()
+        return ["tidy", "layout", "organize", "arrange"].contains { lowered.contains($0) }
+    }
+
+    /// The page as Mira reads it, plus the handle table the app keeps.
+    /// `render` is nil in tests and previews -- Mira then answers from
+    /// the map alone, which is not a failure.
     @MainActor
-    static func classify(_ prompt: String, editor: CanvasViewModel) -> MiraIntent {
+    static func pageContext(
+        editor: CanvasViewModel, render: (() -> Data?)?
+    ) -> (PageContext, [String: CanvasItem.ID]) {
+        let (map, handles) = PageMap.build(
+            from: editor.composedMemory(),
+            canvasWidth: editor.canvasWidth ?? 393
+        )
+        return (PageContext(map: map, image: render?()), handles)
+    }
+
+    @MainActor
+    static func classify(
+        _ prompt: String, editor: CanvasViewModel, render: (() -> Data?)? = nil
+    ) -> MiraIntent {
         let lowered = prompt.lowercased()
 
         func targetText() -> (CanvasItem.ID, String)? {
@@ -151,17 +193,24 @@ enum MiraIntent {
             }
             return .clarifyNoText
         }
-        if lowered.contains("title") {
+        // "title" is a noun, not a request. Left bare it swallowed every
+        // sentence ABOUT the title -- "move the title above the photo",
+        // "the title is too small" -- and answered by writing a new one.
+        // Only an add-shaped ask writes a title; the rest is Mira's job,
+        // because she can see where the title actually is.
+        if lowered.contains("title"), Self.wantsANewTitle(lowered) {
             return .addTitle(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
         if Self.captionCues.contains(where: lowered.contains) {
             return .addCaption(pageNotes: [ChatNote(page: editor.composedMemory())])
         }
-        if lowered.contains("tidy") || lowered.contains("layout")
-            || lowered.contains("organize") || lowered.contains("arrange") {
-            return .organize
+        // A page with nothing to arrange should say so rather than take a
+        // receipt for a change that did nothing.
+        if Self.isLayoutAsk(lowered), editor.items.count < 2 {
+            return .clarifyNothingToArrange
         }
-        return .converse(prompt, pageNotes: [ChatNote(page: editor.composedMemory())])
+        let (context, handles) = Self.pageContext(editor: editor, render: render)
+        return .canvasTurn(prompt, context, handles: handles)
     }
 
     var verb: String {
@@ -172,9 +221,9 @@ enum MiraIntent {
         case .transformText(_, _, .shorten): return "Shortening the text..."
         case .addTitle: return "Adding a title..."
         case .addCaption: return "Writing a few words..."
-        case .organize: return "Tidying the layout..."
-        case .converse: return "Thinking..."
-        case .clarifyNoText: return "Thinking..."
+        case .canvasTurn(let words, _, _):
+            return Self.isLayoutAsk(words) ? "Tidying the layout..." : "Working on the page..."
+        case .clarifyNoText, .clarifyNothingToArrange: return "Thinking..."
         case .generateImage: return "Painting..."
         case .editPhoto: return "Restyling the photo..."
         case .makeSticker: return "Cutting the sticker..."
@@ -221,20 +270,28 @@ enum MiraIntent {
             return try await Self.performAddTitle(chat: chat, pageNotes: pageNotes)
         case .addCaption(let pageNotes):
             return try await Self.performAddCaption(chat: chat, pageNotes: pageNotes)
-        case .organize:
-            return .organized(MiraReceipt(
-                changed: "Tidied the layout.",
-                kept: "Your words and photos are unchanged."
-            ))
-        case .converse(let prompt, let pageNotes):
-            let reply = try await chat.reply(to: prompt, sessionID: sessionID, notes: pageNotes)
+        case .canvasTurn(let prompt, let context, let handles):
+            let reply = try await chat.reply(
+                to: prompt, sessionID: sessionID, notes: [], page: context
+            )
             if let landed = MiraIntent.landedDraft(from: reply) {
                 return landed
+            }
+            if let background = reply.backgroundRequest {
+                return .backgroundRequested(background, reply: reply.text)
+            }
+            if !reply.pageEdits.isEmpty {
+                return .pageEdited(reply.pageEdits, handles: handles)
             }
             return .reply(reply.text, sessionID: reply.sessionID)
         case .clarifyNoText:
             throw MiraClarifyError(
                 question: "There are no words on the page yet -- which text should I change?",
+                chips: ["Add a soft title"]
+            )
+        case .clarifyNothingToArrange:
+            throw MiraClarifyError(
+                question: "There is not much on this page to arrange yet -- add a little first?",
                 chips: ["Add a soft title"]
             )
         case .generateImage, .editPhoto, .makeSticker, .applyFilter,
