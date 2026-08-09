@@ -206,6 +206,14 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
             .contains(where: lowered.contains)
+        // Where an element SITS and how BIG it is are Mira's job, not a
+        // photo edit's. Without this, "put the photo behind everything
+        // else" reads as a photo treatment and dies on a placeholder's
+        // missing pixels, and "make the photo bigger" silently resized
+        // the TEXT. Same shape as the caption guard below: a noun
+        // mention must not outrank the verb.
+        if Self.mentionsPlacement(lowered) { return nil }
+        if mentionsPhoto || mentionsSticker, Self.mentionsResize(lowered) { return nil }
         if let illustration = illustrateTextIntent(lowered, editor: editor) {
             return illustration
         }
@@ -306,8 +314,44 @@ extension MiraIntent {
         return nil
     }
 
+    /// Asks about where an element sits or how big it is, rather than
+    /// how its pixels look. Escaped cues: nuo, yi-dao, fang-dao,
+    /// wang-shang, wang-xia, ju-zhong, hou-mian, qian-mian, fang-da,
+    /// suo-xiao, da-yi-dian, xiao-yi-dian.
+    static func mentionsPlacement(_ lowered: String) -> Bool {
+        let cues = [
+            "move", "nudge", "behind", "in front", "to the back", "to the front",
+            "center", "centre", "align", "line up", "on top of", "above", "below",
+            "\u{632A}", "\u{79FB}\u{5230}", "\u{653E}\u{5230}", "\u{5F80}\u{4E0A}",
+            "\u{5F80}\u{4E0B}", "\u{5C45}\u{4E2D}", "\u{540E}\u{9762}", "\u{524D}\u{9762}"
+        ]
+        return MiraIntent.usesAny(cues, in: lowered)
+    }
+
+    /// Size asks. Only a hijack when the ask names a photo or sticker --
+    /// "make it bigger" with no noun is the text resize the ladder has
+    /// always handled. Escaped cues: fang-da, suo-xiao, da-yi-dian,
+    /// xiao-yi-dian.
+    static func mentionsResize(_ lowered: String) -> Bool {
+        let cues = [
+            "bigger", "larger", "smaller", "resize",
+            "\u{653E}\u{5927}", "\u{7F29}\u{5C0F}",
+            "\u{5927}\u{4E00}\u{70B9}", "\u{5C0F}\u{4E00}\u{70B9}"
+        ]
+        return MiraIntent.usesAny(cues, in: lowered)
+    }
+
+    /// Text elements only. "bigger" applied to a sentence about a photo
+    /// used to silently resize the TEXT instead -- the noun has to win
+    /// over the adjective here.
+    private static let nonTextNouns = [
+        "photo", "picture", "image", "sticker",
+        "\u{7167}\u{7247}", "\u{56FE}", "\u{8D34}\u{7EB8}"
+    ]
+
     @MainActor
     private static func styleIntent(_ lowered: String, editor: CanvasViewModel) -> MiraIntent? {
+        guard !Self.nonTextNouns.contains(where: lowered.contains) else { return nil }
         let up = ["bigger", "larger", "\u{5927}\u{4E00}\u{70B9}", "\u{653E}\u{5927}"]
             .contains(where: lowered.contains)
         let down = ["smaller", "\u{5C0F}\u{4E00}\u{70B9}", "\u{7F29}\u{5C0F}"]

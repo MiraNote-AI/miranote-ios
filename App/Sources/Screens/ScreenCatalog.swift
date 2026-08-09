@@ -55,9 +55,16 @@ private struct LibraryPanelCatalogPreview: View {
 /// DEBUG catalog (text and sound tools work in place; Image is inert here).
 private struct CanvasCatalogPreview: View {
     @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    /// Mocks by default so the catalog stays offline and deterministic.
+    /// MIRANOTE_CHAT_LIVE points it at the real backends instead -- the
+    /// same affordance the chat scene already has, and the only way to
+    /// exercise the seam between the app and a live canvas turn.
     @State private var mira = MiraCanvasCoordinator(
-        text: MockTextTransformService(),
-        chat: MockChatService()
+        text: RootView.chatLive
+            ? ServiceContainer.live.textTransform : MockTextTransformService(),
+        chat: RootView.chatLive ? ServiceContainer.live.chat : MockChatService(),
+        imageStudio: RootView.chatLive
+            ? ServiceContainer.live.imageStudio : MockImageStudioService()
     )
     @State private var pendingTool: EditorMode?
 

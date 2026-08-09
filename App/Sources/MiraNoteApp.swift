@@ -53,7 +53,7 @@ struct RootView: View {
 
     /// When set, the `chat` catalog scene talks to the live `:8003` backend
     /// instead of the mock -- for eyeballing real replies.
-    private static var chatLive: Bool {
+    static var chatLive: Bool {
         ProcessInfo.processInfo.environment["MIRANOTE_CHAT_LIVE"] != nil
             || UserDefaults.standard.bool(forKey: "MIRANOTE_CHAT_LIVE")
     }
