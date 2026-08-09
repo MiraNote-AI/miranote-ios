@@ -84,6 +84,13 @@ public final class MiraCanvasCoordinator {
     /// short wins (Meng tuned this twice: 20s and 10s both felt long).
     public nonisolated static let defaultReceiptDismiss: Duration = .seconds(6)
 
+    /// The middle rung of the timeout ladder. Inside it, a look_at_page
+    /// hop gets 25s and failing costs only the look. Outside it,
+    /// `LiveChatService.requestTimeout` sits higher on purpose, so
+    /// exactly one clock can fire and the same stall always reads the
+    /// same way to the user.
+    public nonisolated static let defaultTurnTimeout: Duration = .seconds(60)
+
     private let workingDelay: Duration
     private let timeout: Duration
     private let receiptDismiss: Duration
@@ -104,7 +111,7 @@ public final class MiraCanvasCoordinator {
         text: TextTransformService,
         chat: ChatService,
         workingDelay: Duration = .milliseconds(400),
-        timeout: Duration = .seconds(30),
+        timeout: Duration = MiraCanvasCoordinator.defaultTurnTimeout,
         receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss,
         imageStudio: ImageStudioService = MockImageStudioService(),
         imageTimeout: Duration = .seconds(150),

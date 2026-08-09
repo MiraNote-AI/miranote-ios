@@ -306,7 +306,10 @@ final class ChatNoteTests: XCTestCase {
 private struct CapturingChat: ChatService {
     let recorder = NotesRecorder()
 
-    func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
+    func reply(
+        to message: String, sessionID: String?,
+        notes: [ChatNote], page: PageContext?
+    ) async throws -> ChatReply {
         await recorder.record(notes)
         return ChatReply(text: "ok", sessionID: "s")
     }
