@@ -283,6 +283,19 @@ public final class MiraCanvasCoordinator {
         } catch {
             indicator.cancel()
             guard !Task.isCancelled, turnGeneration == generation else { return }
+            // Layout is the one ask with a good local answer, so an
+            // unreachable backend gets a deterministic rearrange rather
+            // than a failure card. Everything else honestly fails.
+            if case .canvasTurn(let words, _, _) = intent,
+               MiraIntent.isLayoutAsk(words), editor.items.count >= 2 {
+                editor.beginChange()
+                editor.quickOrganize(canvasWidth: editor.canvasWidth ?? 393)
+                showReceipt(MiraReceipt(
+                    changed: "Tidied the layout.",
+                    kept: "Your words and photos are unchanged."
+                ), editor: editor)
+                return
+            }
             refillPrompt = prompt
             phase = .failure(Self.failure(for: error))
         }

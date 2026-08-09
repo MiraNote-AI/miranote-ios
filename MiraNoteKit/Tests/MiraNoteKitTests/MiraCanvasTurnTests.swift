@@ -207,4 +207,73 @@ final class MiraCanvasTurnTests: XCTestCase {
             return XCTFail("expected a canvas turn, got \(intent)")
         }
     }
+
+    // MARK: Slow image work, and life without a backend
+
+    func testABackgroundRequestRunsAsAFreshStoppableTurn() async {
+        var chat = ScriptedChat()
+        chat.reply = "Painting a dusk sky."
+        chat.backgroundRequest = .set(prompt: "a quiet dusk sky")
+        let mira = coordinator(chat)
+
+        mira.ask("change the background", editor: editor())
+        // The chat turn settles, then the image work starts as its own
+        // turn -- so Stop has something to cancel.
+        await waitUntil { mira.isWorking }
+        XCTAssertTrue(mira.isWorking, "the slow work must be a turn Stop can cancel")
+
+        mira.stop()
+        XCTAssertFalse(mira.isWorking)
+        XCTAssertEqual(mira.refillPrompt, "change the background")
+    }
+
+    func testClearingTheBackgroundIsInstantAndUndoable() async {
+        var chat = ScriptedChat()
+        chat.reply = "Cleared."
+        chat.backgroundRequest = .clear
+        let board = editor()
+        board.setBackground(fileName: "dusk.png")
+        let mira = coordinator(chat)
+
+        mira.ask("remove the background", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+
+        XCTAssertTrue(board.memory.backgroundFileName.isEmpty)
+        board.undo()
+        XCTAssertEqual(board.memory.backgroundFileName, "dusk.png")
+    }
+
+    func testTidyFallsBackToLocalRearrangeWhenTheBackendIsDown() async {
+        var chat = ScriptedChat()
+        chat.error = BackendError.unreachable
+        let board = editor(extraBlocks: 2)
+        let before = board.items.map(\.position)
+        let mira = coordinator(chat)
+
+        mira.ask("tidy this page up", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+
+        guard case .receipt(let receipt) = mira.phase else {
+            return XCTFail("a deterministic local rearrange beats a failure card")
+        }
+        XCTAssertEqual(receipt.changed, "Tidied the layout.")
+        XCTAssertNotEqual(board.items.map(\.position), before)
+        board.undo()
+        XCTAssertEqual(board.items.map(\.position), before)
+    }
+
+    func testANonLayoutAskStillFailsWhenTheBackendIsDown() async {
+        var chat = ScriptedChat()
+        chat.error = BackendError.unreachable
+        let board = editor(extraBlocks: 2)
+        let mira = coordinator(chat)
+
+        mira.ask("how does this page look", editor: board)
+        await waitUntil { if case .failure = mira.phase { return true }; return false }
+
+        guard case .failure = mira.phase else {
+            return XCTFail("only layout asks have a local answer")
+        }
+        XCTAssertFalse(board.canUndo, "a failed turn leaves the canvas alone")
+    }
 }
