@@ -153,11 +153,13 @@ final class MiraImageIntentTests: XCTestCase {
         XCTAssertEqual(color, "forest")
     }
 
-    func testNoCueStillConverses() {
+    func testNoCueGoesToTheCanvasTurn() {
         let editor = CanvasViewModel(memory: Memory())
         let intent = MiraIntent.classify("how was my week", editor: editor)
-        guard case .converse = intent else {
-            return XCTFail("expected converse, got \(intent)")
+        // The keyword ladder must not claim this; it falls through to
+        // the model, which can see the page.
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected a canvas turn, got \(intent)")
         }
     }
 }

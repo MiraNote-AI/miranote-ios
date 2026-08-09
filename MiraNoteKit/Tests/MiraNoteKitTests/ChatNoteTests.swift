@@ -195,10 +195,14 @@ final class ChatNoteTests: XCTestCase {
             if case .reply = coordinator.phase { break }
             try? await Task.sleep(for: .milliseconds(10))
         }
-        let sent = await chat.recorder.notes
+        // The page now rides along as a map rather than a flat note, but
+        // the ordering rule is the same one: classify runs AFTER
+        // preparation, so vision's summary is in the context.
+        let sent = await chat.recorder.pages
+        let says = sent.first??.map.elements.map(\.says) ?? []
         XCTAssertTrue(
-            sent.first?.first?.body.contains("a waterfall in soft light") == true,
-            "the turn classifies AFTER preparation, so the note carries the summary"
+            says.contains { $0.contains("a waterfall in soft light") },
+            "the turn classifies AFTER preparation, so the map carries the summary"
         )
     }
 
@@ -306,7 +310,10 @@ final class ChatNoteTests: XCTestCase {
 private struct CapturingChat: ChatService {
     let recorder = NotesRecorder()
 
-    func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
+    func reply(
+        to message: String, sessionID: String?,
+        notes: [ChatNote], page: PageContext?
+    ) async throws -> ChatReply {
         await recorder.record(notes)
         return ChatReply(text: "ok", sessionID: "s")
     }

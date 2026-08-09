@@ -70,6 +70,11 @@ public final class MiraCanvasCoordinator {
     /// here (e.g. wait for vision to finish looking at new photos) so the
     /// turn sees a fully-described page.
     public var prepareTurn: (() async -> Void)?
+    /// Renders the page as the user sees it, for Mira's look_at_page.
+    /// Wired by the view because the renderer lives in the App layer.
+    /// Nil in tests and previews -- Mira then answers from the map
+    /// alone, which is not a failure.
+    public var renderPage: (() -> Data?)?
 
     private let text: TextTransformService
     private let chat: ChatService
@@ -83,6 +88,13 @@ public final class MiraCanvasCoordinator {
     /// and the header undo still covers regrets after auto-keep -- so
     /// short wins (Meng tuned this twice: 20s and 10s both felt long).
     public nonisolated static let defaultReceiptDismiss: Duration = .seconds(6)
+
+    /// The middle rung of the timeout ladder. Inside it, a look_at_page
+    /// hop gets 25s and failing costs only the look. Outside it,
+    /// `LiveChatService.requestTimeout` sits higher on purpose, so
+    /// exactly one clock can fire and the same stall always reads the
+    /// same way to the user.
+    public nonisolated static let defaultTurnTimeout: Duration = .seconds(60)
 
     private let workingDelay: Duration
     private let timeout: Duration
@@ -104,7 +116,7 @@ public final class MiraCanvasCoordinator {
         text: TextTransformService,
         chat: ChatService,
         workingDelay: Duration = .milliseconds(400),
-        timeout: Duration = .seconds(30),
+        timeout: Duration = MiraCanvasCoordinator.defaultTurnTimeout,
         receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss,
         imageStudio: ImageStudioService = MockImageStudioService(),
         imageTimeout: Duration = .seconds(150),
@@ -155,7 +167,7 @@ public final class MiraCanvasCoordinator {
                 indicator.cancel()
                 guard self.turnGeneration == generation else { return }
             }
-            let intent = MiraIntent.classify(trimmed, editor: editor)
+            let intent = MiraIntent.classify(trimmed, editor: editor, render: self.renderPage)
             await run(intent, prompt: trimmed, editor: editor, generation: generation)
         }
     }
@@ -271,6 +283,19 @@ public final class MiraCanvasCoordinator {
         } catch {
             indicator.cancel()
             guard !Task.isCancelled, turnGeneration == generation else { return }
+            // Layout is the one ask with a good local answer, so an
+            // unreachable backend gets a deterministic rearrange rather
+            // than a failure card. Everything else honestly fails.
+            if case .canvasTurn(let words, _, _) = intent,
+               MiraIntent.isLayoutAsk(words), editor.items.count >= 2 {
+                editor.beginChange()
+                editor.quickOrganize(canvasWidth: editor.canvasWidth ?? 393)
+                showReceipt(MiraReceipt(
+                    changed: "Tidied the layout.",
+                    kept: "Your words and photos are unchanged."
+                ), editor: editor)
+                return
+            }
             refillPrompt = prompt
             phase = .failure(Self.failure(for: error))
         }
@@ -304,9 +329,10 @@ public final class MiraCanvasCoordinator {
                 size: CGSize(width: 320, height: 60)
             )
             showReceipt(receipt, editor: editor)
-        case .organized(let receipt):
-            editor.quickOrganize(canvasWidth: editor.canvasWidth ?? 360)
-            showReceipt(receipt, editor: editor)
+        case .pageEdited(let changes, let handles):
+            settlePageEdits(changes, handles: handles, editor: editor)
+        case .backgroundRequested(let request, _):
+            startBackgroundTurn(request, editor: editor)
         case .reply(let message, let newSessionID):
             sessionID = newSessionID ?? sessionID
             conversation.append(ChatMessage(role: .user, text: lastPrompt))
@@ -323,6 +349,56 @@ public final class MiraCanvasCoordinator {
              .filterApplied, .frameApplied, .textResized, .textRecolored,
              .backgroundCleared:
             settleImageOutcome(outcome, editor: editor)
+        }
+    }
+
+    /// Guards run HERE, on the main actor, against the page as it stands
+    /// now -- `perform` ran off it and the page may have moved underneath.
+    private func settlePageEdits(
+        _ changes: [ElementChange],
+        handles: [String: CanvasItem.ID],
+        editor: CanvasViewModel
+    ) {
+        let resolved = PageEditGuard.resolve(
+            changes, handles: handles, canvasWidth: editor.canvasWidth ?? 393
+        )
+        guard editor.applyPageEdits(resolved) else {
+            // A receipt for a change that never landed would be a lie.
+            refillPrompt = lastPrompt
+            phase = .failure(MiraFailure(
+                kind: .clarify,
+                message: "I could not tell which piece you meant -- which one should I move?",
+                chips: ["Try again"]
+            ))
+            return
+        }
+        showReceipt(Self.receipt(for: resolved, editor: editor), editor: editor)
+    }
+
+    /// Slow image work Mira asked for. It is a NEW turn, not the tail of
+    /// the chat turn: that one has already settled, so without its own
+    /// generation Stop would have nothing to cancel and a late receipt
+    /// could land on top of whatever the user did next.
+    private func startBackgroundTurn(_ request: BackgroundRequest, editor: CanvasViewModel) {
+        switch request {
+        case .clear:
+            // The same call the existing .backgroundCleared branch makes.
+            editor.beginChange()
+            editor.setBackground(fileName: "")
+            showReceipt(MiraReceipt(
+                changed: "Cleared the backdrop.",
+                kept: "Your words and photos are unchanged."
+            ), editor: editor)
+        case .set(let prompt):
+            cancelTurn()
+            let generation = turnGeneration
+            phase = .working(verb: "Painting the backdrop...")
+            turnTask = Task { [lastPrompt] in
+                await run(
+                    .setBackground(prompt: prompt), prompt: lastPrompt,
+                    editor: editor, generation: generation
+                )
+            }
         }
     }
 

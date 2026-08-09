@@ -3,10 +3,10 @@ import XCTest
 
 @MainActor
 final class MiraPageIntentTests: XCTestCase {
-    private func makeCoordinator() -> MiraCanvasCoordinator {
+    private func makeCoordinator(chat: ChatService = ScriptedChat()) -> MiraCanvasCoordinator {
         MiraCanvasCoordinator(
             text: ScriptedText(),
-            chat: ScriptedChat(),
+            chat: chat,
             workingDelay: .milliseconds(1),
             timeout: .seconds(5),
             receiptDismiss: .seconds(60)
@@ -26,12 +26,28 @@ final class MiraPageIntentTests: XCTestCase {
 
     func testOrganizeAndTitleIntents() async {
         let editor = makeEditor()
-        let coordinator = makeCoordinator()
+        // Tidying is model-driven now: with the page in front of her Mira
+        // decides where things go, so the test scripts the edits she
+        // would send back rather than expecting a fixed local stack.
+        let handles = PageMap.build(
+            from: editor.composedMemory(), canvasWidth: editor.canvasWidth ?? 393
+        ).map.elements.prefix(3).map(\.handle)
+        // The reply text stays the default: the receipt below is written
+        // by the app, not by Mira, and the title half of this test reads
+        // the reply.
+        var chat = ScriptedChat()
+        chat.pageEdits = handles.enumerated().map { index, handle in
+            ElementChange(handle: handle, x: 28, y: Double(index) * 90 + 28)
+        }
+        let coordinator = makeCoordinator(chat: chat)
 
         coordinator.ask("tidy the layout", editor: editor)
         await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-        guard case .receipt(let organized) = coordinator.phase else { return XCTFail("expected an organize receipt") }
-        XCTAssertEqual(organized.changed, "Tidied the layout.")
+        guard case .receipt(let organized) = coordinator.phase else {
+            return XCTFail("expected a rearrange receipt")
+        }
+        XCTAssertEqual(organized.changed, "Rearranged the page.")
+        XCTAssertFalse(editor.canUndo == false, "the rearrange is undoable")
 
         coordinator.dismiss()
         let countBefore = editor.items.count

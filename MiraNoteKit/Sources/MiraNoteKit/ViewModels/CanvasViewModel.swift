@@ -394,6 +394,7 @@ extension CanvasViewModel {
         memory.items.firstIndex { $0.id == id }
     }
 
-    private var topZ: Int { memory.items.map(\.zIndex).max() ?? 0 }
-    private var bottomZ: Int { memory.items.map(\.zIndex).min() ?? 0 }
+    // Internal so +PageEdits can restack without the snapshotting helpers.
+    var topZ: Int { memory.items.map(\.zIndex).max() ?? 0 }
+    var bottomZ: Int { memory.items.map(\.zIndex).min() ?? 0 }
 }

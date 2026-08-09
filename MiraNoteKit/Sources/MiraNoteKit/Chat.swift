@@ -34,6 +34,26 @@ public struct ChatPageDraft: Codable, Equatable, Sendable {
     }
 }
 
+/// The page the user is editing right now, sent with a canvas turn.
+/// `image` is a JPEG of the page as they see it -- it rides along on
+/// every canvas turn but is only spent if Mira calls look_at_page.
+public struct PageContext: Sendable {
+    public let map: PageMap
+    public let image: Data?
+
+    public init(map: PageMap, image: Data?) {
+        self.map = map
+        self.image = image
+    }
+}
+
+/// Slow image work Mira asked the app to run. The server does none of
+/// it; it only records the request, the same way it handles create_note.
+public enum BackgroundRequest: Equatable, Sendable {
+    case set(prompt: String)
+    case clear
+}
+
 /// An assistant reply plus the server-issued session id to carry into the next
 /// turn (the backend keeps the transcript keyed on this id, so the client only
 /// tracks the id, not the history).
@@ -41,11 +61,19 @@ public struct ChatReply: Sendable {
     public let text: String
     public let sessionID: String?
     public let pageDraft: ChatPageDraft?
+    /// Canvas edits Mira asked for, already merged into one change.
+    public let pageEdits: [ElementChange]
+    public let backgroundRequest: BackgroundRequest?
 
-    public init(text: String, sessionID: String?, pageDraft: ChatPageDraft? = nil) {
+    public init(
+        text: String, sessionID: String?, pageDraft: ChatPageDraft? = nil,
+        pageEdits: [ElementChange] = [], backgroundRequest: BackgroundRequest? = nil
+    ) {
         self.text = text
         self.sessionID = sessionID
         self.pageDraft = pageDraft
+        self.pageEdits = pageEdits
+        self.backgroundRequest = backgroundRequest
     }
 }
 
@@ -107,12 +135,24 @@ public protocol ChatService: Sendable {
     /// `notes` are the user's own pages relevant to this message (journal
     /// mode). The app always sends them -- an empty list means "nothing
     /// matched", not "not a journal conversation".
-    func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply
+    ///
+    /// `page` is the canvas the user is editing right now. Present = a
+    /// canvas turn: the backend releases its page-edit tools and Mira
+    /// answers about what is actually on the page. The chat screen sends
+    /// nil -- those are pages the user is not editing.
+    func reply(
+        to message: String, sessionID: String?,
+        notes: [ChatNote], page: PageContext?
+    ) async throws -> ChatReply
 }
 
 public extension ChatService {
+    func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
+        try await reply(to: message, sessionID: sessionID, notes: notes, page: nil)
+    }
+
     func reply(to message: String, sessionID: String?) async throws -> ChatReply {
-        try await reply(to: message, sessionID: sessionID, notes: [])
+        try await reply(to: message, sessionID: sessionID, notes: [], page: nil)
     }
 }
 
@@ -121,9 +161,21 @@ public extension ChatService {
 public struct MockChatService: ChatService {
     public init() {}
 
-    public func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
+    public func reply(
+        to message: String, sessionID: String?,
+        notes: [ChatNote], page: PageContext?
+    ) async throws -> ChatReply {
         try await Task.sleep(for: .milliseconds(500))
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Canvas asks get a canned edit so previews, snapshot QA and
+        // tests exercise the apply path with no network.
+        if let page, let first = page.map.elements.first, Self.isCanvasAsk(trimmed) {
+            return ChatReply(
+                text: "Moved it up for you.",
+                sessionID: sessionID ?? "mock-session",
+                pageEdits: [ElementChange(handle: first.handle, x: 28, y: 24)]
+            )
+        }
         if trimmed.lowercased().contains("note") || trimmed.lowercased().contains("draft") {
             return ChatReply(
                 text: "I sketched a little page from that -- open it to shape it.",
@@ -140,6 +192,11 @@ public struct MockChatService: ChatService {
                 + "little more, or say the word and I'll shape it into a page."
         }
         return ChatReply(text: text, sessionID: sessionID ?? "mock-session")
+    }
+
+    private static func isCanvasAsk(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        return ["move", "tidy", "arrange", "bigger", "smaller"].contains { lowered.contains($0) }
     }
 
     private func isAffirmative(_ text: String) -> Bool {

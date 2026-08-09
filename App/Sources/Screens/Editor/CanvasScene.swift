@@ -85,6 +85,12 @@ struct CanvasScene: View {
         .onAppear {
             remeasureTextBlocks()
             mira.prepareTurn = { await lookAtUnseenPhotos() }
+            mira.renderPage = {
+                CanvasSnapshot.jpeg(
+                    memory: editor.composedMemory(),
+                    canvasWidth: editor.canvasWidth ?? 393
+                )
+            }
             Task { await lookAtUnseenPhotos() }
             consumePendingTool()
         }

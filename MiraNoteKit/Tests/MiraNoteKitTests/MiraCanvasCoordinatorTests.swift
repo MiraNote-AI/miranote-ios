@@ -154,11 +154,17 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(seen, [nil, "s-42"], "server session id carries into the next turn")
 
         // Mira converses standing on the page: every turn sends it along.
+        // It travels as a map of numbered elements now, not a flat note,
+        // so she can act on what she is standing on.
+        let sentPages = await chat.recorder.pages
+        XCTAssertEqual(sentPages.count, 2)
+        let expected = PageMap.build(
+            from: editor.composedMemory(), canvasWidth: editor.canvasWidth ?? 393
+        ).map
+        XCTAssertEqual(sentPages.first??.map, expected, "the current page grounds the conversation")
+        XCTAssertFalse(expected.elements.isEmpty)
         let sentNotes = await chat.recorder.notes
-        XCTAssertEqual(sentNotes.count, 2)
-        let page = ChatNote(page: editor.composedMemory())
-        XCTAssertEqual(sentNotes.first, [page], "the current page grounds the conversation")
-        XCTAssertFalse(page.title.isEmpty)
+        XCTAssertEqual(sentNotes.first, [], "the page travels as `page`, not duplicated into notes")
     }
 
     func testReplacingALiveTurnKeepsStopWorking() async {
