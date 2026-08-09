@@ -1,6 +1,11 @@
 import CoreGraphics
 import Foundation
 
+// x/y/w/h are the wire contract: the backend's edit_page tool names its
+// arguments exactly this, and reading the JSON beside the Swift is worth
+// more here than two-letter names would be.
+// swiftlint:disable identifier_name
+
 /// One element's worth of change, as Mira asked for it. Every field is
 /// optional: only what changes is sent. Keys match the backend's
 /// edit_page tool arguments.
@@ -133,3 +138,5 @@ public enum PageEditGuard {
         }
     }
 }
+
+// swiftlint:enable identifier_name

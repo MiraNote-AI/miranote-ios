@@ -1,6 +1,9 @@
 import XCTest
 @testable import MiraNoteKit
 
+// The helper mirrors ElementChange's wire-contract field names.
+// swiftlint:disable identifier_name
+
 final class ElementChangeTests: XCTestCase {
     /// Never 360: a hardcoded design width must fail these.
     private let width: CGFloat = 393
@@ -76,7 +79,7 @@ final class ElementChangeTests: XCTestCase {
     func testMergeLetsLaterCallsWinFieldByField() {
         let merged = PageEditGuard.merge([
             [change(x: 10, y: 10)],
-            [change(x: 99)],
+            [change(x: 99)]
         ])
         XCTAssertEqual(merged.count, 1)
         XCTAssertEqual(merged[0].x, 99)
@@ -90,7 +93,7 @@ final class ElementChangeTests: XCTestCase {
     func testMergePreservesFirstAppearanceOrder() {
         let merged = PageEditGuard.merge([
             [change("p1", x: 1), change("t1", x: 2)],
-            [change("t1", x: 3)],
+            [change("t1", x: 3)]
         ])
         XCTAssertEqual(merged.map(\.handle), ["p1", "t1"])
     }
@@ -121,3 +124,5 @@ final class ElementChangeTests: XCTestCase {
         XCTAssertNil(change.layer)
     }
 }
+
+// swiftlint:enable identifier_name

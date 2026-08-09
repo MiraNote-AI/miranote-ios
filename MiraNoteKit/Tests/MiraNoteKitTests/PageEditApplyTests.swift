@@ -10,11 +10,11 @@ final class PageEditApplyTests: XCTestCase {
     }
 
     private func textItem(
-        _ body: String = "hello", y: CGFloat = 100, size: CGFloat = 17
+        _ body: String = "hello", top: CGFloat = 100, size: CGFloat = 17
     ) -> CanvasItem {
         CanvasItem(
             content: .text(TextBlock(text: body, pointSize: size)),
-            position: CGPoint(x: 180, y: y),
+            position: CGPoint(x: 180, y: top),
             size: CGSize(width: 304, height: 44)
         )
     }
@@ -25,22 +25,22 @@ final class PageEditApplyTests: XCTestCase {
     /// user taps Revert on a five-field change and watches most of it
     /// stay -- with the receipt claiming otherwise.
     func testAMixedChangeSetIsExactlyOneUndoStep() {
-        let a = textItem("one", y: 100)
-        let b = textItem("two", y: 300)
-        let model = editor([a, b])
+        let first = textItem("one", top: 100)
+        let second = textItem("two", top: 300)
+        let model = editor([first, second])
 
         let landed = model.applyPageEdits([
-            ResolvedChange(id: a.id, x: 20, y: 20, pointSize: 34, colorName: "forest", layer: .front),
-            ResolvedChange(id: b.id, x: 20, y: 400, colorName: "sage", layer: .back),
+            ResolvedChange(id: first.id, x: 20, y: 20, pointSize: 34, colorName: "forest", layer: .front),
+            ResolvedChange(id: second.id, x: 20, y: 400, colorName: "sage", layer: .back)
         ])
         XCTAssertTrue(landed)
 
         model.undo()
         XCTAssertEqual(model.items.count, 2)
-        XCTAssertEqual(model.item(a.id)?.position, a.position)
-        XCTAssertEqual(model.item(b.id)?.position, b.position)
-        XCTAssertEqual(model.item(a.id)?.size, a.size)
-        if case .text(let block) = model.item(a.id)?.content {
+        XCTAssertEqual(model.item(first.id)?.position, first.position)
+        XCTAssertEqual(model.item(second.id)?.position, second.position)
+        XCTAssertEqual(model.item(first.id)?.size, first.size)
+        if case .text(let block) = model.item(first.id)?.content {
             XCTAssertEqual(block.pointSize, 17)
             XCTAssertEqual(block.colorName, "ink")
         } else {
@@ -60,7 +60,7 @@ final class PageEditApplyTests: XCTestCase {
 
     func testRaisingThePointSizeGrowsTheBoxBeforePositionsLand() {
         let body = "a reasonably long line of text that wraps more than once"
-        let item = textItem(body, y: 100, size: 15)
+        let item = textItem(body, top: 100, size: 15)
         let model = editor([item])
         let grown = Memory.estimatedTextHeight(body, pointSize: 40, width: 304)
 
@@ -74,7 +74,7 @@ final class PageEditApplyTests: XCTestCase {
 
     func testPointSizeAloneStillGrowsTheBox() {
         let body = "a reasonably long line of text that wraps more than once"
-        let item = textItem(body, y: 100, size: 15)
+        let item = textItem(body, top: 100, size: 15)
         let model = editor([item])
         let before = model.item(item.id)!.size.height
 
@@ -84,15 +84,15 @@ final class PageEditApplyTests: XCTestCase {
     }
 
     func testLayerFrontAndBackRestackWithoutExtraSnapshots() {
-        let a = textItem("one", y: 100)
-        let b = textItem("two", y: 300)
-        let model = editor([a, b])
+        let first = textItem("one", top: 100)
+        let second = textItem("two", top: 300)
+        let model = editor([first, second])
 
-        model.applyPageEdits([ResolvedChange(id: a.id, layer: .front)])
-        XCTAssertGreaterThan(model.item(a.id)!.zIndex, model.item(b.id)!.zIndex)
+        model.applyPageEdits([ResolvedChange(id: first.id, layer: .front)])
+        XCTAssertGreaterThan(model.item(first.id)!.zIndex, model.item(second.id)!.zIndex)
 
-        model.applyPageEdits([ResolvedChange(id: a.id, layer: .back)])
-        XCTAssertLessThan(model.item(a.id)!.zIndex, model.item(b.id)!.zIndex)
+        model.applyPageEdits([ResolvedChange(id: first.id, layer: .back)])
+        XCTAssertLessThan(model.item(first.id)!.zIndex, model.item(second.id)!.zIndex)
 
         model.undo()
         model.undo()
@@ -122,7 +122,7 @@ final class PageEditApplyTests: XCTestCase {
     }
 
     func testAWholePageRearrangeIsStillOneStep() {
-        let items = (0..<5).map { textItem("block \($0)", y: CGFloat($0) * 100 + 50) }
+        let items = (0..<5).map { textItem("block \($0)", top: CGFloat($0) * 100 + 50) }
         let model = editor(items)
         let before = items.map(\.position)
 

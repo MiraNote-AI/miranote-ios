@@ -1,6 +1,9 @@
 import CoreGraphics
 import Foundation
 
+// x/y/w/h mirror the wire contract the backend reads (see ElementChange).
+// swiftlint:disable identifier_name
+
 /// The palette names a canvas text block may persist in
 /// `TextBlock.colorName`. The App layer resolves them to colors
 /// (`Palette.color(named:)`); this list is the contract between the two,
@@ -153,3 +156,5 @@ public extension PageMap {
         return marks.isEmpty ? nil : marks.joined(separator: " ")
     }
 }
+
+// swiftlint:enable identifier_name

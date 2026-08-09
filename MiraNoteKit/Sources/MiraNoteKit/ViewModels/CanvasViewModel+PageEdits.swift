@@ -11,10 +11,10 @@ public extension CanvasViewModel {
     /// them would leave Revert undoing a fraction of what the receipt
     /// claims.
     ///
-    /// Order matters. Point sizes land first and the text box is
-    /// re-measured before positions are applied, because Mira computed
-    /// its coordinates against the heights it was shown -- changing a
-    /// size first would silently invalidate every position below it.
+    /// The two passes are the order, not a style choice. Mira computed
+    /// her coordinates against the heights she was shown, so a point size
+    /// must land and the box be re-measured BEFORE anything is placed
+    /// against it.
     ///
     /// Returns false when nothing landed, so the caller can show a
     /// clarify card instead of a receipt for a change that never was.
@@ -24,57 +24,55 @@ public extension CanvasViewModel {
         guard !live.isEmpty else { return false }
 
         beginChange()
-
-        // 1. Style, and 2. re-measure, in one pass per element.
-        for change in live {
-            guard let itemIndex = index(of: change.id),
-                  case .text(var block) = memory.items[itemIndex].content else { continue }
-            var touched = false
-            if let pointSize = change.pointSize {
-                block.pointSize = pointSize
-                touched = true
-            }
-            if let colorName = change.colorName {
-                block.colorName = colorName
-                touched = true
-            }
-            guard touched else { continue }
-            memory.items[itemIndex].content = .text(block)
-            guard change.pointSize != nil else { continue }
-            // Same pairing the existing resize intent always makes: a
-            // point size without a re-measure clips the text.
-            let measured = max(36, Memory.estimatedTextHeight(
-                block.text,
-                pointSize: block.pointSize,
-                width: memory.items[itemIndex].size.width
-            ))
-            let old = memory.items[itemIndex].size.height
-            memory.items[itemIndex].size.height = measured
-            memory.items[itemIndex].position.y += (measured - old) / 2
-        }
-
-        // 3. Geometry and stacking, against boxes that are now honest.
-        for change in live {
-            guard let itemIndex = index(of: change.id) else { continue }
-            if let w = change.w {
-                memory.items[itemIndex].size.width = max(44, CGFloat(w))
-            }
-            if let h = change.h {
-                memory.items[itemIndex].size.height = max(36, CGFloat(h))
-            }
-            let size = memory.items[itemIndex].size
-            if let x = change.x {
-                memory.items[itemIndex].position.x = CGFloat(x) + size.width / 2
-            }
-            if let y = change.y {
-                memory.items[itemIndex].position.y = CGFloat(y) + size.height / 2
-            }
-            switch change.layer {
-            case .front: memory.items[itemIndex].zIndex = topZ + 1
-            case .back: memory.items[itemIndex].zIndex = bottomZ - 1
-            case nil: break
-            }
-        }
+        for change in live { applyStyle(change) }
+        for change in live { applyGeometry(change) }
         return true
+    }
+}
+
+private extension CanvasViewModel {
+    /// Point size and colour, then the re-measure the existing resize
+    /// intent always pairs with -- a size without it clips the text.
+    func applyStyle(_ change: ResolvedChange) {
+        guard let itemIndex = index(of: change.id),
+              case .text(var block) = memory.items[itemIndex].content else { return }
+        if let pointSize = change.pointSize { block.pointSize = pointSize }
+        if let colorName = change.colorName { block.colorName = colorName }
+        guard change.pointSize != nil || change.colorName != nil else { return }
+        memory.items[itemIndex].content = .text(block)
+
+        guard change.pointSize != nil else { return }
+        let measured = max(36, Memory.estimatedTextHeight(
+            block.text,
+            pointSize: block.pointSize,
+            width: memory.items[itemIndex].size.width
+        ))
+        let old = memory.items[itemIndex].size.height
+        memory.items[itemIndex].size.height = measured
+        memory.items[itemIndex].position.y += (measured - old) / 2
+    }
+
+    /// Size, position and stacking, against boxes that are now honest.
+    /// Coordinates arrive as top-left corners; the editor stores centers.
+    func applyGeometry(_ change: ResolvedChange) {
+        guard let itemIndex = index(of: change.id) else { return }
+        if let width = change.w {
+            memory.items[itemIndex].size.width = max(44, CGFloat(width))
+        }
+        if let height = change.h {
+            memory.items[itemIndex].size.height = max(36, CGFloat(height))
+        }
+        let size = memory.items[itemIndex].size
+        if let left = change.x {
+            memory.items[itemIndex].position.x = CGFloat(left) + size.width / 2
+        }
+        if let top = change.y {
+            memory.items[itemIndex].position.y = CGFloat(top) + size.height / 2
+        }
+        switch change.layer {
+        case .front: memory.items[itemIndex].zIndex = topZ + 1
+        case .back: memory.items[itemIndex].zIndex = bottomZ - 1
+        case nil: break
+        }
     }
 }

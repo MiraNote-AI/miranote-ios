@@ -394,8 +394,7 @@ extension CanvasViewModel {
         memory.items.firstIndex { $0.id == id }
     }
 
-    // Internal, not private: the page-edit apply path (+PageEdits) restacks
-    // without going through bringToFront/sendToBack, which snapshot.
+    // Internal so +PageEdits can restack without the snapshotting helpers.
     var topZ: Int { memory.items.map(\.zIndex).max() ?? 0 }
     var bottomZ: Int { memory.items.map(\.zIndex).min() ?? 0 }
 }

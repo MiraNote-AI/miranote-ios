@@ -122,7 +122,7 @@ final class MiraCanvasTurnTests: XCTestCase {
         chat.pageEdits = [
             ElementChange(handle: "t1", x: 28, y: 28),
             ElementChange(handle: "t2", x: 28, y: 120),
-            ElementChange(handle: "t3", x: 28, y: 200),
+            ElementChange(handle: "t3", x: 28, y: 200)
         ]
         let board = editor(extraBlocks: 2)
         let mira = coordinator(chat)
