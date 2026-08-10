@@ -169,7 +169,7 @@ enum MiraIntent {
     ) -> (PageContext, [String: CanvasItem.ID]) {
         let (map, handles) = PageMap.build(
             from: editor.composedMemory(),
-            canvasWidth: editor.canvasWidth ?? 393
+            canvasWidth: MiraNoteConfig.pageWidth
         )
         return (PageContext(map: map, image: render?()), handles)
     }

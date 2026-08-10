@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Product-level constants. Values that came out of explicit design
@@ -6,6 +7,20 @@ import Foundation
 public enum MiraNoteConfig {
     /// D1: at most this many images can be added in one picking session.
     public static let maxImagesPerAdd = 3
+
+    /// The page is a fixed-width column ("width locked", Meng 2026-07-08):
+    /// it scrolls down without limit but never changes width, so a page
+    /// looks the same on every device and exports exactly as edited.
+    ///
+    /// Everything that places or measures canvas content resolves to this
+    /// one number. Three used to disagree -- content was authored around
+    /// 360, the editor board was `device width - 44` (358 on a 402pt
+    /// phone, less on smaller ones), and reading/export rendered a fixed
+    /// 360 -- so the same page sat differently depending on where you
+    /// looked at it.
+    ///
+    /// It fits every device the app supports: the narrowest is 375pt.
+    public static let pageWidth: CGFloat = 360
 
     /// Backend addresses -- the single place every service URL comes from.
     /// The live ServiceContainer takes these as defaults and tests inject

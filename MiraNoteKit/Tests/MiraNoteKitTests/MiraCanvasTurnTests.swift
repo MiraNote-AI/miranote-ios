@@ -80,7 +80,8 @@ final class MiraCanvasTurnTests: XCTestCase {
         await waitUntil { if case .reply = mira.phase { return true }; return false }
 
         let pages = await chat.recorder.pages
-        XCTAssertEqual(pages.first??.map.width, 393)
+        XCTAssertEqual(pages.first??.map.width, MiraNoteConfig.pageWidth,
+                       "the page is a fixed-width column, not the device width")
         XCTAssertEqual(pages.first??.map.elements.first?.handle, "t1")
         let notes = await chat.recorder.notes
         XCTAssertEqual(notes.first, [])

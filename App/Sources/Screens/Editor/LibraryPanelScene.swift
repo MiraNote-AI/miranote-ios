@@ -96,7 +96,7 @@ struct LibraryPanelScene: View {
 
     /// Tap-to-place: stickers come back as stickers, photos as photos.
     private func place(_ favorite: GeneratedSticker) {
-        let position = CGPoint(x: 180, y: min(editor.contentBottom + 80, 4000))
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 80, 4000))
         switch favorite.kind {
         case .sticker:
             editor.addSticker(favorite, at: position)

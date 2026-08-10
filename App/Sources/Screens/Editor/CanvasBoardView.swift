@@ -41,8 +41,12 @@ struct CanvasBoardView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
+                // The page is a fixed-width column, centred in whatever
+                // room the device has -- not the screen minus padding,
+                // which made the same page a different width on every
+                // phone and disagree with its own export.
                 board
-                    .padding(.horizontal, Metrics.screenPadding)
+                    .frame(maxWidth: .infinity)
                     .padding(.bottom, 8)
             }
             .onChange(of: editor.editingTextItemID) { _, editing in
@@ -95,15 +99,14 @@ struct CanvasBoardView: View {
                         RoundedRectangle(cornerRadius: 14)
                             .fill(Palette.paper.opacity(0.78))
                     )
-                    .position(x: 180, y: 200)
+                    .position(x: MiraNoteConfig.pageWidth / 2, y: 200)
                     .allowsHitTesting(false)
             }
             ForEach(editor.orderedItems) { item in
                 element(item)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: boardHeight)
+        .frame(width: MiraNoteConfig.pageWidth, height: boardHeight)
         // No identifier on the container: SwiftUI cascades a parent
         // accessibilityIdentifier onto contained elements, masking child
         // ids like canvas.textEditor.

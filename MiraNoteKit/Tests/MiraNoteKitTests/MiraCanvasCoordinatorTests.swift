@@ -159,7 +159,7 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         let sentPages = await chat.recorder.pages
         XCTAssertEqual(sentPages.count, 2)
         let expected = PageMap.build(
-            from: editor.composedMemory(), canvasWidth: editor.canvasWidth ?? 393
+            from: editor.composedMemory(), canvasWidth: MiraNoteConfig.pageWidth
         ).map
         XCTAssertEqual(sentPages.first??.map, expected, "the current page grounds the conversation")
         XCTAssertFalse(expected.elements.isEmpty)

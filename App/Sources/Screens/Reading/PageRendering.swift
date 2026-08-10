@@ -8,7 +8,7 @@ import SwiftUI
 struct StaticPageView: View {
     let memory: Memory
     /// The width the editor laid the page out against.
-    var designWidth: CGFloat = 360
+    var designWidth: CGFloat = MiraNoteConfig.pageWidth
     var showsSound = true
     var soundStore = SoundFileStore()
     var player: SoundPlayer?
@@ -156,7 +156,7 @@ struct PageCoverView: View {
     var coverWidth: CGFloat = 160
     var coverHeight: CGFloat = 200
 
-    private let designWidth: CGFloat = 360
+    private let designWidth: CGFloat = MiraNoteConfig.pageWidth
 
     var body: some View {
         let scale = coverWidth / designWidth
