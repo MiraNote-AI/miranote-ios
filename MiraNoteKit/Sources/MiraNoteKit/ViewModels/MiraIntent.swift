@@ -130,6 +130,29 @@ enum MiraIntent {
         return cues.contains { lowered.contains($0) }
     }
 
+    /// Does `lowered` actually use one of these words?
+    ///
+    /// Plain `contains` is how the keyword ladder keeps mistaking a noun
+    /// for a request -- and it bites inside words too: "remove the
+    /// background" contains "move". Latin cues therefore match on word
+    /// boundaries; CJK cues stay substrings, since Chinese has no spaces.
+    static func usesAny(_ cues: [String], in lowered: String) -> Bool {
+        let words = Set(
+            lowered.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        )
+        for cue in cues {
+            let isLatin = cue.allSatisfy { $0.isASCII }
+            if !isLatin {
+                if lowered.contains(cue) { return true }
+            } else if cue.contains(" ") {
+                if lowered.contains(cue) { return true }
+            } else if words.contains(cue) {
+                return true
+            }
+        }
+        return false
+    }
+
     /// The layout vocabulary. Shared by the nothing-to-arrange guard and
     /// the offline fallback so the two cannot drift apart.
     static func isLayoutAsk(_ words: String) -> Bool {
