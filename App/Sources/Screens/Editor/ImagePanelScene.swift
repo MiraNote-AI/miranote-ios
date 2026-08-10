@@ -277,7 +277,7 @@ extension ImagePanelScene {
             notice = "That picture couldn't be saved. Try again?"
             return
         }
-        let position = CGPoint(x: 180, y: min(editor.contentBottom + 90, 4000))
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 90, 4000))
         if result.style == .sticker {
             let sticker = GeneratedSticker(prompt: result.prompt, symbolName: "sparkles", fileName: fileName)
             editor.addSticker(sticker, at: position)
@@ -310,7 +310,10 @@ extension ImagePanelScene {
             let aspect = ui.size.height / ui.size.width
             box = CGSize(width: 170, height: min(260, max(110, (170 * aspect).rounded())))
         }
-        let position = CGPoint(x: 180 + sway, y: min(editor.contentBottom + 60 + box.height / 2, 4000))
+        let position = CGPoint(
+            x: MiraNoteConfig.pageWidth / 2 + sway,
+            y: min(editor.contentBottom + 60 + box.height / 2, 4000)
+        )
         let ids = editor.addImages(
             [ImageRef(displayName: name, fileName: fileName)], around: position, size: box
         )

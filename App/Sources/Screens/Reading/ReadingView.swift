@@ -15,7 +15,7 @@ struct ReadingView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            StaticPageView(memory: memory, designWidth: 360, player: player)
+            StaticPageView(memory: memory, designWidth: MiraNoteConfig.pageWidth, player: player)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, Metrics.screenPadding)
                 .padding(.top, 6)
@@ -199,7 +199,7 @@ struct ExportSheet: View {
     /// (a speaker glyph nobody can tap reads as broken -- v2.1).
     @MainActor private func render() {
         let renderer = ImageRenderer(
-            content: StaticPageView(memory: memory, designWidth: 360, showsSound: false)
+            content: StaticPageView(memory: memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false)
         )
         renderer.scale = 2
         rendered = renderer.uiImage

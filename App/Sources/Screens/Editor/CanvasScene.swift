@@ -88,7 +88,7 @@ struct CanvasScene: View {
             mira.renderPage = {
                 CanvasSnapshot.jpeg(
                     memory: editor.composedMemory(),
-                    canvasWidth: editor.canvasWidth ?? 393
+                    canvasWidth: MiraNoteConfig.pageWidth
                 )
             }
             Task { await lookAtUnseenPhotos() }
@@ -266,7 +266,7 @@ struct CanvasScene: View {
     /// Text tool: a new block appears on the canvas and the keyboard rises --
     /// typing happens where the words will live.
     private func addTextBlock() {
-        let position = CGPoint(x: 180, y: min(editor.contentBottom + 70, 4000))
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 70, 4000))
         let id = editor.addText("", at: position, pointSize: 17, size: CGSize(width: 320, height: 48))
         // addText already recorded the undo point for this compound action.
         editor.startEditingText(id, recordingUndo: false)

@@ -452,14 +452,25 @@ independently; nothing is stacked.
 2. `miranote-ios` (#41): the page map, the render closure, the guards,
    the apply path, the timeout ladder, mocks and tests.
 
-## Found on the way, not fixed here
+## Found on the way, and since fixed
 
-Reading mode and export render with `StaticPageView(designWidth: 360)`
-while the editor lays elements out at the device width. On any screen
-wider than 360 -- which is every current iPhone -- the exported long
-image is already squeezing the page. This predates this work and is
-not in its scope, but it is the same root confusion, so it should get
-its own ticket rather than being discovered again later.
+An earlier draft of this section claimed export was squeezing the page
+on every iPhone. Measuring proved that backwards, and the truth was
+worse in a different direction: THREE widths disagreed.
+
+- Content is authored around 360 (the starter draft spans 15..345;
+  placed text and the empty-state hint sit at x = 180).
+- The editor board was the device width minus 44pt of padding -- 358 on
+  a 402pt phone, 346 on a 390, 331 on a 375. Content authored to 345
+  therefore OVERFLOWED on narrow devices.
+- Reading and export rendered a fixed 360, which was the closest of the
+  three to the authored space.
+
+So export was the faithful one, and the editor was the outlier. Fixed
+by making the page what the 2026-07-08 walkthrough already called it --
+a fixed-width column, `MiraNoteConfig.pageWidth`, centred in whatever
+room the device has. One number now, and the map Mira reads reports the
+same one, so what she centres in the editor is centred in the export.
 
 ## Follow-ups
 

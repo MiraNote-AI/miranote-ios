@@ -69,7 +69,7 @@ extension MiraCanvasCoordinator {
               images.indices.contains(index),
               let fileName = try? imageStore.save(images[index], id: UUID())
         else { return }
-        let position = CGPoint(x: 180, y: min(editor.contentBottom + 90, 4000))
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 90, 4000))
         switch placement {
         case .sticker:
             let generated = GeneratedSticker(

@@ -111,4 +111,21 @@ final class PageMapTests: XCTestCase {
         XCTAssertNotNil(object["palette"])
         XCTAssertNotNil(object["omitted"])
     }
+
+    func testTheMapReportsWhateverWidthTheCallerLaidOutAt() {
+        // build() must honour its parameter -- it is what makes the map
+        // and the renderer agree.
+        let memory = Memory(items: [text("hello", top: 60)])
+        XCTAssertEqual(PageMap.build(from: memory, canvasWidth: 500).map.width, 500)
+        XCTAssertEqual(PageMap.build(from: memory, canvasWidth: 280).map.width, 280)
+    }
+
+    func testThePageWidthIsOneNumberEveryoneShares() {
+        // Three used to disagree: content authored around 360, an editor
+        // board of `device width - 44`, and a fixed 360 in export. A page
+        // is a fixed-width column now, so there is exactly one number and
+        // it fits the narrowest supported device (375pt).
+        XCTAssertEqual(MiraNoteConfig.pageWidth, 360)
+        XCTAssertLessThanOrEqual(MiraNoteConfig.pageWidth, 375)
+    }
 }

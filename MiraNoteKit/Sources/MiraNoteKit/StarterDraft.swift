@@ -21,7 +21,7 @@ extension Memory {
             ),
             CanvasItem(
                 content: .image(ImageRef(displayName: "placeholder")),
-                position: CGPoint(x: 180, y: 240),
+                position: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: 240),
                 size: CGSize(width: 328, height: 210),
                 zIndex: 3
             ),
@@ -91,7 +91,7 @@ extension Memory {
             let height = Memory.estimatedTextHeight(title, pointSize: 30, width: 320)
             made.append(CanvasItem(
                 content: .text(TextBlock(text: title, pointSize: 30)),
-                position: CGPoint(x: 180, y: nextTop + height / 2),
+                position: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: nextTop + height / 2),
                 size: CGSize(width: 320, height: height),
                 zIndex: 1
             ))
@@ -101,7 +101,7 @@ extension Memory {
             let height = Memory.estimatedTextHeight(body, pointSize: 15, width: 320)
             made.append(CanvasItem(
                 content: .text(TextBlock(text: body, pointSize: 15)),
-                position: CGPoint(x: 180, y: nextTop + height / 2),
+                position: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: nextTop + height / 2),
                 size: CGSize(width: 320, height: height),
                 zIndex: 2
             ))

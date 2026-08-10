@@ -194,7 +194,7 @@ public final class MiraCanvasCoordinator {
               let payload = MiraIntent.placeablePayload(message) else { return }
         editor.addText(
             payload,
-            at: CGPoint(x: 180, y: editor.contentBottom + 60),
+            at: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: editor.contentBottom + 60),
             pointSize: 15,
             size: CGSize(width: 320, height: 60)
         )
@@ -289,7 +289,7 @@ public final class MiraCanvasCoordinator {
             if case .canvasTurn(let words, _, _) = intent,
                MiraIntent.isLayoutAsk(words), editor.items.count >= 2 {
                 editor.beginChange()
-                editor.quickOrganize(canvasWidth: editor.canvasWidth ?? 393)
+                editor.quickOrganize(canvasWidth: MiraNoteConfig.pageWidth)
                 showReceipt(MiraReceipt(
                     changed: "Tidied the layout.",
                     kept: "Your words and photos are unchanged."
@@ -324,7 +324,7 @@ public final class MiraCanvasCoordinator {
             // A caption reads under the page's content, not on top of it.
             editor.addText(
                 words,
-                at: CGPoint(x: 180, y: editor.contentBottom + 60),
+                at: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: editor.contentBottom + 60),
                 pointSize: 15,
                 size: CGSize(width: 320, height: 60)
             )
@@ -360,7 +360,7 @@ public final class MiraCanvasCoordinator {
         editor: CanvasViewModel
     ) {
         let resolved = PageEditGuard.resolve(
-            changes, handles: handles, canvasWidth: editor.canvasWidth ?? 393
+            changes, handles: handles, canvasWidth: MiraNoteConfig.pageWidth
         )
         guard editor.applyPageEdits(resolved) else {
             // A receipt for a change that never landed would be a lie.
