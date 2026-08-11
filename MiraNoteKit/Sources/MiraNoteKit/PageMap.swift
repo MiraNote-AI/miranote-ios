@@ -96,13 +96,21 @@ public extension PageMap {
         let map = PageMap(
             width: Double(canvasWidth),
             height: Double(max(620, bottom + 120)),
-            background: memory.backgroundFileName.isEmpty
-                ? "default gradient" : "a picked backdrop image",
+            background: Self.background(of: memory),
             palette: CanvasPalette.names,
             elements: elements,
             omitted: max(0, memory.items.count - elements.count)
         )
         return (map, handles)
+    }
+
+    /// What sits behind the words. A generated backdrop remembers the
+    /// phrase it came from; one set before that was recorded says only
+    /// that it exists.
+    private static func background(of memory: Memory) -> String {
+        if memory.backgroundFileName.isEmpty { return "default gradient" }
+        return memory.backgroundSummary.isEmpty
+            ? "a picked backdrop image" : memory.backgroundSummary
     }
 
     private static func kind(of item: CanvasItem) -> String {

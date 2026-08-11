@@ -22,13 +22,17 @@ public final class CanvasViewModel {
     public private(set) var changeCount = 0
 
     /// One undo step: the canvas elements plus the page background.
+    // The backdrop and its description travel together: restoring one
+    // without the other leaves the page describing a picture it lost.
     private struct UndoSnapshot: Equatable {
         let items: [CanvasItem]
         let backgroundFileName: String
+        let backgroundSummary: String
     }
     private var history: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
-        UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName)
+        UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
+                     backgroundSummary: memory.backgroundSummary)
     }
     private static let historyCap = 50
 
@@ -67,6 +71,7 @@ public final class CanvasViewModel {
         changeCount += 1
         memory.items = snapshot.items
         memory.backgroundFileName = snapshot.backgroundFileName
+        memory.backgroundSummary = snapshot.backgroundSummary
         if let selected = selectedItemID, item(selected) == nil {
             selectedItemID = nil
         }

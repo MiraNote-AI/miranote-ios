@@ -29,6 +29,11 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// File name of the page's full-bleed background in the ImageFileStore;
     /// empty = the default gradient backdrop.
     public var backgroundFileName: String
+    /// What the backdrop shows, in a phrase -- the prompt it was
+    /// generated from. Empty when there is no backdrop, or when one was
+    /// set before this was recorded. It is how Mira knows the page has a
+    /// dusk sky on it without spending a look at the picture.
+    public var backgroundSummary: String
 
     public init(
         id: UUID = UUID(),
@@ -38,7 +43,8 @@ public struct Memory: Identifiable, Equatable, Sendable {
         memoryDate: Date? = nil,
         savedAt: Date? = nil,
         items: [CanvasItem] = [],
-        backgroundFileName: String = ""
+        backgroundFileName: String = "",
+        backgroundSummary: String = ""
     ) {
         self.id = id
         self.title = title
@@ -48,6 +54,7 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.savedAt = savedAt
         self.items = items
         self.backgroundFileName = backgroundFileName
+        self.backgroundSummary = backgroundSummary
     }
 }
 
@@ -62,6 +69,7 @@ extension Memory: Hashable {
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
+        case backgroundSummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -75,7 +83,10 @@ extension Memory: Codable {
             memoryDate: try container.decodeIfPresent(Date.self, forKey: .memoryDate) ?? created,
             savedAt: try container.decodeIfPresent(Date.self, forKey: .savedAt),
             items: try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? [],
-            backgroundFileName: try container.decodeIfPresent(String.self, forKey: .backgroundFileName) ?? ""
+            backgroundFileName: try container.decodeIfPresent(String.self, forKey: .backgroundFileName) ?? "",
+            // Saves written before this field decode to "" -- same
+            // pattern backgroundFileName itself arrived with.
+            backgroundSummary: try container.decodeIfPresent(String.self, forKey: .backgroundSummary) ?? ""
         )
     }
 
@@ -89,6 +100,7 @@ extension Memory: Codable {
         try container.encodeIfPresent(savedAt, forKey: .savedAt)
         try container.encode(items, forKey: .items)
         try container.encode(backgroundFileName, forKey: .backgroundFileName)
+        try container.encode(backgroundSummary, forKey: .backgroundSummary)
     }
 }
 

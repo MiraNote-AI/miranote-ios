@@ -87,7 +87,9 @@ extension MiraCanvasCoordinator {
                 changed: "Added a picture.",
                 kept: "Everything else is untouched."), editor: editor)
         case .background:
-            editor.setBackground(fileName: fileName)
+            // The prompt is what the backdrop shows, so it rides along
+            // and the page map can say so without a look at the picture.
+            editor.setBackground(fileName: fileName, describes: prompt)
             showReceipt(MiraReceipt(
                 changed: "Set the page background.",
                 kept: "Everything else is untouched."), editor: editor)
