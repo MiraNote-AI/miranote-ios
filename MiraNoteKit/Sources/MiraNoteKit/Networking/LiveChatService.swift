@@ -85,6 +85,8 @@ public struct LiveChatService: ChatService {
             let body: String?
             let prompt: String?
             let changes: [ElementChange]?
+            let id: String?
+            let instruction: String?
         }
 
         enum CodingKeys: String, CodingKey {
@@ -139,9 +141,17 @@ public struct LiveChatService: ChatService {
                 return nil
             }
         }.last
+        let restyle = trace
+            .first { $0.name == "restyle_photo" }
+            .flatMap { entry -> PhotoRestyleRequest? in
+                guard let handle = entry.args?.id,
+                      let instruction = entry.args?.instruction,
+                      !handle.isEmpty, !instruction.isEmpty else { return nil }
+                return PhotoRestyleRequest(handle: handle, instruction: instruction)
+            }
         return ChatReply(
             text: response.reply, sessionID: response.sessionID, pageDraft: draft,
-            pageEdits: edits, backgroundRequest: background
+            pageEdits: edits, backgroundRequest: background, photoRestyle: restyle
         )
     }
 }
