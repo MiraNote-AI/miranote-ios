@@ -277,4 +277,87 @@ final class MiraCanvasTurnTests: XCTestCase {
         }
         XCTAssertFalse(board.canUndo, "a failed turn leaves the canvas alone")
     }
+
+    // MARK: Restyling a photo Mira can see
+
+    private func boardWithPhoto(pixels: Bool = true) -> (CanvasViewModel, ImageFileStore) {
+        let store = ImageFileStore()
+        let name = pixels
+            ? ((try? store.save(MockImageStudioService.tinyPNG, id: UUID())) ?? "")
+            : ""
+        let photo = CanvasItem(
+            content: .image(ImageRef(displayName: "d", fileName: name, summary: "a grey bowl")),
+            position: CGPoint(x: 180, y: 300),
+            size: CGSize(width: 280, height: 200)
+        )
+        let model = CanvasViewModel(memory: Memory(items: [photo]))
+        model.canvasWidth = MiraNoteConfig.pageWidth
+        return (model, store)
+    }
+
+    func testARestyleRequestRunsAsAFreshStoppableTurn() async {
+        var chat = ScriptedChat()
+        chat.reply = "Warming it up."
+        chat.photoRestyle = PhotoRestyleRequest(handle: "p1", instruction: "warm golden light")
+        let (board, store) = boardWithPhoto()
+        let mira = MiraCanvasCoordinator(
+            text: ScriptedText(), chat: chat,
+            workingDelay: .milliseconds(1), timeout: .seconds(5),
+            receiptDismiss: .seconds(60),
+            imageStudio: MockImageStudioService(), imageStore: store
+        )
+
+        mira.ask("the photo feels too cold", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+
+        guard case .receipt(let receipt) = mira.phase else {
+            return XCTFail("a restyle lands like any other change")
+        }
+        XCTAssertEqual(receipt.changed, "Restyled the photo.")
+        board.undo()
+        XCTAssertFalse(board.canUndo, "one restyle, one undo step")
+    }
+
+    func testARestyleNamingNothingAsksRatherThanGuessing() async {
+        var chat = ScriptedChat()
+        chat.reply = "Done."
+        chat.photoRestyle = PhotoRestyleRequest(handle: "p9", instruction: "warmer")
+        let (board, store) = boardWithPhoto()
+        let mira = MiraCanvasCoordinator(
+            text: ScriptedText(), chat: chat,
+            workingDelay: .milliseconds(1), timeout: .seconds(5),
+            receiptDismiss: .seconds(60),
+            imageStudio: MockImageStudioService(), imageStore: store
+        )
+
+        mira.ask("warm that up", editor: board)
+        await waitUntil { if case .failure = mira.phase { return true }; return false }
+
+        guard case .failure(let failure) = mira.phase else {
+            return XCTFail("expected a clarify card")
+        }
+        XCTAssertEqual(failure.kind, .clarify)
+    }
+
+    func testARestyleOfAPhotoWithNoPixelsSaysSo() async {
+        var chat = ScriptedChat()
+        chat.reply = "Done."
+        chat.photoRestyle = PhotoRestyleRequest(handle: "p1", instruction: "warmer")
+        let (board, store) = boardWithPhoto(pixels: false)
+        let mira = MiraCanvasCoordinator(
+            text: ScriptedText(), chat: chat,
+            workingDelay: .milliseconds(1), timeout: .seconds(5),
+            receiptDismiss: .seconds(60),
+            imageStudio: MockImageStudioService(), imageStore: store
+        )
+
+        mira.ask("warm the photo", editor: board)
+        await waitUntil { if case .failure = mira.phase { return true }; return false }
+
+        guard case .failure(let failure) = mira.phase else {
+            return XCTFail("expected the missing-pixels clarify")
+        }
+        XCTAssertEqual(failure.kind, .clarify)
+        XCTAssertTrue(failure.message.contains("no stored pixels"))
+    }
 }

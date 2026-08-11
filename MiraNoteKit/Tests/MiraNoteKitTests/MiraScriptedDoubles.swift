@@ -22,6 +22,7 @@ struct ScriptedChat: ChatService {
     var pageDraft: ChatPageDraft?
     var pageEdits: [ElementChange] = []
     var backgroundRequest: BackgroundRequest?
+    var photoRestyle: PhotoRestyleRequest?
     let recorder = SessionRecorder()
 
     func reply(
@@ -33,7 +34,8 @@ struct ScriptedChat: ChatService {
         if let error { throw error }
         return ChatReply(
             text: reply, sessionID: sessionID, pageDraft: pageDraft,
-            pageEdits: pageEdits, backgroundRequest: backgroundRequest
+            pageEdits: pageEdits, backgroundRequest: backgroundRequest,
+            photoRestyle: photoRestyle
         )
     }
 }

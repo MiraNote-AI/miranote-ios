@@ -41,6 +41,8 @@ enum MiraOutcome: Sendable {
     /// Slow image work Mira asked for; the coordinator runs it as its own
     /// turn under the image budget.
     case backgroundRequested(BackgroundRequest, reply: String)
+    /// Same, for a photo she chose to restyle after reading the page.
+    case photoRestyleRequested(PhotoRestyleRequest, handles: [String: CanvasItem.ID])
     case reply(String, sessionID: String?)
     // Image and style families (applied in MiraCanvasCoordinator+Images).
     case imageChoices([Data], prompt: String, placement: ImageChoicePlacement)
@@ -297,16 +299,7 @@ enum MiraIntent {
             let reply = try await chat.reply(
                 to: prompt, sessionID: sessionID, notes: [], page: context
             )
-            if let landed = MiraIntent.landedDraft(from: reply) {
-                return landed
-            }
-            if let background = reply.backgroundRequest {
-                return .backgroundRequested(background, reply: reply.text)
-            }
-            if !reply.pageEdits.isEmpty {
-                return .pageEdited(reply.pageEdits, handles: handles)
-            }
-            return .reply(reply.text, sessionID: reply.sessionID)
+            return Self.outcome(of: reply, handles: handles)
         case .clarifyNoText:
             throw MiraClarifyError(
                 question: "There are no words on the page yet -- which text should I change?",
@@ -323,6 +316,27 @@ enum MiraIntent {
              .illustrateText:
             return try await performImageOrStyle(imageStudio: imageStudio)
         }
+    }
+
+    /// What Mira decided this turn. A reply can carry a drafted page, a
+    /// request for slow image work, canvas edits, or just words -- one
+    /// place to read them in priority order, so `perform` stays a router.
+    private static func outcome(
+        of reply: ChatReply, handles: [String: CanvasItem.ID]
+    ) -> MiraOutcome {
+        if let landed = MiraIntent.landedDraft(from: reply) {
+            return landed
+        }
+        if let background = reply.backgroundRequest {
+            return .backgroundRequested(background, reply: reply.text)
+        }
+        if let restyle = reply.photoRestyle {
+            return .photoRestyleRequested(restyle, handles: handles)
+        }
+        if !reply.pageEdits.isEmpty {
+            return .pageEdited(reply.pageEdits, handles: handles)
+        }
+        return .reply(reply.text, sessionID: reply.sessionID)
     }
 
     private static func performAddTitle(chat: ChatService, pageNotes: [ChatNote]) async throws -> MiraOutcome {

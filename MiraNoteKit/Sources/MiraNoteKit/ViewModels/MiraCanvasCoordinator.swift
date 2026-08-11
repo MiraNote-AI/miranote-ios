@@ -333,6 +333,8 @@ public final class MiraCanvasCoordinator {
             settlePageEdits(changes, handles: handles, editor: editor)
         case .backgroundRequested(let request, _):
             startBackgroundTurn(request, editor: editor)
+        case .photoRestyleRequested(let request, let handles):
+            startPhotoRestyleTurn(request, handles: handles, editor: editor)
         case .reply(let message, let newSessionID):
             sessionID = newSessionID ?? sessionID
             conversation.append(ChatMessage(role: .user, text: lastPrompt))
@@ -410,6 +412,38 @@ public final class MiraCanvasCoordinator {
             try? await Task.sleep(for: receiptDismiss)
             guard !Task.isCancelled else { return }
             if case .receipt = phase { phase = .idle }
+        }
+    }
+
+    /// A photo restyle Mira chose after reading the page. Like the
+    /// background, it is a NEW turn: the chat turn has already settled,
+    /// and the stylize runs on the image budget rather than the chat one.
+    private func startPhotoRestyleTurn(
+        _ request: PhotoRestyleRequest,
+        handles: [String: CanvasItem.ID],
+        editor: CanvasViewModel
+    ) {
+        guard let id = handles[request.handle],
+              case .image(let ref) = editor.item(id)?.content else {
+            refillPrompt = lastPrompt
+            phase = .failure(MiraFailure(
+                kind: .clarify,
+                message: "I could not tell which picture you meant -- tap it and ask again?",
+                chips: ["Try again"]
+            ))
+            return
+        }
+        // Reuses the keyword path's intent wholesale: it already checks
+        // for missing pixels and settles as an atomic photo replacement.
+        let data = imageStore.data(forFileName: ref.fileName) ?? Data()
+        cancelTurn()
+        let generation = turnGeneration
+        phase = .working(verb: "Restyling the photo...")
+        turnTask = Task { [lastPrompt] in
+            await run(
+                .editPhoto(id, imageData: data, instruction: request.instruction),
+                prompt: lastPrompt, editor: editor, generation: generation
+            )
         }
     }
 

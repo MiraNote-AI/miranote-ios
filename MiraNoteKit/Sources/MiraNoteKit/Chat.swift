@@ -54,6 +54,18 @@ public enum BackgroundRequest: Equatable, Sendable {
     case clear
 }
 
+/// A photo restyle Mira asked for, having seen the page. The server
+/// records the call; the app runs the slow stylize on its own budget.
+public struct PhotoRestyleRequest: Equatable, Sendable {
+    public let handle: String
+    public let instruction: String
+
+    public init(handle: String, instruction: String) {
+        self.handle = handle
+        self.instruction = instruction
+    }
+}
+
 /// An assistant reply plus the server-issued session id to carry into the next
 /// turn (the backend keeps the transcript keyed on this id, so the client only
 /// tracks the id, not the history).
@@ -64,16 +76,19 @@ public struct ChatReply: Sendable {
     /// Canvas edits Mira asked for, already merged into one change.
     public let pageEdits: [ElementChange]
     public let backgroundRequest: BackgroundRequest?
+    public let photoRestyle: PhotoRestyleRequest?
 
     public init(
         text: String, sessionID: String?, pageDraft: ChatPageDraft? = nil,
-        pageEdits: [ElementChange] = [], backgroundRequest: BackgroundRequest? = nil
+        pageEdits: [ElementChange] = [], backgroundRequest: BackgroundRequest? = nil,
+        photoRestyle: PhotoRestyleRequest? = nil
     ) {
         self.text = text
         self.sessionID = sessionID
         self.pageDraft = pageDraft
         self.pageEdits = pageEdits
         self.backgroundRequest = backgroundRequest
+        self.photoRestyle = photoRestyle
     }
 }
 
