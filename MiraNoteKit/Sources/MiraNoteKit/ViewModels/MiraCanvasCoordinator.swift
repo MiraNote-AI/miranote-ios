@@ -366,42 +366,10 @@ public final class MiraCanvasCoordinator {
         )
         guard editor.applyPageEdits(resolved) else {
             // A receipt for a change that never landed would be a lie.
-            refillPrompt = lastPrompt
-            phase = .failure(MiraFailure(
-                kind: .clarify,
-                message: "I could not tell which piece you meant -- which one should I move?",
-                chips: ["Try again"]
-            ))
+            failClarify("I could not tell which piece you meant -- which one should I move?")
             return
         }
         showReceipt(Self.receipt(for: resolved, editor: editor), editor: editor)
-    }
-
-    /// Slow image work Mira asked for. It is a NEW turn, not the tail of
-    /// the chat turn: that one has already settled, so without its own
-    /// generation Stop would have nothing to cancel and a late receipt
-    /// could land on top of whatever the user did next.
-    private func startBackgroundTurn(_ request: BackgroundRequest, editor: CanvasViewModel) {
-        switch request {
-        case .clear:
-            // The same call the existing .backgroundCleared branch makes.
-            editor.beginChange()
-            editor.setBackground(fileName: "")
-            showReceipt(MiraReceipt(
-                changed: "Cleared the backdrop.",
-                kept: "Your words and photos are unchanged."
-            ), editor: editor)
-        case .set(let prompt):
-            cancelTurn()
-            let generation = turnGeneration
-            phase = .working(verb: "Painting the backdrop...")
-            turnTask = Task { [lastPrompt] in
-                await run(
-                    .setBackground(prompt: prompt), prompt: lastPrompt,
-                    editor: editor, generation: generation
-                )
-            }
-        }
     }
 
     func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel) {
@@ -415,36 +383,28 @@ public final class MiraCanvasCoordinator {
         }
     }
 
-    /// A photo restyle Mira chose after reading the page. Like the
-    /// background, it is a NEW turn: the chat turn has already settled,
-    /// and the stylize runs on the image budget rather than the chat one.
-    private func startPhotoRestyleTurn(
-        _ request: PhotoRestyleRequest,
-        handles: [String: CanvasItem.ID],
-        editor: CanvasViewModel
-    ) {
-        guard let id = handles[request.handle],
-              case .image(let ref) = editor.item(id)?.content else {
-            refillPrompt = lastPrompt
-            phase = .failure(MiraFailure(
-                kind: .clarify,
-                message: "I could not tell which picture you meant -- tap it and ask again?",
-                chips: ["Try again"]
-            ))
-            return
-        }
-        // Reuses the keyword path's intent wholesale: it already checks
-        // for missing pixels and settles as an atomic photo replacement.
-        let data = imageStore.data(forFileName: ref.fileName) ?? Data()
+    /// Start a NEW turn for slow image work Mira asked for.
+    ///
+    /// The chat turn that produced the request has already settled, so
+    /// this cannot be its tail: without its own generation Stop would
+    /// have nothing to cancel, and a late receipt could land on top of
+    /// whatever the user did next. Every slow request goes through here,
+    /// which is why +SlowWork can decide WHAT to run without reaching
+    /// into the turn machinery.
+    func startSlowTurn(_ intent: MiraIntent, verb: String, editor: CanvasViewModel) {
         cancelTurn()
         let generation = turnGeneration
-        phase = .working(verb: "Restyling the photo...")
+        phase = .working(verb: verb)
         turnTask = Task { [lastPrompt] in
-            await run(
-                .editPhoto(id, imageData: data, instruction: request.instruction),
-                prompt: lastPrompt, editor: editor, generation: generation
-            )
+            await run(intent, prompt: lastPrompt, editor: editor, generation: generation)
         }
+    }
+
+    /// Ask instead of guessing, and give the words back. Used wherever a
+    /// request names something that is no longer on the page.
+    func failClarify(_ message: String, chips: [String] = ["Try again"]) {
+        refillPrompt = lastPrompt
+        phase = .failure(MiraFailure(kind: .clarify, message: message, chips: chips))
     }
 
     private static func failure(for error: Error) -> MiraFailure {
