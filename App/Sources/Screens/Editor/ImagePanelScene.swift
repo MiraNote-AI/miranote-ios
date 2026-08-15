@@ -306,9 +306,8 @@ extension ImagePanelScene {
         // The box adopts the photo's aspect (within taste) so portrait
         // shots arrive tall instead of center-cropped into a landscape.
         var box = CGSize(width: 170, height: 150)
-        if let ui = UIImage(data: imageData), ui.size.width > 0 {
-            let aspect = ui.size.height / ui.size.width
-            box = CGSize(width: 170, height: min(260, max(110, (170 * aspect).rounded())))
+        if let ui = UIImage(data: imageData) {
+            box = CanvasImageCache.aspectBox(for: ui)
         }
         let position = CGPoint(
             x: MiraNoteConfig.pageWidth / 2 + sway,
