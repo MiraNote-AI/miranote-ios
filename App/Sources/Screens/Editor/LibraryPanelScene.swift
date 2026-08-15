@@ -96,14 +96,24 @@ struct LibraryPanelScene: View {
 
     /// Tap-to-place: stickers come back as stickers, photos as photos.
     private func place(_ favorite: GeneratedSticker) {
-        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 80, 4000))
+        let centerX = MiraNoteConfig.pageWidth / 2
         switch favorite.kind {
         case .sticker:
+            let position = CGPoint(x: centerX, y: min(editor.contentBottom + 80, 4000))
             editor.addSticker(favorite, at: position)
         case .image:
+            // Re-adopt the photo's aspect so a saved original comes back the
+            // shape it went in, not center-cropped into the default box.
+            var box = CGSize(width: 170, height: 150)
+            if let image = CanvasImageCache.image(
+                fileName: favorite.fileName, filterName: "", store: imageStore
+            ) {
+                box = CanvasImageCache.aspectBox(for: image)
+            }
+            let position = CGPoint(x: centerX, y: min(editor.contentBottom + 60 + box.height / 2, 4000))
             editor.addImages(
                 [ImageRef(displayName: favorite.prompt, fileName: favorite.fileName)],
-                around: position
+                around: position, size: box
             )
         }
         actions.leading()

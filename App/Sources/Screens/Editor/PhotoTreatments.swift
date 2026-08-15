@@ -107,6 +107,16 @@ enum CanvasImageCache {
         cache.setObject(result, forKey: key)
         return result
     }
+
+    /// A canvas box that keeps a photo's aspect within taste: fixed width,
+    /// height follows the photo and is clamped so extremes stay bounded.
+    /// Shared by the photo picker and favorite re-place so a saved original
+    /// comes back at the same shape it went in -- never center-cropped.
+    static func aspectBox(for image: UIImage, width: CGFloat = 170) -> CGSize {
+        guard image.size.width > 0 else { return CGSize(width: width, height: 150) }
+        let aspect = image.size.height / image.size.width
+        return CGSize(width: width, height: min(260, max(110, (width * aspect).rounded())))
+    }
 }
 
 extension UIImage {
