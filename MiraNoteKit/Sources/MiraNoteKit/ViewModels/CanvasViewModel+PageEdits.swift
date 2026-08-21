@@ -56,18 +56,24 @@ private extension CanvasViewModel {
     /// Coordinates arrive as top-left corners; the editor stores centers.
     func applyGeometry(_ change: ResolvedChange) {
         guard let itemIndex = index(of: change.id) else { return }
+        // The pure guard caps x at the right wall but cannot know how
+        // WIDE the element is -- fully-inside lives here, where the real
+        // box exists. The canvas scrolls down without limit, so only the
+        // top edge is a wall; the left edge never goes negative.
+        let pageWidth = max(1, canvasWidth ?? MiraNoteConfig.pageWidth)
         if let width = change.w {
-            memory.items[itemIndex].size.width = max(44, CGFloat(width))
+            memory.items[itemIndex].size.width = min(pageWidth, max(44, CGFloat(width)))
         }
         if let height = change.h {
             memory.items[itemIndex].size.height = max(36, CGFloat(height))
         }
         let size = memory.items[itemIndex].size
         if let left = change.x {
-            memory.items[itemIndex].position.x = CGFloat(left) + size.width / 2
+            let clamped = min(max(CGFloat(left), 0), max(0, pageWidth - size.width))
+            memory.items[itemIndex].position.x = clamped + size.width / 2
         }
         if let top = change.y {
-            memory.items[itemIndex].position.y = CGFloat(top) + size.height / 2
+            memory.items[itemIndex].position.y = max(CGFloat(top), 0) + size.height / 2
         }
         switch change.layer {
         case .front: memory.items[itemIndex].zIndex = topZ + 1
