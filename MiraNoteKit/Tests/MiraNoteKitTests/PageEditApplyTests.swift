@@ -135,4 +135,58 @@ final class PageEditApplyTests: XCTestCase {
         XCTAssertEqual(model.items.map(\.position), before)
         XCTAssertFalse(model.canUndo)
     }
+
+    // MARK: The page's edges are walls to the model's arithmetic
+
+    func testAnEscapePastTheRightEdgeLandsFullyInside() {
+        let item = textItem()
+        let model = editor([item])
+        model.applyPageEdits([ResolvedChange(id: item.id, x: 5000)])
+        let moved = model.item(item.id)!
+        XCTAssertLessThanOrEqual(moved.position.x + moved.size.width / 2, 393,
+                                 "the right edge must stay inside the page")
+    }
+
+    func testANegativeLeftLandsAtTheWall() {
+        let item = textItem()
+        let model = editor([item])
+        model.applyPageEdits([ResolvedChange(id: item.id, x: -500)])
+        let moved = model.item(item.id)!
+        XCTAssertEqual(moved.position.x - moved.size.width / 2, 0, accuracy: 0.5)
+    }
+
+    func testAWidthBeyondThePageIsClampedToThePage() {
+        let item = textItem()
+        let model = editor([item])
+        model.applyPageEdits([ResolvedChange(id: item.id, w: 9000)])
+        XCTAssertEqual(model.item(item.id)!.size.width, 393)
+    }
+
+    func testANegativeTopLandsAtTheTop() {
+        let item = textItem()
+        let model = editor([item])
+        model.applyPageEdits([ResolvedChange(id: item.id, y: -300)])
+        let moved = model.item(item.id)!
+        XCTAssertEqual(moved.position.y - moved.size.height / 2, 0, accuracy: 0.5)
+    }
+
+    func testAnInBoundsEditIsUntouchedByTheWalls() {
+        let item = textItem()
+        let model = editor([item])
+        model.applyPageEdits([ResolvedChange(id: item.id, x: 40, y: 60, w: 200)])
+        let moved = model.item(item.id)!
+        XCTAssertEqual(moved.position.x - moved.size.width / 2, 40, accuracy: 0.5)
+        XCTAssertEqual(moved.position.y - moved.size.height / 2, 60, accuracy: 0.5)
+        XCTAssertEqual(moved.size.width, 200)
+    }
+
+    func testADeepYBelowThePageIsKept() {
+        // The canvas scrolls down without limit -- the bottom is not a
+        // wall, and pinning that keeps a future guard from adding one.
+        let item = textItem()
+        let model = editor([item])
+        model.applyPageEdits([ResolvedChange(id: item.id, y: 5000)])
+        let moved = model.item(item.id)!
+        XCTAssertEqual(moved.position.y - moved.size.height / 2, 5000, accuracy: 0.5)
+    }
 }
