@@ -35,14 +35,27 @@ extension MiraCanvasCoordinator {
         handles: [String: CanvasItem.ID],
         editor: CanvasViewModel
     ) {
-        guard let id = handles[request.handle],
-              case .image(let ref) = editor.item(id)?.content else {
+        // The model's handle is usually right. When it is not -- or the
+        // page moved since the map was built -- the selected photo, else
+        // the only photo, is what the user meant. Several photos with no
+        // clear target stay a calm clarify. Same rule as the local photo
+        // family (photoTarget), so the two paths cannot drift apart.
+        let resolved: (CanvasItem.ID, Data)? = {
+            if let id = handles[request.handle],
+               case .image(let ref) = editor.item(id)?.content {
+                return (id, imageStore.data(forFileName: ref.fileName) ?? Data())
+            }
+            if case .one(let id, let ref) = MiraIntent.photoTarget(editor: editor) {
+                return (id, imageStore.data(forFileName: ref.fileName) ?? Data())
+            }
+            return nil
+        }()
+        guard let (id, data) = resolved else {
             failClarify("I could not tell which picture you meant -- tap it and ask again?")
             return
         }
         // Reuses the keyword path's intent wholesale: it already checks
         // for missing pixels and settles as an atomic photo replacement.
-        let data = imageStore.data(forFileName: ref.fileName) ?? Data()
         startSlowTurn(
             .editPhoto(id, imageData: data, instruction: request.instruction),
             verb: "Restyling the photo...",

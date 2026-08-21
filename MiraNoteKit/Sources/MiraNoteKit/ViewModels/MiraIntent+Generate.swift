@@ -57,13 +57,19 @@ extension MiraIntent {
         return generationIntent(lowered, prompt: prompt)
     }
 
+    /// Does the ask name the page background at all? One list, two
+    /// consumers -- the ambiguity guard and backgroundIntent -- so they
+    /// cannot drift apart.
+    static func mentionsBackground(_ lowered: String) -> Bool {
+        ["background", "backdrop", "\u{80CC}\u{666F}", "\u{5E95}\u{8272}"]
+            .contains(where: lowered.contains)
+    }
+
     /// The page-background family ("give this page a sunset background",
     /// "\u{6362}\u{4E2A}\u{661F}\u{7A7A}\u{80CC}\u{666F}"). Callers must
     /// already have excluded cutout- and sticker-flavored asks.
     static func backgroundIntent(_ lowered: String, prompt: String) -> MiraIntent? {
-        let mentions = ["background", "backdrop", "\u{80CC}\u{666F}", "\u{5E95}\u{8272}"]
-            .contains(where: lowered.contains)
-        guard mentions else { return nil }
+        guard mentionsBackground(lowered) else { return nil }
         let clears = ["remove the background", "no background", "default background",
                       "clear the background",
                       "\u{53BB}\u{6389}\u{80CC}\u{666F}", "\u{6E05}\u{7A7A}\u{80CC}\u{666F}"]
