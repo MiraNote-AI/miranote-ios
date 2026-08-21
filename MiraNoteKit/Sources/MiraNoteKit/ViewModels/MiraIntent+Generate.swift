@@ -37,13 +37,20 @@ extension MiraIntent {
     }
 
     /// The page-background family outranks generation ("draw a starry
-    /// background" is a backdrop wish), but photo- and sticker-flavored
-    /// background words ("remove the photo's background") stay out.
+    /// background" is a backdrop wish). A photo word only excludes it
+    /// for REMOVAL asks ("remove the photo's background" -- a cutout
+    /// wish that has no local tool); change and generate phrasings
+    /// ("change the background of this photo", "generate a picture for
+    /// the background") stay page-backdrop asks. Sticker-flavored
+    /// background words stay fully out ("give the sticker a new
+    /// background" must not set the page background).
     static func generativeIntent(
         _ lowered: String, prompt: String,
         mentionsPhoto: Bool, mentionsSticker: Bool
     ) -> MiraIntent? {
-        if !mentionsPhoto, !mentionsSticker,
+        let photoRemoval = mentionsPhoto
+            && backgroundRemovalCues.contains(where: lowered.contains)
+        if !photoRemoval, !mentionsSticker,
            let background = backgroundIntent(lowered, prompt: prompt) {
             return background
         }
@@ -52,7 +59,7 @@ extension MiraIntent {
 
     /// The page-background family ("give this page a sunset background",
     /// "\u{6362}\u{4E2A}\u{661F}\u{7A7A}\u{80CC}\u{666F}"). Callers must
-    /// already have excluded photo- and sticker-flavored asks.
+    /// already have excluded cutout- and sticker-flavored asks.
     static func backgroundIntent(_ lowered: String, prompt: String) -> MiraIntent? {
         let mentions = ["background", "backdrop", "\u{80CC}\u{666F}", "\u{5E95}\u{8272}"]
             .contains(where: lowered.contains)
@@ -65,11 +72,24 @@ extension MiraIntent {
         }
         let generationCues = ["draw ", "paint ", "generate ", "\u{753B}",
                               "\u{751F}\u{6210}", "\u{6765}\u{4E00}\u{5F20}", "\u{6765}\u{4E2A}"]
-        guard hasEditVerb(lowered) || generationCues.contains(where: lowered.contains) else {
+        // "modify"/"set"/"replace" are backdrop verbs here only; the
+        // shared hasEditVerb stays untouched so photo asks keep their
+        // current routing.
+        let editish = hasEditVerb(lowered)
+            || ["modify ", "set ", "replace "].contains(where: lowered.contains)
+        guard editish || generationCues.contains(where: lowered.contains) else {
             return nil
         }
         return .setBackground(prompt: prompt)
     }
+
+    /// Removal words that mark a photo's background ask as a cutout
+    /// wish rather than a page-backdrop wish. Escaped cues: qu-diao,
+    /// qing-chu, shan-chu, kou.
+    static let backgroundRemovalCues = [
+        "remove", "clear", "erase", "delete", "take out", "cut out", "strip",
+        "\u{53BB}\u{6389}", "\u{6E05}\u{9664}", "\u{5220}\u{9664}", "\u{62A0}"
+    ]
 
     static func generationIntent(_ lowered: String, prompt: String) -> MiraIntent? {
         let cues = ["draw ", "paint ", "generate ", "\u{753B}",

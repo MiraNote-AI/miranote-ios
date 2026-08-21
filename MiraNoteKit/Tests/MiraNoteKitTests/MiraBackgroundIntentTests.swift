@@ -57,6 +57,48 @@ final class MiraBackgroundIntentTests: XCTestCase {
         if case .clearBackground = intent { XCTFail("photo asks must not clear the page background") }
     }
 
+    func testPhotoWordedChangeStillSetsThePageBackground() {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addImages(
+            [ImageRef(displayName: "p", fileName: "p.png")],
+            around: CGPoint(x: 150, y: 100))
+        // "change the background of this photo" is a page-backdrop wish,
+        // not a photo edit -- only removal phrasings stay out.
+        let intent = MiraIntent.classify(
+            "change the background of this photo", editor: editor)
+        guard case .setBackground = intent else {
+            return XCTFail("expected setBackground, got \(intent)")
+        }
+    }
+
+    func testGeneratedPictureForTheBackgroundStillSetsIt() {
+        let editor = CanvasViewModel(memory: Memory())
+        let intent = MiraIntent.classify(
+            "generate a picture for the background", editor: editor)
+        guard case .setBackground = intent else {
+            return XCTFail("expected setBackground, got \(intent)")
+        }
+    }
+
+    func testModifyBackgroundAskSetsLocally() {
+        let editor = CanvasViewModel(memory: Memory())
+        let intent = MiraIntent.classify(
+            "modify the canvas background", editor: editor)
+        guard case .setBackground = intent else {
+            return XCTFail("expected setBackground, got \(intent)")
+        }
+    }
+
+    func testModifyWithoutBackgroundWordStillReachesTheCanvasAgent() {
+        let editor = CanvasViewModel(memory: Memory())
+        // "modify" joins the background family only; without a background
+        // word the ask must keep falling through to the canvas turn.
+        let intent = MiraIntent.classify("modify the photo", editor: editor)
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected canvasTurn, got \(intent)")
+        }
+    }
+
     func testStickerMentionStaysOut() {
         let editor = CanvasViewModel(memory: Memory())
         let intent = MiraIntent.classify("give the sticker a new background", editor: editor)
