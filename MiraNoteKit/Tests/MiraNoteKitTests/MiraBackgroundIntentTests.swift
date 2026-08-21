@@ -57,26 +57,39 @@ final class MiraBackgroundIntentTests: XCTestCase {
         if case .clearBackground = intent { XCTFail("photo asks must not clear the page background") }
     }
 
-    func testPhotoWordedChangeStillSetsThePageBackground() {
+    func testPhotoWordedBackgroundAsksGoToTheCanvasAgent() {
         let editor = CanvasViewModel(memory: Memory())
         _ = editor.addImages(
             [ImageRef(displayName: "p", fileName: "p.png")],
             around: CGPoint(x: 150, y: 100))
-        // "change the background of this photo" is a page-backdrop wish,
-        // not a photo edit -- only removal phrasings stay out.
+        // "change the background of this photo" is ambiguous for the
+        // keyword ladder -- a backdrop wish or a photo edit? Mira sees
+        // the page and owns both tools, so the ask goes to her.
         let intent = MiraIntent.classify(
             "change the background of this photo", editor: editor)
-        guard case .setBackground = intent else {
-            return XCTFail("expected setBackground, got \(intent)")
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected canvasTurn, got \(intent)")
         }
     }
 
-    func testGeneratedPictureForTheBackgroundStillSetsIt() {
+    func testGeneratingAPictureForTheBackgroundGoesToTheCanvasAgent() {
         let editor = CanvasViewModel(memory: Memory())
         let intent = MiraIntent.classify(
             "generate a picture for the background", editor: editor)
-        guard case .setBackground = intent else {
-            return XCTFail("expected setBackground, got \(intent)")
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected canvasTurn, got \(intent)")
+        }
+    }
+
+    func testMakingThePictureMatchTheBackgroundGoesToTheCanvasAgent() {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addImages(
+            [ImageRef(displayName: "p", fileName: "p.png")],
+            around: CGPoint(x: 150, y: 100))
+        let intent = MiraIntent.classify(
+            "make the picture match the background", editor: editor)
+        guard case .canvasTurn = intent else {
+            return XCTFail("expected canvasTurn, got \(intent)")
         }
     }
 

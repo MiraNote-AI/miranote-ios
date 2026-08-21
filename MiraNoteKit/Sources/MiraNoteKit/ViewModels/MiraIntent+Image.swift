@@ -206,6 +206,17 @@ extension MiraIntent {
             || lowered.contains("\u{62A0}\u{6210}")
         let mentionsPhoto = ["photo", "picture", "\u{7167}\u{7247}", "\u{56FE}"]
             .contains(where: lowered.contains)
+        // A photo-worded background ask is ambiguous for the keyword
+        // ladder: "change the background of this photo" can be a
+        // backdrop wish and "make the picture match the background" is
+        // a photo edit. Mira sees the page and owns both tools, so the
+        // ask goes to her. Removal phrasings stay out entirely (cutout
+        // asks, no local tool).
+        if mentionsPhoto,
+           Self.mentionsBackground(lowered),
+           !Self.backgroundRemovalCues.contains(where: lowered.contains) {
+            return nil
+        }
         // Where an element SITS and how BIG it is are Mira's job, not a
         // photo edit's. Without this, "put the photo behind everything
         // else" reads as a photo treatment and dies on a placeholder's
