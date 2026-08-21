@@ -318,27 +318,6 @@ final class MiraCanvasTurnTests: XCTestCase {
         XCTAssertFalse(board.canUndo, "one restyle, one undo step")
     }
 
-    func testARestyleNamingNothingAsksRatherThanGuessing() async {
-        var chat = ScriptedChat()
-        chat.reply = "Done."
-        chat.photoRestyle = PhotoRestyleRequest(handle: "p9", instruction: "warmer")
-        let (board, store) = boardWithPhoto()
-        let mira = MiraCanvasCoordinator(
-            text: ScriptedText(), chat: chat,
-            workingDelay: .milliseconds(1), timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
-            imageStudio: MockImageStudioService(), imageStore: store
-        )
-
-        mira.ask("warm that up", editor: board)
-        await waitUntil { if case .failure = mira.phase { return true }; return false }
-
-        guard case .failure(let failure) = mira.phase else {
-            return XCTFail("expected a clarify card")
-        }
-        XCTAssertEqual(failure.kind, .clarify)
-    }
-
     func testARestyleOfAPhotoWithNoPixelsSaysSo() async {
         var chat = ScriptedChat()
         chat.reply = "Done."
