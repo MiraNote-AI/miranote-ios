@@ -58,8 +58,11 @@ struct CanvasBoardView: View {
         }
         // The gesture grammar, literally: with a selection, dragging moves
         // the element (UIScrollView would otherwise steal vertical pans);
-        // with none, dragging scrolls the page.
-        .scrollDisabled(editor.selectedItemID != nil)
+        // with none, dragging scrolls the page. Editing text is the
+        // exception: the block is "selected" but there is no move gesture
+        // then, so the page must scroll or a long block traps its own top
+        // above the caret with no way back up.
+        .scrollDisabled(editor.selectedItemID != nil && editor.editingTextItemID == nil)
         .overlay(alignment: .bottom) {
             if let toast {
                 toastView(toast)

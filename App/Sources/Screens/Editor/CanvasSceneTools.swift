@@ -165,11 +165,16 @@ extension CanvasScene {
             self.recorder = nil
             Task {
                 defer { dictating = false }
-                guard let data = try? await recorder.stop(), !data.isEmpty,
-                      let id = editor.editingTextItemID
-                else { return }
-                // A silent failure here looked like a dead feature: say
-                // why nothing landed instead of swallowing it.
+                // A silent return here looked like a dead feature: say why
+                // nothing landed instead of swallowing it.
+                guard let data = try? await recorder.stop(), !data.isEmpty else {
+                    dictationHint = "I couldn't catch any words -- try again?"
+                    return
+                }
+                guard let id = editor.editingTextItemID else {
+                    dictationHint = "Tap a text block first, then dictate."
+                    return
+                }
                 guard let transcript = try? await transcription.transcribe(
                     audio: data, filename: "dictation.m4a"
                 ) else {
@@ -184,6 +189,13 @@ extension CanvasScene {
                 if case .text(let block) = editor.item(id)?.content {
                     let joined = block.text.isEmpty ? words : block.text + " " + words
                     editor.setText(itemID: id, to: joined)
+                    // Grow the box to the new text like typing does, or the
+                    // dictated words land clipped below the fold and read as
+                    // "nothing happened."
+                    if let width = editor.item(id)?.size.width {
+                        editor.autosizeTextHeight(itemID: id, to: TextMeasure.blockHeight(
+                            text: joined, pointSize: block.pointSize, width: width))
+                    }
                 }
             }
         } else {
