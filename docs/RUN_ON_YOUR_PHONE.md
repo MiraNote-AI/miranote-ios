@@ -1,88 +1,141 @@
-# Run MiraNote on your iPhone (team beta)
+# Run MiraNote on your iPhone
 
-Free-account sideload: the app runs on your own phone, talking to the
-shared backend on Jason's Mac over Wi-Fi. Nothing is uploaded anywhere;
-no paid Apple account needed.
+Two ways in, depending on who you are:
+
+- **Testers** install from TestFlight. Nothing to build, no Wi-Fi
+  requirement, no weekly ritual.
+- **Developers** build to their own device from Xcode, which still needs
+  the free-signing dance below.
+
+Either way the app talks to the same backends, over public HTTPS through
+a Cloudflare tunnel. The Wi-Fi-and-Bonjour path this file used to
+describe is gone: the backends now bind loopback and the tunnel is the
+only way in.
 
 ## How it fits together
 
-- The app's backend URLs live in ONE place:
+- Every service URL comes from one place,
   `MiraNoteKit/Sources/MiraNoteKit/MiraNoteConfig.swift` (`Backend`).
-  Simulator builds use localhost; a real device uses
-  `Jasons-MacBook-Pro-2.local` (the Mac's Bonjour name -- note the `-2`;
-  check yours with `scutil --get LocalHostName` if the host Mac changes).
-  Switching to a cloud deployment later = edit that one enum.
-- The backend Mac runs all four POC servers bound to `0.0.0.0` via
-  `miranote-api/scripts/start_backends.sh` (stop:
-  `stop_backends.sh`). The script also keeps the Mac awake.
+  Device builds use the four tunnel hosts; simulator and macOS test
+  hosts use `localhost`.
 
-## One-time phone setup (per person, ~10 min)
+  | Service | Device | Simulator |
+  | --- | --- | --- |
+  | text | `https://beta-text.miranote.app` | `http://localhost:8001` |
+  | image | `https://beta-image.miranote.app` | `http://localhost:8002` |
+  | chat | `https://beta-chat.miranote.app` | `http://localhost:8003` |
+  | voice | `https://beta-voice.miranote.app` | `http://localhost:8005` |
+
+- **Every request needs a bearer token**, `/health` excepted. It is
+  compiled into the build from an untracked file (next section), and a
+  build without one reaches the server and is refused.
+- The backends run on one Mac, bound to `127.0.0.1`, started by
+  `miranote-api/scripts/start_backends.sh`. **Do not change that bind.**
+  It is the whole security posture: the tunnel reaches them over
+  loopback, and `0.0.0.0` would expose four services that spend API
+  credits to every network the Mac ever joins.
+- The tunnel is a launchd job on that Mac, so it comes back after a
+  reboot on its own. `miranote-api/scripts/start_tunnel.sh` is the
+  manual path.
+
+## Build setup: the token (one time, required)
+
+Without this your build compiles, installs, and then fails every AI
+request. The build warns you, but only if you read it.
+
+```bash
+cd miranote-ios
+cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
+# then fill in BETA_API_TOKEN
+```
+
+`Config/Secrets.xcconfig` is gitignored and must stay that way. Ask
+whoever runs the backends for the current token and take it out of band
+-- not in a PR, an issue, or a chat channel.
+
+Signing for TestFlight? Set `DEVELOPMENT_TEAM` in that same file to the
+shared account's Team ID. Do not put it in `project.yml`: that file is
+tracked, and `xcodegen generate` would reset your team on every run.
+For an ordinary on-device debug build, leave it out -- the default free
+personal team is already in `Config/App.xcconfig`.
+
+If `xcodebuild` prints `warning: BETA_API_TOKEN is empty`, stop. That
+build cannot talk to the backends.
+
+## One-time phone setup for a developer build (~10 min)
 
 0. Fresh clone? Generate the Xcode project first (it is gitignored):
-   `brew install xcodegen` once, then `cd miranote-ios && xcodegen generate`.
+   `brew install xcodegen` once, then `xcodegen generate`.
 1. Plug your iPhone into your Mac. Trust the computer when asked.
-   No "Trust this computer" prompt? Unlock the phone FIRST, then
-   replug. Xcode says "unpaired"? Same fix.
+   No prompt? Unlock the phone FIRST, then replug.
 2. iPhone: Settings > Privacy & Security > Developer Mode > on
    (reboots the phone).
-3. Xcode: open `miranote-ios/MiraNote.xcodeproj`, Settings > Accounts >
-   add your (free) Apple ID.
+3. Xcode: open `MiraNote.xcodeproj`, Settings > Accounts > add your
+   (free) Apple ID.
 4. Target `MiraNote` > Signing & Capabilities: check "Automatically
    manage signing", pick your Personal Team. If the bundle id
    collides, append your name (e.g. `ai.miranote.app.meng`).
 5. Product > Scheme > Edit Scheme > Run > Build Configuration:
-   **Release** (this is what makes it feel like a real app; Debug is
-   noticeably less smooth).
-6. Select your phone as the destination, press Run. First launch:
-   iPhone Settings > General > VPN & Device Management > trust your
-   developer certificate, then launch again.
-7. On first backend call iOS asks for Local Network permission --
-   tap Allow.
+   **Release**. Debug is noticeably less smooth.
+6. Select your phone, press Run. First launch: iPhone Settings >
+   General > VPN & Device Management > trust your developer
+   certificate, then launch again.
 
-After this, unplug. The app lives on your home screen like any other.
+The app no longer asks for Local Network permission. It does not use
+the local network.
 
-## Every week
+### Every week
 
-Free signing expires after 7 days -- the app icon stops opening.
-Plug in, press Run once, done. (A paid $99/yr account extends this
-to a year; revisit if the weekly tap gets old.)
+Free signing expires after 7 days and the icon stops opening. Plug in,
+press Run once. TestFlight builds do not have this problem; they expire
+after 90 days instead.
+
+## What the error messages mean
+
+Each one names a different failure and a different fix. They are worth
+reading literally rather than reporting as "the app is broken".
+
+| On screen | What happened | Who fixes it |
+| --- | --- | --- |
+| "cannot get into the beta -- its access was never set up, or has since been replaced" | 401. The build has no token, or an old one | whoever built it: set `BETA_API_TOKEN`, rebuild, redistribute |
+| "AI server is not running" | 502. Tunnel up, backends down | run `start_backends.sh` on the host Mac |
+| "link to MiraNote's AI server is down" | 530. The tunnel is down, or its Mac is asleep or offline | check the host Mac; the launchd job restarts the tunnel itself |
+| "sending requests faster than the beta allows" | 429. Our own per-token rate limit | wait about a minute |
+| "image service has used up its quota" | 503. The upstream image provider refused us | nothing on the phone; the backend team has to raise quota |
+| "took longer than the server allows" | Client timeout | try once more, then report it |
+| "Couldn't reach MiraNote's AI server" | No answer at all | check your connection first, then whether the tunnel is up |
 
 ## Using it
 
-- Be on the SAME Wi-Fi as the backend Mac.
-- Jason (or whoever hosts): `cd miranote-api && scripts/start_backends.sh`.
-  Cold start takes a few minutes (image server preloads ML models);
-  the script prints per-service health when ready.
-- Off that Wi-Fi the app still opens and existing pages remain
-  readable/editable; AI features show "can't reach the server".
-- Text and chat answer in ~1-2 s. Sticker cutout and image generation
-  take ~15-30 s on an idle host -- the working bar ("Cutting the
-  sticker...") means it IS working; don't retry-spam, requests queue.
-- The host Mac's spare CPU is the product's speed: before a demo,
-  quit video-meeting apps and stray dev servers (a forgotten
-  `--reload` uvicorn once tripled our cutout times).
+- Text and chat answer in ~1-2s. Sticker cutout and image generation
+  take ~15-40s on an idle host. The working bar means it IS working;
+  do not retry-spam. There is deliberately no automatic retry, and
+  concurrent generations are capped, so extra taps only queue.
+- The host Mac's spare CPU is the product's speed. Before a demo, quit
+  video-meeting apps and stray dev servers -- a forgotten `--reload`
+  uvicorn once tripled cutout times.
+- Off the network the app still opens and existing pages stay readable
+  and editable; only AI features fail.
 
 ## Zoom demo (mirror the real phone)
 
 1. Phone plugged into the Mac via USB.
-2. QuickTime Player > File > New Movie Recording > click the arrow
-   next to the record button > Camera: your iPhone.
-3. A live, lossless portrait mirror of the phone appears. Share THAT
-   window in Zoom.
-4. The mirror is exactly as smooth as the phone itself and does not
-   depend on the network or the backend.
+2. QuickTime Player > File > New Movie Recording > click the arrow next
+   to the record button > Camera: your iPhone.
+3. A live, lossless portrait mirror appears. Share THAT window.
 
-Tip for live demos: text/chat features answer in about a second;
-image generation and cutout legitimately take 30-60 s. Plan the
-narration around it or show those from the pre-rendered demo film
-(`miranote-demo/final.mp4`) and do the fast features live.
+The mirror is as smooth as the phone and does not depend on the network
+or the backend. Plan narration around the slow features, or show those
+from the pre-rendered film (`miranote-demo/final.mp4`) and do the fast
+ones live.
 
 ## Troubleshooting
 
 | Symptom | Fix |
-|---|---|
-| "Couldn't reach the server" on phone | Same Wi-Fi? Backends up? Open `http://Jasons-MacBook-Pro-2.local:8001/health` in phone Safari -- if that loads, restart the app. |
-| Safari can't load the health URL either | The Wi-Fi may block mDNS (common on guest networks). Fallback: hotspot from a phone, connect the Mac to it; or temporarily set `Backend.host` to the Mac's LAN IP and rebuild. |
-| Health loads on the Mac but not the phone | Servers must be bound to 0.0.0.0 -- always start them via `start_backends.sh`, not by hand. Also check macOS firewall (System Settings > Network > Firewall): allow incoming for Python. |
-| App icon won't open after a while | The 7-day signature expired. Plug in, Run once. |
-| Image ops time out | Cold model load on first call can exceed the app's timeout. The script prewarms health but not models; retry once, the second call is fast. |
+| --- | --- |
+| Every AI feature says the build cannot get into the beta | The build has no token. `Config/Secrets.xcconfig`, then rebuild. This is the most common first-build failure. |
+| `xcodegen generate` fails on a config file path | You are on an old checkout. `Config/App.xcconfig` is tracked and uses an optional include, so a missing secrets file is fine. |
+| Your signing team keeps reverting | You set it in `project.yml`. Put it in `Config/Secrets.xcconfig` instead. |
+| Health check from a phone browser | `https://beta-text.miranote.app/health` needs no token and should return JSON. If that fails, the tunnel or the backend is down, not your build. |
+| App icon won't open after a while | Free signature expired. Plug in, Run once. |
+| First image op after a restart is slow | Cold model load on the host. The second call is fast. |
