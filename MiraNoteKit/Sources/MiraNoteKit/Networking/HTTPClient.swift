@@ -45,9 +45,13 @@ extension BackendError: LocalizedError {
     private static func message(for status: Int) -> String {
         switch status {
         case 401:
+            // Covers both cases, because the first one to actually happen was
+            // the one the earlier wording denied: a TestFlight build that was
+            // never given a token at all, not one whose token was rotated.
             return """
-                This build is no longer signed in to the beta. Ask the team for \
-                an updated build -- reinstalling this one will not help.
+                This build cannot get into the beta -- its access was never set \
+                up, or has since been replaced. Ask the team for an updated \
+                build; reinstalling this one will not help.
                 """
         case 429:
             return """

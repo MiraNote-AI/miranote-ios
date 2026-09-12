@@ -10,9 +10,10 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     GENERATE_INFOPLIST_FILE: YES
-    # Free Apple personal-team signing for on-device beta (Mengjia's Apple ID).
-    # Keeps `xcodegen generate` from resetting the team each time.
-    DEVELOPMENT_TEAM: FBY8RBCZ9M
+    # DEVELOPMENT_TEAM deliberately lives in Config/App.xcconfig, not here.
+    # Distribution is owned outside this repo, and a team pinned in a tracked
+    # file is reset on every `xcodegen generate` for whoever signs the
+    # TestFlight build.
     CODE_SIGN_STYLE: Automatic
 targets:
   MiraNote:
@@ -62,6 +63,16 @@ targets:
     configFiles:
       Debug: Config/App.xcconfig
       Release: Config/App.xcconfig
+    preBuildScripts:
+      # A build with no token compiles, passes CI and installs, then fails
+      # every request once it is on a phone. Say it here instead, where
+      # whoever made the build is still looking.
+      - name: Check beta token
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ -z "${BETA_API_TOKEN:-}" ]; then
+            echo "warning: BETA_API_TOKEN is empty -- this build cannot authenticate to the beta backends. Copy Config/Secrets.xcconfig.example to Config/Secrets.xcconfig and fill it in."
+          fi
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.miranote.app

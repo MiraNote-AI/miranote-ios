@@ -5,6 +5,12 @@
 // 401 and the app says so in words a tester can act on.
 BETA_API_TOKEN =
 
+// Free Apple personal team, enough for on-device debug builds. It cannot
+// upload to App Store Connect, so whoever signs the TestFlight build overrides
+// this in Secrets.xcconfig rather than editing a tracked file -- otherwise
+// every `xcodegen generate` resets their team back to this one.
+DEVELOPMENT_TEAM = FBY8RBCZ9M
+
 // The real token lives in Config/Secrets.xcconfig, which is gitignored.
 // "#include?" is the optional form: it is skipped without error when the file
 // is absent, which is what keeps a fresh clone working. A plain "#include"
