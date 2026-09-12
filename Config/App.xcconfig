@@ -1,0 +1,13 @@
+// Build settings that are safe to commit.
+//
+// BETA_API_TOKEN defaults to empty so a fresh clone generates and builds with
+// no extra setup. A build without a token still runs; every call comes back
+// 401 and the app says so in words a tester can act on.
+BETA_API_TOKEN =
+
+// The real token lives in Config/Secrets.xcconfig, which is gitignored.
+// "#include?" is the optional form: it is skipped without error when the file
+// is absent, which is what keeps a fresh clone working. A plain "#include"
+// here, or pointing project.yml straight at Secrets.xcconfig, makes
+// "xcodegen generate" fail outright for anyone who has not created it.
+#include? "Secrets.xcconfig"

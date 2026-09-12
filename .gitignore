@@ -21,3 +21,6 @@ App/Info.plist
 .handoff-*.md
 .mcp.json
 .claude/settings.local.json
+
+# Beta token, injected at build time (see Config/Secrets.xcconfig.example)
+Config/Secrets.xcconfig

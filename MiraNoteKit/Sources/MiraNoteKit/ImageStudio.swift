@@ -83,12 +83,15 @@ public struct LiveImageStudioService: ImageStudioService {
         struct Response: Decodable {
             let images: [String]
         }
-        // Generation legitimately runs past URLSession's 60s default
-        // (two images plus background removal); give it real room.
+        // Generation legitimately runs past URLSession's 60s default (two
+        // images plus background removal), but it must still finish inside
+        // Cloudflare's 125s proxy read timeout, which cannot be raised below
+        // the Enterprise plan. Measured worst case on the host Mac is 36.8s
+        // for a cutout, so 110s is a ceiling rather than the normal path.
         let response: Response = try await client.postJSON(
             to: baseURL.appendingPathComponent("generate"),
             body: Request(command: kind.rawValue, prompt: prompt, expand: true),
-            timeout: 180
+            timeout: 110
         )
         let decoded = response.images.compactMap { Data(base64Encoded: $0) }
         guard !decoded.isEmpty else { throw BackendError.decoding }
@@ -160,7 +163,8 @@ public struct LiveImageStudioService: ImageStudioService {
         }
         let boundary = "MiraNoteBoundary-\(UUID().uuidString)"
         var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 180
+        // Same ceiling as /generate: below Cloudflare's 125s edge timeout.
+        request.timeoutInterval = 110
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = LiveVoiceTranscriptionService.multipartBody(

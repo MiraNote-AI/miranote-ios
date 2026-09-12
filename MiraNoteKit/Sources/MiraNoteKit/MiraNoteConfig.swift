@@ -27,32 +27,83 @@ public enum MiraNoteConfig {
     /// their own, so pointing the app at a different deployment (cloud,
     /// staging) means editing exactly this enum and nothing else.
     public enum Backend {
-        /// Simulator builds and macOS test hosts reach the dev machine's
-        /// own loopback (integration spec D5). A real device reaches the
-        /// shared beta backend -- the team Mac running start_backends.sh --
-        /// over mDNS on the same Wi-Fi (docs/RUN_ON_YOUR_PHONE.md).
-        /// The beta host is the Mac's BONJOUR name (scutil --get
-        /// LocalHostName + .local) -- NOT its shell hostname; macOS
-        /// silently appends -2 after a past name collision here.
-        static let host: String = {
-            #if targetEnvironment(simulator) || os(macOS)
-            "localhost"
-            #else
-            "Jasons-MacBook-Pro-2.local"
-            #endif
-        }()
+        /// Addresses a shipped beta build talks to, through the Cloudflare
+        /// tunnel on the team Mac. They replace the old mDNS path, which
+        /// needed the phone and the Mac on one Wi-Fi; the backends now bind
+        /// loopback and the tunnel is the only way in.
+        ///
+        /// Named separately rather than only as the `#if` result so a test on
+        /// any platform can assert them. On a test host the device branch is
+        /// never compiled, and a wrong hostname would otherwise ship unseen.
+        ///
+        /// One label deep on purpose. Cloudflare's free Universal SSL signs
+        /// `miranote.app` and `*.miranote.app` and nothing deeper, so
+        /// `text.beta.miranote.app` fails the TLS handshake before a request
+        /// is even sent. These are compiled into the shipped build, so
+        /// changing one costs every tester a new install.
+        public enum Beta {
+            public static let text = URL(string: "https://beta-text.miranote.app")!
+            public static let image = URL(string: "https://beta-image.miranote.app")!
+            public static let chat = URL(string: "https://beta-chat.miranote.app")!
+            public static let voice = URL(string: "https://beta-voice.miranote.app")!
 
-        private static func base(port: Int) -> URL {
-            URL(string: "http://\(host):\(port)")!
+            static let all = [text, image, chat, voice]
+        }
+
+        /// Simulator builds and macOS test hosts reach the dev machine's own
+        /// loopback (integration spec D5). They need the token too: the
+        /// backends require it on loopback as well.
+        private static func local(port: Int) -> URL {
+            URL(string: "http://localhost:\(port)")!
         }
 
         /// text-clean-expand POC: /clean, /expand, /polish.
-        public static let textBaseURL = base(port: 8001)
+        public static let textBaseURL: URL = {
+            #if targetEnvironment(simulator) || os(macOS)
+            local(port: 8001)
+            #else
+            Beta.text
+            #endif
+        }()
         /// voice-to-text POC: /transcribe.
-        public static let voiceBaseURL = base(port: 8005)
+        public static let voiceBaseURL: URL = {
+            #if targetEnvironment(simulator) || os(macOS)
+            local(port: 8005)
+            #else
+            Beta.voice
+            #endif
+        }()
         /// chatbot POC: /chat.
-        public static let chatBaseURL = base(port: 8003)
+        public static let chatBaseURL: URL = {
+            #if targetEnvironment(simulator) || os(macOS)
+            local(port: 8003)
+            #else
+            Beta.chat
+            #endif
+        }()
         /// image-generation POC: /generate, /cutout, /stylize, /border.
-        public static let imageBaseURL = base(port: 8002)
+        public static let imageBaseURL: URL = {
+            #if targetEnvironment(simulator) || os(macOS)
+            local(port: 8002)
+            #else
+            Beta.image
+            #endif
+        }()
+
+        /// The beta bearer token, injected at build time from an untracked
+        /// xcconfig and read back out of the app's Info.plist.
+        ///
+        /// Nil in unit tests, which run outside an app bundle, and nil in a
+        /// build configured without one. Both then get 401s the app can
+        /// explain, which is a better failure than refusing to launch. The
+        /// unexpanded placeholder is treated as absent because that is what an
+        /// Info.plist carries when the build setting was never defined.
+        public static let betaToken: String? = {
+            guard let value = Bundle.main.object(forInfoDictionaryKey: "BetaAPIToken") as? String,
+                  !value.isEmpty,
+                  !value.hasPrefix("$(")
+            else { return nil }
+            return value
+        }()
     }
 }

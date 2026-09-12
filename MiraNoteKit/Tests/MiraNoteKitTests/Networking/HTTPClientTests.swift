@@ -76,3 +76,68 @@ final class HTTPClientTests: XCTestCase {
         }
     }
 }
+
+extension HTTPClientTests {
+    private func makeAuthenticated(_ token: String?) -> HTTPClient {
+        HTTPClient(session: StubURLProtocol.makeSession(), betaToken: token)
+    }
+
+    private func capturingHeaders(
+        _ run: (HTTPClient) async throws -> Void,
+        client: HTTPClient
+    ) async rethrows -> [String: String] {
+        var captured: [String: String] = [:]
+        StubURLProtocol.handler = { request in
+            captured = request.allHTTPHeaderFields ?? [:]
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data("{}".utf8))
+        }
+        try await run(client)
+        return captured
+    }
+
+    func testSendAttachesTheBearerToken() async throws {
+        let headers = try await capturingHeaders({ client in
+            _ = try await client.send(URLRequest(url: self.betaURL))
+        }, client: makeAuthenticated("secret-token"))
+
+        XCTAssertEqual(headers["Authorization"], "Bearer secret-token")
+    }
+
+    /// ImageStudio and LiveVoiceTranscriptionService build their own multipart
+    /// requests and hand them to `send`, so injecting there is what makes every
+    /// call site authenticated rather than the JSON path only.
+    func testAnAlreadyBuiltRequestIsAuthenticatedToo() async throws {
+        var request = URLRequest(url: betaURL)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=x", forHTTPHeaderField: "Content-Type")
+
+        let headers = try await capturingHeaders({ client in
+            _ = try await client.send(request)
+        }, client: makeAuthenticated("secret-token"))
+
+        XCTAssertEqual(headers["Authorization"], "Bearer secret-token")
+        XCTAssertEqual(headers["Content-Type"], "multipart/form-data; boundary=x")
+    }
+
+    func testPostJSONIsAuthenticatedToo() async throws {
+        struct Body: Codable { let value: String }
+        let headers = try await capturingHeaders({ client in
+            let _: [String: String] = try await client.postJSON(to: self.betaURL, body: Body(value: "x"))
+        }, client: makeAuthenticated("secret-token"))
+
+        XCTAssertEqual(headers["Authorization"], "Bearer secret-token")
+    }
+
+    /// A build with no token compiles and runs; it just gets 401s it can
+    /// explain, rather than crashing or sending "Bearer nil".
+    func testNoTokenMeansNoHeader() async throws {
+        let headers = try await capturingHeaders({ client in
+            _ = try await client.send(URLRequest(url: self.betaURL))
+        }, client: makeAuthenticated(nil))
+
+        XCTAssertNil(headers["Authorization"])
+    }
+
+    private var betaURL: URL { URL(string: "https://beta-text.miranote.app/polish")! }
+}
