@@ -37,8 +37,13 @@ final class LiveImageStudioServiceTests: XCTestCase {
         XCTAssertEqual(body?["command"] as? String, "sticker")
         XCTAssertEqual(body?["prompt"] as? String, "a sleepy cafe cat")
         XCTAssertEqual(body?["expand"] as? Bool, true)
-        XCTAssertEqual(
-            captured?.timeoutInterval, 180,
+        // The intent, not the number: generation outlives URLSession's 60s
+        // default, so the request must set a budget of its own. What that
+        // budget is, and why it sits under Cloudflare's 125s edge timeout,
+        // belongs to TimeoutBudgetTests -- pinning the value in two places
+        // means the next change to it has to be made twice.
+        XCTAssertGreaterThan(
+            try XCTUnwrap(captured?.timeoutInterval), 60,
             "generation outlives URLSession's 60s default; the request must say so"
         )
     }

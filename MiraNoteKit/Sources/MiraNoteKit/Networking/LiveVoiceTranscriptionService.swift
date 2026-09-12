@@ -34,6 +34,11 @@ public struct LiveVoiceTranscriptionService: VoiceTranscriptionService {
 
         let boundary = "MiraNoteBoundary-\(UUID().uuidString)"
         var request = URLRequest(url: components.url!)
+        // Explicit, because URLSession's implicit 60s already fails a
+        // one-minute recording: the backend was measured at a worst case of
+        // 84.3s, dominated by a roughly flat 60s correction call. Still below
+        // Cloudflare's 125s edge timeout.
+        request.timeoutInterval = 110
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.multipartBody(

@@ -119,7 +119,7 @@ public final class MiraCanvasCoordinator {
         timeout: Duration = MiraCanvasCoordinator.defaultTurnTimeout,
         receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss,
         imageStudio: ImageStudioService = MockImageStudioService(),
-        imageTimeout: Duration = .seconds(150),
+        imageTimeout: Duration = .seconds(120),
         imageStore: ImageFileStore = ImageFileStore(),
         stickerFavorites: StickerFavoritesStore = StickerFavoritesStore()
     ) {
