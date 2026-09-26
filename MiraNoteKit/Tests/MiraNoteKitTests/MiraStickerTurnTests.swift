@@ -68,8 +68,10 @@ final class MiraStickerTurnTests: XCTestCase {
             return XCTFail("expected the item to stay a sticker")
         }
         XCTAssertEqual(store.data(forFileName: sticker.fileName),
-                       Data("orig+styled+cut+outlined".utf8),
-                       "every stage ran, on the edited bytes, in order")
+                       Data("orig+styled+cut".utf8),
+                       "stylize then cutout, in order, on the edited bytes -- "
+                       + "and no outline: the sticker keeps the die-cut edge it "
+                       + "already has rather than gaining a second one per edit")
         XCTAssertEqual(sticker.prompt, "the cat", "the label survives the edit")
         XCTAssertEqual(sticker.symbolName, "cup", "the fallback symbol survives too")
         XCTAssertTrue(favorites.all().isEmpty, "saving is the user's call, not a side effect")
