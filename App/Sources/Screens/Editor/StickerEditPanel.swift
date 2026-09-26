@@ -1,9 +1,15 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The on-canvas sticker edit panel: one instruction, then the same
-/// pipeline as make-sticker (stylize -> cutout -> outline) so the
-/// die-cut look survives shape changes. Replaces in place; one undo.
+/// The on-canvas sticker edit panel: one instruction, then stylize -> cutout.
+///
+/// No outline pass, unlike make-sticker. A sticker already carries its white
+/// die-cut edge -- the image model drew it, and /stylize now asks for it to be
+/// kept -- so stroking another one around the result only thickens the edge,
+/// and does it again on every edit. make-sticker still outlines because a photo
+/// cut out of its background has no edge of its own.
+///
+/// Replaces in place; one undo.
 struct StickerEditPanel: View {
     @Bindable var editor: CanvasViewModel
     let itemID: CanvasItem.ID
@@ -87,8 +93,7 @@ struct StickerEditPanel: View {
             do {
                 let styled = try await studio.stylize(image: data, instruction: words)
                 let cut = try await studio.cutout(image: styled, target: nil)
-                let outlined = try await studio.outline(image: cut)
-                let fileName = try imageStore.save(outlined, id: UUID())
+                let fileName = try imageStore.save(cut, id: UUID())
                 let edited = GeneratedSticker(
                     prompt: sticker.prompt,
                     symbolName: sticker.symbolName,
