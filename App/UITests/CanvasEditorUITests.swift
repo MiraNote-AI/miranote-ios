@@ -349,29 +349,27 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(sticker.waitForExistence(timeout: 8), "the photo became a sticker in place")
     }
 
-    // With a selection, a vertical drag moves the element -- it must not be
-    // stolen by the page scroll (the "selected moves, unselected scrolls"
+    // Pressing an unselected element and dragging moves it directly -- no
+    // tap-to-select first (the "press to drag, long-press for menu"
     // grammar).
-    func testDragMovesSelectedElementInsteadOfScrolling() {
+    func testDragMovesUnselectedElementDirectly() {
         app.buttons["Start a memory"].tap()
         addTextBlock("drag me around")
         let title = app.staticTexts["drag me around"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
 
         // Closing the keyboard leaves the block selected; tap empty paper
-        // to deselect, then tap once to select (tap-on-selected re-enters
-        // editing, which is the product grammar, not a drag).
+        // to deselect -- the drag below must still move the element.
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .withOffset(CGVector(dx: 0, dy: 300)).tap()
         let before = title.frame.midY
 
-        title.tap()
         let start = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let end = start.withOffset(CGVector(dx: 0, dy: 140))
         start.press(forDuration: 0.08, thenDragTo: end)
 
         XCTAssertTrue(title.waitForExistence(timeout: 3))
-        XCTAssertGreaterThan(title.frame.midY, before + 70, "selected element follows the drag")
+        XCTAssertGreaterThan(title.frame.midY, before + 70, "unselected element follows the drag")
     }
 
     /// Adds a text block through the Text tool and closes the keyboard.

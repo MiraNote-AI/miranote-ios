@@ -3,10 +3,11 @@ import MiraNoteKit
 import SwiftUI
 
 /// The v2.1 infinite canvas: a vertically scrolling page of freely placed
-/// elements. Gesture grammar ("selected moves, unselected scrolls"): tap
-/// selects, tap on empty paper deselects, drag moves only the selected
-/// element, long-press opens the context menu (the only delete path), corner
-/// handles resize, and two fingers rotate.
+/// elements. Gesture grammar ("press to drag, long-press for menu"):
+/// press-and-drag moves any element directly (and selects it), tap selects,
+/// tap on empty paper deselects, dragging empty paper scrolls the page,
+/// long-press opens the context menu (the only delete path), corner handles
+/// resize, and two fingers rotate.
 struct CanvasBoardView: View {
     @Bindable var editor: CanvasViewModel
     var soundStore = SoundFileStore()
@@ -56,12 +57,9 @@ struct CanvasBoardView: View {
                 }
             }
         }
-        // The gesture grammar, literally: with a selection, dragging moves
-        // the element (UIScrollView would otherwise steal vertical pans);
-        // with none, dragging scrolls the page. Editing text is the
-        // exception: the block is "selected" but there is no move gesture
-        // then, so the page must scroll or a long block traps its own top
-        // above the caret with no way back up.
+        // Dragging an element moves and selects it, which disables the page
+        // scroll; dragging empty paper scrolls. While editing text there is
+        // no move gesture, so the page scrolls there instead.
         .scrollDisabled(editor.selectedItemID != nil && editor.editingTextItemID == nil)
         .overlay(alignment: .bottom) {
             if let toast {
@@ -171,7 +169,7 @@ struct CanvasBoardView: View {
         .position(geometry.position)
         .id(item.id)
         .onTapGesture { handleTap(item, isSelected: isSelected) }
-        .gesture(isSelected && !isEditing ? moveGesture(item) : nil)
+        .gesture(isEditing ? nil : moveGesture(item))
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
@@ -233,6 +231,9 @@ extension CanvasBoardView {
 
     private func moveGesture(_ item: CanvasItem) -> some Gesture {
         DragGesture(minimumDistance: 4)
+            .onChanged { _ in
+                editor.select(item.id)
+            }
             .updating($activeMove) { value, state, _ in
                 state = ActiveMove(itemID: item.id, translation: value.translation)
             }
