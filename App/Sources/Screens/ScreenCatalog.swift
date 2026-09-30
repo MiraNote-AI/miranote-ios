@@ -36,9 +36,14 @@ enum FlowScene: String, CaseIterable {
 /// Renders the image panel with mock services for the DEBUG catalog.
 private struct ImagePanelCatalogPreview: View {
     @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    @State private var pendingPlacement: PendingPlacement?
 
     var body: some View {
-        ImagePanelScene(editor: editor, studio: MockImageStudioService())
+        ImagePanelScene(
+            editor: editor,
+            studio: MockImageStudioService(),
+            pendingPlacement: $pendingPlacement
+        )
     }
 }
 
@@ -67,12 +72,14 @@ private struct CanvasCatalogPreview: View {
             ? ServiceContainer.live.imageStudio : MockImageStudioService()
     )
     @State private var pendingTool: EditorMode?
+    @State private var pendingPlacement: PendingPlacement?
 
     var body: some View {
         CanvasScene(
             editor: editor,
             mira: mira,
             pendingTool: $pendingTool,
+            pendingPlacement: $pendingPlacement,
             recorderFactory: { MockAudioRecorder() }
         )
     }

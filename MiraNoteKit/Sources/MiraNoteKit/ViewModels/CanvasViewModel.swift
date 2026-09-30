@@ -141,14 +141,13 @@ public final class CanvasViewModel {
         return ids
     }
 
-    public func addSticker(_ sticker: GeneratedSticker, at position: CGPoint) {
+    @discardableResult
+    public func addSticker(_ sticker: GeneratedSticker, at position: CGPoint) -> CanvasItem.ID {
         beginChange()
-        memory.items.append(CanvasItem(
-            content: .sticker(sticker),
-            position: position,
-            size: CGSize(width: 88, height: 88),
-            zIndex: topZ + 1
-        ))
+        let item = CanvasItem(content: .sticker(sticker), position: position,
+                              size: CGSize(width: 88, height: 88), zIndex: topZ + 1)
+        memory.items.append(item)
+        return item.id
     }
 
     @discardableResult

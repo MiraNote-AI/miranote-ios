@@ -2,6 +2,16 @@ import MiraNoteKit
 import PhotosUI
 import SwiftUI
 
+/// A generated picture the user has picked but not yet placed. The panel hands
+/// it back to the canvas, where the next tap on the paper decides where it
+/// lands -- generated pictures used to drop at the page bottom, which on a tall
+/// journal meant scrolling down to find them and dragging all the way back up.
+struct PendingPlacement: Equatable {
+    let prompt: String
+    let fileName: String
+    let isSticker: Bool
+}
+
 /// The Image panel (v2.1): three sources -- Library, Camera, Generate --
 /// with sticker creation living inside Generate as a style. Saved favorites
 /// moved to their own panel (the bar's fourth mode).
@@ -9,6 +19,8 @@ struct ImagePanelScene: View {
     @Bindable var editor: CanvasViewModel
     var studio: ImageStudioService = MockImageStudioService()
     var actions = EditorActions()
+    /// Set when a generated picture is waiting for the canvas tap that places it.
+    @Binding var pendingPlacement: PendingPlacement?
 
     /// Generate is the only mode-like source; Library and Camera act
     /// directly from their buttons (one row, no second step).
@@ -22,7 +34,6 @@ struct ImagePanelScene: View {
     @State private var notice: String?
 
     private let imageStore = ImageFileStore()
-    private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     var body: some View {
         EditorScaffold(
@@ -272,19 +283,19 @@ extension ImagePanelScene {
         }
     }
 
+    /// Picked, not yet placed: the bytes are saved here (so a write failure is
+    /// reported next to the panel that produced it), then the canvas is asked
+    /// where it goes.
     private func place(_ result: GeneratedResult) {
         guard let fileName = try? imageStore.save(result.data, id: UUID()) else {
             notice = "That picture couldn't be saved. Try again?"
             return
         }
-        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 90, 4000))
-        if result.style == .sticker {
-            let sticker = GeneratedSticker(prompt: result.prompt, symbolName: "sparkles", fileName: fileName)
-            editor.addSticker(sticker, at: position)
-            favoritesStore.add(sticker)
-        } else {
-            editor.addImages([ImageRef(displayName: result.prompt, fileName: fileName)], around: position)
-        }
+        pendingPlacement = PendingPlacement(
+            prompt: result.prompt,
+            fileName: fileName,
+            isSticker: result.style == .sticker
+        )
         actions.leading()
     }
 

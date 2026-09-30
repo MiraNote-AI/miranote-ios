@@ -75,7 +75,6 @@ extension MiraCanvasCoordinator {
             let generated = GeneratedSticker(
                 prompt: prompt, symbolName: "sparkles", fileName: fileName)
             editor.addSticker(generated, at: position)
-            stickerFavorites.add(generated)
             showReceipt(MiraReceipt(
                 changed: "Added a sticker.",
                 kept: "Everything else is untouched."), editor: editor)
@@ -129,7 +128,6 @@ extension MiraCanvasCoordinator {
         let sticker = GeneratedSticker(prompt: prompt, symbolName: "sparkles",
                                        fileName: fileName)
         editor.replaceImageWithSticker(itemID: id, sticker: sticker)
-        stickerFavorites.add(sticker)
         showReceipt(receipt, editor: editor)
     }
 
@@ -149,7 +147,6 @@ extension MiraCanvasCoordinator {
         let edited = GeneratedSticker(prompt: old.prompt, symbolName: old.symbolName,
                                       fileName: fileName)
         editor.replaceSticker(itemID: id, with: edited)
-        stickerFavorites.add(edited)
         showReceipt(receipt, editor: editor)
     }
 

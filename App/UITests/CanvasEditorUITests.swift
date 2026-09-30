@@ -126,9 +126,9 @@ final class CanvasEditorUITests: XCTestCase {
         )
     }
 
-    // Sticker creation lives inside Generate as a style: generating with the
-    // sticker style and placing a result lands a sticker element and seeds
-    // the favorites row.
+    // Sticker creation lives inside Generate as a style. Picking a result no
+    // longer places it and no longer files it in Favorites: the canvas asks
+    // where it goes, and the next tap on the paper lands it there.
     func testGenerateStickerPlacesElement() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
@@ -151,8 +151,15 @@ final class CanvasEditorUITests: XCTestCase {
         firstResult.tap()
 
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        let hint = app.staticTexts["canvas.place.hint"]
+        XCTAssertTrue(hint.waitForExistence(timeout: 5), "the canvas asks where it should go")
+
+        // The paper carries no accessibility identifier on purpose (a container
+        // id cascades onto the elements), so the placing tap goes by coordinate.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
+
         let sticker = app.descendants(matching: .any).matching(identifier: "element.sticker").firstMatch
-        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the placed sticker renders on the canvas")
+        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the tap placed the sticker on the canvas")
     }
 
     // Done round-trip (the save-does-not-wipe regression under autosave
