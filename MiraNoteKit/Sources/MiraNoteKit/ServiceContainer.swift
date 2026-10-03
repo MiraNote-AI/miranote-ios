@@ -30,13 +30,18 @@ public struct ServiceContainer: Sendable {
 
     /// Live wiring. Text, voice, and chat hit their POCs. Sticker and style
     /// transfer stay mocked -- no backend POC exists for them yet (spec scope).
+    ///
+    /// The image studio is handed a `VisionForegroundMatte`, which is what
+    /// moves plain background removal onto this phone: no upload, no queue
+    /// behind one shared Mac, and it works with the backend unreachable.
+    /// Everything that needs a model too large to ship still goes to the POC.
     public static let live = ServiceContainer(
         textTransform: LiveTextTransformService(),
         voiceTranscription: LiveVoiceTranscriptionService(),
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: LiveChatService(),
-        imageStudio: LiveImageStudioService()
+        imageStudio: LiveImageStudioService(matte: VisionForegroundMatte())
     )
 
     /// All-mock wiring for previews, tests, and offline use.

@@ -263,7 +263,26 @@ extension ImagePanelScene {
         Task {
             defer { generating = false }
             do {
-                let images = try await studio.generate(kind: style.kind, prompt: style.fullPrompt(trimmed))
+                let full = style.fullPrompt(trimmed)
+                // Stickers come back with a per-image note about which ones
+                // kept their background; the other kinds are never cut out.
+                let images: [Data]
+                if style.kind == .sticker {
+                    let batch = try await studio.generateStickers(prompt: full)
+                    images = batch.images
+                    // Worded off the counts rather than assuming two: the
+                    // backend returns NUMBER_OF_IMAGES of them and that has
+                    // already been 1 and 2 at different times.
+                    if !batch.allMatted {
+                        notice = batch.unmatted.count == images.count
+                            ? (images.count == 1
+                                ? "Couldn't lift this off its background -- it's here as it came."
+                                : "Couldn't lift these off their background -- they're here as they came.")
+                            : "One of these kept its background. They're all here -- pick either."
+                    }
+                } else {
+                    images = try await studio.generate(kind: style.kind, prompt: full)
+                }
                 results = images.map { GeneratedResult(data: $0, prompt: trimmed, style: style) }
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription

@@ -107,15 +107,23 @@ reading literally rather than reporting as "the app is broken".
 
 ## Using it
 
-- Text and chat answer in ~1-2s. Sticker cutout and image generation
-  take ~15-40s on an idle host. The working bar means it IS working;
-  do not retry-spam. There is deliberately no automatic retry, and
-  concurrent generations are capped, so extra taps only queue.
+- Text and chat answer in ~1-2s. Image generation takes ~15-40s on an
+  idle host, and so does a cutout where you typed what to keep -- that
+  one needs the big models on the Mac. The working bar means it IS
+  working; do not retry-spam. There is deliberately no automatic retry,
+  and concurrent generations are capped, so extra taps only queue.
+- Turning a photo into a sticker without naming a subject is now
+  near-instant: it runs on the phone (Apple Vision), never leaves the
+  device, and works with the backend down.
+- A generated sticker whose background could not be removed comes back
+  with the background still on and says so, rather than failing. The
+  picture is already paid for, so it is offered either way.
 - The host Mac's spare CPU is the product's speed. Before a demo, quit
   video-meeting apps and stray dev servers -- a forgotten `--reload`
   uvicorn once tripled cutout times.
 - Off the network the app still opens and existing pages stay readable
-  and editable; only AI features fail.
+  and editable; most AI features fail. Turning a photo into a sticker
+  is the exception -- see above.
 
 ## Zoom demo (mirror the real phone)
 
