@@ -86,7 +86,7 @@ final class MiraImageTurnTests: XCTestCase {
         XCTAssertEqual(store.data(forFileName: ref.fileName), Data("styled".utf8))
     }
 
-    func testMakeStickerReplacesInPlaceAndJoinsFavorites() async throws {
+    func testMakeStickerReplacesInPlaceAndLeavesFavoritesAlone() async throws {
         let dir = tempDir
         let store = ImageFileStore(directory: dir)
         let favorites = StickerFavoritesStore(url: dir.appendingPathComponent("favs.json"))
@@ -103,7 +103,7 @@ final class MiraImageTurnTests: XCTestCase {
             return XCTFail("expected a sticker in place")
         }
         XCTAssertEqual(store.data(forFileName: sticker.fileName), Data("outlined".utf8))
-        XCTAssertEqual(favorites.all().count, 1, "the cut sticker is reusable")
+        XCTAssertTrue(favorites.all().isEmpty, "saving is the user's call, not a side effect")
     }
 
     func testResizeTextStepsUpAndRecolors() async {
@@ -145,7 +145,7 @@ final class MiraImageTurnTests: XCTestCase {
         )
     }
 
-    func testStickerChoiceJoinsFavorites() async {
+    func testStickerChoiceLeavesFavoritesAlone() async {
         let dir = tempDir
         let favorites = StickerFavoritesStore(url: dir.appendingPathComponent("favs.json"))
         let editor = CanvasViewModel(memory: Memory())
@@ -153,7 +153,7 @@ final class MiraImageTurnTests: XCTestCase {
         coordinator.ask("draw a sticker of a coffee cup", editor: editor)
         await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
         coordinator.placeImageChoice(0, editor: editor)
-        XCTAssertEqual(favorites.all().count, 1, "the placed sticker is reusable")
+        XCTAssertTrue(favorites.all().isEmpty, "saving is the user's call, not a side effect")
         guard case .sticker = editor.items.first?.content else {
             return XCTFail("expected a sticker element on the canvas")
         }

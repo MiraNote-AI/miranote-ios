@@ -12,6 +12,9 @@ struct CanvasScene: View {
     var actions = EditorActions()
     /// A tool requested from another scene (consumed on appear/change).
     @Binding var pendingTool: EditorMode?
+    /// A generated picture handed back by the Image panel, waiting for the tap
+    /// that says where it goes.
+    @Binding var pendingPlacement: PendingPlacement?
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var transcription: VoiceTranscriptionService = MockVoiceTranscriptionService()
 
@@ -77,7 +80,8 @@ struct CanvasScene: View {
                     case .text, .sound:
                         break
                     }
-                }
+                },
+                onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) }
             )
         } bottom: {
             bottomCluster
@@ -165,7 +169,20 @@ struct CanvasScene: View {
             )
             .padding(.horizontal, Metrics.screenPadding)
         } else {
-            if let gestureHint {
+            if pendingPlacement != nil {
+                HStack(spacing: 8) {
+                    Text("Tap where it should go.")
+                        .font(.miraCaption)
+                        .foregroundStyle(Palette.textSecondary)
+                        .accessibilityIdentifier("canvas.place.hint")
+                    Spacer(minLength: 0)
+                    Button("Cancel") { pendingPlacement = nil }
+                        .font(.miraCaption)
+                        .accessibilityIdentifier("canvas.place.cancel")
+                }
+                .padding(.horizontal, Metrics.screenPadding)
+                .transition(.opacity)
+            } else if let gestureHint {
                 Text(gestureHint)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
@@ -403,6 +420,30 @@ extension CanvasScene {
         guard let tool = pendingTool else { return }
         pendingTool = nil
         handleTool(tool)
+    }
+
+    /// The canvas half of "generate, then say where it goes". The picture lands
+    /// centred on the tap and arrives selected, so it is already under the
+    /// thumb for a nudge instead of parked at the bottom of the page.
+    private func placePending(at point: CGPoint) -> CanvasItem.ID? {
+        guard let pending = pendingPlacement else { return nil }
+        pendingPlacement = nil
+        let id: CanvasItem.ID?
+        if pending.isSticker {
+            id = editor.addSticker(
+                GeneratedSticker(
+                    prompt: pending.prompt, symbolName: "sparkles", fileName: pending.fileName
+                ),
+                at: point
+            )
+        } else {
+            id = editor.addImages(
+                [ImageRef(displayName: pending.prompt, fileName: pending.fileName)],
+                around: point
+            ).first
+        }
+        if let id { editor.select(id) }
+        return id
     }
 
     static func timestamp(_ duration: TimeInterval) -> String {

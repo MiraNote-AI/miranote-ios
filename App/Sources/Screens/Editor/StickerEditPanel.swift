@@ -15,7 +15,6 @@ struct StickerEditPanel: View {
     @State private var notice: String?
 
     private let imageStore = ImageFileStore()
-    private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     var body: some View {
         ContextCard(title: "Edit sticker") {
@@ -95,7 +94,6 @@ struct StickerEditPanel: View {
                     fileName: fileName
                 )
                 editor.replaceSticker(itemID: itemID, with: edited)
-                favoritesStore.add(edited)
                 instruction = ""
                 notice = "Done -- take a look. Undo brings the old one back."
             } catch {

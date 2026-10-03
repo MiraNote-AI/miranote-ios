@@ -1,7 +1,9 @@
 import Foundation
 
-/// The Favorites panel's store: generated stickers land here automatically,
-/// and any canvas image/sticker can be saved manually via its context menu.
+/// The Favorites panel's store: a canvas image/sticker lands here only when
+/// the user saves it from the context menu. Generating one does NOT file it --
+/// the same subject gets generated several times and most are throwaway, so
+/// auto-saving everything made saving meaningless.
 /// Global across memories. Newest first, capped, persisted as JSON next to
 /// the collections file.
 public struct StickerFavoritesStore: Sendable {

@@ -18,6 +18,9 @@ struct EditorFlowView: View {
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
+    /// Survives the panel-to-canvas hop: the Image panel fills it, the canvas
+    /// empties it on the placing tap.
+    @State private var pendingPlacement: PendingPlacement?
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
     /// draft opens.
@@ -80,6 +83,7 @@ struct EditorFlowView: View {
                 imageStudio: services.imageStudio,
                 actions: actions(back: finish, done: finish),
                 pendingTool: $pendingTool,
+                pendingPlacement: $pendingPlacement,
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
             )
@@ -87,7 +91,8 @@ struct EditorFlowView: View {
             ImagePanelScene(
                 editor: editor,
                 studio: services.imageStudio,
-                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) })
+                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
+                pendingPlacement: $pendingPlacement
             )
         case .library:
             LibraryPanelScene(
