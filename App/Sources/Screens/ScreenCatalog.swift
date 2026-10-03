@@ -60,12 +60,22 @@ private struct CanvasCatalogPreview: View {
     /// same affordance the chat scene already has, and the only way to
     /// exercise the seam between the app and a live canvas turn.
     @State private var mira = MiraCanvasCoordinator(
-        text: RootView.chatLive
+        text: Self.catalogLive
             ? ServiceContainer.live.textTransform : MockTextTransformService(),
-        chat: RootView.chatLive ? ServiceContainer.live.chat : MockChatService(),
-        imageStudio: RootView.chatLive
+        chat: Self.catalogLive ? ServiceContainer.live.chat : MockChatService(),
+        imageStudio: Self.catalogLive
             ? ServiceContainer.live.imageStudio : MockImageStudioService()
     )
+    /// `RootView.chatLive` only exists in DEBUG (it reads MIRANOTE_CHAT_LIVE).
+    /// This catalog preview is dead code in a release build, so there it stays
+    /// on mocks rather than failing to compile.
+    private static var catalogLive: Bool {
+        #if DEBUG
+        return RootView.chatLive
+        #else
+        return false
+        #endif
+    }
     @State private var pendingTool: EditorMode?
 
     var body: some View {
