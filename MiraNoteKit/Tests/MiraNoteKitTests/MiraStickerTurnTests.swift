@@ -67,6 +67,10 @@ final class MiraStickerTurnTests: XCTestCase {
         guard case .sticker(let sticker) = editor.item(id)!.content else {
             return XCTFail("expected the item to stay a sticker")
         }
+        // No trim stamp in here even though the pipeline runs StickerTrim
+        // after the cutout: these fakes stamp strings rather than pixels, and
+        // StickerTrim fails open on bytes it cannot decode. The trim itself is
+        // covered in StickerTrimTests.
         XCTAssertEqual(store.data(forFileName: sticker.fileName),
                        Data("orig+styled+cut".utf8),
                        "stylize then cutout, in order, on the edited bytes -- "
