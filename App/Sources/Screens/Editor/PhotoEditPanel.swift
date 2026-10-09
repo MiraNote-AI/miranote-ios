@@ -18,7 +18,6 @@ struct PhotoEditPanel: View {
     @State private var notice: String?
 
     private let imageStore = ImageFileStore()
-    private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     var body: some View {
         ContextCard(title: "Edit photo") {
@@ -179,7 +178,6 @@ struct PhotoEditPanel: View {
                     fileName: fileName
                 )
                 editor.replaceImageWithSticker(itemID: itemID, sticker: sticker)
-                favoritesStore.add(sticker)
                 onClose()
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription

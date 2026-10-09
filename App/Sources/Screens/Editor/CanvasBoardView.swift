@@ -20,6 +20,8 @@ struct CanvasBoardView: View {
     var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
     /// Long-press "Favorite": saves the image/sticker to the Favorites shelf.
     var onFavorite: (CanvasItem) -> Void = { _ in }
+    /// Non-nil while a picture waits to be placed: the tap places it there.
+    var onPlaceTap: ((CGPoint) -> CanvasItem.ID?)?
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -31,6 +33,7 @@ struct CanvasBoardView: View {
     @GestureState private var activeRotation: ActiveRotation?
     @State private var noteDraft = ""
     @State private var noteEditingItem: CanvasItem.ID?
+    @State private var scrollTarget: CanvasItem.ID?
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
 
@@ -50,12 +53,8 @@ struct CanvasBoardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 8)
             }
-            .onChange(of: editor.editingTextItemID) { _, editing in
-                guard let editing else { return }
-                withAnimation(.easeOut(duration: 0.25)) {
-                    proxy.scrollTo(editing, anchor: .center)
-                }
-            }
+            .onChange(of: editor.editingTextItemID) { _, id in bring(id, into: proxy) }
+            .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
         }
         // Dragging an element moves and selects it, which disables the page
         // scroll; dragging empty paper scrolls. While editing text there is
@@ -126,6 +125,11 @@ struct CanvasBoardView: View {
         max(minBoardHeight, editor.contentBottom + 240)
     }
 
+    private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy) {
+        guard let id else { return }
+        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .center) }
+    }
+
     /// The page itself -- its backdrop stretches with the content, so the
     /// background never "runs out".
     private var paper: some View {
@@ -134,10 +138,15 @@ struct CanvasBoardView: View {
                 RoundedRectangle(cornerRadius: 24)
                     .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
             )
-            .onTapGesture {
-                editor.endEditingText()
-                editor.select(nil)
-                textFocus.wrappedValue = nil
+            // One tap path, so placing and deselecting can never both fire.
+            .onTapGesture(coordinateSpace: .local) { point in
+                if let onPlaceTap {
+                    scrollTarget = onPlaceTap(point)
+                } else {
+                    editor.endEditingText()
+                    editor.select(nil)
+                    textFocus.wrappedValue = nil
+                }
             }
     }
 

@@ -72,7 +72,7 @@ final class MiraStickerTurnTests: XCTestCase {
                        "every stage ran, on the edited bytes, in order")
         XCTAssertEqual(sticker.prompt, "the cat", "the label survives the edit")
         XCTAssertEqual(sticker.symbolName, "cup", "the fallback symbol survives too")
-        XCTAssertEqual(favorites.all().count, 1, "the edited sticker is reusable")
+        XCTAssertTrue(favorites.all().isEmpty, "saving is the user's call, not a side effect")
     }
 
     func testOneUndoRestoresTheOldSticker() async throws {
