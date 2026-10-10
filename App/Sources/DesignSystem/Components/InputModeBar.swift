@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// The bottom "instrument panel": Sound / Text / Image. The active mode is
-/// an ink pill; the rest are quiet icon+label targets, spread evenly.
+/// The bottom tool bar (2026-10-07 handoff): one 40 pt icon capsule per tool,
+/// sharing the row evenly. Inactive tools sit on the tool surface with a
+/// hairline; the active one fills with the selected-tool green. Names live in
+/// the accessibility label, not on screen.
 struct InputModeBar: View {
     var active: EditorMode?
     var onSelect: (EditorMode) -> Void = { _ in }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach(EditorMode.allCases) { mode in
                 Button {
                     onSelect(mode)
@@ -15,9 +17,9 @@ struct InputModeBar: View {
                     item(mode)
                 }
                 .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
                 .accessibilityLabel(mode.title)
                 .accessibilityIdentifier("mode.\(mode.rawValue)")
+                .accessibilityAddTraits(mode == active ? .isSelected : [])
             }
         }
         .padding(.horizontal, Metrics.screenPadding)
@@ -25,27 +27,22 @@ struct InputModeBar: View {
 
     private func item(_ mode: EditorMode) -> some View {
         let isActive = mode == active
-        return HStack(spacing: 6) {
-            icon(mode)
-            Text(mode.title).font(.miraLabel).lineLimit(1)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-        .foregroundStyle(isActive ? Palette.onInk : Palette.ink)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background {
-            if isActive {
-                Capsule().fill(Palette.ink)
-            }
-        }
+        return icon(mode)
+            .foregroundStyle(isActive ? Palette.onInk : Palette.toolIcon)
+            .frame(maxWidth: .infinity, minHeight: 40)
+            .background(
+                Capsule()
+                    .fill(isActive ? Palette.selectedTool : Palette.toolSurface)
+                    .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: isActive ? 0 : 1))
+            )
+            .minimumHitTarget()
     }
 
-    @ViewBuilder private func icon(_ mode: EditorMode) -> some View {
-        if mode == .text {
-            Text("T").font(.system(size: 14, weight: .semibold, design: .serif))
-        } else {
-            Image(systemName: mode.symbol).font(.system(size: 13, weight: .medium))
-        }
+    private func icon(_ mode: EditorMode) -> some View {
+        Image(mode.iconAsset)
+            .renderingMode(.template)
+            .resizable()
+            .frame(width: 20, height: 20)
     }
 }
 

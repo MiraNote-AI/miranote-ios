@@ -71,13 +71,14 @@ Backends down = calm failure cards in the app, nothing breaks.
 ## Using the app (60-second tour)
 
 1. Home -> **Start a memory**: a blank canvas page opens.
-2. The bottom bar has four modes: **Sound** (record, auto-transcribed),
-   **Text** (type in place; while editing, AI chips offer **Clean up**
-   and **Expand**), **Image** (photo library / camera / **AI image**
-   with Photo, Illustration, Watercolor, and Sticker styles), and
-   **Saved** (your favorites shelf -- tap to place on the page).
+2. The bottom bar has five tools: **Background** (the default backdrop,
+   or a mood Mira paints), **Voice** (record, auto-transcribed), **Text**
+   (type in place; while editing, AI chips offer **Clean up** and
+   **Expand**), **Image** (photo library / camera / **AI image** with
+   Photo, Illustration and Watercolor styles), and **Sticker** (make one
+   with Mira, or tap a saved favorite to place it on the page).
 3. **Long-press any element** for its menu: Edit, Favorite (saves it to
-   the Saved shelf), Duplicate, layer order, Delete.
+   the Sticker panel's favorites), Duplicate, layer order, Delete.
 4. The **Ask Mira** bar drives everything in words: "clean up the
    text", "make it shorter", "make it a sticker", "tidy the layout",
    or just chat -- when Mira suggests words in quotes, a one-tap chip

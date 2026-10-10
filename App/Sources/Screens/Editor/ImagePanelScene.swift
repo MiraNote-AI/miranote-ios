@@ -12,9 +12,8 @@ struct PendingPlacement: Equatable {
     let isSticker: Bool
 }
 
-/// The Image panel (v2.1): three sources -- Library, Camera, Generate --
-/// with sticker creation living inside Generate as a style. Saved favorites
-/// moved to their own panel (the bar's fourth mode).
+/// The Image panel: three sources -- Library, Camera, Generate. Stickers and
+/// saved favorites live in the Sticker panel (the bar's fifth tool).
 struct ImagePanelScene: View {
     @Bindable var editor: CanvasViewModel
     var studio: ImageStudioService = MockImageStudioService()
@@ -199,16 +198,16 @@ struct ImagePanelScene: View {
     #endif
 }
 
-// MARK: - Generate and favorites
+// MARK: - Generate
 
 extension ImagePanelScene {
     // MARK: Generate
 
     @ViewBuilder private var generateRows: some View {
         // Style first, words second: these chips pick what KIND of picture
-        // the AI paints (sticker included, per v2.1), not a photo filter.
+        // the AI paints, not a photo filter.
         Text("STYLE")
-            .font(.system(size: 10, weight: .medium))
+            .font(Sans.font(size: 11, weight: 500))
             .kerning(1.4)
             .foregroundStyle(Palette.textSecondary)
 
@@ -274,27 +273,8 @@ extension ImagePanelScene {
         Task {
             defer { generating = false }
             do {
-                let full = style.fullPrompt(trimmed)
-                // Stickers come back with a per-image note about which ones
-                // kept their background; the other kinds are never cut out.
-                let images: [Data]
-                if style.kind == .sticker {
-                    let batch = try await studio.generateStickers(prompt: full)
-                    images = batch.images
-                    // Worded off the counts rather than assuming two: the
-                    // backend returns NUMBER_OF_IMAGES of them and that has
-                    // already been 1 and 2 at different times.
-                    if !batch.allMatted {
-                        notice = batch.unmatted.count == images.count
-                            ? (images.count == 1
-                                ? "Couldn't lift this off its background -- it's here as it came."
-                                : "Couldn't lift these off their background -- they're here as they came.")
-                            : "One of these kept its background. They're all here -- pick either."
-                    }
-                } else {
-                    images = try await studio.generate(kind: style.kind, prompt: full)
-                }
-                results = images.map { GeneratedResult(data: $0, prompt: trimmed, style: style) }
+                let images = try await studio.generate(kind: .art, prompt: style.fullPrompt(trimmed))
+                results = images.map { GeneratedResult(data: $0, prompt: trimmed) }
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? "Generating didn't work this time. Try again?"
@@ -313,7 +293,7 @@ extension ImagePanelScene {
         pendingPlacement = PendingPlacement(
             prompt: result.prompt,
             fileName: fileName,
-            isSticker: result.style == .sticker
+            isSticker: false
         )
         actions.leading()
     }

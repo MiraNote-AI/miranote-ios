@@ -1,29 +1,16 @@
 import SwiftUI
 
-/// The bottom "instrument panel": three ways to add to a memory page, plus
-/// the library of saved images/stickers (one Favorites group for now, more
-/// groups later). Sticker creation lives inside the Image panel (v2.1),
-/// not on the bar.
+/// The bottom tool bar's five tools (2026-10-07 handoff). Sticker is a tool
+/// of its own -- AI stickers and saved favorites live there, not in Image.
 enum EditorMode: String, CaseIterable, Identifiable {
-    case sound, text, image, library
+    case background, voice, text, image, sticker
 
     var id: String { rawValue }
 
-    /// User-facing labels. The saved-material library shows as "Saved":
-    /// "Library" on screen would collide with the Image panel's photo-library
-    /// chip, which keeps the standard iOS wording.
-    var title: String {
-        self == .library ? "Saved" : rawValue.capitalized
-    }
+    var title: String { rawValue.capitalized }
 
-    var symbol: String {
-        switch self {
-        case .sound: return "waveform"
-        case .text: return "textformat"
-        case .image: return "photo"
-        case .library: return "square.grid.2x2"
-        }
-    }
+    /// The handoff's tool-bar glyph, a template vector in Assets.xcassets.
+    var iconAsset: String { "tool.\(rawValue)" }
 }
 
 extension View {

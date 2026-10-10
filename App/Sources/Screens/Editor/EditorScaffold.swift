@@ -14,7 +14,7 @@ struct EditorActions {
 /// lower edge. The Page/Spread/zoom sub-toolbar is gone; editing autosaves,
 /// so the trailing action is "Done", never "Save".
 struct EditorScaffold<Page: View, Bottom: View>: View {
-    var leading: String? = "Canvas"
+    var leading: String? = "Cancel"
     var leadingSymbol: String?
     var title: String = ""
     var trailing: String? = "Done"
@@ -60,7 +60,7 @@ struct StickerBlob: View {
                 .font(.system(size: 23, weight: .regular))
                 .foregroundStyle(Palette.taupe)
             Text(label)
-                .font(.system(size: 9, weight: .medium))
+                .font(Sans.font(size: 11, weight: 500))
                 .foregroundStyle(Palette.textSecondary)
         }
         .frame(width: size, height: size)
