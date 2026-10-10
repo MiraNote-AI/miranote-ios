@@ -208,7 +208,7 @@ extension ImagePanelScene {
         // Style first, words second: these chips pick what KIND of picture
         // the AI paints (sticker included, per v2.1), not a photo filter.
         Text("STYLE")
-            .font(.system(size: 10, weight: .medium))
+            .font(Sans.font(size: 11, weight: 500))
             .kerning(1.4)
             .foregroundStyle(Palette.textSecondary)
 

@@ -14,6 +14,7 @@ struct PrimaryPill: ButtonStyle {
             .padding(.vertical, verticalPadding)
             .background(Palette.ink, in: Capsule())
             .opacity(configuration.isPressed ? 0.82 : 1)
+            .minimumHitTarget()
     }
 }
 
@@ -30,5 +31,16 @@ struct SoftPill: ButtonStyle {
             .background(selected ? Palette.ink : Palette.paper, in: Capsule())
             .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: selected ? 0 : Metrics.hairline))
             .opacity(configuration.isPressed ? 0.7 : 1)
+            .minimumHitTarget()
+    }
+}
+
+extension View {
+    /// Grows the tappable area to Apple's 44 x 44 pt minimum without changing
+    /// what is drawn: the design's pills are 34-40 pt tall, too small to hit
+    /// reliably, but resizing them would break the layout it specifies.
+    func minimumHitTarget() -> some View {
+        frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
     }
 }
