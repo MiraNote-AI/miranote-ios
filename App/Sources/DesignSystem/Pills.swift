@@ -35,6 +35,18 @@ struct SoftPill: ButtonStyle {
     }
 }
 
+/// The handoff's frosted composer surface: blurred paper at 60 %, a soft
+/// white rim and a low shadow.
+struct GlassCapsule: View {
+    var body: some View {
+        Capsule()
+            .fill(.ultraThinMaterial)
+            .overlay(Capsule().fill(Palette.paper.opacity(0.6)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.46), lineWidth: 1))
+            .shadow(color: Palette.ink.opacity(0.1), radius: 13, y: 12)
+    }
+}
+
 extension View {
     /// Extends the tappable area 5 pt above and below, so the design's 34 pt
     /// pills hit-test at Apple's 44 pt minimum. The padding is added for the
