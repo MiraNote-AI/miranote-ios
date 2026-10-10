@@ -13,7 +13,8 @@ struct CanvasScene: View {
     var actions = EditorActions()
     /// A tool requested from another scene (consumed on appear/change).
     @Binding var pendingTool: EditorMode?
-    /// A generated picture handed back by the Image panel, waiting for the tap
+    /// A generated picture or sticker handed back by the Image or Sticker
+    /// panel, waiting for the tap
     /// that says where it goes.
     @Binding var pendingPlacement: PendingPlacement?
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }

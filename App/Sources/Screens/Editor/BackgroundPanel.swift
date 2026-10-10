@@ -11,8 +11,13 @@ struct BackgroundPanel: View {
     var onAsk: (String) -> Void
     var onClose: () -> Void
 
-    /// Each mood becomes a sentence Mira already routes as a background ask.
+    /// Each mood becomes a sentence Mira already routes as a background ask
+    /// (pinned by BackgroundMoodRoutingTests).
     static let moods = ["Sunset glow", "Soft paper", "Night sky", "Garden"]
+
+    static func ask(for mood: String) -> String {
+        "Make the background \(mood.lowercased())"
+    }
 
     var body: some View {
         ContextCard(
@@ -38,7 +43,7 @@ struct BackgroundPanel: View {
                     ForEach(Self.moods, id: \.self) { mood in
                         Button {
                             onClose()
-                            onAsk("Make the background \(mood.lowercased())")
+                            onAsk(Self.ask(for: mood))
                         } label: {
                             Chip(text: mood, systemImage: "sparkles")
                         }
