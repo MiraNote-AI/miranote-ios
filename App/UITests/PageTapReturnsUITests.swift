@@ -1,8 +1,8 @@
 import XCTest
 
 /// A tap on the page folds an open-but-idle tool back to the plain canvas:
-/// the Image and Saved panels return to the canvas, an armed (not yet
-/// recording) Sound bar folds away. The page carries no accessibility
+/// the Image and Sticker panels return to the canvas, an armed (not yet
+/// recording) Voice bar folds away. The page carries no accessibility
 /// identifier on purpose (a container id cascades onto its elements), so
 /// taps go by coordinate.
 final class PageTapReturnsUITests: XCTestCase {
@@ -69,9 +69,10 @@ final class PageTapReturnsUITests: XCTestCase {
         XCTAssertTrue(firstResult.exists, "unpicked results are not dropped by a page tap")
     }
 
-    func testTapOnPageLeavesSavedPanel() {
+    // Saved became the Sticker tool (Favorites live there).
+    func testTapOnPageLeavesStickerPanel() {
         startMemory()
-        app.buttons["mode.library"].tap()
+        app.buttons["mode.sticker"].tap()
         let favorites = app.buttons["Favorites"].exists
             ? app.buttons["Favorites"] : app.staticTexts["Favorites"]
         XCTAssertTrue(favorites.waitForExistence(timeout: 5))
@@ -89,14 +90,30 @@ final class PageTapReturnsUITests: XCTestCase {
         XCTAssertTrue(favorites.exists, "a margin tap keeps the panel open")
 
         tapPage()
-        waitGone(favorites, "a page tap closes the Saved panel")
+        waitGone(favorites, "a page tap closes the Sticker panel")
         XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
                       "back on the idle canvas")
     }
 
+    func testTapOnPageKeepsUnpickedStickers() {
+        startMemory()
+        app.buttons["mode.sticker"].tap()
+        let prompt = app.textFields["sticker.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText("a coffee cup")
+        app.buttons["sticker.generate.run"].tap()
+        let firstResult = app.buttons["sticker.result.0"]
+        XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
+
+        tapPage()
+        sleep(1)
+        XCTAssertTrue(firstResult.exists, "unpicked stickers are not dropped by a page tap")
+    }
+
     func testTapOnPaperFoldsArmedSoundButNotRecording() {
         startMemory()
-        app.buttons["mode.sound"].tap()
+        app.buttons["mode.voice"].tap()
         let record = app.buttons["recorder.record"]
         XCTAssertTrue(record.waitForExistence(timeout: 5))
 
@@ -106,7 +123,7 @@ final class PageTapReturnsUITests: XCTestCase {
                       "back on the idle canvas")
 
         // Once recording, the bar stays: a stray tap must not lose audio.
-        app.buttons["mode.sound"].tap()
+        app.buttons["mode.voice"].tap()
         XCTAssertTrue(record.waitForExistence(timeout: 5))
         record.tap()
         let stop = app.buttons["recorder.stop"]
