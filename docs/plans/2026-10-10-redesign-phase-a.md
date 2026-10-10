@@ -54,4 +54,4 @@ For every PR:
    on the compact label; hit area now padding(+5)/contentShape/padding(-5) so
    layout is untouched. Kept: InputModeBar "T" glyph (icon, replaced in A2);
    unused ActionRow is pre-existing, left alone. Release build OK; full suite
-   re-running.
+   9 unit + 41 UI, 0 failures. Re-review: DONE. A1 criteria 4/4 -> PR.
