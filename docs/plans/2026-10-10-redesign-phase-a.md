@@ -49,3 +49,9 @@ For every PR:
    pills -- Release build OK; MiraNoteTests 9/9 + MiraNoteUITests 13/13 OK;
    CJK check exit 0; full suite: 9 unit + 41 UI tests, 0 failures (3 skipped,
    pre-existing).
+2. Fresh-context review: NOT DONE -- ContextCard compact label still SF;
+   minimumHitTarget's 44 pt frame grew every header ~10 pt. Fixed both: Sans
+   on the compact label; hit area now padding(+5)/contentShape/padding(-5) so
+   layout is untouched. Kept: InputModeBar "T" glyph (icon, replaced in A2);
+   unused ActionRow is pre-existing, left alone. Release build OK; full suite
+   re-running.

@@ -36,11 +36,13 @@ struct SoftPill: ButtonStyle {
 }
 
 extension View {
-    /// Grows the tappable area to Apple's 44 x 44 pt minimum without changing
-    /// what is drawn: the design's pills are 34-40 pt tall, too small to hit
-    /// reliably, but resizing them would break the layout it specifies.
+    /// Extends the tappable area 5 pt above and below, so the design's 34 pt
+    /// pills hit-test at Apple's 44 pt minimum. The padding is added for the
+    /// hit shape and taken back for layout, so neither what is drawn nor the
+    /// row it sits in changes size.
     func minimumHitTarget() -> some View {
-        frame(minWidth: 44, minHeight: 44)
+        padding(.vertical, 5)
             .contentShape(Rectangle())
+            .padding(.vertical, -5)
     }
 }
