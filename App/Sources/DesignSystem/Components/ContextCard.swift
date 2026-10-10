@@ -44,7 +44,7 @@ struct Chip: View {
                     .font(.system(size: compact ? 10 : 12, weight: .medium))
             }
             Text(text)
-                .font(compact ? .system(size: 12, weight: .medium) : .miraChip)
+                .font(compact ? Sans.font(size: 12, weight: 500) : .miraChip)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }

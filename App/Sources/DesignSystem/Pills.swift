@@ -14,6 +14,7 @@ struct PrimaryPill: ButtonStyle {
             .padding(.vertical, verticalPadding)
             .background(Palette.ink, in: Capsule())
             .opacity(configuration.isPressed ? 0.82 : 1)
+            .minimumHitTarget()
     }
 }
 
@@ -30,5 +31,18 @@ struct SoftPill: ButtonStyle {
             .background(selected ? Palette.ink : Palette.paper, in: Capsule())
             .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: selected ? 0 : Metrics.hairline))
             .opacity(configuration.isPressed ? 0.7 : 1)
+            .minimumHitTarget()
+    }
+}
+
+extension View {
+    /// Extends the tappable area 5 pt above and below, so the design's 34 pt
+    /// pills hit-test at Apple's 44 pt minimum. The padding is added for the
+    /// hit shape and taken back for layout, so neither what is drawn nor the
+    /// row it sits in changes size.
+    func minimumHitTarget() -> some View {
+        padding(.vertical, 5)
+            .contentShape(Rectangle())
+            .padding(.vertical, -5)
     }
 }
