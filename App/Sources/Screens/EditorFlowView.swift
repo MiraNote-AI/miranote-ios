@@ -94,10 +94,12 @@ struct EditorFlowView: View {
                 actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
                 pendingPlacement: $pendingPlacement
             )
-        case .library:
-            LibraryPanelScene(
+        case .sticker:
+            StickerPanelScene(
                 editor: editor,
-                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) })
+                studio: services.imageStudio,
+                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
+                pendingPlacement: $pendingPlacement
             )
         case .home, .chat, .collection, .note, .export:
             // Export left the main flow in v2.1 (share/export moves to
@@ -119,15 +121,15 @@ struct EditorFlowView: View {
         )
     }
 
-    /// Text and Sound always act on the canvas; from another scene they
-    /// carry over as a pending tool the canvas consumes on arrival.
+    /// Background, Voice and Text always act on the canvas; from another
+    /// scene they carry over as a pending tool the canvas consumes on arrival.
     private func select(mode: EditorMode) {
         switch mode {
         case .image:
             navigate(.imageStart)
-        case .library:
-            navigate(.library)
-        case .text, .sound:
+        case .sticker:
+            navigate(.sticker)
+        case .background, .voice, .text:
             pendingTool = mode
             navigate(.canvas)
         }

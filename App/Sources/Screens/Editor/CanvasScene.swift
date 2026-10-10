@@ -1,10 +1,11 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The base editor (v2.1): the infinite canvas plus the three-mode
-/// instrument panel. Text and Sound act directly on the canvas -- Text drops
-/// an editable block, Sound swaps the bottom bar for a recorder; only Image
-/// leaves for its panel. Header is Home / undo / Done.
+/// The base editor: the infinite canvas plus the five-tool bar. Background,
+/// Voice and Text act directly on the canvas -- Background opens its panel
+/// in place, Voice swaps the bottom bar for a recorder, Text drops an
+/// editable block; Image and Sticker leave for their panels. Header is
+/// Home / undo / Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -27,6 +28,7 @@ struct CanvasScene: View {
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
     @State private var editingStickerItem: CanvasItem.ID?
+    @State private var backgroundPanelOpen = false
     @State var dictating = false
     /// Inline feedback in the text accessory: "Listening..." while the
     /// mic is live, or why nothing landed after it stopped.
@@ -203,6 +205,13 @@ struct CanvasScene: View {
                     studio: imageStudio,
                     onClose: { self.editingStickerItem = nil }
                 )
+            } else if backgroundPanelOpen {
+                BackgroundPanel(
+                    editor: editor,
+                    onAsk: { mira.ask($0, editor: editor) },
+                    onClose: { backgroundPanelOpen = false }
+                )
+                InputModeBar(active: .background, onSelect: handleTool)
             } else {
                 recorderCluster
             }
@@ -239,26 +248,34 @@ struct CanvasScene: View {
                 )
             }
         case .armed:
-            InputModeBar(active: .sound, onSelect: handleTool)
+            InputModeBar(active: .voice, onSelect: handleTool)
             armedBar
         case .recording(let start):
-            InputModeBar(active: .sound, onSelect: handleTool)
+            InputModeBar(active: .voice, onSelect: handleTool)
             recordingBar(since: start)
         case .review(_, let duration):
-            InputModeBar(active: .sound, onSelect: handleTool)
+            InputModeBar(active: .voice, onSelect: handleTool)
             reviewBar(duration: duration)
         }
     }
 
     private func handleTool(_ mode: EditorMode) {
         // Any tool tap closes the edit panels first -- one owner of
-        // the bottom cluster at a time.
+        // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
         editingStickerItem = nil
+        let backgroundWasOpen = backgroundPanelOpen
+        backgroundPanelOpen = false
         switch mode {
+        case .background:
+            // Same guards as the recorder: the panel would unmount a live
+            // Mira turn's Stop, and the mic must not keep running under it.
+            guard !mira.isWorking else { return }
+            cancelRecording()
+            backgroundPanelOpen = !backgroundWasOpen
         case .text:
             addTextBlock()
-        case .sound:
+        case .voice:
             // The tool arms the recorder; only the Record button goes live.
             // One audio owner at a time: not while dictating, and recording
             // would unmount the Mira strip mid-turn.
@@ -273,9 +290,9 @@ struct CanvasScene: View {
         case .image:
             cancelRecording()
             actions.selectMode(.image)
-        case .library:
+        case .sticker:
             cancelRecording()
-            actions.selectMode(.library)
+            actions.selectMode(.sticker)
         }
     }
 

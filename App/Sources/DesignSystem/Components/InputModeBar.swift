@@ -38,16 +38,11 @@ struct InputModeBar: View {
             .minimumHitTarget()
     }
 
-    @ViewBuilder private func icon(_ mode: EditorMode) -> some View {
-        if let asset = mode.iconAsset {
-            Image(asset)
-                .renderingMode(.template)
-                .resizable()
-                .frame(width: 20, height: 20)
-        } else {
-            Image(systemName: mode.symbol)
-                .font(.system(size: 16, weight: .medium))
-        }
+    private func icon(_ mode: EditorMode) -> some View {
+        Image(mode.iconAsset)
+            .renderingMode(.template)
+            .resizable()
+            .frame(width: 20, height: 20)
     }
 }
 
