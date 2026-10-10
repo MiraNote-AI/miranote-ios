@@ -198,7 +198,7 @@ struct ImagePanelScene: View {
     #endif
 }
 
-// MARK: - Generate and favorites
+// MARK: - Generate
 
 extension ImagePanelScene {
     // MARK: Generate

@@ -21,7 +21,6 @@ final class CanvasEditorUITests: XCTestCase {
     func testTextToolAddsEditableBlockInPlace() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["mode.sticker"].exists)
 
         app.buttons["mode.text"].tap()
         // Multiline SwiftUI TextFields surface as text views, so match the

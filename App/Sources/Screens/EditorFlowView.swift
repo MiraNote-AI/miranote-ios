@@ -1,9 +1,9 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The interactive editor. The canvas is home base (v2.1): Text and Sound
-/// act directly on it, Image opens its panel scenes, and Done composes the
-/// memory (title from its most prominent text) and files it.
+/// The interactive editor. The canvas is home base: Background, Voice and
+/// Text act directly on it, Image and Sticker open their panel scenes, and
+/// Done composes the memory (title from its most prominent text) and files it.
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
     var onComplete: (Memory) -> Void = { _ in }
@@ -18,8 +18,8 @@ struct EditorFlowView: View {
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
-    /// Survives the panel-to-canvas hop: the Image panel fills it, the canvas
-    /// empties it on the placing tap.
+    /// Survives the panel-to-canvas hop: the Image or Sticker panel fills it,
+    /// the canvas empties it on the placing tap.
     @State private var pendingPlacement: PendingPlacement?
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
