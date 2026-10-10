@@ -66,7 +66,7 @@ struct MiraChatView: View {
             VStack(spacing: 1) {
                 Text("MiraNote AI").font(.miraScreenTitle).foregroundStyle(Palette.ink)
                 Text("journaling companion")
-                    .font(.system(size: 11))
+                    .font(Sans.font(size: 11, weight: 400))
                     .foregroundStyle(Palette.textSecondary)
             }
             Spacer()
@@ -120,7 +120,7 @@ struct MiraChatView: View {
     private func hitsRow(_ pageHits: [PageHit]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("From your pages")
-                .font(.system(size: 10, weight: .medium))
+                .font(Sans.font(size: 11, weight: 500))
                 .kerning(1.4)
                 .foregroundStyle(Palette.textSecondary)
             ScrollView(.horizontal, showsIndicators: false) {

@@ -178,7 +178,7 @@ struct HomeView: View {
             Image(systemName: "plus")
                 .font(.system(size: 20, weight: .medium))
             Text("New collection")
-                .font(.system(size: 13, weight: .medium))
+                .font(.miraLabel)
         }
         .foregroundStyle(Palette.textSecondary)
         .frame(maxWidth: .infinity, minHeight: 122)
@@ -232,14 +232,14 @@ struct HomeCollectionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.miraCardTitle)
                 .foregroundStyle(titleColor)
                 .lineLimit(1)
             RoundedRectangle(cornerRadius: 12)
                 .fill(inner)
                 .frame(height: 44)
             Text("\(count) note\(count == 1 ? "" : "s")")
-                .font(.system(size: 11))
+                .font(Sans.font(size: 11, weight: 400))
                 .foregroundStyle(titleColor.opacity(0.6))
         }
         .padding(15)

@@ -72,7 +72,7 @@ struct PhotoEditPanel: View {
                             .font(.system(size: 11, weight: .medium))
                     }
                     Text(label)
-                        .font(.system(size: 13, weight: active ? .semibold : .medium))
+                        .font(Sans.font(size: 13, weight: active ? 600 : 500))
                 }
                 .foregroundStyle(active ? Palette.ink : Palette.textSecondary)
                 Capsule()

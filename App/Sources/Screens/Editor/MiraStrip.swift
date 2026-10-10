@@ -196,7 +196,7 @@ struct MiraCard: View {
 
     private var avatar: some View {
         Text("M")
-            .font(.system(size: 11, weight: .bold))
+            .font(Sans.font(size: 11, weight: 700))
             .foregroundStyle(Palette.onInk)
             .frame(width: 22, height: 22)
             .background(Circle().fill(Palette.ink))
