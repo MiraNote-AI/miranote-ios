@@ -84,9 +84,18 @@ extension MiraIntent {
             try Self.requirePixels(
                 data, question: "This sticker has no stored pixels to work on -- try another?")
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
+            // No outline pass here, unlike makeSticker above: the sticker
+            // already has a die-cut edge and /stylize asks for it to be kept,
+            // so a second stroke only thickens it, once per edit.
+            //
+            // The trim is the half of the dropped outline pass that was worth
+            // keeping: /border cropped to alpha on either side of the stroke,
+            // and without it the matte's transparent margin is drawn as part
+            // of the picture inside an unchanged frame. Measured on a real
+            // generated sticker: 0.71x a pass, compounding, because the
+            // result feeds the next edit. See StickerTrim for the numbers.
             let cut = try await imageStudio.cutout(image: styled, target: nil)
-            let outlined = try await imageStudio.outline(image: cut)
-            return .stickerEdited(id, outlined, MiraReceipt(
+            return .stickerEdited(id, StickerTrim.croppedToOpaqueBounds(cut), MiraReceipt(
                 changed: "Restyled the sticker.",
                 kept: "Undo brings the old one back."))
         case .clarifySticker(let question), .clarifyPhoto(let question):

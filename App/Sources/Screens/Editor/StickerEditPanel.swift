@@ -1,9 +1,15 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The on-canvas sticker edit panel: one instruction, then the same
-/// pipeline as make-sticker (stylize -> cutout -> outline) so the
-/// die-cut look survives shape changes. Replaces in place; one undo.
+/// The on-canvas sticker edit panel: one instruction, then stylize -> cutout.
+///
+/// No outline pass, unlike make-sticker. A sticker already carries its white
+/// die-cut edge -- the image model drew it, and /stylize now asks for it to be
+/// kept -- so stroking another one around the result only thickens the edge,
+/// and does it again on every edit. make-sticker still outlines because a photo
+/// cut out of its background has no edge of its own.
+///
+/// Replaces in place; one undo.
 struct StickerEditPanel: View {
     @Bindable var editor: CanvasViewModel
     let itemID: CanvasItem.ID
@@ -70,8 +76,8 @@ struct StickerEditPanel: View {
         return nil
     }
 
-    /// Stylize -> cutout -> outline -> replace in place; the new version
-    /// joins favorites. Nothing changes unless the whole pipeline succeeds.
+    /// Stylize -> cutout -> trim -> replace in place. Nothing changes unless
+    /// the whole pipeline succeeds.
     private func runEdit() {
         let words = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !editing, !words.isEmpty, let sticker = currentSticker,
@@ -86,8 +92,16 @@ struct StickerEditPanel: View {
             do {
                 let styled = try await studio.stylize(image: data, instruction: words)
                 let cut = try await studio.cutout(image: styled, target: nil)
-                let outlined = try await studio.outline(image: cut)
-                let fileName = try imageStore.save(outlined, id: UUID())
+                // The trim is the half of the dropped outline pass that was
+                // worth keeping: /border cropped to alpha on either side of
+                // the stroke. Without it the matte's transparent margin is
+                // drawn as part of the picture inside an unchanged frame.
+                // Measured on a real generated sticker: 0.71x a pass,
+                // compounding, because what is saved here is the input to the
+                // next edit. See StickerTrim for the numbers; same in
+                // MiraIntent+Image.
+                let fileName = try imageStore.save(
+                    StickerTrim.croppedToOpaqueBounds(cut), id: UUID())
                 let edited = GeneratedSticker(
                     prompt: sticker.prompt,
                     symbolName: sticker.symbolName,
