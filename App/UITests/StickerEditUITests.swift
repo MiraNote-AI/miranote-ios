@@ -75,10 +75,13 @@ final class StickerEditUITests: XCTestCase {
         field.tap()
         field.typeText("make it blue")
         app.buttons["sticker.ai.run"].tap()
-        XCTAssertTrue(
-            app.staticTexts["Done -- take a look. Undo brings the old one back."]
-                .waitForExistence(timeout: 8),
-            "the panel reports the swap"
-        )
+        let closed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 8), .completed,
+                       "the panel closes itself once the swap lands")
+        let edited = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        XCTAssertTrue(edited.waitForExistence(timeout: 5), "the element is still a sticker")
+        XCTAssertTrue(edited.isHittable, "the edited sticker is on screen, no scrolling needed")
     }
 }

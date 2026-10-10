@@ -94,8 +94,9 @@ struct StickerEditPanel: View {
                     fileName: fileName
                 )
                 editor.replaceSticker(itemID: itemID, with: edited)
-                instruction = ""
-                notice = "Done -- take a look. Undo brings the old one back."
+                // The new sticker on the page is the receipt; Undo brings
+                // the old one back.
+                onClose()
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? "That didn't work this time. Try again?"

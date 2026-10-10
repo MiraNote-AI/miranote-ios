@@ -307,11 +307,14 @@ final class CanvasEditorUITests: XCTestCase {
         field.typeText("make it autumn")
         app.buttons["photo.ai.run"].tap()
 
-        XCTAssertTrue(
-            app.staticTexts["Done -- take a look. Undo brings the old one back."]
-                .waitForExistence(timeout: 8),
-            "the AI edit lands and says so"
-        )
+        let closed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 8), .completed,
+                       "the AI edit lands and the panel closes itself")
+        let edited = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(edited.waitForExistence(timeout: 5), "the photo is still on the page")
+        XCTAssertTrue(edited.isHittable, "the edited photo is on screen, no scrolling needed")
     }
 
     func testPhotoEditMakeStickerReplacesInPlace() {
