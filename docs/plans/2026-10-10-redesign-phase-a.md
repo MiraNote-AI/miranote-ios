@@ -63,4 +63,17 @@ For every PR:
    committed. Full suite 9 + 41, 0 failures; Release OK. Review: DONE with
    nits; fixed the misleading APPICON comment, a11y-hidden leading symbol,
    stale doc comment. Skipped: Go pill disabled look (system dimming already
-   visible in the simulator screenshot). A2 criteria 3/3 -> PR.
+   visible in the simulator screenshot). A2 criteria 3/3 -> PR #83.
+4. A3 written (stacked): EditorMode = background/voice/text/image/sticker;
+   StickerPanelScene replaces LibraryPanelScene and takes AI sticker making
+   out of Image (GenerateStyle loses .sticker); BackgroundPanel = Default +
+   four Mira moods. New UI tests: five tools, background mood, default
+   restore; sticker test moved to the Sticker tool. Targeted tests 7/7.
+   Full suite: 1 failure -- testTextToolAddsEditableBlockInPlace asserted
+   "no mode.sticker" (the v2.1 rule this phase reverses). Assertion removed;
+   the five-tools test asserts the new rule positively. Review: DONE with
+   nits; fixed README tour, stale comments, and added
+   BackgroundMoodRoutingTests (every mood routes to setBackground on a blank
+   and a filled page). DEFERRED: bundled sticker set (PNGs blocked until
+   .github#26), paper/color/curated sets (phase B). Overlap: Zhaoyan's #78 /
+   #80 touch the same files -- A3 rebases after they land (comment on #80).

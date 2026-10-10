@@ -6,7 +6,7 @@ import SwiftUI
 
 enum RecorderState {
     case idle
-    /// The Sound tool is open but the mic is not live yet -- recording
+    /// The Voice tool is open but the mic is not live yet -- recording
     /// starts only when the user presses Record.
     case armed
     case recording(start: Date)
