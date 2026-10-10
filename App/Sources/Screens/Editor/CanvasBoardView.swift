@@ -18,6 +18,9 @@ struct CanvasBoardView: View {
     /// Long-press "Edit photo" (images with stored pixels only).
     var onEditImage: (CanvasItem.ID) -> Void = { _ in }
     var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
+    /// A tap on empty paper (not while placing): lets the scene fold
+    /// away a tool that is open but idle.
+    var onPaperTap: () -> Void = {}
     /// Long-press "Favorite": saves the image/sticker to the Favorites shelf.
     var onFavorite: (CanvasItem) -> Void = { _ in }
     /// Non-nil while a picture waits to be placed: the tap places it there.
@@ -145,6 +148,7 @@ struct CanvasBoardView: View {
                 } else {
                     editor.endEditingText()
                     editor.select(nil)
+                    onPaperTap()
                     textFocus.wrappedValue = nil
                 }
             }

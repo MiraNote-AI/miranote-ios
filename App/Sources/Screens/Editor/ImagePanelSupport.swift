@@ -78,3 +78,15 @@ struct CameraCapture: UIViewControllerRepresentable {
         }
     }
 }
+
+/// The Image and Saved panels show the page read-only above their cards; a
+/// tap on it returns to the canvas. Only the page counts, not the margins
+/// beside it. The tap is read on the padded preview and tested by position:
+/// a gesture on the page alone also fired from the margins (touch slop
+/// hands a near-miss to the nearest tappable view).
+enum PagePreviewTap {
+    static func isOnPage(_ point: CGPoint) -> Bool {
+        let left = Metrics.screenPadding
+        return point.x >= left && point.x <= left + MiraNoteConfig.pageWidth
+    }
+}

@@ -66,6 +66,12 @@ struct CanvasScene: View {
                     cancelDictationIfNeeded()
                     editingStickerItem = id
                 },
+                onPaperTap: {
+                    // An armed recorder holds nothing yet, so a paper tap
+                    // folds it like it folds the text tools. Recording and
+                    // review keep their bar: a stray tap must not lose audio.
+                    if case .armed = recorderState { recorderState = .idle }
+                },
                 onFavorite: { item in
                     switch item.content {
                     case .sticker(let sticker):
