@@ -16,6 +16,17 @@ enum EditorMode: String, CaseIterable, Identifiable {
         self == .library ? "Saved" : rawValue.capitalized
     }
 
+    /// The handoff's tool-bar glyph (a template vector in Assets.xcassets),
+    /// or nil to fall back to `symbol`.
+    var iconAsset: String? {
+        switch self {
+        case .sound: return "tool.voice"
+        case .text: return "tool.text"
+        case .image: return "tool.image"
+        case .library: return nil
+        }
+    }
+
     var symbol: String {
         switch self {
         case .sound: return "waveform"

@@ -11,6 +11,8 @@ enum Palette {
     static let selectedTool = Color(hex: 0x24382D)
     /// Fill of an inactive tool in the bottom tool bar.
     static let toolSurface = Color(hex: 0xF7F5ED)
+    /// Glyph color of an inactive tool (the handoff's tool-bar SVG stroke).
+    static let toolIcon = Color(hex: 0x58665B)
     static let warmWhite = Color(hex: 0xFFFDF8)
     static let taupe = Color(hex: 0x8C8073)
     static let tan = Color(hex: 0xC9B295)

@@ -41,7 +41,6 @@ struct CanvasScene: View {
     var body: some View {
         EditorScaffold(
             leading: "Home",
-            leadingSymbol: "chevron.left",
             onLeading: actions.leading,
             onTrailing: actions.done,
             onUndo: editor.undo,

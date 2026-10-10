@@ -87,6 +87,11 @@ targets:
         MARKETING_VERSION: "1.0"
         # 1.0(1) and 1.0(2) are already uploaded, so the next build is 3.
         CURRENT_PROJECT_VERSION: "3"
+        # The catalog holds only tool icons for now. No AppIcon yet: PNGs are
+        # blocked by the CJK check until MiraNote-AI/.github#26 lands, so
+        # TestFlight builds still add the icon locally. Set this to AppIcon
+        # in the PR that commits it.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
   MiraNoteTests:
     type: bundle.unit-test
     platform: iOS
