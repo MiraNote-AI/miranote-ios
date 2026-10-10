@@ -54,4 +54,13 @@ For every PR:
    on the compact label; hit area now padding(+5)/contentShape/padding(-5) so
    layout is untouched. Kept: InputModeBar "T" glyph (icon, replaced in A2);
    unused ActionRow is pre-existing, left alone. Release build OK; full suite
-   9 unit + 41 UI, 0 failures. Re-review: DONE. A1 criteria 4/4 -> PR.
+   9 unit + 41 UI, 0 failures. Re-review: DONE. A1 criteria 4/4 -> PR #82.
+3. A2 written (stacked): TopBar NavPill + bare undo, icon-capsule tool bar
+   from handoff SVGs (template vectors in a new Assets.xcassets), glass
+   composer. DEVIATION: canvas keeps "Done" instead of the handoff "Save" --
+   editing autosaves, a UI test pins "no Save", and the handoff Save opens
+   export (phase C). Catalog forces APPICON_NAME "" until the icon can be
+   committed. Full suite 9 + 41, 0 failures; Release OK. Review: DONE with
+   nits; fixed the misleading APPICON comment, a11y-hidden leading symbol,
+   stale doc comment. Skipped: Go pill disabled look (system dimming already
+   visible in the simulator screenshot). A2 criteria 3/3 -> PR.

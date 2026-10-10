@@ -44,6 +44,7 @@ struct TopBar: View {
                             if let leadingSymbol {
                                 Image(systemName: leadingSymbol)
                                     .font(.system(size: 11, weight: .semibold))
+                                    .accessibilityHidden(true)
                             }
                             Text(leading)
                         }
