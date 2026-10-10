@@ -36,13 +36,13 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["warm broth, golden light"].waitForExistence(timeout: 5))
     }
 
-    // The Sound tool records in place: stop -> review -> Keep places a
+    // The Voice tool records in place: stop -> review -> Keep places a
     // sound marker with its note pill on the canvas.
     func testSoundToolRecordsAndKeepPlacesMarker() {
         app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["mode.sound"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["mode.voice"].waitForExistence(timeout: 5))
 
-        app.buttons["mode.sound"].tap()
+        app.buttons["mode.voice"].tap()
         // The tool only arms the recorder -- nothing is captured until
         // the user presses Record.
         let record = app.buttons["recorder.record"]
@@ -126,27 +126,36 @@ final class CanvasEditorUITests: XCTestCase {
         )
     }
 
-    // Sticker creation lives inside Generate as a style. Picking a result no
-    // longer places it and no longer files it in Favorites: the canvas asks
-    // where it goes, and the next tap on the paper lands it there.
+    // The bar carries the handoff's five tools, and the Image panel no
+    // longer offers a sticker style -- stickers have their own tool.
+    func testFiveToolsAndImageHasNoStickerStyle() {
+        app.buttons["Start a memory"].tap()
+        for tool in ["background", "voice", "text", "image", "sticker"] {
+            XCTAssertTrue(app.buttons["mode.\(tool)"].waitForExistence(timeout: 5), tool)
+        }
+        XCTAssertFalse(app.buttons["mode.library"].exists, "Saved became Sticker")
+
+        app.buttons["mode.image"].tap()
+        app.buttons["image.source.generate"].tap()
+        XCTAssertTrue(app.buttons["image.style.photo"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["image.style.sticker"].exists)
+    }
+
+    // Stickers are made in the Sticker tool. Picking a result does not place
+    // it and does not file it in Favorites: the canvas asks where it goes,
+    // and the next tap on the paper lands it there.
     func testGenerateStickerPlacesElement() {
         app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
-        app.buttons["mode.image"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
 
-        app.buttons["image.source.generate"].tap()
-        // Pick the style before typing: once the keyboard is up it can
-        // swallow taps meant for the chips row.
-        let stickerStyle = app.buttons["image.style.sticker"]
-        XCTAssertTrue(stickerStyle.waitForExistence(timeout: 5))
-        stickerStyle.tap()
-
-        let prompt = app.textFields["image.prompt"]
+        let prompt = app.textFields["sticker.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.tap()
         prompt.typeText("a coffee cup")
-        app.buttons["image.generate.run"].tap()
+        app.buttons["sticker.generate.run"].tap()
 
-        let firstResult = app.buttons["image.result.0"]
+        let firstResult = app.buttons["sticker.result.0"]
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
         firstResult.tap()
 
