@@ -138,11 +138,11 @@ struct CanvasElementView: View {
             Button(action: onEditNote) {
                 HStack(spacing: 6) {
                     Text(clip.note.isEmpty ? "Add a note" : clip.note)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Sans.font(size: 11, weight: 500))
                         .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
                         .lineLimit(1)
                     Text(Self.timestamp(clip.duration))
-                        .font(.system(size: 10))
+                        .font(Sans.font(size: 11, weight: 400))
                         .foregroundStyle(Palette.textSecondary)
                 }
                 .padding(.horizontal, 10)

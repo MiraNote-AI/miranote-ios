@@ -196,7 +196,7 @@ struct MiraCard: View {
 
     private var avatar: some View {
         Text("M")
-            .font(.system(size: 11, weight: .bold))
+            .font(Sans.font(size: 11, weight: 700))
             .foregroundStyle(Palette.onInk)
             .frame(width: 22, height: 22)
             .background(Circle().fill(Palette.ink))
@@ -316,23 +316,20 @@ struct MiraBar: View {
 
             Button(action: submit) {
                 Text("Go")
-                    .font(.miraLabel)
+                    .font(Sans.font(size: 13, weight: 700))
                     .foregroundStyle(Palette.onInk)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .frame(minWidth: 52, minHeight: 34)
                     .background(Capsule().fill(Palette.ink))
+                    .minimumHitTarget()
             }
             .buttonStyle(.plain)
             .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || coordinator.isWorking)
             .accessibilityIdentifier("mira.go")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .background(
-            Capsule()
-                .fill(Palette.onInk)
-                .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-        )
+        .padding(.leading, 17)
+        .padding(.trailing, 10)
+        .frame(minHeight: 54)
+        .background(GlassCapsule())
         .padding(.horizontal, Metrics.screenPadding)
     }
 

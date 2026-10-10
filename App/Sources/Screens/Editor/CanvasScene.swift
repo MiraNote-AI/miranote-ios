@@ -4,7 +4,7 @@ import SwiftUI
 /// The base editor (v2.1): the infinite canvas plus the three-mode
 /// instrument panel. Text and Sound act directly on the canvas -- Text drops
 /// an editable block, Sound swaps the bottom bar for a recorder; only Image
-/// leaves for its panel. Header is back / undo / Done.
+/// leaves for its panel. Header is Home / undo / Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -41,7 +41,6 @@ struct CanvasScene: View {
     var body: some View {
         EditorScaffold(
             leading: "Home",
-            leadingSymbol: "chevron.left",
             onLeading: actions.leading,
             onTrailing: actions.done,
             onUndo: editor.undo,
