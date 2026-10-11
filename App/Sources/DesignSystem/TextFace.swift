@@ -17,6 +17,9 @@ enum TextFace {
         ("Helvetica Neue", "Helvetica"),
     ]
 
+    /// Looked up once: every render and every height measurement asks.
+    private static let installedFamilies = Set(UIFont.familyNames)
+
     static func uiFont(name: String, size: CGFloat) -> UIFont {
         switch name {
         case "":
@@ -29,7 +32,7 @@ enum TextFace {
         default:
             // A face this device lacks falls back to the system font
             // instead of an invisible or mismatched one.
-            guard UIFont.familyNames.contains(name) else { return UIFont.systemFont(ofSize: size) }
+            guard installedFamilies.contains(name) else { return UIFont.systemFont(ofSize: size) }
             return UIFont(descriptor: UIFontDescriptor(fontAttributes: [.family: name]), size: size)
         }
     }
