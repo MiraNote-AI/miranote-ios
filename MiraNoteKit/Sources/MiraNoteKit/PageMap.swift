@@ -106,11 +106,19 @@ public extension PageMap {
 
     /// What sits behind the words. A generated backdrop remembers the
     /// phrase it came from; one set before that was recorded says only
-    /// that it exists.
+    /// that it exists. A solid page color and a non-blank paper ruling are
+    /// named too, so text colors are chosen against the real page.
     private static func background(of memory: Memory) -> String {
-        if memory.backgroundFileName.isEmpty { return "default gradient" }
-        return memory.backgroundSummary.isEmpty
-            ? "a picked backdrop image" : memory.backgroundSummary
+        let surface: String
+        if !memory.backgroundFileName.isEmpty {
+            surface = memory.backgroundSummary.isEmpty
+                ? "a picked backdrop image" : memory.backgroundSummary
+        } else if !memory.pageColorName.isEmpty {
+            surface = "solid \(memory.pageColorName)"
+        } else {
+            surface = "default gradient"
+        }
+        return memory.paper == .blank ? surface : "\(surface), \(memory.paper.rawValue) paper"
     }
 
     private static func kind(of item: CanvasItem) -> String {

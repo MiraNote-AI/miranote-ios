@@ -69,6 +69,10 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.buttons["background.paper.blank"].isSelected, "new pages start blank")
         grid.tap()
         XCTAssertTrue(grid.isSelected)
+        let gridShot = XCTAttachment(screenshot: app.screenshot())
+        gridShot.name = "grid paper"
+        gridShot.lifetime = .keepAlways
+        add(gridShot)
 
         let lilac = app.buttons["background.color.#E5D9F0"]
         lilac.tap()

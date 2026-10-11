@@ -12,7 +12,9 @@ extension MiraCanvasCoordinator {
         case .imageChoices(let images, let prompt, let placement):
             phase = .imageChoices(images, prompt: prompt, placement: placement)
         case .backgroundCleared(let receipt):
-            editor.setBackground(fileName: "")
+            // The same as the Background tool's Default: painting and page
+            // color both go, in one undo step, so Revert undoes this turn.
+            editor.resetPageBackground()
             showReceipt(receipt, editor: editor)
         case .imageReplaced(let id, let data, let receipt):
             settleImageReplaced(id, data: data, receipt: receipt, editor: editor)
