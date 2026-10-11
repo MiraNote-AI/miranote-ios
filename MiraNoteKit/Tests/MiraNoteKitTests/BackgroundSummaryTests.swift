@@ -75,6 +75,20 @@ final class BackgroundSummaryTests: XCTestCase {
         XCTAssertEqual(map.background, "default gradient")
     }
 
+    // Mira picks text colors against this: a solid color must not read as
+    // the dark default gradient. The paper ruling rides along.
+    func testAPageColorAndPaperAreDescribed() {
+        let memory = Memory(paper: .lined, pageColorName: "#E5D9F0")
+        let (map, _) = PageMap.build(from: memory, canvasWidth: MiraNoteConfig.pageWidth)
+        XCTAssertEqual(map.background, "solid #E5D9F0, lined paper")
+    }
+
+    func testPaperAloneIsDescribedOnTheDefaultGradient() {
+        let memory = Memory(paper: .dot)
+        let (map, _) = PageMap.build(from: memory, canvasWidth: MiraNoteConfig.pageWidth)
+        XCTAssertEqual(map.background, "default gradient, dot paper")
+    }
+
     func testPickingAGeneratedBackdropRecordsThePromptItCameFrom() {
         let store = ImageFileStore()
         let editor = CanvasViewModel(memory: Memory())

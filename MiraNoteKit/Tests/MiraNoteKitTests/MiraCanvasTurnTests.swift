@@ -244,6 +244,26 @@ final class MiraCanvasTurnTests: XCTestCase {
         XCTAssertEqual(board.memory.backgroundFileName, "dusk.png")
     }
 
+    // "Remove the background" means the default page, like the Default chip:
+    // a solid page color goes too, and Revert brings back exactly that.
+    func testClearingTheBackgroundAlsoClearsAPageColor() async {
+        var chat = ScriptedChat()
+        chat.reply = "Cleared."
+        chat.backgroundRequest = .clear
+        let board = editor()
+        board.setPaper(.grid)
+        board.setPageColor("#E5D9F0")
+        let mira = coordinator(chat)
+
+        mira.ask("remove the background", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+
+        XCTAssertEqual(board.memory.pageColorName, "")
+        board.undo()
+        XCTAssertEqual(board.memory.pageColorName, "#E5D9F0", "Revert restores the color")
+        XCTAssertEqual(board.memory.paper, .grid, "and never the user's earlier paper step")
+    }
+
     func testTidyFallsBackToLocalRearrangeWhenTheBackendIsDown() async {
         var chat = ScriptedChat()
         chat.error = BackendError.unreachable

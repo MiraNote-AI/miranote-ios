@@ -1,5 +1,6 @@
 import MiraNoteKit
 import SwiftUI
+import UIKit
 
 /// The page's full-bleed backdrop, shared by the editor and the static
 /// renderers, bottom to top: the page color (or the default dawn-to-dusk
@@ -50,51 +51,49 @@ struct PageBackdrop: View {
 }
 
 /// Grid, lined or dot ruling drawn in faint ink over the page; blank draws
-/// nothing. The spacing is fixed in points so a long page keeps an even
-/// rhythm instead of stretching.
+/// nothing. One small tile per kind is drawn once and repeated by the GPU
+/// (`ImagePaint`), so a page of any height costs the same -- a page-sized
+/// Canvas would rasterize one bitmap that outgrows the texture limit on long
+/// pages. The spacing is fixed in points, so a long page keeps an even rhythm.
 struct PaperRuling: View {
     let kind: PaperKind
     static let spacing: CGFloat = 22
 
     var body: some View {
-        if kind != .blank {
-            Canvas { context, size in
-                let ink = GraphicsContext.Shading.color(Palette.ink.opacity(0.14))
-                let step = Self.spacing
-                switch kind {
-                case .grid:
-                    var path = Path()
-                    for x in stride(from: step, to: size.width, by: step) {
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: size.height))
-                    }
-                    for y in stride(from: step, to: size.height, by: step) {
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: size.width, y: y))
-                    }
-                    context.stroke(path, with: ink, lineWidth: 0.6)
-                case .lined:
-                    var path = Path()
-                    for y in stride(from: step * 2, to: size.height, by: step) {
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: size.width, y: y))
-                    }
-                    context.stroke(path, with: ink, lineWidth: 0.6)
-                case .dot:
-                    for x in stride(from: step, to: size.width, by: step) {
-                        for y in stride(from: step, to: size.height, by: step) {
-                            context.fill(
-                                Path(ellipseIn: CGRect(x: x - 1, y: y - 1, width: 2, height: 2)),
-                                with: ink
-                            )
-                        }
-                    }
-                case .blank:
-                    break
-                }
+        if let tile = Self.tiles[kind] {
+            Rectangle()
+                .fill(ImagePaint(image: Image(uiImage: tile)))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private static let tiles: [PaperKind: UIImage] = {
+        var made: [PaperKind: UIImage] = [:]
+        for kind in PaperKind.allCases where kind != .blank {
+            made[kind] = tile(for: kind)
+        }
+        return made
+    }()
+
+    /// One `spacing` x `spacing` cell: the line or dot sits on the cell's
+    /// right/bottom edge, so repeating cells reproduce the ruling exactly.
+    private static func tile(for kind: PaperKind) -> UIImage {
+        let side = spacing
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
+            let cg = context.cgContext
+            UIColor(Palette.ink.opacity(0.14)).setFill()
+            switch kind {
+            case .grid:
+                cg.fill(CGRect(x: side - 0.6, y: 0, width: 0.6, height: side))
+                cg.fill(CGRect(x: 0, y: side - 0.6, width: side, height: 0.6))
+            case .lined:
+                cg.fill(CGRect(x: 0, y: side - 0.6, width: side, height: 0.6))
+            case .dot:
+                cg.fillEllipse(in: CGRect(x: side - 2, y: side - 2, width: 2, height: 2))
+            case .blank:
+                break
             }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
         }
     }
 }
