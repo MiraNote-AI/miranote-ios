@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Warm earthen palette. UI values follow DESIGN_TOKENS.md of the 2026-10-07
 /// design handoff; `taupe`, `tan` and `sage` are older Flow 7 values kept
@@ -39,9 +40,20 @@ enum Palette {
         case "tan": return tan
         case "sage": return sage
         case "textSecondary": return textSecondary
-        default: return ink
+        default:
+            // A custom color picked in the editor is stored as "#RRGGBB".
+            if name.count == 7, name.hasPrefix("#"), let hex = UInt32(name.dropFirst(), radix: 16) {
+                return Color(hex: hex)
+            }
+            return ink
         }
     }
+
+    /// The editor's quick swatches for text and text backgrounds: the
+    /// handoff's text-color row (screens 12-13), as stored "#RRGGBB" names.
+    static let textSwatches = [
+        "#201E1C", "#FFFDF8", "#24382D", "#8C7468", "#7B8A70", "#C98F72", "#8B5962", "#E5AC95",
+    ]
 }
 
 extension Color {
@@ -51,5 +63,13 @@ extension Color {
         let green = Double((hex >> 8) & 0xFF) / 255
         let blue = Double(hex & 0xFF) / 255
         self.init(.sRGB, red: red, green: green, blue: blue, opacity: 1)
+    }
+
+    /// The "#RRGGBB" form TextBlock stores for a custom color (alpha dropped).
+    var hexName: String {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        func byte(_ value: CGFloat) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", byte(red), byte(green), byte(blue))
     }
 }

@@ -5,10 +5,10 @@ import UIKit
 /// Measures a text block's rendered height so blocks grow with their
 /// content instead of scrolling inside a fixed frame.
 enum TextMeasure {
-    static func blockHeight(text: String, pointSize: CGFloat, width: CGFloat) -> CGFloat {
-        let font: UIFont = pointSize >= 24
-            ? Serif.uiFont(size: pointSize, weight: 560, optical: 72)
-            : UIFont.systemFont(ofSize: pointSize)
+    static func blockHeight(
+        text: String, pointSize: CGFloat, fontName: String = "", width: CGFloat
+    ) -> CGFloat {
+        let font = TextFace.uiFont(name: fontName, size: pointSize)
         let sample = text.isEmpty ? "Ag" : text
         let bounds = (sample as NSString).boundingRect(
             with: CGSize(width: max(40, width - 12), height: .greatestFiniteMagnitude),

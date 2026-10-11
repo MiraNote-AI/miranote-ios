@@ -92,33 +92,31 @@ struct CanvasElementView: View {
     @ViewBuilder private func textView(_ block: TextBlock) -> some View {
         if isEditingText {
             TextField("Say something...", text: text, axis: .vertical)
-                .font(font(for: block))
+                .font(TextFace.font(for: block))
                 .foregroundStyle(Palette.color(named: block.colorName))
+                .multilineTextAlignment(block.alignment.textAlignment)
                 .focused(textFocus, equals: item.id)
                 .accessibilityIdentifier("canvas.textEditor")
                 .padding(6)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Palette.paper.opacity(0.75))
+                        .fill(block.backgroundColorName.isEmpty
+                              ? Palette.paper.opacity(0.75)
+                              : Palette.color(named: block.backgroundColorName))
                 )
         } else {
             Text(block.text.isEmpty ? "Say something..." : block.text)
-                .font(font(for: block))
+                .font(TextFace.font(for: block))
                 .foregroundStyle(
                     block.text.isEmpty
                         ? Palette.textSecondary
                         : Palette.color(named: block.colorName)
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .multilineTextAlignment(block.alignment.textAlignment)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
                 .padding(6)
+                .textBlockBackground(block)
         }
-    }
-
-    private func font(for block: TextBlock) -> Font {
-        // Larger blocks are display type and take the serif identity.
-        block.pointSize >= 24
-            ? Serif.font(size: block.pointSize, weight: 560, optical: 72)
-            : Font.system(size: block.pointSize)
     }
 
     private func soundView(_ clip: SoundClip) -> some View {
