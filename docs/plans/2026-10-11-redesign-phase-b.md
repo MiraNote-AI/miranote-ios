@@ -41,3 +41,17 @@ self-merge.
    PickerUndoGate (+5 unit tests), named swatches, traits, cached families.
    Verified: no code rebuilds an existing TextBlock (style cannot be
    dropped). Declined: background padding concern (padding is constant).
+   Re-review DONE. B1 -> PR #86.
+3. B2 written TDD (`feat/page-paper`): kit PagePaperTests red -> Memory.paper
+   + pageColorName (decode defaults, undo snapshot), setPaper / setPageColor
+   (clears a painted image in the same step) / resetPageBackground -> kit
+   366 green. App: PageBackdrop = color or gradient, painting, ruling;
+   BackgroundPanel gains paper chips, page swatches, system picker (gated).
+   One UI test updated: Default no longer closes the panel (deliberate).
+   Full suite 16 unit + 47 UI green; Release OK.
+4. Fresh-context review: DONE with three should-fix. Mira "remove the
+   background" left a page color and its Revert could undo an unrelated
+   step -> resets like Default (+test). Page map said "default gradient"
+   over a color -> names color and paper (+2 tests). Page-sized ruling
+   Canvas could exceed the texture limit -> one ImagePaint tile, checked in
+   a simulator screenshot. Kit 370/370.
