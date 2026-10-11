@@ -50,9 +50,12 @@ enum Palette {
     }
 
     /// The editor's quick swatches for text and text backgrounds: the
-    /// handoff's text-color row (screens 12-13), as stored "#RRGGBB" names.
-    static let textSwatches = [
-        "#201E1C", "#FFFDF8", "#24382D", "#8C7468", "#7B8A70", "#C98F72", "#8B5962", "#E5AC95",
+    /// handoff's text-color row (screens 12-13). `hex` is what TextBlock
+    /// stores; `name` is what VoiceOver reads.
+    static let textSwatches: [(hex: String, name: String)] = [
+        ("#201E1C", "Ink"), ("#FFFDF8", "Warm white"), ("#24382D", "Forest"),
+        ("#8C7468", "Cocoa"), ("#7B8A70", "Sage"), ("#C98F72", "Clay"),
+        ("#8B5962", "Plum"), ("#E5AC95", "Peach"),
     ]
 }
 

@@ -126,6 +126,7 @@ extension CanvasScene {
                         }
                         .font(Font(TextFace.uiFont(name: face.name, size: 15)))
                         .fontWeight(editingBlock?.fontName == face.name ? .bold : .regular)
+                        .accessibilityAddTraits(editingBlock?.fontName == face.name ? .isSelected : [])
                         .accessibilityIdentifier("style.font.\(face.label)")
                     }
                     Divider().frame(height: 18)
@@ -140,14 +141,14 @@ extension CanvasScene {
                     }
                 }
             }
-            Button("Back") { accessoryRow = .tools }
+            Button("Back") { closeStyleRow() }
         case .colors:
             swatchRow(
                 current: editingBlock?.colorName ?? "ink",
                 idPrefix: "style.color",
                 apply: { id, name, record in editor.setTextColorName(itemID: id, to: name, recordingUndo: record) }
             )
-            Button("Back") { accessoryRow = .tools }
+            Button("Back") { closeStyleRow() }
         case .highlight:
             Button {
                 if let id = editor.editingTextItemID {
@@ -157,25 +158,26 @@ extension CanvasScene {
                 Image(systemName: "nosign")
             }
             .accessibilityLabel("No background")
+            .accessibilityAddTraits(editingBlock?.backgroundColorName.isEmpty ?? true ? .isSelected : [])
             .accessibilityIdentifier("style.highlight.none")
             swatchRow(
                 current: editingBlock?.backgroundColorName ?? "",
                 idPrefix: "style.highlight",
                 apply: { id, name, record in editor.setTextBackground(itemID: id, to: name, recordingUndo: record) }
             )
-            Button("Back") { accessoryRow = .tools }
+            Button("Back") { closeStyleRow() }
         case .ai:
             ForEach(["Clean up", "Expand"], id: \.self) { action in
                 Button(action) { runTextAI(action) }
             }
             Spacer()
-            Button("Back") { accessoryRow = .tools }
+            Button("Back") { closeStyleRow() }
         }
     }
 
     /// Quick swatches plus the system color picker (custom color with its
-    /// built-in eyedropper -- handoff screens 14 and 20). A picker drag
-    /// streams changes; only the first within a moment records an undo step.
+    /// built-in eyedropper -- handoff screens 14 and 20). A swatch tap is
+    /// always one undo step; a picker drag is grouped by `pickerUndo`.
     private func swatchRow(
         current: String,
         idPrefix: String,
@@ -183,21 +185,22 @@ extension CanvasScene {
     ) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(Palette.textSwatches, id: \.self) { name in
+                ForEach(Palette.textSwatches, id: \.hex) { swatch in
                     Button {
-                        if let id = editor.editingTextItemID { apply(id, name, true) }
+                        if let id = editor.editingTextItemID { apply(id, swatch.hex, true) }
+                        pickerUndo.reset()
                     } label: {
                         Circle()
-                            .fill(Palette.color(named: name))
+                            .fill(Palette.color(named: swatch.hex))
                             .overlay(Circle().strokeBorder(
-                                current == name ? Palette.ink : Palette.hairline,
-                                lineWidth: current == name ? 2 : 1
+                                current == swatch.hex ? Palette.ink : Palette.hairline,
+                                lineWidth: current == swatch.hex ? 2 : 1
                             ))
                             .frame(width: 22, height: 22)
                     }
-                    .accessibilityLabel(name)
-                    .accessibilityAddTraits(current == name ? .isSelected : [])
-                    .accessibilityIdentifier("\(idPrefix).\(name)")
+                    .accessibilityLabel(swatch.name)
+                    .accessibilityAddTraits(current == swatch.hex ? .isSelected : [])
+                    .accessibilityIdentifier("\(idPrefix).\(swatch.hex)")
                 }
                 ColorPicker(
                     "Custom color",
@@ -205,10 +208,8 @@ extension CanvasScene {
                         get: { Palette.color(named: current.isEmpty ? "ink" : current) },
                         set: { color in
                             guard let id = editor.editingTextItemID else { return }
-                            let now = Date()
-                            let startsADrag = now.timeIntervalSince(lastPickerEdit) > 1.5
-                            lastPickerEdit = now
-                            apply(id, color.hexName, startsADrag)
+                            let record = pickerUndo.shouldRecord(item: id, field: idPrefix)
+                            apply(id, color.hexName, record)
                         }
                     ),
                     supportsOpacity: false
@@ -219,10 +220,15 @@ extension CanvasScene {
         }
     }
 
+    private func closeStyleRow() {
+        accessoryRow = .tools
+        pickerUndo.reset()
+    }
+
     func endTextEditing() {
         editor.endEditingText()
         textFocus = nil
-        accessoryRow = .tools
+        closeStyleRow()
         dictationHint = nil
     }
 
