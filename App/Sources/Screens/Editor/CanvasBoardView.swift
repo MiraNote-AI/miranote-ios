@@ -172,7 +172,7 @@ struct CanvasBoardView: View {
     /// The page itself -- its backdrop stretches with the content, so the
     /// background never "runs out".
     private var paper: some View {
-        PageBackdrop(backgroundFileName: editor.memory.backgroundFileName)
+        PageBackdrop(memory: editor.memory)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
                     .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)

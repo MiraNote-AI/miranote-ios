@@ -28,11 +28,14 @@ public final class CanvasViewModel {
         let items: [CanvasItem]
         let backgroundFileName: String
         let backgroundSummary: String
+        let paper: PaperKind
+        let pageColorName: String
     }
     private var history: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
         UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
-                     backgroundSummary: memory.backgroundSummary)
+                     backgroundSummary: memory.backgroundSummary,
+                     paper: memory.paper, pageColorName: memory.pageColorName)
     }
     private static let historyCap = 50
 
@@ -72,6 +75,8 @@ public final class CanvasViewModel {
         memory.items = snapshot.items
         memory.backgroundFileName = snapshot.backgroundFileName
         memory.backgroundSummary = snapshot.backgroundSummary
+        memory.paper = snapshot.paper
+        memory.pageColorName = snapshot.pageColorName
         if let selected = selectedItemID, item(selected) == nil {
             selectedItemID = nil
         }

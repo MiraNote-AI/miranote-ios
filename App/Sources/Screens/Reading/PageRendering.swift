@@ -20,7 +20,7 @@ struct StaticPageView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            PageBackdrop(backgroundFileName: memory.backgroundFileName)
+            PageBackdrop(memory: memory)
             if memory.items.isEmpty {
                 metadataFallback
             }

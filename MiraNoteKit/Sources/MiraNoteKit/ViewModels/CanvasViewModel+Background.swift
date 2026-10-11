@@ -15,4 +15,34 @@ extension CanvasViewModel {
         memory.backgroundFileName = fileName
         memory.backgroundSummary = fileName.isEmpty ? "" : describes
     }
+
+    public func setPaper(_ paper: PaperKind) {
+        guard memory.paper != paper else { return }
+        beginChange()
+        memory.paper = paper
+    }
+
+    /// A solid page color. Picking one removes a painted backdrop in the same
+    /// undo step: the painting draws over the color, so keeping it would
+    /// make the pick invisible. `recordingUndo: false` is for a color picker
+    /// drag's live updates, after one recorded call.
+    public func setPageColor(_ colorName: String, recordingUndo: Bool = true) {
+        let clearsPainting = !colorName.isEmpty && !memory.backgroundFileName.isEmpty
+        guard memory.pageColorName != colorName || clearsPainting else { return }
+        if recordingUndo { beginChange() }
+        memory.pageColorName = colorName
+        if clearsPainting {
+            memory.backgroundFileName = ""
+            memory.backgroundSummary = ""
+        }
+    }
+
+    /// Back to the default gradient: no page color, no painting. One undo.
+    public func resetPageBackground() {
+        guard !memory.pageColorName.isEmpty || !memory.backgroundFileName.isEmpty else { return }
+        beginChange()
+        memory.pageColorName = ""
+        memory.backgroundFileName = ""
+        memory.backgroundSummary = ""
+    }
 }
