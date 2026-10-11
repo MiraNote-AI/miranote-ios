@@ -104,17 +104,69 @@ extension Memory: Codable {
     }
 }
 
+/// Horizontal alignment of a text block's lines.
+public enum TextAlign: String, Equatable, Sendable, Codable, CaseIterable {
+    case leading, center, trailing
+
+    /// The order the editor's single alignment button steps through.
+    public var next: TextAlign {
+        switch self {
+        case .leading: return .center
+        case .center: return .trailing
+        case .trailing: return .leading
+        }
+    }
+}
+
 /// A styled block of text placed on the canvas.
-public struct TextBlock: Equatable, Sendable, Codable {
+public struct TextBlock: Equatable, Sendable {
     public var text: String
     public var pointSize: CGFloat
-    /// A named palette color resolved by the app layer (e.g. "ink").
+    /// A palette name resolved by the app layer ("ink", "forest", ...) or a
+    /// custom "#RRGGBB" color.
     public var colorName: String
+    /// The face the block is set in; "" is the default (sans, or the serif
+    /// display cut at 24 pt and up).
+    public var fontName: String
+    public var alignment: TextAlign
+    /// A color drawn behind the words, as a palette name or "#RRGGBB";
+    /// "" draws none.
+    public var backgroundColorName: String
 
-    public init(text: String, pointSize: CGFloat = 17, colorName: String = "ink") {
+    public init(
+        text: String,
+        pointSize: CGFloat = 17,
+        colorName: String = "ink",
+        fontName: String = "",
+        alignment: TextAlign = .leading,
+        backgroundColorName: String = ""
+    ) {
         self.text = text
         self.pointSize = pointSize
         self.colorName = colorName
+        self.fontName = fontName
+        self.alignment = alignment
+        self.backgroundColorName = backgroundColorName
+    }
+}
+
+/// Blocks saved before the style fields decode with the defaults, so old
+/// pages render exactly as they did.
+extension TextBlock: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case text, pointSize, colorName, fontName, alignment, backgroundColorName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            text: try container.decode(String.self, forKey: .text),
+            pointSize: try container.decode(CGFloat.self, forKey: .pointSize),
+            colorName: try container.decode(String.self, forKey: .colorName),
+            fontName: try container.decodeIfPresent(String.self, forKey: .fontName) ?? "",
+            alignment: try container.decodeIfPresent(TextAlign.self, forKey: .alignment) ?? .leading,
+            backgroundColorName: try container.decodeIfPresent(String.self, forKey: .backgroundColorName) ?? ""
+        )
     }
 }
 

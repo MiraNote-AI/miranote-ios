@@ -14,7 +14,7 @@ enum RecorderState {
 }
 
 enum AccessoryRow {
-    case tools, sizes, colors, ai
+    case tools, fonts, colors, highlight, ai
 }
 
 enum TextSizeChoice: CaseIterable {
@@ -42,22 +42,52 @@ enum TextSizeChoice: CaseIterable {
 extension CanvasScene {
     // MARK: Text accessory (accordion: one row expanded at a time)
 
+    /// The block being edited, for showing its current style.
+    private var editingBlock: TextBlock? {
+        guard let id = editor.editingTextItemID,
+              case .text(let block) = editor.item(id)?.content else { return nil }
+        return block
+    }
+
     @ViewBuilder var textAccessory: some View {
         switch accessoryRow {
         case .tools:
-            Button("Aa") { accessoryRow = .sizes }
+            Button("Aa") { accessoryRow = .fonts }
+                .accessibilityLabel("Font and size")
                 .accessibilityIdentifier("style.sizes")
             Button {
                 accessoryRow = .colors
             } label: {
-                Circle().fill(Palette.forest).frame(width: 16, height: 16)
+                Circle()
+                    .fill(Palette.color(named: editingBlock?.colorName ?? "ink"))
+                    .overlay(Circle().strokeBorder(Palette.hairline, lineWidth: 1))
+                    .frame(width: 18, height: 18)
             }
+            .accessibilityLabel("Text color")
             .accessibilityIdentifier("style.colors")
+            Button {
+                accessoryRow = .highlight
+            } label: {
+                Image(systemName: "character.textbox")
+            }
+            .accessibilityLabel("Text background")
+            .accessibilityIdentifier("style.highlight")
+            Button {
+                if let id = editor.editingTextItemID, let block = editingBlock {
+                    editor.setTextAlignment(itemID: id, to: block.alignment.next)
+                }
+            } label: {
+                Image(systemName: (editingBlock?.alignment ?? .leading).symbol)
+            }
+            .accessibilityLabel("Alignment")
+            .accessibilityValue((editingBlock?.alignment ?? .leading).rawValue)
+            .accessibilityIdentifier("style.align")
             Button {
                 accessoryRow = .ai
             } label: {
                 Image(systemName: "sparkles")
             }
+            .accessibilityLabel("Rewrite")
             .accessibilityIdentifier("style.ai")
             Button {
                 toggleDictation()
@@ -84,29 +114,55 @@ extension CanvasScene {
             Button("Done") { endTextEditing() }
                 .fontWeight(.semibold)
                 .accessibilityIdentifier("keyboard.done")
-        case .sizes:
-            ForEach(TextSizeChoice.allCases, id: \.self) { choice in
-                Button(choice.label) {
-                    if let id = editor.editingTextItemID {
-                        editor.setTextPointSize(itemID: id, to: choice.pointSize)
-                        resizeEditedText(id, pointSize: choice.pointSize)
+        case .fonts:
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(TextFace.choices, id: \.name) { face in
+                        Button(face.label) {
+                            if let id = editor.editingTextItemID {
+                                editor.setTextFont(itemID: id, to: face.name)
+                                remeasureEditedText(id)
+                            }
+                        }
+                        .font(Font(TextFace.uiFont(name: face.name, size: 15)))
+                        .fontWeight(editingBlock?.fontName == face.name ? .bold : .regular)
+                        .accessibilityIdentifier("style.font.\(face.label)")
+                    }
+                    Divider().frame(height: 18)
+                    ForEach(TextSizeChoice.allCases, id: \.self) { choice in
+                        Button(choice.label) {
+                            if let id = editor.editingTextItemID {
+                                editor.setTextPointSize(itemID: id, to: choice.pointSize)
+                                remeasureEditedText(id)
+                            }
+                        }
+                        .accessibilityIdentifier("style.size.\(choice.label)")
                     }
                 }
             }
-            Spacer()
             Button("Back") { accessoryRow = .tools }
         case .colors:
-            ForEach(["ink", "forest", "taupe", "tan", "textSecondary"], id: \.self) { name in
-                Button {
-                    if let id = editor.editingTextItemID {
-                        editor.setTextColorName(itemID: id, to: name)
-                    }
-                } label: {
-                    Circle().fill(Palette.color(named: name)).frame(width: 18, height: 18)
+            swatchRow(
+                current: editingBlock?.colorName ?? "ink",
+                idPrefix: "style.color",
+                apply: { id, name, record in editor.setTextColorName(itemID: id, to: name, recordingUndo: record) }
+            )
+            Button("Back") { accessoryRow = .tools }
+        case .highlight:
+            Button {
+                if let id = editor.editingTextItemID {
+                    editor.setTextBackground(itemID: id, to: "")
                 }
-                .accessibilityIdentifier("style.color.\(name)")
+            } label: {
+                Image(systemName: "nosign")
             }
-            Spacer()
+            .accessibilityLabel("No background")
+            .accessibilityIdentifier("style.highlight.none")
+            swatchRow(
+                current: editingBlock?.backgroundColorName ?? "",
+                idPrefix: "style.highlight",
+                apply: { id, name, record in editor.setTextBackground(itemID: id, to: name, recordingUndo: record) }
+            )
             Button("Back") { accessoryRow = .tools }
         case .ai:
             ForEach(["Clean up", "Expand"], id: \.self) { action in
@@ -114,6 +170,52 @@ extension CanvasScene {
             }
             Spacer()
             Button("Back") { accessoryRow = .tools }
+        }
+    }
+
+    /// Quick swatches plus the system color picker (custom color with its
+    /// built-in eyedropper -- handoff screens 14 and 20). A picker drag
+    /// streams changes; only the first within a moment records an undo step.
+    private func swatchRow(
+        current: String,
+        idPrefix: String,
+        apply: @escaping (CanvasItem.ID, String, Bool) -> Void
+    ) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(Palette.textSwatches, id: \.self) { name in
+                    Button {
+                        if let id = editor.editingTextItemID { apply(id, name, true) }
+                    } label: {
+                        Circle()
+                            .fill(Palette.color(named: name))
+                            .overlay(Circle().strokeBorder(
+                                current == name ? Palette.ink : Palette.hairline,
+                                lineWidth: current == name ? 2 : 1
+                            ))
+                            .frame(width: 22, height: 22)
+                    }
+                    .accessibilityLabel(name)
+                    .accessibilityAddTraits(current == name ? .isSelected : [])
+                    .accessibilityIdentifier("\(idPrefix).\(name)")
+                }
+                ColorPicker(
+                    "Custom color",
+                    selection: Binding(
+                        get: { Palette.color(named: current.isEmpty ? "ink" : current) },
+                        set: { color in
+                            guard let id = editor.editingTextItemID else { return }
+                            let now = Date()
+                            let startsADrag = now.timeIntervalSince(lastPickerEdit) > 1.5
+                            lastPickerEdit = now
+                            apply(id, color.hexName, startsADrag)
+                        }
+                    ),
+                    supportsOpacity: false
+                )
+                .labelsHidden()
+                .accessibilityIdentifier("\(idPrefix).custom")
+            }
         }
     }
 
@@ -133,12 +235,13 @@ extension CanvasScene {
         mira.ask("\(action.lowercased()) the text", editor: editor)
     }
 
-    /// Size changes re-measure the block so bigger type gets a bigger box.
-    func resizeEditedText(_ id: CanvasItem.ID, pointSize: CGFloat) {
+    /// Size and face changes re-measure the block so the box fits the type.
+    func remeasureEditedText(_ id: CanvasItem.ID) {
         guard let item = editor.item(id), case .text(let block) = item.content else { return }
         editor.autosizeTextHeight(itemID: id, to: TextMeasure.blockHeight(
             text: block.text,
-            pointSize: pointSize,
+            pointSize: block.pointSize,
+            fontName: block.fontName,
             width: item.size.width
         ))
     }
@@ -194,7 +297,8 @@ extension CanvasScene {
                     // "nothing happened."
                     if let width = editor.item(id)?.size.width {
                         editor.autosizeTextHeight(itemID: id, to: TextMeasure.blockHeight(
-                            text: joined, pointSize: block.pointSize, width: width))
+                            text: joined, pointSize: block.pointSize, fontName: block.fontName,
+                            width: width))
                     }
                 }
             }

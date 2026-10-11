@@ -69,6 +69,7 @@ extension CanvasBoardView {
         let height = TextMeasure.blockHeight(
             text: text ?? block.text,
             pointSize: block.pointSize,
+            fontName: block.fontName,
             width: item.size.width
         )
         editor.autosizeTextHeight(itemID: id, to: height)

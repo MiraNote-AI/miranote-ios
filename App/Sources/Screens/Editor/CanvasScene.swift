@@ -25,6 +25,9 @@ struct CanvasScene: View {
     @State var recorderNotice: String?
     @State var reviewNote = ""
     @State var accessoryRow: AccessoryRow = .tools
+    /// When the color picker last changed a style: changes within a moment
+    /// of each other are one drag, recorded as one undo step.
+    @State var lastPickerEdit = Date.distantPast
     @State private var miraPrompt = ""
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
@@ -360,6 +363,7 @@ struct CanvasScene: View {
             editor.autosizeTextHeight(itemID: item.id, to: TextMeasure.blockHeight(
                 text: block.text,
                 pointSize: block.pointSize,
+                fontName: block.fontName,
                 width: item.size.width
             ))
         }

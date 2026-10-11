@@ -222,10 +222,13 @@ extension CanvasViewModel {
         memory.items[index].content = .text(block)
     }
 
-    public func setTextColorName(itemID: CanvasItem.ID, to colorName: String) {
+    /// A palette name or "#RRGGBB". Pass `recordingUndo: false` for the live
+    /// updates of a color picker drag, after one recorded call, so the whole
+    /// drag is a single undo step.
+    public func setTextColorName(itemID: CanvasItem.ID, to colorName: String, recordingUndo: Bool = true) {
         guard let index = index(of: itemID),
               case .text(var block) = memory.items[index].content else { return }
-        beginChange()
+        if recordingUndo { beginChange() }
         block.colorName = colorName
         memory.items[index].content = .text(block)
     }
