@@ -59,6 +59,28 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
     }
 
+    // Paper and page color apply in place; Default returns to the gradient
+    // but keeps the paper.
+    func testPaperAndPageColorApplyAndDefaultResetsColor() {
+        startMemory()
+        app.buttons["mode.background"].tap()
+        let grid = app.buttons["background.paper.grid"]
+        XCTAssertTrue(grid.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["background.paper.blank"].isSelected, "new pages start blank")
+        grid.tap()
+        XCTAssertTrue(grid.isSelected)
+
+        let lilac = app.buttons["background.color.#E5D9F0"]
+        lilac.tap()
+        XCTAssertTrue(lilac.isSelected)
+        XCTAssertFalse(app.buttons["background.default"].isSelected)
+
+        app.buttons["background.default"].tap()
+        XCTAssertTrue(app.buttons["background.default"].isSelected)
+        XCTAssertFalse(lilac.isSelected)
+        XCTAssertTrue(grid.isSelected, "Default resets the color, not the paper")
+    }
+
     // Default restores the built-in backdrop after a painted one.
     func testBackgroundToolDefaultClearsPaintedBackdrop() {
         startMemory()
@@ -74,8 +96,7 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertFalse(defaultChip.isSelected, "a painted page is not on the default")
         defaultChip.tap()
 
-        app.buttons["mode.background"].tap()
-        XCTAssertTrue(app.buttons["background.default"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["background.default"].isSelected, "back on the default backdrop")
+        // The panel stays open (paper and color sit beside Default).
+        XCTAssertTrue(defaultChip.isSelected, "back on the default backdrop")
     }
 }

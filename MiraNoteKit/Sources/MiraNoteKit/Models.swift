@@ -34,6 +34,11 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// set before this was recorded. It is how Mira knows the page has a
     /// dusk sky on it without spending a look at the picture.
     public var backgroundSummary: String
+    /// The ruling drawn over the page (redesign phase B2).
+    public var paper: PaperKind
+    /// A solid page color as a palette name or "#RRGGBB"; "" is the default
+    /// gradient. A painted backdrop (`backgroundFileName`) draws over it.
+    public var pageColorName: String
 
     public init(
         id: UUID = UUID(),
@@ -44,7 +49,9 @@ public struct Memory: Identifiable, Equatable, Sendable {
         savedAt: Date? = nil,
         items: [CanvasItem] = [],
         backgroundFileName: String = "",
-        backgroundSummary: String = ""
+        backgroundSummary: String = "",
+        paper: PaperKind = .blank,
+        pageColorName: String = ""
     ) {
         self.id = id
         self.title = title
@@ -55,7 +62,14 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.items = items
         self.backgroundFileName = backgroundFileName
         self.backgroundSummary = backgroundSummary
+        self.paper = paper
+        self.pageColorName = pageColorName
     }
+}
+
+/// Page rulings from the handoff's Background tool (screen 05).
+public enum PaperKind: String, Equatable, Sendable, Codable, CaseIterable {
+    case blank, grid, lined, dot
 }
 
 extension Memory: Hashable {
@@ -69,7 +83,7 @@ extension Memory: Hashable {
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
-        case backgroundSummary
+        case backgroundSummary, paper, pageColorName
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,7 +100,10 @@ extension Memory: Codable {
             backgroundFileName: try container.decodeIfPresent(String.self, forKey: .backgroundFileName) ?? "",
             // Saves written before this field decode to "" -- same
             // pattern backgroundFileName itself arrived with.
-            backgroundSummary: try container.decodeIfPresent(String.self, forKey: .backgroundSummary) ?? ""
+            backgroundSummary: try container.decodeIfPresent(String.self, forKey: .backgroundSummary) ?? "",
+            // Saves before phase B2: blank paper on the default backdrop.
+            paper: try container.decodeIfPresent(PaperKind.self, forKey: .paper) ?? .blank,
+            pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? ""
         )
     }
 
@@ -101,6 +118,8 @@ extension Memory: Codable {
         try container.encode(items, forKey: .items)
         try container.encode(backgroundFileName, forKey: .backgroundFileName)
         try container.encode(backgroundSummary, forKey: .backgroundSummary)
+        try container.encode(paper, forKey: .paper)
+        try container.encode(pageColorName, forKey: .pageColorName)
     }
 }
 
