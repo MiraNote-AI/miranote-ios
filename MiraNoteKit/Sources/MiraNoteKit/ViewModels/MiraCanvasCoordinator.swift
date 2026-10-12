@@ -218,6 +218,13 @@ public final class MiraCanvasCoordinator {
     /// hatch). If anything else touched the canvas since the receipt was
     /// shown, revert declines to undo (it would eat the user's edit, not
     /// Mira's) and just dismisses.
+    /// Whether the showing receipt's Revert would undo anything; a receipt
+    /// for a turn that changed nothing offers no Revert.
+    public var receiptCanRevert: Bool {
+        if case .receipt = phase { return receiptChangeCount != nil }
+        return false
+    }
+
     public func revert(editor: CanvasViewModel) {
         if let expected = receiptChangeCount, editor.changeCount == expected {
             editor.undo()
@@ -233,7 +240,9 @@ public final class MiraCanvasCoordinator {
     public func canvasDidChange(_ editor: CanvasViewModel) {
         switch phase {
         case .receipt:
-            guard let expected = receiptChangeCount, editor.changeCount != expected else { return }
+            // A non-revertible receipt has no count to compare; any edit
+            // means the user has moved on.
+            if let expected = receiptChangeCount, editor.changeCount == expected { return }
             dismiss()
         case .reply:
             dismiss()
