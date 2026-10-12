@@ -309,12 +309,41 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.suggestions(for: painted).contains(MiraCanvasCoordinator.changeBackgroundChip))
     }
 
-    // The chip's words must run as a background turn, not a polish or chat.
-    func testBackgroundChipRoutesToABackgroundAsk() {
+    // The idle row is a two-slot design: when more apply, the first two by
+    // priority (tidy, title, background) show.
+    func testAtMostTwoChipsInPriorityOrder() {
+        let coordinator = makeCoordinator()
+        let twoBlocks = CanvasViewModel(memory: Memory())
+        _ = twoBlocks.addText("first words", at: CGPoint(x: 100, y: 100))
+        _ = twoBlocks.addText("second words", at: CGPoint(x: 100, y: 200))
+        XCTAssertEqual(coordinator.suggestions(for: twoBlocks), ["Tidy the layout", "Add a soft title"])
+    }
+
+    // The chip reads "Change the background" but asks about THIS page, so the
+    // painting suits it and the stored summary describes it.
+    func testBackgroundChipAsksAboutThePage() {
+        let coordinator = makeCoordinator()
         let editor = makeEditor()
-        let intent = MiraIntent.classify(MiraCanvasCoordinator.changeBackgroundChip, editor: editor)
-        guard case .setBackground = intent else {
-            return XCTFail("\"\(MiraCanvasCoordinator.changeBackgroundChip)\" routed to \(intent)")
+        let ask = coordinator.ask(forSuggestion: MiraCanvasCoordinator.changeBackgroundChip, editor: editor)
+        XCTAssertEqual(ask, "Paint a soft background for a page about Lunch by the river")
+        guard case .setBackground(let prompt) = MiraIntent.classify(ask, editor: editor) else {
+            return XCTFail("\"\(ask)\" did not route to a background turn")
         }
+        XCTAssertTrue(prompt.contains("Lunch by the river"), "the subject reaches the image request")
+    }
+
+    func testBackgroundChipWithoutWordsStillAsksForABackground() {
+        let coordinator = makeCoordinator()
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addImages([ImageRef(displayName: "photo", fileName: "p.png")], around: CGPoint(x: 100, y: 100))
+        let ask = coordinator.ask(forSuggestion: MiraCanvasCoordinator.changeBackgroundChip, editor: editor)
+        guard case .setBackground = MiraIntent.classify(ask, editor: editor) else {
+            return XCTFail("\"\(ask)\" did not route to a background turn")
+        }
+    }
+
+    func testOtherChipsAskInTheirOwnWords() {
+        let coordinator = makeCoordinator()
+        XCTAssertEqual(coordinator.ask(forSuggestion: "Tidy the layout", editor: makeEditor()), "Tidy the layout")
     }
 }
