@@ -284,15 +284,37 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         _ = wordsNoTitle.addText("small words", at: CGPoint(x: 100, y: 100))
         XCTAssertEqual(
             coordinator.suggestions(for: wordsNoTitle),
-            ["Add a soft title"],
+            ["Add a soft title", MiraCanvasCoordinator.changeBackgroundChip],
             "canvas chips are page-level; polishing lives in the text editor"
         )
 
         let full = makeEditor()
         XCTAssertEqual(
             coordinator.suggestions(for: full),
-            ["Tidy the layout"],
+            ["Tidy the layout", MiraCanvasCoordinator.changeBackgroundChip],
             "no title chip when the page already has a display-size title"
         )
+    }
+
+    // The handoff's "Change background" quick action (screen 06) is offered
+    // only while the page is still on the default backdrop.
+    func testBackgroundChipLeavesOnceThePageHasABackground() {
+        let coordinator = makeCoordinator()
+        let colored = makeEditor()
+        colored.setPageColor("#E5D9F0")
+        XCTAssertFalse(coordinator.suggestions(for: colored).contains(MiraCanvasCoordinator.changeBackgroundChip))
+
+        let painted = makeEditor()
+        painted.setBackground(fileName: "dusk.png")
+        XCTAssertFalse(coordinator.suggestions(for: painted).contains(MiraCanvasCoordinator.changeBackgroundChip))
+    }
+
+    // The chip's words must run as a background turn, not a polish or chat.
+    func testBackgroundChipRoutesToABackgroundAsk() {
+        let editor = makeEditor()
+        let intent = MiraIntent.classify(MiraCanvasCoordinator.changeBackgroundChip, editor: editor)
+        guard case .setBackground = intent else {
+            return XCTFail("\"\(MiraCanvasCoordinator.changeBackgroundChip)\" routed to \(intent)")
+        }
     }
 }
