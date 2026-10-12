@@ -1,4 +1,5 @@
 import MiraNoteKit
+import Photos
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
@@ -79,7 +80,8 @@ struct ExportSheet: View {
     @State private var advancedOpen = false
     @State private var confirmation: String?
     @State private var savingToFiles = false
-    @State private var photoSaver = PhotoSaver()
+    /// This sheet's own temp folder for the Share file.
+    @State private var exportFolder = "export-\(UUID().uuidString)"
     @Environment(\.dismiss) private var dismiss
 
     private var hasSound: Bool {
@@ -110,6 +112,7 @@ struct ExportSheet: View {
                             destinationLabel("Save to Photos", filled: true)
                         }
                         .buttonStyle(.plain)
+                        .disabled(exportData == nil)
                         .accessibilityIdentifier("export.photos")
                     }
 
@@ -189,7 +192,7 @@ struct ExportSheet: View {
         .onChange(of: pdfLayout) { refreshExport() }
         .fileExporter(
             isPresented: $savingToFiles,
-            document: ExportDocument(data: exportData ?? Data(), contentType: format.contentType),
+            document: ExportDocument(data: exportData ?? Data()),
             contentType: format.contentType,
             defaultFilename: fileName
         ) { result in
@@ -298,18 +301,26 @@ struct ExportSheet: View {
             shareURL = nil
             return
         }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        // A folder per sheet, so two pages with one title never share a file.
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(exportFolder, isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent(fileName)
         shareURL = (try? exportData.write(to: url, options: .atomic)) == nil ? nil : url
     }
 
-    /// Photos stores the bytes as encoded, so a JPG export lands as a JPG.
+    /// Hands Photos the encoded bytes as they are, so a PNG export stays a
+    /// PNG and a JPG a JPG (going through UIImage would re-encode either).
     private func saveToPhotos() {
-        guard let exportData, let image = UIImage(data: exportData) else { return }
-        photoSaver.save(image) { succeeded in
-            confirmation = succeeded
-                ? "Saved to Photos."
-                : "Couldn't save -- allow Photos access in Settings."
-        }
+        guard let exportData else { return }
+        PHPhotoLibrary.shared().performChanges({
+            PHAssetCreationRequest.forAsset().addResource(with: .photo, data: exportData, options: nil)
+        }, completionHandler: { succeeded, _ in
+            Task { @MainActor in
+                confirmation = succeeded
+                    ? "Saved to Photos."
+                    : "Couldn't save -- allow Photos access in Settings."
+            }
+        })
     }
 
     /// Printing always goes out as A4 pages, whatever the export format: a
@@ -319,7 +330,7 @@ struct ExportSheet: View {
               let pages = PageExporter.data(from: rendered, format: .pdf, pdfLayout: .a4Pages) else { return }
         let info = UIPrintInfo(dictionary: nil)
         info.jobName = memory.title.isEmpty ? "MiraNote page" : memory.title
-        info.outputType = .photo
+        info.outputType = .general
         let controller = UIPrintInteractionController.shared
         controller.printInfo = info
         controller.printingItem = pages
@@ -327,51 +338,23 @@ struct ExportSheet: View {
     }
 }
 
-/// The exported bytes as a document, for Save to Files.
+/// The exported bytes as a document, for Save to Files. The type and name
+/// come from the fileExporter call.
 struct ExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.png, .jpeg, .pdf] }
 
     let data: Data
-    let contentType: UTType
 
-    init(data: Data, contentType: UTType) {
+    init(data: Data) {
         self.data = data
-        self.contentType = contentType
     }
 
     init(configuration: ReadConfiguration) throws {
         data = configuration.file.regularFileContents ?? Data()
-        contentType = configuration.contentType
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
-    }
-}
-
-/// Bridges UIImageWriteToSavedPhotosAlbum's target-selector completion so
-/// the sheet reports the truth (a denied permission fails silently
-/// otherwise).
-private final class PhotoSaver: NSObject {
-    private var completion: ((Bool) -> Void)?
-
-    func save(_ image: UIImage, completion: @escaping (Bool) -> Void) {
-        self.completion = completion
-        UIImageWriteToSavedPhotosAlbum(
-            image,
-            self,
-            #selector(image(_:didFinishSavingWithError:contextInfo:)),
-            nil
-        )
-    }
-
-    @objc private func image(
-        _ image: UIImage,
-        didFinishSavingWithError error: Error?,
-        contextInfo: UnsafeRawPointer
-    ) {
-        completion?(error == nil)
-        completion = nil
     }
 }
 

@@ -65,18 +65,35 @@ enum PageExporter {
         }
     }
 
+    /// The PDF format's largest page side (ISO 32000: 14,400 units).
+    static let maxPDFPageSide: CGFloat = 14_400
+
     /// PDF pages are sized in points, so the drawn image keeps its full pixel
     /// density. A4 pages share the long page's width; the last page is
-    /// partly empty rather than stretched.
+    /// partly empty rather than stretched. A long page taller than the PDF
+    /// limit is scaled down to fit, keeping its shape.
     private static func pdf(from image: UIImage, layout: PDFLayout) -> Data {
         let size = image.size
-        let pageHeight = layout == .longPage ? size.height : size.width * 2.squareRoot()
-        let pageCount = max(1, Int((size.height / pageHeight).rounded(.up)))
-        let bounds = CGRect(x: 0, y: 0, width: size.width, height: pageHeight)
-        return UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in
-            for index in 0..<pageCount {
+        switch layout {
+        case .longPage:
+            let fit = min(1, maxPDFPageSide / max(size.height, 1))
+            let page = CGRect(x: 0, y: 0, width: size.width * fit, height: size.height * fit)
+            return UIGraphicsPDFRenderer(bounds: page).pdfData { context in
                 context.beginPage()
-                image.draw(at: CGPoint(x: 0, y: -CGFloat(index) * pageHeight))
+                image.draw(in: page)
+            }
+        case .a4Pages:
+            let pageHeight = size.width * 2.squareRoot()
+            // Renders round their height up to whole pixels, so content that
+            // fits N pages can overrun by a fraction of a point; under a point
+            // of overrun gets no page of its own (it would print blank).
+            let pageCount = max(1, Int(((size.height - 1) / pageHeight).rounded(.up)))
+            let bounds = CGRect(x: 0, y: 0, width: size.width, height: pageHeight)
+            return UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in
+                for index in 0..<pageCount {
+                    context.beginPage()
+                    image.draw(at: CGPoint(x: 0, y: -CGFloat(index) * pageHeight))
+                }
             }
         }
     }

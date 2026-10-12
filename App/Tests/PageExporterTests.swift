@@ -55,6 +55,28 @@ final class PageExporterTests: XCTestCase {
         }
     }
 
+    func testALongPDFTallerThanThePDFLimitIsScaledToFit() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let tall = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 20_000), format: format).image { _ in }
+        let data = try XCTUnwrap(PageExporter.data(from: tall, format: .pdf, pdfLayout: .longPage))
+        let pages = try pdfPages(data)
+        XCTAssertEqual(pages.count, 1)
+        XCTAssertLessThanOrEqual(pages[0].size.height, PageExporter.maxPDFPageSide)
+        XCTAssertEqual(pages[0].size.height / pages[0].size.width, 200, accuracy: 0.5, "shape is kept")
+    }
+
+    func testAnExactA4MultipleAddsNoEmptyPage() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let side: CGFloat = 100
+        let twoPages = UIGraphicsImageRenderer(
+            size: CGSize(width: side, height: side * 2.squareRoot() * 2), format: format
+        ).image { _ in }
+        let data = try XCTUnwrap(PageExporter.data(from: twoPages, format: .pdf, pdfLayout: .a4Pages))
+        XCTAssertEqual(try pdfPages(data).count, 2)
+    }
+
     func testFileNamesFollowTheTitleAndFormat() {
         XCTAssertEqual(PageExporter.fileName(title: "Lunch by the river", format: .png), "Lunch-by-the-river.png")
         XCTAssertEqual(PageExporter.fileName(title: "Lunch by the river", format: .jpg), "Lunch-by-the-river.jpg")

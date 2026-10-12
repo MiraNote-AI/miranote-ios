@@ -147,7 +147,10 @@ final class MiraNoteUITests: XCTestCase {
 
         app.buttons["export.quality.high"].tap()
         XCTAssertTrue(app.buttons["export.quality.high"].isSelected)
-        XCTAssertTrue(app.buttons["export.share"].waitForExistence(timeout: 5), "re-rendered at 3x")
+        XCTAssertTrue(
+            app.buttons["export.advanced"].label.contains("One long page \u{00B7} PDF \u{00B7} High"),
+            "the summary reflects every choice"
+        )
 
         let sheet = XCTAttachment(screenshot: app.screenshot())
         sheet.name = "export sheet PDF"
