@@ -1,6 +1,7 @@
 import MiraNoteKit
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// Reading mode (v2.1): the finished page, full bleed -- where looking
 /// happens, where sound plays, and where the share/export entry lives.
@@ -63,22 +64,35 @@ struct ReadingView: View {
     }
 }
 
-/// The v2.1 export sheet: destinations first (Save to Photos / Share), the
-/// long image is the only format, parameters live behind Advanced, and a
-/// page with sound says plainly that audio stays in the app.
+/// The export sheet: destinations first (Save to Photos or Files, Share,
+/// Print) and format, quality and PDF layout behind Advanced (redesign phase
+/// C1, handoff screen 37). The page is always one long canvas; cutting it
+/// into A4 pages is a PDF option. A page with sound says plainly that audio
+/// stays in the app.
 struct ExportSheet: View {
     let memory: Memory
 
     @State private var rendered: UIImage?
-    @State private var renderedPNG: Data?
+    @State private var format: ExportFormat = .png
+    @State private var quality: ExportQuality = .standard
+    @State private var pdfLayout: PDFLayout = .a4Pages
     @State private var advancedOpen = false
     @State private var confirmation: String?
+    @State private var savingToFiles = false
     @State private var photoSaver = PhotoSaver()
     @Environment(\.dismiss) private var dismiss
 
     private var hasSound: Bool {
         memory.items.contains { if case .sound = $0.content { return true } else { return false } }
     }
+
+    /// The bytes for the chosen format, and the same bytes as a named file
+    /// for Share. Rebuilt only when the render, format or layout changes --
+    /// a PDF is too costly to remake on every view update.
+    @State private var exportData: Data?
+    @State private var shareURL: URL?
+
+    private var fileName: String { PageExporter.fileName(title: memory.title, format: format) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -89,15 +103,35 @@ struct ExportSheet: View {
             HStack(alignment: .top, spacing: 14) {
                 preview
                 VStack(spacing: 8) {
+                    if format.savesToPhotos {
+                        Button {
+                            saveToPhotos()
+                        } label: {
+                            destinationLabel("Save to Photos", filled: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("export.photos")
+                    }
+
                     Button {
-                        saveToPhotos()
+                        savingToFiles = true
                     } label: {
-                        destinationLabel("Save to Photos", filled: true)
+                        destinationLabel("Save to Files", filled: !format.savesToPhotos)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("export.photos")
+                    .disabled(exportData == nil)
+                    .accessibilityIdentifier("export.files")
 
                     shareButton
+
+                    Button {
+                        printPage()
+                    } label: {
+                        destinationLabel("Print", filled: false)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(rendered == nil)
+                    .accessibilityIdentifier("export.print")
 
                     if hasSound {
                         Label {
@@ -118,8 +152,9 @@ struct ExportSheet: View {
                 .frame(maxWidth: .infinity)
             }
 
-            Spacer(minLength: 0)
-
+            // Right under the destinations, not pinned to the sheet's bottom
+            // edge: down there it sat in the home-indicator gesture zone and
+            // taps missed it.
             Button {
                 advancedOpen.toggle()
             } label: {
@@ -128,24 +163,79 @@ struct ExportSheet: View {
                         .font(.system(size: 10, weight: .semibold))
                     Text("Advanced")
                     Spacer()
-                    Text("Long image \u{00B7} PNG")
+                    Text(summary)
                         .foregroundStyle(Palette.textSecondary)
                 }
                 .font(.miraCaption)
                 .foregroundStyle(Palette.ink)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("export.advanced")
 
             if advancedOpen {
-                Text("The page exports at 2x as one tall PNG named after it. PDF and print come later.")
-                    .font(.miraCaption)
-                    .foregroundStyle(Palette.textSecondary)
+                advancedOptions
             }
+
+            Spacer(minLength: 0)
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Palette.paper)
         .task { render() }
+        .onChange(of: quality) { render() }
+        .onChange(of: format) { refreshExport() }
+        .onChange(of: pdfLayout) { refreshExport() }
+        .fileExporter(
+            isPresented: $savingToFiles,
+            document: ExportDocument(data: exportData ?? Data(), contentType: format.contentType),
+            contentType: format.contentType,
+            defaultFilename: fileName
+        ) { result in
+            if case .success = result { confirmation = "Saved to Files." }
+        }
+    }
+
+    private var summary: String {
+        let shape = format == .pdf ? pdfLayout.label : "Long image"
+        return "\(shape) \u{00B7} \(format.label) \u{00B7} \(quality.label)"
+    }
+
+    private var advancedOptions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            optionRow("Format", ExportFormat.allCases, selected: format, id: "export.format") { format = $0 }
+            if format == .pdf {
+                optionRow("Pages", PDFLayout.allCases, selected: pdfLayout, id: "export.pdf") { pdfLayout = $0 }
+            }
+            optionRow("Quality", ExportQuality.allCases, selected: quality, id: "export.quality") { quality = $0 }
+        }
+    }
+
+    private func optionRow<Option: ExportOption>(
+        _ title: String,
+        _ options: [Option],
+        selected: Option,
+        id: String,
+        choose: @escaping (Option) -> Void
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.miraCaption)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(width: 56, alignment: .leading)
+            ForEach(options) { option in
+                Button {
+                    choose(option)
+                } label: {
+                    Chip(text: option.label, selected: option == selected, compact: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(option == selected ? .isSelected : [])
+                .accessibilityIdentifier("\(id).\(option.id)")
+            }
+            Spacer(minLength: 0)
+        }
     }
 
     private var preview: some View {
@@ -167,9 +257,9 @@ struct ExportSheet: View {
     }
 
     @ViewBuilder private var shareButton: some View {
-        if let rendered, let data = renderedPNG {
+        if let rendered, let shareURL {
             ShareLink(
-                item: ExportedPage(data: data, title: memory.title),
+                item: shareURL,
                 preview: SharePreview(memory.title, image: Image(uiImage: rendered))
             ) {
                 destinationLabel("Share...", filled: false)
@@ -195,24 +285,67 @@ struct ExportSheet: View {
             )
     }
 
-    /// The long image: the page rendered at 2x with sound markers hidden
-    /// (a speaker glyph nobody can tap reads as broken -- v2.1).
     @MainActor private func render() {
-        let renderer = ImageRenderer(
-            content: StaticPageView(memory: memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false)
-        )
-        renderer.scale = 2
-        rendered = renderer.uiImage
-        renderedPNG = rendered?.pngData()
+        rendered = PageExporter.render(memory, quality: quality)
+        refreshExport()
     }
 
+    /// Re-encodes the render for the chosen format and writes it to a temp
+    /// file named after the page, which is what Share hands to receivers.
+    private func refreshExport() {
+        exportData = rendered.flatMap { PageExporter.data(from: $0, format: format, pdfLayout: pdfLayout) }
+        guard let exportData else {
+            shareURL = nil
+            return
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        shareURL = (try? exportData.write(to: url, options: .atomic)) == nil ? nil : url
+    }
+
+    /// Photos stores the bytes as encoded, so a JPG export lands as a JPG.
     private func saveToPhotos() {
-        guard let rendered else { return }
-        photoSaver.save(rendered) { succeeded in
+        guard let exportData, let image = UIImage(data: exportData) else { return }
+        photoSaver.save(image) { succeeded in
             confirmation = succeeded
                 ? "Saved to Photos."
                 : "Couldn't save -- allow Photos access in Settings."
         }
+    }
+
+    /// Printing always goes out as A4 pages, whatever the export format: a
+    /// printer cannot take one 4,000 pt sheet.
+    private func printPage() {
+        guard let rendered,
+              let pages = PageExporter.data(from: rendered, format: .pdf, pdfLayout: .a4Pages) else { return }
+        let info = UIPrintInfo(dictionary: nil)
+        info.jobName = memory.title.isEmpty ? "MiraNote page" : memory.title
+        info.outputType = .photo
+        let controller = UIPrintInteractionController.shared
+        controller.printInfo = info
+        controller.printingItem = pages
+        controller.present(animated: true)
+    }
+}
+
+/// The exported bytes as a document, for Save to Files.
+struct ExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.png, .jpeg, .pdf] }
+
+    let data: Data
+    let contentType: UTType
+
+    init(data: Data, contentType: UTType) {
+        self.data = data
+        self.contentType = contentType
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+        contentType = configuration.contentType
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
 
@@ -242,23 +375,3 @@ private final class PhotoSaver: NSObject {
     }
 }
 
-/// Transferable wrapper so ShareLink hands receivers a named PNG.
-struct ExportedPage: Transferable {
-    let data: Data
-    let title: String
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .png) { page in
-            page.data
-        }
-        .suggestedFileName { page in
-            let slug = page.title
-                .map { $0.isLetter || $0.isNumber ? $0 : "-" }
-                .reduce(into: "") { partial, char in
-                    if char != "-" || partial.last != "-" { partial.append(char) }
-                }
-                .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-            return slug.isEmpty ? "MiraNote-page.png" : "\(slug).png"
-        }
-    }
-}

@@ -119,6 +119,40 @@ final class MiraNoteUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["export.photos"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Share this page"].exists)
+        XCTAssertTrue(app.buttons["export.files"].exists)
+        XCTAssertTrue(app.buttons["export.print"].exists)
+    }
+
+    // Advanced picks the format: a PDF cannot go to Photos, so Save to Files
+    // takes its place, and PDF alone offers the A4 page cut.
+    func testExportFormatsAndPDFPages() {
+        app.buttons["collection.Daily Log"].tap()
+        let cover = app.buttons["note.Lunch by the river"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        cover.tap()
+        app.buttons["reading.share"].tap()
+
+        XCTAssertTrue(app.buttons["export.advanced"].waitForExistence(timeout: 5))
+        app.buttons["export.advanced"].tap()
+        XCTAssertTrue(app.buttons["export.format.png"].isSelected, "long PNG is the default")
+        XCTAssertFalse(app.buttons["export.pdf.a4Pages"].exists, "page cut is a PDF option only")
+
+        app.buttons["export.format.pdf"].tap()
+        XCTAssertTrue(app.buttons["export.format.pdf"].isSelected)
+        XCTAssertFalse(app.buttons["export.photos"].exists, "Photos takes images, not PDFs")
+        XCTAssertTrue(app.buttons["export.files"].exists)
+        XCTAssertTrue(app.buttons["export.pdf.a4Pages"].isSelected)
+        app.buttons["export.pdf.longPage"].tap()
+        XCTAssertTrue(app.buttons["export.pdf.longPage"].isSelected)
+
+        app.buttons["export.quality.high"].tap()
+        XCTAssertTrue(app.buttons["export.quality.high"].isSelected)
+        XCTAssertTrue(app.buttons["export.share"].waitForExistence(timeout: 5), "re-rendered at 3x")
+
+        let sheet = XCTAttachment(screenshot: app.screenshot())
+        sheet.name = "export sheet PDF"
+        sheet.lifetime = .keepAlways
+        add(sheet)
     }
 
     // Deleting a page from the journal grid sends it to the 30-day bin;
