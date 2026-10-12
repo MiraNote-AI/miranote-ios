@@ -34,4 +34,16 @@ fresh-context review. HUMAN: visual match to screens 06, 37.
    general. Nits fixed: blank A4 page from pixel rounding (+test; a 1e-6
    epsilon failed it, 1 pt tolerance passes), Photos button disabled until
    rendered, per-sheet temp folder, unused field, vacuous UI assertion.
-   PageExporterTests 8/8.
+   PageExporterTests 8/8. Re-review DONE -> PR #90.
+3. C2 written (`feat/mira-quick-actions`): handoff quick actions mapped to
+   page-level chips -- Tidy (exists), soft title (exists), new "Change the
+   background" while the page shows something and is on the default
+   backdrop. "Make text warmer" omitted (rewording lives in the text row,
+   Meng 2026-07-09). Full suite 24 unit + 49 UI green.
+4. Review: NOT DONE -- chip sent its bare label to the image request (and
+   stored it as the backdrop summary); three chips broke the two-slot row.
+   Fixed: the chip asks for a background for a page about its most prominent
+   words; at most two chips by priority (+4 tests). Re-review: DONE, plus an
+   edge: page words like "photo" could reroute the ask. Confirmed red with a
+   test, fixed by passing the chip's intent (internal `ask(_:editor:as:)`,
+   reused by Retry). Kit 376/376; Mira UI tests 24/24; Release OK.

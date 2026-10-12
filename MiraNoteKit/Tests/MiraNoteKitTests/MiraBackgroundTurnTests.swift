@@ -30,6 +30,30 @@ final class MiraBackgroundTurnTests: XCTestCase {
         }
     }
 
+    // The background chip's ask quotes the page's own words, which can
+    // carry router keywords ("photo"). The chip says what it means, so the
+    // turn is a background turn whatever the words -- on Retry too.
+    func testBackgroundChipStaysABackgroundTurnWhateverThePageSays() async {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addText("photo dump from the trip", at: CGPoint(x: 100, y: 100), pointSize: 30)
+        _ = editor.addImages([ImageRef(displayName: "trip", fileName: "t.png")], around: CGPoint(x: 100, y: 300))
+        let coordinator = makeCoordinator(tempDir: tempDir)
+
+        coordinator.askSuggestion(MiraCanvasCoordinator.changeBackgroundChip, editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+        guard case .imageChoices(_, _, let placement) = coordinator.phase else {
+            return XCTFail("expected background choices, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(placement, .background)
+
+        coordinator.retry(editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+        guard case .imageChoices(_, _, let again) = coordinator.phase else {
+            return XCTFail("Retry must rerun the background turn, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(again, .background)
+    }
+
     func testBackgroundAskYieldsChoicesAndPlacingSetsIt() async {
         let dir = tempDir
         let editor = CanvasViewModel(memory: Memory())
