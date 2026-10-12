@@ -59,6 +59,31 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
     }
 
+    // The handoff's "Change background" quick action (screen 06): offered once
+    // the page has something on it, it runs a normal background turn, and it
+    // leaves once the page has a background of its own.
+    func testChangeBackgroundQuickActionRunsAndLeaves() {
+        startMemory()
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lunch by the river")
+        app.buttons["keyboard.done"].tap()
+
+        let chip = app.buttons["mira.suggestion.Change the background"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        chip.tap()
+        let first = app.buttons["mira.imageChoice.0"]
+        XCTAssertTrue(first.waitForExistence(timeout: 8), "the chip ran a background turn")
+        first.tap()
+        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
+
+        XCTAssertFalse(
+            app.buttons["mira.suggestion.Change the background"].waitForExistence(timeout: 3),
+            "a page with its own background is not offered another"
+        )
+    }
+
     // Paper and page color apply in place; Default returns to the gradient
     // but keeps the paper.
     func testPaperAndPageColorApplyAndDefaultResetsColor() {
