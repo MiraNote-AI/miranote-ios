@@ -36,6 +36,15 @@ extension MiraCanvasCoordinator {
         return "Paint a soft background for a page about \(subject)"
     }
 
+    /// Runs a tapped chip. The background chip's ask quotes the page's own
+    /// words, which may hold router keywords ("photo dump"), so it states its
+    /// intent instead of having the words re-read.
+    public func askSuggestion(_ chip: String, editor: CanvasViewModel) {
+        let words = ask(forSuggestion: chip, editor: editor)
+        let intent: MiraIntent? = chip == Self.changeBackgroundChip ? .setBackground(prompt: words) : nil
+        ask(words, editor: editor, as: intent)
+    }
+
     /// The page's most prominent words: the largest text, topmost on a tie,
     /// first line only, kept short.
     private static func pageSubject(_ editor: CanvasViewModel) -> String? {

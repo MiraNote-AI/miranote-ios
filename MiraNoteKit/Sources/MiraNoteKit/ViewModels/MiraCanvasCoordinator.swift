@@ -104,6 +104,8 @@ public final class MiraCanvasCoordinator {
     private var dismissTask: Task<Void, Never>?
     private var sessionID: String?
     private var lastPrompt = ""
+    /// The intent the last ask was given rather than read from its words.
+    private var lastIntent: MiraIntent?
     /// Generation token: every ask/cancel bumps it, and every phase write
     /// from a turn is guarded on it, so a replaced turn can never clobber
     /// its successor's state (Stop, isWorking, receipts all stay coherent).
@@ -145,11 +147,19 @@ public final class MiraCanvasCoordinator {
     // MARK: Turn lifecycle
 
     public func ask(_ prompt: String, editor: CanvasViewModel) {
+        ask(prompt, editor: editor, as: nil)
+    }
+
+    /// Runs a turn. `intent` skips reading the words: a chip that already
+    /// knows what it means (and quotes the user's own text, which may hold
+    /// router keywords) passes it, and Retry reuses it.
+    func ask(_ prompt: String, editor: CanvasViewModel, as intent: MiraIntent?) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         cancelTurn()
         phase = .idle
         lastPrompt = trimmed
+        lastIntent = intent
         refillPrompt = nil
         let generation = turnGeneration
         turnTask = Task {
@@ -167,8 +177,8 @@ public final class MiraCanvasCoordinator {
                 indicator.cancel()
                 guard self.turnGeneration == generation else { return }
             }
-            let intent = MiraIntent.classify(trimmed, editor: editor, render: self.renderPage)
-            await run(intent, prompt: trimmed, editor: editor, generation: generation)
+            let resolved = intent ?? MiraIntent.classify(trimmed, editor: editor, render: self.renderPage)
+            await run(resolved, prompt: trimmed, editor: editor, generation: generation)
         }
     }
 
@@ -183,7 +193,7 @@ public final class MiraCanvasCoordinator {
     /// Failure chip: run the same words again.
     public func retry(editor: CanvasViewModel) {
         guard !lastPrompt.isEmpty else { return }
-        ask(lastPrompt, editor: editor)
+        ask(lastPrompt, editor: editor, as: lastIntent)
     }
 
     /// The reply's suggested words land on the page as a text block (under
