@@ -206,7 +206,7 @@ struct MiraCard: View {
         if chip == MiraCanvasCoordinator.placeReplyChip {
             coordinator.placeReply(editor: editor)
         } else {
-            onAsk(chip)
+            onAsk(coordinator.ask(forSuggestion: chip, editor: editor))
         }
     }
 
