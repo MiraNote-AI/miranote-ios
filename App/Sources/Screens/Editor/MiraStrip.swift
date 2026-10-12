@@ -68,8 +68,9 @@ struct MiraCard: View {
             }
         case .receipt(let receipt):
             // A confirmation stamp, not a chat element (Meng, 2026-07-09):
-            // one forest-tinted line with Revert, kept-line dropped, and it
-            // keeps by itself after a short window. Tap dismisses.
+            // one forest-tinted line, with Revert when the turn changed
+            // something, kept-line dropped, and it keeps by itself after a
+            // short window. Tap dismisses.
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 14))

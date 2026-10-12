@@ -214,10 +214,6 @@ public final class MiraCanvasCoordinator {
         ), editor: editor)
     }
 
-    /// One-tap revert of the last applied change (the receipt's escape
-    /// hatch). If anything else touched the canvas since the receipt was
-    /// shown, revert declines to undo (it would eat the user's edit, not
-    /// Mira's) and just dismisses.
     /// Whether the showing receipt's Revert would undo anything; a receipt
     /// for a turn that changed nothing offers no Revert.
     public var receiptCanRevert: Bool {
@@ -225,6 +221,10 @@ public final class MiraCanvasCoordinator {
         return false
     }
 
+    /// One-tap revert of the last applied change (the receipt's escape
+    /// hatch). If anything else touched the canvas since the receipt was
+    /// shown, revert declines to undo (it would eat the user's edit, not
+    /// Mira's) and just dismisses.
     public func revert(editor: CanvasViewModel) {
         if let expected = receiptChangeCount, editor.changeCount == expected {
             editor.undo()
@@ -234,9 +234,10 @@ public final class MiraCanvasCoordinator {
         phase = .idle
     }
 
-    /// The view calls this when the canvas mutates. A showing receipt
-    /// keeps itself (its Revert would no longer be honest), and a lingering
-    /// reply steps aside -- the user has gone back to making things.
+    /// The view calls this when the canvas mutates. A showing receipt is
+    /// accepted and dismissed (its Revert would no longer be honest, or it
+    /// had none), and a lingering reply steps aside -- the user has gone back
+    /// to making things.
     public func canvasDidChange(_ editor: CanvasViewModel) {
         switch phase {
         case .receipt:
