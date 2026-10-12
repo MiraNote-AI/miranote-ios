@@ -382,8 +382,10 @@ public final class MiraCanvasCoordinator {
         showReceipt(Self.receipt(for: resolved, editor: editor), editor: editor)
     }
 
-    func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel) {
-        receiptChangeCount = editor.changeCount
+    /// `revertible: false` is for a turn that changed nothing: its Revert
+    /// only dismisses, since an undo would take back an older step.
+    func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel, revertible: Bool = true) {
+        receiptChangeCount = revertible ? editor.changeCount : nil
         phase = .receipt(receipt)
         dismissTask?.cancel()
         dismissTask = Task { [receiptDismiss] in

@@ -40,6 +40,18 @@ final class BackgroundUITests: XCTestCase {
 
     func testClearBackgroundReceipts() {
         startMemory()
+        // On a default page there is nothing to clear, and the receipt says
+        // so rather than claiming a change it cannot revert (#87).
+        ask("remove the background")
+        XCTAssertTrue(
+            app.staticTexts["The page is already on its default background."].waitForExistence(timeout: 8))
+
+        app.buttons["mode.background"].tap()
+        let lilac = app.buttons["background.color.#E5D9F0"]
+        XCTAssertTrue(lilac.waitForExistence(timeout: 5))
+        lilac.tap()
+        app.buttons["mode.background"].tap()
+
         ask("remove the background")
         XCTAssertTrue(app.staticTexts["Cleared the background."].waitForExistence(timeout: 8))
     }
