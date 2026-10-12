@@ -264,6 +264,38 @@ final class MiraCanvasTurnTests: XCTestCase {
         XCTAssertEqual(board.memory.paper, .grid, "Revert must not undo the earlier paper step")
     }
 
+    // The same trap on every outcome whose mutator can be a no-op: a filter
+    // that is already on, or a recolor of a block that has gone.
+    func testNoOpImageOutcomesAreNotRevertible() {
+        let board = editor()
+        let photo = board.addImages([ImageRef(displayName: "p", fileName: "p.png")], around: CGPoint(x: 100, y: 400))[0]
+        board.setImageFilter(itemID: photo, to: "warm")
+        board.setPaper(.dot)
+        let mira = coordinator(ScriptedChat())
+        let receipt = MiraReceipt(changed: "Warmed the photo.", kept: "")
+
+        mira.settleImageOutcome(.filterApplied(photo, name: "warm", receipt), editor: board)
+        XCTAssertFalse(mira.receiptCanRevert, "nothing changed, so nothing to revert")
+        mira.revert(editor: board)
+        XCTAssertEqual(board.memory.paper, .dot, "the earlier step survives")
+
+        mira.settleImageOutcome(.textRecolored(UUID(), colorName: "forest", receipt), editor: board)
+        XCTAssertFalse(mira.receiptCanRevert, "a vanished block changed nothing")
+
+        mira.settleImageOutcome(.filterApplied(photo, name: "cool", receipt), editor: board)
+        XCTAssertTrue(mira.receiptCanRevert, "a real change stays revertible")
+    }
+
+    func testANonRevertibleReceiptStepsAsideOnTheNextEdit() {
+        let board = editor()
+        let mira = coordinator(ScriptedChat())
+        mira.settleImageOutcome(.backgroundCleared(MiraReceipt(changed: "Cleared.", kept: "")), editor: board)
+        guard case .receipt = mira.phase else { return XCTFail("expected a receipt") }
+        board.setPaper(.lined)
+        mira.canvasDidChange(board)
+        guard case .idle = mira.phase else { return XCTFail("the receipt should dismiss on an edit") }
+    }
+
     // "Remove the background" means the default page, like the Default chip:
     // a solid page color goes too, and Revert brings back exactly that.
     func testClearingTheBackgroundAlsoClearsAPageColor() async {

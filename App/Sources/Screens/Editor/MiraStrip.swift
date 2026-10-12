@@ -80,10 +80,12 @@ struct MiraCard: View {
                     .lineLimit(1)
                     .accessibilityIdentifier("mira.receipt")
                 Spacer()
-                Button("Revert") { coordinator.revert(editor: editor) }
-                    .font(.miraLabel)
-                    .foregroundStyle(Palette.forest)
-                    .accessibilityIdentifier("mira.revert")
+                if coordinator.receiptCanRevert {
+                    Button("Revert") { coordinator.revert(editor: editor) }
+                        .font(.miraLabel)
+                        .foregroundStyle(Palette.forest)
+                        .accessibilityIdentifier("mira.revert")
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)

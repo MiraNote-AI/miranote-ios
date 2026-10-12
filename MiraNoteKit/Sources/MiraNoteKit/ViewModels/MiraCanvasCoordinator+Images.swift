@@ -34,17 +34,23 @@ extension MiraCanvasCoordinator {
                                   receipt: receipt, editor: editor)
         case .stickerEdited(let id, let data, let receipt):
             settleStickerEdited(id, data: data, receipt: receipt, editor: editor)
+        // These setters skip their undo step when nothing changes (the
+        // filter is already on, the item has gone); such a receipt must not
+        // offer a Revert that would undo an older step (#87).
         case .filterApplied(let id, let name, let receipt):
+            let before = editor.changeCount
             editor.setImageFilter(itemID: id, to: name)
-            showReceipt(receipt, editor: editor)
+            showReceipt(receipt, editor: editor, revertible: editor.changeCount != before)
         case .frameApplied(let id, let name, let receipt):
+            let before = editor.changeCount
             editor.setImageFrame(itemID: id, to: name)
-            showReceipt(receipt, editor: editor)
+            showReceipt(receipt, editor: editor, revertible: editor.changeCount != before)
         case .textResized(let id, let up, let receipt):
             settleTextResize(id, up: up, receipt: receipt, editor: editor)
         case .textRecolored(let id, let colorName, let receipt):
+            let before = editor.changeCount
             editor.setTextColorName(itemID: id, to: colorName)
-            showReceipt(receipt, editor: editor)
+            showReceipt(receipt, editor: editor, revertible: editor.changeCount != before)
         default:
             return
         }
