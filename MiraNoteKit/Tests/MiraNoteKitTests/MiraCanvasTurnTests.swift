@@ -244,6 +244,26 @@ final class MiraCanvasTurnTests: XCTestCase {
         XCTAssertEqual(board.memory.backgroundFileName, "dusk.png")
     }
 
+    // #87: clearing an already-default page changes nothing, so its Revert
+    // must not undo the user's previous, unrelated step.
+    func testRevertAfterANoOpClearKeepsTheUsersEarlierEdit() async {
+        var chat = ScriptedChat()
+        chat.reply = "Cleared."
+        chat.backgroundRequest = .clear
+        let board = editor()
+        board.setPaper(.grid)
+        let mira = coordinator(chat)
+
+        mira.ask("remove the background", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+        guard case .receipt(let receipt) = mira.phase else { return XCTFail("expected a receipt") }
+        XCTAssertEqual(receipt.changed, "The page is already on its default background.",
+                       "the receipt says nothing changed")
+
+        mira.revert(editor: board)
+        XCTAssertEqual(board.memory.paper, .grid, "Revert must not undo the earlier paper step")
+    }
+
     // "Remove the background" means the default page, like the Default chip:
     // a solid page color goes too, and Revert brings back exactly that.
     func testClearingTheBackgroundAlsoClearsAPageColor() async {

@@ -14,8 +14,19 @@ extension MiraCanvasCoordinator {
         case .backgroundCleared(let receipt):
             // The same as the Background tool's Default: painting and page
             // color both go, in one undo step, so Revert undoes this turn.
+            // On a page already on the default there is nothing to undo, and
+            // a Revert would eat the user's previous step instead (#87).
+            let before = editor.changeCount
             editor.resetPageBackground()
-            showReceipt(receipt, editor: editor)
+            if editor.changeCount == before {
+                showReceipt(
+                    MiraReceipt(changed: "The page is already on its default background.", kept: receipt.kept),
+                    editor: editor,
+                    revertible: false
+                )
+            } else {
+                showReceipt(receipt, editor: editor)
+            }
         case .imageReplaced(let id, let data, let receipt):
             settleImageReplaced(id, data: data, receipt: receipt, editor: editor)
         case .stickerReplaced(let id, let data, let prompt, let receipt):
