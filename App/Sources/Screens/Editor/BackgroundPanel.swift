@@ -178,9 +178,14 @@ struct BackgroundPanel: View {
                         .background(
                             RoundedRectangle(cornerRadius: 16)
                                 .fill(Color(hex: set.swatch))
-                                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(
-                                    worn ? Palette.ink : Palette.hairline, lineWidth: worn ? 2 : 1))
+                                .overlay(RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(Palette.hairline, lineWidth: 1))
                         )
+                        // The chosen ring sits outside the tile, on the panel:
+                        // an ink ring on the dark Modern swatch would vanish.
+                        .padding(3)
+                        .overlay(RoundedRectangle(cornerRadius: 19)
+                            .strokeBorder(worn ? Palette.ink : .clear, lineWidth: 2))
                     }
                     .buttonStyle(.plain)
                     .disabled(textBlocks.isEmpty)
