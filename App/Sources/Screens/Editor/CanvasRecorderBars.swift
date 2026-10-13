@@ -46,37 +46,47 @@ extension CanvasScene {
         .padding(.horizontal, Metrics.screenPadding)
     }
 
+    /// Handoff screen 08: the live bar is ink -- discard on the left, the
+    /// waveform and clock, stop on the right.
     func recordingBar(since start: Date) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "mic.fill")
-                .font(.system(size: 15))
-                .foregroundStyle(Palette.onInk)
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(Palette.ink))
-            WaveformView(barCount: 26, tint: Palette.ink, maxHeight: 22)
+            Button(action: cancelRecording) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.ink)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Palette.onInk))
+            }
+            .buttonStyle(.plain)
+            .minimumHitTarget()
+            .accessibilityLabel("Discard recording")
+            .accessibilityIdentifier("recorder.discard")
+            WaveformView(barCount: 18, tint: Palette.onInk.opacity(0.85), maxHeight: 34)
             Spacer()
             TimelineView(.periodic(from: start, by: 1)) { context in
                 Text(CanvasScene.timestamp(context.date.timeIntervalSince(start)))
-                    .font(.miraLabel)
-                    .foregroundStyle(Palette.textSecondary)
+                    .font(Sans.font(size: 13, weight: 700))
+                    .foregroundStyle(Palette.warmWhite)
                     .monospacedDigit()
             }
             Button(action: stopRecording) {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Palette.onInk)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Palette.ink)
+                    .frame(width: 12, height: 12)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Palette.ink))
+                    .background(Circle().fill(Palette.onInk))
             }
             .buttonStyle(.plain)
+            .minimumHitTarget()
+            .accessibilityLabel("Stop recording")
             .accessibilityIdentifier("recorder.stop")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .frame(height: 54)
         .background(
             Capsule()
-                .fill(Palette.onInk)
-                .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                .fill(Palette.ink)
+                .shadow(color: Palette.ink.opacity(0.1), radius: 13, y: 12)
         )
         .padding(.horizontal, Metrics.screenPadding)
     }

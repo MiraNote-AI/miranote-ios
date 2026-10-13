@@ -6,7 +6,8 @@ import SwiftUI
 /// elements. Gesture grammar ("press to drag, long-press for menu"):
 /// press-and-drag moves any element directly (and selects it), tap selects,
 /// tap on empty paper deselects, dragging empty paper scrolls the page,
-/// long-press opens the context menu (the only delete path), corner handles
+/// long-press opens the context menu, dropping a dragged element below the
+/// canvas deletes it (the menu's Delete is the other path), corner handles
 /// resize, and two fingers rotate.
 struct CanvasBoardView: View {
     @Bindable var editor: CanvasViewModel
@@ -28,8 +29,13 @@ struct CanvasBoardView: View {
     /// Set when an edit panel closes: the edited element scrolls into view
     /// once the panel has given its room back, then this clears.
     var revealItem: Binding<CanvasItem.ID?> = .constant(nil)
+    /// Where an in-flight move stands against the delete zone; nil when
+    /// nothing is being moved.
+    @Binding var dropToDelete: DropToDelete?
 
     @State private var player = SoundPlayer()
+    /// The visible canvas, in global coordinates: releasing below it deletes.
+    @State private var visibleFrame: CGRect = .zero
     // Transient gesture values: @GestureState resets automatically when a
     // gesture is CANCELLED (context menu, incoming call, backgrounding), so
     // no stale origin can teleport an element or skip an undo snapshot. The
@@ -87,6 +93,16 @@ struct CanvasBoardView: View {
         // scroll; dragging empty paper scrolls. While editing text there is
         // no move gesture, so the page scrolls there instead.
         .scrollDisabled(editor.selectedItemID != nil && editor.editingTextItemID == nil)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { visibleFrame = geo.frame(in: .global) }
+                    .onChange(of: geo.frame(in: .global)) { _, frame in visibleFrame = frame }
+            }
+        )
+        // Derived from the @GestureState, so a cancelled drag clears the
+        // zone too.
+        .onChange(of: dropPhase) { _, phase in dropToDelete = phase }
         .overlay(alignment: .bottom) {
             if let toast {
                 toastView(toast)
@@ -278,15 +294,30 @@ struct CanvasBoardView: View {
 extension CanvasBoardView {
     // MARK: Gestures
 
+    private var dropPhase: DropToDelete? {
+        guard let activeMove else { return nil }
+        return isOverDeleteZone(activeMove.location) ? .armed : .dragging
+    }
+
+    private func isOverDeleteZone(_ location: CGPoint) -> Bool {
+        location.y > visibleFrame.maxY
+    }
+
     private func moveGesture(_ item: CanvasItem) -> some Gesture {
-        DragGesture(minimumDistance: 4)
+        // Global space: the finger is tracked past the canvas edge, into
+        // the delete zone. Translation is the same in either space.
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { _ in
                 editor.select(item.id)
             }
             .updating($activeMove) { value, state, _ in
-                state = ActiveMove(itemID: item.id, translation: value.translation)
+                state = ActiveMove(itemID: item.id, translation: value.translation, location: value.location)
             }
             .onEnded { value in
+                if isOverDeleteZone(value.location) {
+                    deleteWithToast(item.id)
+                    return
+                }
                 editor.beginChange()
                 editor.move(itemID: item.id, to: CGPoint(
                     x: item.position.x + value.translation.width,
@@ -349,7 +380,7 @@ extension CanvasBoardView {
             }
     }
 
-    // MARK: Context menu (the only delete path)
+    // MARK: Context menu
 
     @ViewBuilder private func contextMenu(for item: CanvasItem) -> some View {
         editEntry(for: item)

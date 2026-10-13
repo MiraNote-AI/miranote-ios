@@ -35,6 +35,7 @@ struct CanvasScene: View {
     @State private var revealItem: CanvasItem.ID?
     @State private var backgroundPanelOpen = false
     @State private var showsToolsOnboarding = false
+    @State private var dropToDelete: DropToDelete?
     @State var dictating = false
     /// Inline feedback in the text accessory: "Listening..." while the
     /// mic is live, or why nothing landed after it stopped.
@@ -95,10 +96,18 @@ struct CanvasScene: View {
                     }
                 },
                 onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
-                revealItem: $revealItem
+                revealItem: $revealItem,
+                dropToDelete: $dropToDelete
             )
         } bottom: {
             bottomCluster
+                .overlay(alignment: .bottom) {
+                    if let dropToDelete {
+                        DeleteDropZone(armed: dropToDelete == .armed)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.15), value: dropToDelete)
         }
         .overlay {
             if showsToolsOnboarding {
@@ -424,7 +433,7 @@ extension CanvasScene {
 
     /// Stops and discards an in-flight recording (leaving the canvas, or
     /// switching tools mid-recording). Keeps the audio session tidy.
-    private func cancelRecording() {
+    func cancelRecording() {
         guard recorder != nil || !isIdle else { return }
         let abandoned = recorder
         recorder = nil
