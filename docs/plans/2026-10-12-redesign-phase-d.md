@@ -55,3 +55,13 @@ non-interactive person glyph on dev is left alone.
    recording, 24 pt margin, zone covers the dock. 4/4 green.
 5. Re-review: 1-4 DONE; zone NOT DONE -- an overlay on the bare
    @ViewBuilder repeated per dock child. Wrapped the dock in one VStack.
+   Canvas UI 17/17, Release OK.
+6. D2b written: restoreImage (kit, 2 tests); panel remembers the photo on
+   open, offers Hold to compare + Revert after a visible edit; the board
+   draws the original with a Before tag; one session per photo. UI test
+   green after a firstMatch fix (Label children inherit the id).
+7. Review: NOT DONE -- a system-cancelled hold left the compare stuck
+   (onEnded never ran); Revert erased a summary that landed mid-session.
+   Fixed: @GestureState drives the compare; the summary follows the
+   pixels (+test). VoiceOver toggles the compare. Not covered by tests:
+   "Before" appearing mid-hold (XCUITest cannot observe during a press).
