@@ -70,7 +70,7 @@ struct ToolsOnboarding: View {
         )
         .padding(.horizontal, Metrics.screenPadding)
         .accessibilityElement(children: .contain)
-        // VoiceOver stays on the card too, like touches do via the scrim.
+        // VoiceOver stays on the card, as touches do via the scrim.
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("onboarding.tools")
     }

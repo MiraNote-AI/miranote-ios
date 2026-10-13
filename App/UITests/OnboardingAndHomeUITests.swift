@@ -33,7 +33,6 @@ final class OnboardingAndHomeUITests: XCTestCase {
     func testToolsOnboardingLeadsToTheBackgroundTool() {
         launch(["-HINT", "editor-tools"])
         app.buttons["Start a memory"].tap()
-        let intro = app.otherElements["onboarding.tools"]
         XCTAssertTrue(intro.waitForExistence(timeout: 5), "a first blank page introduces the tools")
         XCTAssertTrue(app.staticTexts["Create your way"].exists)
         let shot = XCTAttachment(screenshot: app.screenshot())
@@ -52,7 +51,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["onboarding.skip"].waitForExistence(timeout: 5))
         app.buttons["onboarding.skip"].tap()
-        waitUntilGone(app.otherElements["onboarding.tools"])
+        waitUntilGone(intro)
         XCTAssertFalse(app.buttons["background.default"].exists)
         XCTAssertTrue(app.buttons["mode.text"].exists)
     }
@@ -62,16 +61,20 @@ final class OnboardingAndHomeUITests: XCTestCase {
     func testATapBesideTheCardSkipsWithoutActing() {
         launch(["-HINT", "editor-tools"])
         app.buttons["Start a memory"].tap()
-        let intro = app.otherElements["onboarding.tools"]
         XCTAssertTrue(intro.waitForExistence(timeout: 5))
-        // The card is modal, so the tool bar is out of the accessibility
-        // tree: tap where the Text tool sits instead.
-        XCTAssertFalse(app.buttons["mode.text"].exists, "the card hides the tools from VoiceOver too")
+        // A modal card reaches accessibility as an alert: VoiceOver stays
+        // on it. (Snapshots still list the covered tools, so tap by place.)
+        XCTAssertEqual(intro.elementType, .alert, "the card is modal for VoiceOver")
         let toolBar = CGVector(dx: intro.frame.midX, dy: intro.frame.maxY + 50)
         app.coordinate(withNormalizedOffset: .zero).withOffset(toolBar).tap()
         waitUntilGone(intro)
         XCTAssertFalse(app.descendants(matching: .any)["canvas.textEditor"].exists,
                        "the Text tool behind the scrim did not fire")
+    }
+
+    /// The card by id, whatever element type its modal trait gives it.
+    private var intro: XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "onboarding.tools").firstMatch
     }
 
     private func waitUntilGone(_ element: XCUIElement) {
@@ -83,6 +86,6 @@ final class OnboardingAndHomeUITests: XCTestCase {
         launch([])
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.otherElements["onboarding.tools"].exists)
+        XCTAssertFalse(intro.exists)
     }
 }
