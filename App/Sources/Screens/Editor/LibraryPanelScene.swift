@@ -28,6 +28,13 @@ struct LibraryPanelScene: View {
             ScrollView(showsIndicators: false) {
                 StaticPageView(memory: editor.memory, showsSound: false)
                     .padding(.horizontal, Metrics.screenPadding)
+                    // A tap on the page goes back to it, like tapping the
+                    // canvas paper.
+                    .contentShape(Rectangle())
+                    .onTapGesture(coordinateSpace: .local) { point in
+                        guard PagePreviewTap.isOnPage(point) else { return }
+                        actions.leading()
+                    }
             }
         } bottom: {
             panel

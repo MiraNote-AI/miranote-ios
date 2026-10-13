@@ -46,6 +46,16 @@ struct ImagePanelScene: View {
             ScrollView(showsIndicators: false) {
                 StaticPageView(memory: editor.memory, showsSound: false)
                     .padding(.horizontal, Metrics.screenPadding)
+                    // A tap on the page goes back to it, like tapping the
+                    // canvas paper -- except while a generation is running
+                    // or its results wait to be picked: they took seconds
+                    // and real credits, and leaving would drop them.
+                    .contentShape(Rectangle())
+                    .onTapGesture(coordinateSpace: .local) { point in
+                        guard PagePreviewTap.isOnPage(point),
+                              !generating, results.isEmpty else { return }
+                        actions.leading()
+                    }
             }
         } bottom: {
             panel
