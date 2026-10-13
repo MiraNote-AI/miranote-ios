@@ -299,8 +299,10 @@ extension CanvasBoardView {
         return isOverDeleteZone(activeMove.location) ? .armed : .dragging
     }
 
+    /// Past the canvas edge by a margin: a drop aimed at the page's last
+    /// line must not delete.
     private func isOverDeleteZone(_ location: CGPoint) -> Bool {
-        location.y > visibleFrame.maxY
+        location.y > visibleFrame.maxY + 24
     }
 
     private func moveGesture(_ item: CanvasItem) -> some Gesture {

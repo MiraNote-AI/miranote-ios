@@ -56,9 +56,10 @@ extension CanvasScene {
                     .foregroundStyle(Palette.ink)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Palette.onInk))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .minimumHitTarget()
             .accessibilityLabel("Discard recording")
             .accessibilityIdentifier("recorder.discard")
             WaveformView(barCount: 18, tint: Palette.onInk.opacity(0.85), maxHeight: 34)
@@ -75,13 +76,14 @@ extension CanvasScene {
                     .frame(width: 12, height: 12)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Palette.onInk))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .minimumHitTarget()
             .accessibilityLabel("Stop recording")
             .accessibilityIdentifier("recorder.stop")
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 3)
         .frame(height: 54)
         .background(
             Capsule()
