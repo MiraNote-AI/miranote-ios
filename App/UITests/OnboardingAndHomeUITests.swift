@@ -64,8 +64,11 @@ final class OnboardingAndHomeUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         let intro = app.otherElements["onboarding.tools"]
         XCTAssertTrue(intro.waitForExistence(timeout: 5))
-        // A coordinate tap: the button itself is covered, which is the point.
-        app.buttons["mode.text"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // The card is modal, so the tool bar is out of the accessibility
+        // tree: tap where the Text tool sits instead.
+        XCTAssertFalse(app.buttons["mode.text"].exists, "the card hides the tools from VoiceOver too")
+        let toolBar = CGVector(dx: intro.frame.midX, dy: intro.frame.maxY + 50)
+        app.coordinate(withNormalizedOffset: .zero).withOffset(toolBar).tap()
         waitUntilGone(intro)
         XCTAssertFalse(app.descendants(matching: .any)["canvas.textEditor"].exists,
                        "the Text tool behind the scrim did not fire")
