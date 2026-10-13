@@ -223,6 +223,7 @@ struct MiraChatView: View {
                 .tint(Palette.forest)
                 .submitLabel(.send)
                 .onSubmit { Task { await viewModel.sendDraft() } }
+                .accessibilityLabel("Message Mira")
                 .overlay(alignment: .leading) {
                     if viewModel.draft.isEmpty {
                         Text("Ask Mira anything...")
