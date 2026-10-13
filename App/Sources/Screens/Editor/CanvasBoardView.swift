@@ -32,6 +32,8 @@ struct CanvasBoardView: View {
     /// Where an in-flight move stands against the delete zone; nil when
     /// nothing is being moved.
     @Binding var dropToDelete: DropToDelete?
+    /// The photo panel's held compare: this image drawn as it was.
+    var comparing: (itemID: CanvasItem.ID, original: ImageRef)?
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -214,7 +216,7 @@ struct CanvasBoardView: View {
         let geometry = effectiveGeometry(item)
 
         CanvasElementView(
-            item: item,
+            item: shown(item),
             isSelected: isSelected,
             isEditingText: isEditing,
             isPlaying: player.playingID == clipID(of: item),
@@ -225,6 +227,18 @@ struct CanvasBoardView: View {
         )
         .frame(width: geometry.size.width, height: geometry.size.height)
         .contentShape(Rectangle())
+        .overlay(alignment: .bottom) {
+            if comparing?.itemID == item.id {
+                Text("Before")
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.onInk)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Palette.ink.opacity(0.75)))
+                    .padding(.bottom, 10)
+                    .accessibilityIdentifier("photo.before")
+            }
+        }
         .overlay {
             if isSelected && !isEditing {
                 handles(for: item, size: geometry.size)
@@ -238,6 +252,15 @@ struct CanvasBoardView: View {
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
+    }
+
+    /// The item as drawn: the original pixels and treatments while the
+    /// photo panel's compare is held, the model otherwise.
+    private func shown(_ item: CanvasItem) -> CanvasItem {
+        guard let comparing, comparing.itemID == item.id else { return item }
+        var shown = item
+        shown.content = .image(comparing.original)
+        return shown
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.

@@ -9,7 +9,12 @@ struct PhotoEditPanel: View {
     let itemID: CanvasItem.ID
     var studio: ImageStudioService
     var onClose: () -> Void
+    /// While the compare control is held: the photo as it was when this
+    /// panel opened, for the canvas to draw instead.
+    @Binding var comparing: ImageRef?
 
+    /// The photo when editing began: what Revert and Compare go back to.
+    @State private var original: ImageRef?
     @State private var section: Section = .filters
     @State private var cutoutTarget = ""
     @State private var stickering = false
@@ -47,7 +52,57 @@ struct PhotoEditPanel: View {
                         .font(.miraCaption)
                         .foregroundStyle(Palette.textSecondary)
                 }
+
+                if let original, let currentRef, looksEdited(currentRef, from: original) {
+                    originalRow(original)
+                }
             }
+        }
+        .onAppear { original = currentRef }
+        .onDisappear { comparing = nil }
+    }
+
+    /// What the eye sees -- a vision summary landing mid-session is not an
+    /// edit to offer back.
+    private func looksEdited(_ ref: ImageRef, from original: ImageRef) -> Bool {
+        ref.fileName != original.fileName || ref.filterName != original.filterName
+            || ref.frameName != original.frameName
+    }
+
+    /// Handoff screens 27-28: hold to see the photo as it was, or put it
+    /// back in one (undoable) step.
+    private func originalRow(_ original: ImageRef) -> some View {
+        HStack(spacing: 8) {
+            Label("Hold to compare", systemImage: "square.split.2x1")
+                .font(.miraLabel)
+                .foregroundStyle(Palette.ink)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .background(Capsule().fill(comparing == nil ? Palette.paper : Palette.tan.opacity(0.5)))
+                .minimumHitTarget()
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in if comparing == nil { comparing = original } }
+                        .onEnded { _ in comparing = nil }
+                )
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("photo.compare")
+            Button {
+                comparing = nil
+                editor.restoreImage(itemID: itemID, to: original)
+                notice = nil
+            } label: {
+                Label("Revert", systemImage: "arrow.counterclockwise")
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.ink)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 36)
+                    .background(Capsule().fill(Palette.paper))
+                    .minimumHitTarget()
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("photo.revert")
+            Spacer(minLength: 0)
         }
     }
 
@@ -89,16 +144,14 @@ struct PhotoEditPanel: View {
     private var filterRow: some View {
         HStack(spacing: 8) {
             ForEach(PhotoFilter.allCases) { filter in
+                let selected = (currentRef?.filterName ?? "") == (filter == .none ? "" : filter.rawValue)
                 Button {
                     editor.setImageFilter(itemID: itemID, to: filter == .none ? "" : filter.rawValue)
                 } label: {
-                    Chip(
-                        text: filter.label,
-                        selected: (currentRef?.filterName ?? "") == (filter == .none ? "" : filter.rawValue),
-                        compact: true
-                    )
+                    Chip(text: filter.label, selected: selected, compact: true)
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
                 .accessibilityIdentifier("photo.filter.\(filter.rawValue)")
             }
             Spacer()
