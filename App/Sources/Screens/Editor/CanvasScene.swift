@@ -100,7 +100,9 @@ struct CanvasScene: View {
                 dropToDelete: $dropToDelete
             )
         } bottom: {
-            bottomCluster
+            // One container, so the sign covers the dock as a whole: an
+            // overlay on the bare builder would repeat on every child.
+            VStack(spacing: 16) { bottomCluster }
                 .overlay {
                     if let dropToDelete {
                         DeleteDropZone(armed: dropToDelete == .armed)
