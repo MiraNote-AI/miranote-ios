@@ -18,6 +18,18 @@ struct ToolsOnboarding: View {
     ]
 
     var body: some View {
+        // A scrim owns every touch around the card: a tool tapped behind
+        // it would act while the card stayed up. Tapping it is Skip.
+        ZStack {
+            Palette.ink.opacity(0.16)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onSkip)
+                .accessibilityHidden(true)
+            card
+        }
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("FIVE CREATIVE TOOLS")
                 .font(Sans.font(size: 11, weight: 600))
