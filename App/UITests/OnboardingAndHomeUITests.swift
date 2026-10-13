@@ -42,7 +42,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         add(shot)
 
         app.buttons["onboarding.background"].tap()
-        XCTAssertFalse(intro.waitForExistence(timeout: 2))
+        waitUntilGone(intro)
         XCTAssertTrue(app.buttons["background.default"].waitForExistence(timeout: 5),
                       "the handoff flow goes on to the Background tool")
     }
@@ -52,9 +52,28 @@ final class OnboardingAndHomeUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["onboarding.skip"].waitForExistence(timeout: 5))
         app.buttons["onboarding.skip"].tap()
-        XCTAssertFalse(app.otherElements["onboarding.tools"].waitForExistence(timeout: 2))
+        waitUntilGone(app.otherElements["onboarding.tools"])
         XCTAssertFalse(app.buttons["background.default"].exists)
         XCTAssertTrue(app.buttons["mode.text"].exists)
+    }
+
+    // The tools behind the card do not act while it is up: a tap there
+    // lands on the scrim, which skips.
+    func testATapBesideTheCardSkipsWithoutActing() {
+        launch(["-HINT", "editor-tools"])
+        app.buttons["Start a memory"].tap()
+        let intro = app.otherElements["onboarding.tools"]
+        XCTAssertTrue(intro.waitForExistence(timeout: 5))
+        // A coordinate tap: the button itself is covered, which is the point.
+        app.buttons["mode.text"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        waitUntilGone(intro)
+        XCTAssertFalse(app.descendants(matching: .any)["canvas.textEditor"].exists,
+                       "the Text tool behind the scrim did not fire")
+    }
+
+    private func waitUntilGone(_ element: XCUIElement) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 3), .completed)
     }
 
     func testOtherUITestLaunchesNeverSeeIt() {

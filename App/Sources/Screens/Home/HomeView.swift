@@ -263,7 +263,7 @@ struct HomeCollectionCard: View {
                 .multilineTextAlignment(.leading)
             Text("\(count) note\(count == 1 ? "" : "s")")
                 .font(Sans.font(size: 11, weight: 400))
-                .foregroundStyle(titleColor.opacity(0.85))
+                .foregroundStyle(titleColor)
             Spacer(minLength: 0)
             RoundedRectangle(cornerRadius: 18)
                 .fill(inner)
