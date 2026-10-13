@@ -77,3 +77,22 @@ non-interactive person glyph on dev is left alone.
    read as Editorial -> one worn set, only once a set face is on the
    page; disabled tiles dim. One-tap layout while Mira works cannot occur
    (the panel cannot open mid-turn; the Mira bar is hidden under it).
+10. Pre-approval pass (Jason: "make sure teammates can approve as is").
+   Whole-phase review: NOT YET -- Soft lit Classic (shared Optima body);
+   a VoiceOver compare outlived its row; VoiceOver reached tools behind
+   the onboarding card; dropping over the keyboard deleted unsigned; a
+   24 pt literal in two more places. Fixed each in its own PR: unique
+   faces per role (+UI test), compare handlers on the panel and any
+   visible change ends it, card modal (alert role, asserted), no
+   drag-delete while editing text, one displayPointSize. Not taken:
+   "Add a note" assertion is the marker pill, not the review field.
+   Simulator probe (external screenshots mid-gesture): zone resting and
+   armed render over the whole dock; fixed ghosting (zone opaque), the
+   clipped dragged element (armed zone now says "Release to delete"),
+   the photo panel overflowing the screen (tabs and filters scroll), and
+   the Modern ring invisible on its dark tile (ring outside the tile).
+   Device sweep: D3 alone on iPhone 17 Pro Max failed 3 image-ask UI
+   tests. Bisected: green on dev, red at the phase C tip -- the
+   redesigned dock sits where the helper's "120 pt below the lower photo"
+   deselect tap used to be paper, so it opened the Text tool. Helper now
+   taps beside the photo (Pro and Pro Max 5/5), fixed in #94.
