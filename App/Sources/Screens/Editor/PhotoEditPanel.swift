@@ -61,6 +61,16 @@ struct PhotoEditPanel: View {
         }
         .onAppear { original = currentRef }
         .onDisappear { comparing = nil }
+        // On the panel, not the row: the row leaves once the photo looks
+        // unedited, and its handlers would leave with it.
+        .onChange(of: holdingCompare) { _, holding in
+            comparing = holding ? original : nil
+        }
+        // A visible change to the photo ends a comparison -- a filter
+        // tapped mid-compare must show, not hide behind the original.
+        .onChange(of: currentRef) { old, new in
+            if let old, let new, looksEdited(new, from: old) { comparing = nil }
+        }
     }
 
     /// What the eye sees -- a vision summary landing mid-session is not an
@@ -87,9 +97,6 @@ struct PhotoEditPanel: View {
                     DragGesture(minimumDistance: 0)
                         .updating($holdingCompare) { _, holding, _ in holding = true }
                 )
-                .onChange(of: holdingCompare) { _, holding in
-                    comparing = holding ? original : nil
-                }
                 .accessibilityAddTraits(.isButton)
                 // VoiceOver cannot hold: activating toggles the comparison.
                 .accessibilityAction { comparing = comparing == nil ? original : nil }
