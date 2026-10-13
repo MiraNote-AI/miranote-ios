@@ -41,4 +41,24 @@ final class BackgroundTypeUITests: XCTestCase {
         app.buttons["Undo"].tap()
         XCTAssertFalse(classic.isSelected, "one undo takes the whole set off")
     }
+
+    // The tile tapped is the tile chosen -- even on a page of body text
+    // only, where sets once shared a face.
+    func testOnlyTheTappedSetReadsAsChosen() {
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("a quiet afternoon")
+        app.buttons["keyboard.done"].tap()
+
+        app.buttons["mode.background"].tap()
+        let soft = app.buttons["background.fontSet.Soft"]
+        XCTAssertTrue(soft.waitForExistence(timeout: 5))
+        soft.tap()
+        XCTAssertTrue(soft.isSelected)
+        for other in ["Classic", "Editorial", "Modern"] {
+            XCTAssertFalse(app.buttons["background.fontSet.\(other)"].isSelected, "\(other) is not chosen")
+        }
+    }
 }

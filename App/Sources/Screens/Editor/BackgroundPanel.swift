@@ -30,12 +30,13 @@ struct BackgroundPanel: View {
 
     /// The handoff's curated type (screen 05): a display face for titles and
     /// a body face for the rest, drawn from the faces TextFace offers ("" is
-    /// the default serif display).
+    /// the default serif display). No two sets share a display face or a
+    /// body face, so the page can only ever be wearing one of them.
     static let fontSets: [FontSet] = [
         FontSet(name: "Classic", display: "Didot", body: "Optima", swatch: 0xC9B295),
         FontSet(name: "Editorial", display: "", body: "Josefin Sans", swatch: 0xF1DFD0),
         FontSet(name: "Modern", display: "Futura", body: "Helvetica Neue", swatch: 0x24382D, isDark: true),
-        FontSet(name: "Soft", display: "Josefin Sans", body: "Optima", swatch: 0xE5D9F0),
+        FontSet(name: "Soft", display: "Josefin Sans", body: "Futura", swatch: 0xE5D9F0),
     ]
 
     private var onDefault: Bool {
@@ -146,8 +147,8 @@ struct BackgroundPanel: View {
     }
 
     /// The set the page wears: every text block matches it and at least one
-    /// face is a set's choice, not the default. Sets can share a face, so
-    /// only the first match reads as chosen.
+    /// face is a set's choice, not the default. Faces are unique per role
+    /// across sets, so at most one set matches.
     private var wornSet: String? {
         guard textBlocks.contains(where: { !$0.fontName.isEmpty }) else { return nil }
         return Self.fontSets.first { set in
