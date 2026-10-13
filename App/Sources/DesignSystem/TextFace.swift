@@ -24,7 +24,7 @@ enum TextFace {
         switch name {
         case "":
             // Larger blocks are display type and take the serif identity.
-            return size >= 24
+            return size >= CanvasViewModel.displayPointSize
                 ? Serif.uiFont(size: size, weight: 560, optical: 72)
                 : UIFont.systemFont(ofSize: size)
         case "Josefin Sans":

@@ -72,7 +72,7 @@ extension MiraCanvasCoordinator {
             chips.append(Self.tidyChip)
         }
         let hasTitle = editor.items.contains {
-            if case .text(let block) = $0.content { return block.pointSize >= 24 }
+            if case .text(let block) = $0.content { return block.pointSize >= CanvasViewModel.displayPointSize }
             return false
         }
         if hasText, !hasTitle {
