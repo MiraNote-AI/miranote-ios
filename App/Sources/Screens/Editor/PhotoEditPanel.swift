@@ -243,8 +243,9 @@ extension PhotoEditPanel {
                 let edited = try await studio.stylize(image: data, instruction: instruction)
                 let fileName = try imageStore.save(edited, id: UUID())
                 editor.replaceImageFile(itemID: itemID, fileName: fileName)
-                aiInstruction = ""
-                notice = "Done -- take a look. Undo brings the old one back."
+                // The new pixels on the page are the receipt; Undo brings
+                // the old ones back.
+                onClose()
                 // New pixels, new sentence: refresh the vision summary.
                 if let summary = try? await studio.describe(image: edited) {
                     editor.setImageSummary(itemID: itemID, to: summary)

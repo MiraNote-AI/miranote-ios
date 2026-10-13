@@ -22,6 +22,9 @@ struct CanvasBoardView: View {
     var onFavorite: (CanvasItem) -> Void = { _ in }
     /// Non-nil while a picture waits to be placed: the tap places it there.
     var onPlaceTap: ((CGPoint) -> CanvasItem.ID?)?
+    /// Set when an edit panel closes: the edited element scrolls into view
+    /// once the panel has given its room back, then this clears.
+    var revealItem: Binding<CanvasItem.ID?> = .constant(nil)
 
     @State private var player = SoundPlayer()
     // Transient gesture values: @GestureState resets automatically when a
@@ -34,6 +37,8 @@ struct CanvasBoardView: View {
     @State private var noteDraft = ""
     @State private var noteEditingItem: CanvasItem.ID?
     @State private var scrollTarget: CanvasItem.ID?
+    /// Where the reveal anchor sits while a reveal is in flight.
+    @State private var revealFrame: CGRect?
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
 
@@ -41,6 +46,7 @@ struct CanvasBoardView: View {
     enum Toast { case deleted, favorited }
 
     private let minBoardHeight: CGFloat = 620
+    private static let revealAnchorID = "canvas.revealAnchor"
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -55,6 +61,24 @@ struct CanvasBoardView: View {
             }
             .onChange(of: editor.editingTextItemID) { _, id in bring(id, into: proxy) }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
+            .onChange(of: revealItem.wrappedValue) { _, id in
+                guard let id, let item = editor.item(id) else { return }
+                revealFrame = CGRect(
+                    x: item.position.x - item.size.width / 2,
+                    y: item.position.y - item.size.height / 2,
+                    width: item.size.width,
+                    height: item.size.height
+                )
+                // Wait out the panel's collapse (and the keyboard's) so the
+                // scroll centres the element in the grown viewport.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(Self.revealAnchorID, anchor: .center)
+                    }
+                    revealItem.wrappedValue = nil
+                }
+            }
         }
         // Dragging an element moves and selects it, which disables the page
         // scroll; dragging empty paper scrolls. While editing text there is
@@ -104,6 +128,18 @@ struct CanvasBoardView: View {
             }
             ForEach(editor.orderedItems) { item in
                 element(item)
+            }
+            if let revealFrame {
+                // Elements are placed with .position, which stretches their
+                // frame to the whole board, so scrollTo(item.id) cannot find
+                // them. This clear twin sits exactly where the element is.
+                Color.clear
+                    .frame(width: revealFrame.width, height: revealFrame.height)
+                    .alignmentGuide(.leading) { _ in -revealFrame.minX }
+                    .alignmentGuide(.top) { _ in -revealFrame.minY }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .id(Self.revealAnchorID)
             }
         }
         .frame(width: MiraNoteConfig.pageWidth, height: boardHeight)

@@ -27,6 +27,8 @@ struct CanvasScene: View {
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
     @State private var editingStickerItem: CanvasItem.ID?
+    /// The element an edit panel just closed on, scrolled into view.
+    @State private var revealItem: CanvasItem.ID?
     @State var dictating = false
     /// Inline feedback in the text accessory: "Listening..." while the
     /// mic is live, or why nothing landed after it stopped.
@@ -81,7 +83,8 @@ struct CanvasScene: View {
                         break
                     }
                 },
-                onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) }
+                onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
+                revealItem: $revealItem
             )
         } bottom: {
             bottomCluster
@@ -194,7 +197,10 @@ struct CanvasScene: View {
                     editor: editor,
                     itemID: editingImageItem,
                     studio: imageStudio,
-                    onClose: { self.editingImageItem = nil }
+                    onClose: {
+                        revealItem = editingImageItem
+                        self.editingImageItem = nil
+                    }
                 )
                 InputModeBar(active: .image, onSelect: handleTool)
             } else if let editingStickerItem {
@@ -202,7 +208,10 @@ struct CanvasScene: View {
                     editor: editor,
                     itemID: editingStickerItem,
                     studio: imageStudio,
-                    onClose: { self.editingStickerItem = nil }
+                    onClose: {
+                        revealItem = editingStickerItem
+                        self.editingStickerItem = nil
+                    }
                 )
             } else {
                 recorderCluster
