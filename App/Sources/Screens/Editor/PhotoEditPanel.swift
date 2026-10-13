@@ -29,11 +29,17 @@ struct PhotoEditPanel: View {
         ContextCard(title: "Edit photo") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 14) {
-                    sectionTab("Filters", .filters)
-                    sectionTab("Frame", .frame)
-                    sectionTab("Make sticker", .sticker)
-                    sectionTab("Ask AI", .ai, icon: "sparkles")
-                    Spacer()
+                    // Rows of fixed-size tabs and chips scroll rather than
+                    // widen: wider than the screen, they pushed the whole
+                    // editor (and its Done) off the edge.
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) {
+                            sectionTab("Filters", .filters)
+                            sectionTab("Frame", .frame)
+                            sectionTab("Make sticker", .sticker)
+                            sectionTab("Ask AI", .ai, icon: "sparkles")
+                        }
+                    }
                     Button("Done") { onClose() }
                         .font(.miraLabel)
                         .foregroundStyle(Palette.ink)
@@ -156,19 +162,20 @@ struct PhotoEditPanel: View {
 
     /// Instant presets; the selected one is filled. "Match page" leads.
     private var filterRow: some View {
-        HStack(spacing: 8) {
-            ForEach(PhotoFilter.allCases) { filter in
-                let selected = (currentRef?.filterName ?? "") == (filter == .none ? "" : filter.rawValue)
-                Button {
-                    editor.setImageFilter(itemID: itemID, to: filter == .none ? "" : filter.rawValue)
-                } label: {
-                    Chip(text: filter.label, selected: selected, compact: true)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(PhotoFilter.allCases) { filter in
+                    let selected = (currentRef?.filterName ?? "") == (filter == .none ? "" : filter.rawValue)
+                    Button {
+                        editor.setImageFilter(itemID: itemID, to: filter == .none ? "" : filter.rawValue)
+                    } label: {
+                        Chip(text: filter.label, selected: selected, compact: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("photo.filter.\(filter.rawValue)")
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityIdentifier("photo.filter.\(filter.rawValue)")
             }
-            Spacer()
         }
     }
 
