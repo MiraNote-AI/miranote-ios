@@ -43,4 +43,15 @@ non-interactive person glyph on dev is left alone.
    tests bypass it) -> HintCenterTests; tools behind the card still acted
    -> scrim, tap = Skip (+UI test); 11 pt count at 0.85 opacity fell to
    3.85:1 -> full opacity; absence asserted with waitForExistence -> a
-   predicate wait.
+   predicate wait. HintCenterTests 2/2, onboarding UI 5/5, Release OK ->
+   PR #94.
+3. D2 written: ink recording bar with discard; drag-to-delete derives the
+   zone from the move's @GestureState (a cancelled drag clears it). Canvas
+   UI tests 15/15 + 2 new green.
+4. Review: NOT DONE -- armed zone red 3.4:1; discard/stop 34 pt wide; a
+   stop finishing after discard revived the take; deleting at the exact
+   canvas edge; zone smaller than the deleting area. Fixed: red #7F2E22
+   (6.6 / 5.2:1), 44 x 44 targets, stop checks the same take is still
+   recording, 24 pt margin, zone covers the dock. 4/4 green.
+5. Re-review: 1-4 DONE; zone NOT DONE -- an overlay on the bare
+   @ViewBuilder repeated per dock child. Wrapped the dock in one VStack.
