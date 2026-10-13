@@ -34,6 +34,7 @@ struct CanvasScene: View {
     /// The element an edit panel just closed on, scrolled into view.
     @State private var revealItem: CanvasItem.ID?
     @State private var backgroundPanelOpen = false
+    @State private var showsToolsOnboarding = false
     @State var dictating = false
     /// Inline feedback in the text accessory: "Listening..." while the
     /// mic is live, or why nothing landed after it stopped.
@@ -99,7 +100,20 @@ struct CanvasScene: View {
         } bottom: {
             bottomCluster
         }
+        .overlay {
+            if showsToolsOnboarding {
+                ToolsOnboarding(
+                    onSkip: { finishToolsOnboarding(openBackground: false) },
+                    onChooseBackground: { finishToolsOnboarding(openBackground: true) }
+                )
+                .transition(.opacity)
+            }
+        }
         .onAppear {
+            // The tools introduction meets the first blank page only.
+            if editor.items.isEmpty, HintCenter.shouldShow(ToolsOnboarding.hintID) {
+                showsToolsOnboarding = true
+            }
             remeasureTextBlocks()
             mira.prepareTurn = { await lookAtUnseenPhotos() }
             mira.renderPage = {
@@ -312,6 +326,12 @@ struct CanvasScene: View {
             cancelRecording()
             actions.selectMode(.sticker)
         }
+    }
+
+    private func finishToolsOnboarding(openBackground: Bool) {
+        HintCenter.graduate(ToolsOnboarding.hintID)
+        withAnimation(.easeOut(duration: 0.2)) { showsToolsOnboarding = false }
+        if openBackground { handleTool(.background) }
     }
 
     /// Text tool: a new block appears on the canvas and the keyboard rises --

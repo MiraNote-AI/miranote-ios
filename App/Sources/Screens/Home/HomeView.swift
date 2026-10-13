@@ -23,20 +23,21 @@ struct HomeView: View {
 
                 Text(HomeView.dateLine(for: .now))
                     .font(.miraDate)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textSecondary)
                     .lineSpacing(1)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 14)
 
                 hero
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 24)
 
-                // v2.1: the search pill sits above the primary action -- it
-                // asks about the past (retrieval), it does not start a note.
+                // Handoff screen 01: the large Start button leads, the
+                // retrieval pill follows it. The pill still asks about the
+                // past -- its icon and placeholder say so -- it never starts
+                // a note.
+                startButton
+                    .padding(.bottom, 28)
+
                 quickPill
-                    .padding(.bottom, 16)
-
-                Button("Start a memory", action: onStart)
-                    .buttonStyle(PrimaryPill(horizontalPadding: 30, verticalPadding: 15))
                     .padding(.bottom, 22)
 
                 grid
@@ -87,19 +88,41 @@ struct HomeView: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 2) {
             Text("Your memory,")
             Text("beautifully made.")
         }
         .font(.miraHero)
         .foregroundStyle(Palette.ink)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// The handoff's 226 x 92 pt ink button with a long warm shadow.
+    private var startButton: some View {
+        Button(action: onStart) {
+            Text("Start a memory")
+                .font(Sans.font(size: 24, weight: 500))
+                .foregroundStyle(Palette.onInk)
+                .frame(width: 226, height: 92)
+                .background(
+                    RoundedRectangle(cornerRadius: 36)
+                        .fill(Palette.ink)
+                        .shadow(color: Color(hex: 0x544738).opacity(0.16), radius: 28, y: 30)
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("Start a memory")
     }
 
     private var quickPill: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
                 .font(.system(size: 13))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.ink)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Palette.tan.opacity(0.7)))
 
             TextField("", text: $prompt)
                 .font(.miraBody)
@@ -127,12 +150,13 @@ struct HomeView: View {
                 .accessibilityIdentifier("quick.send")
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.leading, 8)
+        .padding(.trailing, 14)
+        .padding(.vertical, 6)
         .background(
             Capsule()
-                .fill(Palette.onInk.opacity(0.55))
-                .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                .fill(Palette.warmWhite.opacity(0.8))
+                .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
         )
     }
 
@@ -181,35 +205,31 @@ struct HomeView: View {
                 .font(.miraLabel)
         }
         .foregroundStyle(Palette.textSecondary)
-        .frame(maxWidth: .infinity, minHeight: 122)
+        .frame(maxWidth: .infinity, minHeight: HomeCollectionCard.height)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: HomeCollectionCard.corner)
                 .fill(Palette.paper)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20)
+                    RoundedRectangle(cornerRadius: HomeCollectionCard.corner)
                         .strokeBorder(Palette.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
                 )
         )
     }
 
+    /// The handoff's four card colors (screen 01), cycled by position. Its
+    /// warm-white titles read at 2.1-3.5:1 on the grey, brown and tan cards,
+    /// below the 4.5:1 a 19 pt title needs, so grey and brown are darkened
+    /// along their hue (4.6:1) and the tan card takes ink (7:1).
     private func cardStyle(_ index: Int) -> CardStyle {
         switch index % 4 {
         case 1:
-            return CardStyle(background: Palette.forest, inner: Palette.sage.opacity(0.7), title: Palette.onInk)
+            return CardStyle(background: Palette.forest, inner: Color(hex: 0xB6C2BA), title: Palette.onInk)
         case 2:
-            return CardStyle(
-                background: Palette.sage.opacity(0.45),
-                inner: Palette.taupe.opacity(0.55),
-                title: Palette.ink
-            )
+            return CardStyle(background: Color(hex: 0x706E62), inner: Color(hex: 0x504E45), title: Palette.onInk)
         case 3:
-            return CardStyle(
-                background: Palette.tan.opacity(0.6),
-                inner: Palette.onInk.opacity(0.7),
-                title: Palette.ink
-            )
+            return CardStyle(background: Color(hex: 0xC1A47E), inner: Color(hex: 0xD9CDBA), title: Palette.ink)
         default:
-            return CardStyle(background: Palette.cardFill, inner: Palette.taupe.opacity(0.45), title: Palette.ink)
+            return CardStyle(background: Color(hex: 0x7A6B64), inner: Color(hex: 0xA39088), title: Palette.onInk)
         }
     }
 
@@ -221,8 +241,13 @@ struct HomeView: View {
     }
 }
 
-/// One book-spine collection card in the Home grid.
+/// One collection card in the Home grid (handoff screen 01): a tall 26 pt
+/// rounded card, the title in up to two lines at the top, the note count,
+/// and a soft cover block resting at the bottom.
 struct HomeCollectionCard: View {
+    static let height: CGFloat = 188
+    static let corner: CGFloat = 26
+
     let title: String
     let count: Int
     var background: Color
@@ -230,21 +255,30 @@ struct HomeCollectionCard: View {
     var titleColor: Color = Palette.ink
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.miraCardTitle)
+                .font(Sans.font(size: 19, weight: 400))
                 .foregroundStyle(titleColor)
-                .lineLimit(1)
-            RoundedRectangle(cornerRadius: 12)
-                .fill(inner)
-                .frame(height: 44)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
             Text("\(count) note\(count == 1 ? "" : "s")")
                 .font(Sans.font(size: 11, weight: 400))
-                .foregroundStyle(titleColor.opacity(0.6))
+                .foregroundStyle(titleColor.opacity(0.85))
+            Spacer(minLength: 0)
+            RoundedRectangle(cornerRadius: 18)
+                .fill(inner)
+                .frame(height: 60)
+                .padding(.horizontal, 12)
         }
-        .padding(15)
-        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 20).fill(background))
+        .padding(.top, 22)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: Self.corner)
+                .fill(background)
+                .shadow(color: Color(hex: 0x544738).opacity(0.1), radius: 17, y: 18)
+        )
     }
 }
 

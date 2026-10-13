@@ -1,13 +1,18 @@
 import Foundation
 
 /// First-time hints with the v2.1 graduation rule: a hint shows once, at
-/// the moment it applies, and never again. UI tests never see hints.
+/// the moment it applies, and never again. UI tests see a hint only when they
+/// ask for it with `-HINT <id>`.
 enum HintCenter {
     private static let key = "miranote.graduatedHints"
 
     static func shouldShow(_ id: String) -> Bool {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") { return false }
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") {
+            guard let flag = arguments.firstIndex(of: "-HINT"), flag + 1 < arguments.count else { return false }
+            return arguments[flag + 1] == id
+        }
         #endif
         let graduated = UserDefaults.standard.stringArray(forKey: key) ?? []
         return !graduated.contains(id)
