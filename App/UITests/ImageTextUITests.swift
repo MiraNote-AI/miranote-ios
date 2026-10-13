@@ -37,8 +37,10 @@ final class ImageTextUITests: XCTestCase {
         let second = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 1)
         XCTAssertTrue(second.waitForExistence(timeout: 5))
-        second.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1.0))
-            .withOffset(CGVector(dx: 0, dy: 120)).tap()
+        // Beside the photo, not below it: below can run off the canvas onto
+        // the dock on tall phones (the Text tool took that tap).
+        second.coordinate(withNormalizedOffset: CGVector(dx: 1.0, dy: 0.5))
+            .withOffset(CGVector(dx: 40, dy: 0)).tap()
     }
 
     func testDescribeAskAddsWordsNotARestyle() {
