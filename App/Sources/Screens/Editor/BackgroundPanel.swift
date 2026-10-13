@@ -145,18 +145,23 @@ struct BackgroundPanel: View {
         }
     }
 
-    /// A set reads as chosen when every text block already wears it.
-    private func isWorn(_ set: FontSet) -> Bool {
-        !textBlocks.isEmpty && textBlocks.allSatisfy {
-            $0.fontName == ($0.pointSize >= CanvasViewModel.displayPointSize ? set.display : set.body)
-        }
+    /// The set the page wears: every text block matches it and at least one
+    /// face is a set's choice, not the default. Sets can share a face, so
+    /// only the first match reads as chosen.
+    private var wornSet: String? {
+        guard textBlocks.contains(where: { !$0.fontName.isEmpty }) else { return nil }
+        return Self.fontSets.first { set in
+            textBlocks.allSatisfy {
+                $0.fontName == ($0.pointSize >= CanvasViewModel.displayPointSize ? set.display : set.body)
+            }
+        }?.name
     }
 
     private var fontSetRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(Self.fontSets, id: \.name) { set in
-                    let worn = isWorn(set)
+                    let worn = wornSet == set.name
                     Button {
                         editor.applyFontSet(display: set.display, body: set.body)
                     } label: {
@@ -178,6 +183,7 @@ struct BackgroundPanel: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(textBlocks.isEmpty)
+                    .opacity(textBlocks.isEmpty ? 0.45 : 1)
                     .accessibilityLabel("\(set.name) type")
                     .accessibilityAddTraits(worn ? .isSelected : [])
                     .accessibilityIdentifier("background.fontSet.\(set.name)")
