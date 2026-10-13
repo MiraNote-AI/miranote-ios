@@ -295,14 +295,15 @@ extension CanvasBoardView {
     // MARK: Gestures
 
     private var dropPhase: DropToDelete? {
-        guard let activeMove else { return nil }
+        guard let activeMove, editor.editingTextItemID == nil else { return nil }
         return isOverDeleteZone(activeMove.location) ? .armed : .dragging
     }
 
     /// Past the canvas edge by a margin: a drop aimed at the page's last
-    /// line must not delete.
+    /// line must not delete. Never while words are being written: the
+    /// keyboard sits below the canvas then, and no sign could cover it.
     private func isOverDeleteZone(_ location: CGPoint) -> Bool {
-        location.y > visibleFrame.maxY + 24
+        editor.editingTextItemID == nil && location.y > visibleFrame.maxY + 24
     }
 
     private func moveGesture(_ item: CanvasItem) -> some Gesture {
