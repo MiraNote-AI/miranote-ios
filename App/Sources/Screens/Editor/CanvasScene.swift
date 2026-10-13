@@ -30,6 +30,8 @@ struct CanvasScene: View {
     @State private var miraPrompt = ""
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
+    /// The edited photo's original, while the panel's compare is held.
+    @State private var comparingImage: ImageRef?
     @State private var editingStickerItem: CanvasItem.ID?
     /// The element an edit panel just closed on, scrolled into view.
     @State private var revealItem: CanvasItem.ID?
@@ -97,7 +99,8 @@ struct CanvasScene: View {
                 },
                 onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
                 revealItem: $revealItem,
-                dropToDelete: $dropToDelete
+                dropToDelete: $dropToDelete,
+                comparing: editingImageItem.flatMap { id in comparingImage.map { (id, $0) } }
             )
         } bottom: {
             // One container, so the sign covers the dock as a whole: an
@@ -235,8 +238,11 @@ struct CanvasScene: View {
                     onClose: {
                         revealItem = editingImageItem
                         self.editingImageItem = nil
-                    }
+                    },
+                    comparing: $comparingImage
                 )
+                // A new photo is a new editing session: its own original.
+                .id(editingImageItem)
                 InputModeBar(active: .image, onSelect: handleTool)
             } else if let editingStickerItem {
                 StickerEditPanel(

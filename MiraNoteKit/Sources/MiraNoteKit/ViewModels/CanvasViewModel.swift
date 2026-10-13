@@ -277,6 +277,16 @@ extension CanvasViewModel {
         memory.items[index].content = .image(ref)
     }
 
+    /// Photo edit revert: the photo as it was when editing began -- pixels,
+    /// filter, frame and summary -- in one undo step; none if unchanged.
+    public func restoreImage(itemID: CanvasItem.ID, to original: ImageRef) {
+        guard let index = index(of: itemID),
+              case .image(let ref) = memory.items[index].content,
+              ref != original else { return }
+        beginChange()
+        memory.items[index].content = .image(original)
+    }
+
 }
 
 // MARK: - Element operations
