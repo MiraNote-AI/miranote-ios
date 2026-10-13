@@ -7,6 +7,9 @@ extension MiraCanvasCoordinator {
     /// Mira routes to a background turn.
     public static let changeBackgroundChip = "Change the background"
 
+    /// Re-lays the page out; also the Background tool's one-tap layout.
+    public static let tidyChip = "Tidy the layout"
+
     /// Context-aware idle suggestions -- PAGE-level only (Meng,
     /// 2026-07-09): polishing belongs to the text editor's keyboard row,
     /// where the target block is unambiguous. Every chip must be ABOUT
@@ -66,7 +69,7 @@ extension MiraCanvasCoordinator {
             if case .text = $0.content { return true } else { return false }
         }
         if editor.items.count > 1 {
-            chips.append("Tidy the layout")
+            chips.append(Self.tidyChip)
         }
         let hasTitle = editor.items.contains {
             if case .text(let block) = $0.content { return block.pointSize >= 24 }

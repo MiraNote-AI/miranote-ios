@@ -1,9 +1,8 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The Background tool (handoff screen 05): paper ruling, a page color, or a
-/// mood Mira paints. Curated font sets and one-tap layout from the handoff
-/// are later work.
+/// The Background tool (handoff screen 05): paper ruling, a page color, a
+/// mood Mira paints, curated font sets, and one-tap layout.
 struct BackgroundPanel: View {
     @Bindable var editor: CanvasViewModel
     /// Sends a request through the Mira bar's normal turn (working state,
@@ -29,16 +28,28 @@ struct BackgroundPanel: View {
         ("#D8E3EF", "Sky"), ("#E5D9F0", "Lilac"),
     ]
 
+    /// The handoff's curated type (screen 05): a display face for titles and
+    /// a body face for the rest, drawn from the faces TextFace offers ("" is
+    /// the default serif display).
+    static let fontSets: [FontSet] = [
+        FontSet(name: "Classic", display: "Didot", body: "Optima", swatch: 0xC9B295),
+        FontSet(name: "Editorial", display: "", body: "Josefin Sans", swatch: 0xF1DFD0),
+        FontSet(name: "Modern", display: "Futura", body: "Helvetica Neue", swatch: 0x24382D, isDark: true),
+        FontSet(name: "Soft", display: "Josefin Sans", body: "Optima", swatch: 0xE5D9F0),
+    ]
+
     private var onDefault: Bool {
         editor.memory.pageColorName.isEmpty && editor.memory.backgroundFileName.isEmpty
     }
 
     var body: some View {
-        ContextCard(title: "Background", subtitle: "Paper, color, or a mood Mira paints.") {
+        ContextCard(title: "Background", subtitle: "Paper, color, a mood, and curated type.") {
             VStack(alignment: .leading, spacing: 12) {
                 paperRow
                 colorRow
                 moodRow
+                fontSetRow
+                layoutButton
             }
         }
     }
@@ -126,4 +137,81 @@ struct BackgroundPanel: View {
             }
         }
     }
+
+    private var textBlocks: [TextBlock] {
+        editor.items.compactMap {
+            if case .text(let block) = $0.content { return block }
+            return nil
+        }
+    }
+
+    /// A set reads as chosen when every text block already wears it.
+    private func isWorn(_ set: FontSet) -> Bool {
+        !textBlocks.isEmpty && textBlocks.allSatisfy {
+            $0.fontName == ($0.pointSize >= CanvasViewModel.displayPointSize ? set.display : set.body)
+        }
+    }
+
+    private var fontSetRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Self.fontSets, id: \.name) { set in
+                    let worn = isWorn(set)
+                    Button {
+                        editor.applyFontSet(display: set.display, body: set.body)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Aa")
+                                .font(Font(TextFace.uiFont(name: set.display, size: 26)))
+                            Text(set.name)
+                                .font(Font(TextFace.uiFont(name: set.body, size: 12)))
+                        }
+                        .foregroundStyle(set.isDark ? Palette.onInk : Palette.ink)
+                        .padding(.horizontal, 12)
+                        .frame(width: 104, height: 72, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(hex: set.swatch))
+                                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(
+                                    worn ? Palette.ink : Palette.hairline, lineWidth: worn ? 2 : 1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(textBlocks.isEmpty)
+                    .accessibilityLabel("\(set.name) type")
+                    .accessibilityAddTraits(worn ? .isSelected : [])
+                    .accessibilityIdentifier("background.fontSet.\(set.name)")
+                }
+            }
+        }
+    }
+
+    /// One tap re-lays the page out through Mira's normal turn (Stop,
+    /// receipt, Revert), as the "Tidy the layout" chip does.
+    private var layoutButton: some View {
+        Button {
+            onClose()
+            onAsk(MiraCanvasCoordinator.tidyChip)
+        } label: {
+            Label("One-tap layout", systemImage: "sparkles")
+                .font(Sans.font(size: 14, weight: 600))
+                .foregroundStyle(Palette.onInk)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Palette.selectedTool))
+        }
+        .buttonStyle(.plain)
+        .disabled(editor.items.count < 2)
+        .opacity(editor.items.count < 2 ? 0.45 : 1)
+        .accessibilityIdentifier("background.layout")
+    }
+}
+
+/// One curated pairing in the Background tool.
+struct FontSet {
+    let name: String
+    let display: String
+    let body: String
+    let swatch: UInt32
+    /// The swatch is dark enough to take light lettering.
+    var isDark = false
 }
