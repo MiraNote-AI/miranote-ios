@@ -96,3 +96,8 @@ non-interactive person glyph on dev is left alone.
    redesigned dock sits where the helper's "120 pt below the lower photo"
    deselect tap used to be paper, so it opened the Text tool. Helper now
    taps beside the photo (Pro and Pro Max 5/5), fixed in #94.
+11. Re-review of the fixes: APPROVABLE except the drag-while-editing
+   guard, which never held (moving an element selects it and ends text
+   editing). Probe: dragging another block while typing lowers the
+   keyboard and the signed dock returns -- no unsigned keyboard area
+   exists, so the dead guard was removed.
