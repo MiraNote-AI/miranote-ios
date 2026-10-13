@@ -19,10 +19,12 @@ struct DeleteDropZone: View {
                 .frame(width: 38, height: 38)
                 .background(Circle().fill(Palette.warmWhite))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Drop here to delete")
+                // The canvas clips the dragged element at its edge, so once
+                // the finger is over the zone the words carry the moment.
+                Text(armed ? "Release to delete" : "Drop here to delete")
                     .font(Sans.font(size: 14, weight: 600))
                     .foregroundStyle(Self.red)
-                Text("Release outside the canvas")
+                Text(armed ? "Undo brings it back" : "Release outside the canvas")
                     .font(Sans.font(size: 11, weight: 500))
                     .foregroundStyle(Palette.ink.opacity(0.8))
             }
@@ -30,7 +32,8 @@ struct DeleteDropZone: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 28)
-                .fill(Color(hex: armed ? 0xEDB8AE : 0xF3D5CF).opacity(0.96))
+                // Opaque: the dock's controls must not ghost through.
+                .fill(Color(hex: armed ? 0xEDB8AE : 0xF3D5CF))
                 .overlay(RoundedRectangle(cornerRadius: 28)
                     .strokeBorder(Self.red.opacity(armed ? 0.6 : 0.2), lineWidth: 1))
         )
