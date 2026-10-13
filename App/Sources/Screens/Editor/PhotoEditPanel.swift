@@ -15,6 +15,7 @@ struct PhotoEditPanel: View {
 
     /// The photo when editing began: what Revert and Compare go back to.
     @State private var original: ImageRef?
+    @GestureState private var holdingCompare = false
     @State private var section: Section = .filters
     @State private var cutoutTarget = ""
     @State private var stickering = false
@@ -80,12 +81,18 @@ struct PhotoEditPanel: View {
                 .frame(minHeight: 36)
                 .background(Capsule().fill(comparing == nil ? Palette.paper : Palette.tan.opacity(0.5)))
                 .minimumHitTarget()
+                // Gesture state, not onEnded: a hold the system cancels (a
+                // call, Control Center) still lets go of the original.
                 .gesture(
                     DragGesture(minimumDistance: 0)
-                        .onChanged { _ in if comparing == nil { comparing = original } }
-                        .onEnded { _ in comparing = nil }
+                        .updating($holdingCompare) { _, holding, _ in holding = true }
                 )
+                .onChange(of: holdingCompare) { _, holding in
+                    comparing = holding ? original : nil
+                }
                 .accessibilityAddTraits(.isButton)
+                // VoiceOver cannot hold: activating toggles the comparison.
+                .accessibilityAction { comparing = comparing == nil ? original : nil }
                 .accessibilityIdentifier("photo.compare")
             Button {
                 comparing = nil

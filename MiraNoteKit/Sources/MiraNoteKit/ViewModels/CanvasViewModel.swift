@@ -278,13 +278,19 @@ extension CanvasViewModel {
     }
 
     /// Photo edit revert: the photo as it was when editing began -- pixels,
-    /// filter, frame and summary -- in one undo step; none if unchanged.
+    /// filter and frame -- in one undo step; none if unchanged. The summary
+    /// follows the pixels: same file, the current (possibly newer) summary
+    /// stays.
     public func restoreImage(itemID: CanvasItem.ID, to original: ImageRef) {
         guard let index = index(of: itemID),
-              case .image(let ref) = memory.items[index].content,
-              ref != original else { return }
+              case .image(let ref) = memory.items[index].content else { return }
+        var restored = original
+        if ref.fileName == original.fileName {
+            restored.summary = ref.summary
+        }
+        guard ref != restored else { return }
         beginChange()
-        memory.items[index].content = .image(original)
+        memory.items[index].content = .image(restored)
     }
 
 }
