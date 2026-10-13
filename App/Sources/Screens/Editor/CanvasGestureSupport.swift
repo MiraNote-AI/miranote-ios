@@ -34,6 +34,15 @@ struct ElementGeometry {
 struct ActiveMove {
     let itemID: CanvasItem.ID
     let translation: CGSize
+    /// The finger, in global coordinates -- below the visible canvas it is
+    /// over the delete zone.
+    let location: CGPoint
+}
+
+/// Drag-to-delete (handoff screen 22): an element being moved shows the
+/// delete zone over the bottom dock; releasing outside the canvas deletes.
+enum DropToDelete: Equatable {
+    case dragging, armed
 }
 
 struct ActiveResize {
