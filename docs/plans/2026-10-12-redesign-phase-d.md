@@ -65,3 +65,15 @@ non-interactive person glyph on dev is left alone.
    Fixed: @GestureState drives the compare; the summary follows the
    pixels (+test). VoiceOver toggles the compare. Not covered by tests:
    "Before" appearing mid-hold (XCUITest cannot observe during a press).
+8. D3 written: chat Home pill, M-mark warm-white bubbles, ink user
+   bubbles, Send pill; canvas Mira card lifted warm-white with the same
+   mark. The handoff's "Quick starts" card is omitted: chat always opens
+   seeded with the user's question, so it would never show. D4 written:
+   applyFontSet (kit, 3 tests) + four sets from TextFace's faces; one-tap
+   layout = the existing "Tidy the layout" turn (now one named constant).
+   Targeted UI 22/22 after rerunning two load flakes in reading/bin tests.
+9. Review: D3 DONE (chat field unlabeled for VoiceOver -> labeled); D4
+   DONE with medium: two sets could read as worn at once, default titles
+   read as Editorial -> one worn set, only once a set face is on the
+   page; disabled tiles dim. One-tap layout while Mira works cannot occur
+   (the panel cannot open mid-turn; the Mira bar is hidden under it).
