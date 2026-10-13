@@ -17,6 +17,25 @@ extension CanvasViewModel {
         updateTextStyle(itemID, recordingUndo: recordingUndo) { $0.backgroundColorName = colorName }
     }
 
+    /// Blocks this large or larger are display type (titles); the app's
+    /// default face draws them in the serif.
+    public static let displayPointSize: CGFloat = 24
+
+    /// A curated font set (handoff screen 05): display type for titles,
+    /// body type for the rest, as one undo step.
+    public func applyFontSet(display: String, body: String) {
+        let styled = memory.items.map { item -> CanvasItem in
+            guard case .text(var block) = item.content else { return item }
+            block.fontName = block.pointSize >= Self.displayPointSize ? display : body
+            var item = item
+            item.content = .text(block)
+            return item
+        }
+        guard styled != memory.items else { return }
+        beginChange()
+        memory.items = styled
+    }
+
     private func updateTextStyle(
         _ itemID: CanvasItem.ID, recordingUndo: Bool = true, _ change: (inout TextBlock) -> Void
     ) {
