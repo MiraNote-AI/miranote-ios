@@ -95,9 +95,18 @@ non-interactive person glyph on dev is left alone.
    tests. Bisected: green on dev, red at the phase C tip -- the
    redesigned dock sits where the helper's "120 pt below the lower photo"
    deselect tap used to be paper, so it opened the Text tool. Helper now
-   taps beside the photo (Pro and Pro Max 5/5), fixed in #94.
+   taps beside the photo (Pro and Pro Max 5/5). The fix sits at the
+   bottom of the stack (#82) so every redesign PR is green on its own.
 11. Re-review of the fixes: APPROVABLE except the drag-while-editing
    guard, which never held (moving an element selects it and ends text
    editing). Probe: dragging another block while typing lowers the
    keyboard and the signed dock returns -- no unsigned keyboard area
    exists, so the dead guard was removed.
+12. Zhaoyan's #78 / #80 merged to dev; the whole stack rebased onto it.
+   Conflicts at #84 (#80's page tap moved from the removed Saved panel
+   into StickerPanelScene, with the Image panel's guard so unpicked
+   stickers survive (+UI test); #80's tests moved to mode.voice /
+   mode.sticker), #95 and #96 (both sides' CanvasBoardView parameters
+   kept; #78's reveal-on-close kept beside the compare binding). #78's
+   auto-close after an AI edit means the compare row covers filters and
+   frames; top-bar Undo covers AI edits.
