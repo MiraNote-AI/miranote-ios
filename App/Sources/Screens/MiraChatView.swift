@@ -51,35 +51,24 @@ struct MiraChatView: View {
         .task { await viewModel.seedIfNeeded(seed) }
     }
 
+    /// Handoff screen 02: the Home pill on the left, the title centered
+    /// over the whole bar.
     private var header: some View {
         HStack {
-            Button(action: onExit) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
-                    .frame(width: 38, height: 38)
-                    .background(Circle().fill(Palette.onInk.opacity(0.6)))
-            }
-            .buttonStyle(.plain)
-
+            Button("Home", action: onExit)
+                .buttonStyle(NavPill(prominent: false))
+                .accessibilityIdentifier("chat.home")
             Spacer()
-            VStack(spacing: 1) {
-                Text("MiraNote AI").font(.miraScreenTitle).foregroundStyle(Palette.ink)
-                Text("journaling companion")
-                    .font(Sans.font(size: 11, weight: 400))
-                    .foregroundStyle(Palette.textSecondary)
-            }
-            Spacer()
-
-            // Mirrors the back button so the title stays centered.
-            Color.clear.frame(width: 38, height: 38)
+        }
+        .overlay {
+            Text("MiraNote AI")
+                .font(.miraScreenTitle)
+                .foregroundStyle(Palette.ink)
+                .allowsHitTesting(false)
         }
         .padding(.horizontal, Metrics.screenPadding)
-        .padding(.top, 4)
+        .padding(.top, 2)
         .padding(.bottom, 12)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Palette.hairline).frame(height: Metrics.hairline)
-        }
     }
 
     private var transcript: some View {
@@ -197,22 +186,32 @@ struct MiraChatView: View {
         }
     }
 
+    /// Handoff screen 02: Mira speaks from a warm-white card beside her "M"
+    /// mark; the user's words sit in ink on the right.
     private func bubble(_ message: ChatMessage) -> some View {
         let isUser = message.role == .user
-        return HStack(spacing: 0) {
-            if isUser { Spacer(minLength: 40) }
+        return HStack(alignment: .top, spacing: 10) {
+            if isUser {
+                Spacer(minLength: 48)
+            } else {
+                MiraMark()
+            }
             // The user's words verbatim; Mira's with her light markdown
             // (cited titles arrive bolded) rendered, not shown as **.
             Text(isUser ? AttributedString(message.text) : ChatMarkdown.attributed(message.text))
                 .font(.miraBody)
                 .foregroundStyle(isUser ? Palette.onInk : Palette.ink)
-                .padding(.horizontal, 15)
-                .padding(.vertical, 11)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
                 .background(
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(isUser ? Palette.ink : Palette.cardFill)
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(isUser ? Palette.ink : Palette.warmWhite)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .strokeBorder(Palette.hairline.opacity(isUser ? 0 : 1), lineWidth: Metrics.hairline)
+                        )
                 )
-            if !isUser { Spacer(minLength: 40) }
+            if !isUser { Spacer(minLength: 24) }
         }
     }
 
@@ -226,30 +225,30 @@ struct MiraChatView: View {
                 .onSubmit { Task { await viewModel.sendDraft() } }
                 .overlay(alignment: .leading) {
                     if viewModel.draft.isEmpty {
-                        Text("Message MiraNote...")
+                        Text("Ask Mira anything...")
                             .font(.miraBody)
                             .foregroundStyle(Palette.textSecondary)
                             .allowsHitTesting(false)
                     }
                 }
 
-            Button {
+            // Handoff screen 02: an ink Send pill, the composer's one action.
+            Button("Send") {
                 Task { await viewModel.sendDraft() }
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(viewModel.canSend ? Palette.ink : Palette.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NavPill(prominent: true))
             .disabled(!viewModel.canSend)
+            .opacity(viewModel.canSend ? 1 : 0.45)
             .accessibilityIdentifier("chat.send")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 11)
+        .padding(.leading, 18)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
         .background(
             Capsule()
-                .fill(Palette.onInk.opacity(0.6))
+                .fill(Palette.warmWhite.opacity(0.8))
                 .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                .shadow(color: Palette.ink.opacity(0.08), radius: 13, y: 12)
         )
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.bottom, 8)
@@ -262,7 +261,8 @@ private struct TypingBubble: View {
     @State private var animating = false
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 10) {
+            MiraMark()
             HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
@@ -272,10 +272,14 @@ private struct TypingBubble: View {
                         .animation(pulse(index), value: animating)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(RoundedRectangle(cornerRadius: 18).fill(Palette.cardFill))
-            Spacer(minLength: 40)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Palette.warmWhite)
+                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+            )
+            Spacer(minLength: 24)
         }
         .accessibilityHidden(true)
         .onAppear { animating = true }
@@ -284,5 +288,17 @@ private struct TypingBubble: View {
     private func pulse(_ index: Int) -> Animation? {
         guard !reduceMotion else { return nil }
         return .easeInOut(duration: 0.6).repeatForever().delay(Double(index) * 0.2)
+    }
+}
+
+/// Mira's mark beside everything she says (handoff screens 02 and 06).
+struct MiraMark: View {
+    var body: some View {
+        Text("M")
+            .font(Sans.font(size: 15, weight: 700))
+            .foregroundStyle(Palette.onInk)
+            .frame(width: 34, height: 34)
+            .background(Circle().fill(Palette.ink))
+            .accessibilityHidden(true)
     }
 }

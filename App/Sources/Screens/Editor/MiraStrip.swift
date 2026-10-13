@@ -177,11 +177,11 @@ struct MiraCard: View {
             } else {
                 Spacer(minLength: 40)
                 Text(turn.text)
-                    .font(.miraCaption)
+                    .font(.miraBody)
                     .foregroundStyle(Palette.onInk)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(Palette.ink))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 11)
+                    .background(RoundedRectangle(cornerRadius: 20).fill(Palette.ink))
             }
         }
     }
@@ -198,11 +198,7 @@ struct MiraCard: View {
     }
 
     private var avatar: some View {
-        Text("M")
-            .font(Sans.font(size: 11, weight: 700))
-            .foregroundStyle(Palette.onInk)
-            .frame(width: 22, height: 22)
-            .background(Circle().fill(Palette.ink))
+        MiraMark()
     }
 
     private func handleSuggestion(_ chip: String) {
@@ -263,19 +259,21 @@ struct MiraCard: View {
         }
     }
 
+    /// Handoff screen 06: a soft warm-white card lifted off the page.
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             content()
         }
-        .padding(12)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Palette.onInk)
+            RoundedRectangle(cornerRadius: 26)
+                .fill(Palette.warmWhite)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 26)
                         .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
                 )
+                .shadow(color: Palette.ink.opacity(0.08), radius: 20, y: 12)
         )
         .padding(.horizontal, Metrics.screenPadding)
     }
