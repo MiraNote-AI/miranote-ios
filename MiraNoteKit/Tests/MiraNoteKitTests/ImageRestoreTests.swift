@@ -32,6 +32,20 @@ final class ImageRestoreTests: XCTestCase {
         XCTAssertEqual(ref(editor, id), edited, "one undo returns the edits")
     }
 
+    func testASummaryThatLandedMidSessionSurvivesRevertOfTheSamePixels() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addImages([ImageRef(displayName: "roses", fileName: "a.jpg")],
+                                  around: CGPoint(x: 150, y: 150))[0]
+        let original = ref(editor, id)!
+        editor.setImageSummary(itemID: id, to: "Red roses by a garden sign.")
+        editor.setImageFilter(itemID: id, to: "bw")
+
+        editor.restoreImage(itemID: id, to: original)
+        XCTAssertEqual(ref(editor, id)?.filterName, "")
+        XCTAssertEqual(ref(editor, id)?.summary, "Red roses by a garden sign.",
+                       "the pixels never changed, so neither does what they show")
+    }
+
     func testRestoringAnUneditedPhotoRecordsNothing() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addImages([ImageRef(displayName: "roses", fileName: "a.jpg")],
