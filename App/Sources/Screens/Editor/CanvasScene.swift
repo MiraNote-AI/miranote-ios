@@ -101,7 +101,7 @@ struct CanvasScene: View {
             )
         } bottom: {
             bottomCluster
-                .overlay(alignment: .bottom) {
+                .overlay {
                     if let dropToDelete {
                         DeleteDropZone(armed: dropToDelete == .armed)
                             .transition(.opacity)
@@ -447,21 +447,19 @@ extension CanvasScene {
     }
 
     func stopRecording() {
-        guard let recorder else { return }
+        guard let recorder, case .recording(let start) = recorderState else { return }
         Task {
             let data = (try? await recorder.stop()) ?? Data()
+            // Discarded while the recorder wound down (or a new take began):
+            // this take must not come back as a review.
+            guard case .recording(let current) = recorderState, current == start else { return }
             self.recorder = nil
             guard !data.isEmpty else {
                 recorderState = .idle
                 return
             }
             let measured = AudioInfo.duration(of: data)
-            let elapsed: TimeInterval
-            if case .recording(let start) = recorderState {
-                elapsed = Date.now.timeIntervalSince(start)
-            } else {
-                elapsed = 0
-            }
+            let elapsed = Date.now.timeIntervalSince(start)
             recorderState = .review(data: data, duration: measured > 0 ? measured : max(1, elapsed))
         }
     }
