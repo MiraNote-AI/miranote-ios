@@ -60,8 +60,21 @@ enum PageExporter {
     static func data(from image: UIImage, format: ExportFormat, pdfLayout: PDFLayout = .longPage) -> Data? {
         switch format {
         case .png: return image.pngData()
-        case .jpg: return image.jpegData(compressionQuality: 0.9)
+        case .jpg: return opaque(image).jpegData(compressionQuality: 0.9)
         case .pdf: return pdf(from: image, layout: pdfLayout)
+        }
+    }
+
+    /// JPG has no alpha: the backdrop's transparent rounded corners would
+    /// encode black. Flatten onto the app's screen color first.
+    private static func opaque(_ image: UIImage) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = image.scale
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: image.size, format: format).image { context in
+            UIColor(Palette.paper).setFill()
+            context.fill(CGRect(origin: .zero, size: image.size))
+            image.draw(at: .zero)
         }
     }
 
