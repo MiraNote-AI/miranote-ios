@@ -41,4 +41,25 @@ final class CollectionStoreTests: XCTestCase {
         XCTAssertEqual(loaded.collections.first?.title, "Old shelf")
         XCTAssertTrue(loaded.trash.isEmpty, "pre-bin files decode with an empty bin")
     }
+
+    // A library this build cannot read (written by a later build, or
+    // damaged) is moved aside, never overwritten by the seed.
+    func testAnUnreadableLibraryIsKeptAsideNotOverwritten() throws {
+        let url = tempURL()
+        let original = Data(#"{"collections": "a shape this build does not know"}"#.utf8)
+        try original.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let loaded = FileCollectionStore(url: url).load()
+        XCTAssertFalse(loaded.collections.isEmpty, "the app still opens, on the seed")
+
+        let folder = url.deletingLastPathComponent()
+        let stem = url.deletingPathExtension().lastPathComponent
+        let kept = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+            .filter { $0.hasPrefix(stem + ".unreadable-") }
+        defer { kept.forEach { try? FileManager.default.removeItem(at: folder.appendingPathComponent($0)) } }
+        XCTAssertEqual(kept.count, 1, "the unreadable file is kept beside the new one")
+        let aside = try XCTUnwrap(kept.first)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(aside)), original)
+    }
 }
