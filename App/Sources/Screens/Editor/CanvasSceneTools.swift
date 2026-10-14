@@ -17,6 +17,14 @@ enum AccessoryRow {
     case tools, fonts, colors, highlight, ai
 }
 
+/// One photo editing session (handoff screens 27-28): the photo, how it
+/// looked when editing began, and whether it has been edited since.
+struct PhotoSession {
+    let itemID: CanvasItem.ID
+    let original: ImageRef
+    var edited = false
+}
+
 enum TextSizeChoice: CaseIterable {
     case small, medium, large
 

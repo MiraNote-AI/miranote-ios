@@ -19,7 +19,9 @@ extension CanvasViewModel {
 
     /// Blocks this large or larger are display type (titles); the app's
     /// default face draws them in the serif.
-    public static let displayPointSize: CGFloat = 24
+    /// Nonisolated: a constant, read from view code outside the main actor
+    /// (TextFace measures text from any context).
+    public nonisolated static let displayPointSize: CGFloat = 24
 
     /// A curated font set (handoff screen 05): display type for titles,
     /// body type for the rest, as one undo step.

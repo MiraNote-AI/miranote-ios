@@ -9,12 +9,19 @@ struct PhotoEditPanel: View {
     let itemID: CanvasItem.ID
     var studio: ImageStudioService
     var onClose: () -> Void
-    /// While the compare control is held: the photo as it was when this
-    /// panel opened, for the canvas to draw instead.
+    /// While the compare control is held: the session's original, for the
+    /// canvas to draw instead.
     @Binding var comparing: ImageRef?
+    /// The photo when this editing session began -- what Revert and Compare
+    /// go back to. The session is the scene's: it outlives the panel (an AI
+    /// edit closes it; a caption edit rebuilds it), so reopening the photo
+    /// can still compare an AI result with the original.
+    let original: ImageRef
+    /// Whether this session has edited the photo: an older edit undone from
+    /// the header is not one to offer back.
+    let edited: Bool
+    var onEdited: () -> Void
 
-    /// The photo when editing began: what Revert and Compare go back to.
-    @State private var original: ImageRef?
     @GestureState private var holdingCompare = false
     @State private var section: Section = .filters
     @State private var cutoutTarget = ""
@@ -60,12 +67,11 @@ struct PhotoEditPanel: View {
                         .foregroundStyle(Palette.textSecondary)
                 }
 
-                if let original, let currentRef, looksEdited(currentRef, from: original) {
+                if edited, let currentRef, looksEdited(currentRef, from: original) {
                     originalRow(original)
                 }
             }
         }
-        .onAppear { original = currentRef }
         .onDisappear { comparing = nil }
         // On the panel, not the row: the row leaves once the photo looks
         // unedited, and its handlers would leave with it.
@@ -104,8 +110,10 @@ struct PhotoEditPanel: View {
                         .updating($holdingCompare) { _, holding, _ in holding = true }
                 )
                 .accessibilityAddTraits(.isButton)
-                // VoiceOver cannot hold: activating toggles the comparison.
+                // VoiceOver cannot hold: activating toggles the comparison,
+                // and the value says which photo is showing.
                 .accessibilityAction { comparing = comparing == nil ? original : nil }
+                .accessibilityValue(comparing == nil ? "Showing your edit" : "Showing the original")
                 .accessibilityIdentifier("photo.compare")
             Button {
                 comparing = nil
@@ -168,6 +176,7 @@ struct PhotoEditPanel: View {
                     let selected = (currentRef?.filterName ?? "") == (filter == .none ? "" : filter.rawValue)
                     Button {
                         editor.setImageFilter(itemID: itemID, to: filter == .none ? "" : filter.rawValue)
+                        onEdited()
                     } label: {
                         Chip(text: filter.label, selected: selected, compact: true)
                     }
@@ -184,6 +193,7 @@ struct PhotoEditPanel: View {
             ForEach(PhotoFrame.allCases) { frame in
                 Button {
                     editor.setImageFrame(itemID: itemID, to: frame == .none ? "" : frame.rawValue)
+                    onEdited()
                 } label: {
                     Chip(
                         text: frame.label,
@@ -317,8 +327,10 @@ extension PhotoEditPanel {
                 let edited = try await studio.stylize(image: data, instruction: instruction)
                 let fileName = try imageStore.save(edited, id: UUID())
                 editor.replaceImageFile(itemID: itemID, fileName: fileName)
+                onEdited()
                 // The new pixels on the page are the receipt; Undo brings
-                // the old ones back.
+                // the old ones back, and reopening the photo offers
+                // Compare and Revert (the session outlives the panel).
                 onClose()
                 // New pixels, new sentence: refresh the vision summary.
                 if let summary = try? await studio.describe(image: edited) {

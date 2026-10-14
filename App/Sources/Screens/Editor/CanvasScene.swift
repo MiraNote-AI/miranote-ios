@@ -32,6 +32,11 @@ struct CanvasScene: View {
     @State private var editingImageItem: CanvasItem.ID?
     /// The edited photo's original, while the panel's compare is held.
     @State private var comparingImage: ImageRef?
+    /// The photo editing session: which photo, how it looked when editing
+    /// began, and whether it has been edited since. It outlives the panel
+    /// (an AI edit closes it, a caption edit rebuilds it) and ends when
+    /// another photo is opened.
+    @State private var photoSession: PhotoSession?
     @State private var editingStickerItem: CanvasItem.ID?
     /// The element an edit panel just closed on, scrolled into view.
     @State private var revealItem: CanvasItem.ID?
@@ -69,6 +74,9 @@ struct CanvasScene: View {
                     cancelRecording()
                     cancelDictationIfNeeded()
                     backgroundPanelOpen = false
+                    if photoSession?.itemID != id, case .image(let ref) = editor.item(id)?.content {
+                        photoSession = PhotoSession(itemID: id, original: ref)
+                    }
                     editingImageItem = id
                 },
                 onEditSticker: { id in
@@ -159,6 +167,10 @@ struct CanvasScene: View {
             }
         }
         .onChange(of: editor.changeCount) {
+            // A user edit while a receipt shows makes Revert dishonest: the
+            // receipt steps aside. Here, not in MiraCard, which a panel or the
+            // recorder can unmount -- the receipt then came back stale.
+            mira.canvasDidChange(editor)
             // The edited photo can be deleted or undone away by canvas
             // interactions above the panel; close the panel when its item
             // is no longer an image.
@@ -186,6 +198,12 @@ struct CanvasScene: View {
                 // not come back over Mira's strip once it ends.
                 backgroundPanelOpen = false
             }
+        }
+        .onChange(of: dropToDelete) { _, phase in
+            // Moving an element lowers any keyboard -- canvas text already
+            // ends editing; the Mira prompt must too, or a drop over the
+            // keyboard would delete with no sign over it.
+            if phase != nil { miraFocus = false }
         }
         .onChange(of: mira.isWorking) { _, working in
             // A running turn owns the strip (Stop, then the receipt).
@@ -244,18 +262,24 @@ struct CanvasScene: View {
                     .padding(.horizontal, Metrics.screenPadding)
                     .transition(.opacity)
             }
-            if let editingImageItem {
+            if let editingImageItem, let session = photoSession, session.itemID == editingImageItem {
                 PhotoEditPanel(
                     editor: editor,
                     itemID: editingImageItem,
                     studio: imageStudio,
                     onClose: {
+                        // A slow AI edit for photo A finishing while B is
+                        // open must not close B's panel.
+                        guard self.editingImageItem == editingImageItem else { return }
                         revealItem = editingImageItem
                         self.editingImageItem = nil
                     },
-                    comparing: $comparingImage
+                    comparing: $comparingImage,
+                    original: session.original,
+                    edited: session.edited,
+                    onEdited: { photoSession?.edited = true }
                 )
-                // A new photo is a new editing session: its own original.
+                // A new photo gets fresh panel state (section, notices).
                 .id(editingImageItem)
                 InputModeBar(active: .image, onSelect: handleTool)
             } else if let editingStickerItem {

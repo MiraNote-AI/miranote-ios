@@ -57,17 +57,18 @@ struct EditorFlowView: View {
                 // Autosave against app death: words survive a backgrounded
                 // app being jettisoned. file() replaces by id, so the later
                 // Done/Home filing never duplicates this one.
-                if scenePhase == .background && !editor.items.isEmpty {
+                if scenePhase == .background && !editor.isBlankPage {
                     onAutosave(editor.composedMemory())
                 }
             }
     }
 
     /// Leaving keeps the words (autosave semantics): Done and Home both
-    /// file a non-empty canvas; only an untouched blank page keeps
-    /// nothing -- no junk "New memory" entries in the journal.
+    /// file a page with anything on it -- a background alone counts; only
+    /// an untouched blank page keeps nothing -- no junk "New memory"
+    /// entries in the journal.
     private func finish() {
-        if editor.items.isEmpty {
+        if editor.isBlankPage {
             onExit()
         } else {
             onComplete(editor.composedMemory())

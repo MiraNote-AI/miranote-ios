@@ -27,8 +27,11 @@ struct TopBar: View {
                     Image(systemName: "arrow.uturn.backward")
                         .font(.system(size: 17, weight: .regular))
                         .foregroundStyle(Palette.ink)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        // 34 tall like the pills, hit-testing at 44: a 44 pt
+                        // frame made the canvas header 10 pt taller than the
+                        // panels', and content jumped on every switch.
+                        .frame(width: 44, height: 34)
+                        .minimumHitTarget()
                 }
                 .buttonStyle(.plain)
                 .disabled(!undoEnabled)

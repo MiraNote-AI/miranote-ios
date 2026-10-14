@@ -53,6 +53,13 @@ public final class CanvasViewModel {
         memory.items.first { $0.id == id }
     }
 
+    /// Nothing the user made or chose: no elements, no painting, no page
+    /// color, plain paper. Only such a page is dropped on leaving.
+    public var isBlankPage: Bool {
+        memory.items.isEmpty && memory.backgroundFileName.isEmpty
+            && memory.pageColorName.isEmpty && memory.paper == .blank
+    }
+
     public var contentBottom: CGFloat {
         memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
     }
@@ -398,7 +405,7 @@ extension CanvasViewModel {
     public func quickOrganize(canvasWidth: CGFloat, spacing: CGFloat = 24) {
         beginChange()
         func sortKey(_ item: CanvasItem) -> (Int, CGFloat) {
-            if case .text(let block) = item.content, block.pointSize >= 24 {
+            if case .text(let block) = item.content, block.pointSize >= Self.displayPointSize {
                 return (0, item.position.y - item.size.height / 2)
             }
             return (1, item.position.y - item.size.height / 2)

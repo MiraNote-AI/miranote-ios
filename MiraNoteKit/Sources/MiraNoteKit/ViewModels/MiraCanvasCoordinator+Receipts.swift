@@ -32,7 +32,7 @@ extension MiraCanvasCoordinator {
 
     private static func noun(for id: CanvasItem.ID, editor: CanvasViewModel) -> String {
         switch editor.item(id)?.content {
-        case .text(let block): return block.pointSize >= 24 ? "the title" : "the text"
+        case .text(let block): return block.pointSize >= CanvasViewModel.displayPointSize ? "the title" : "the text"
         case .image: return "the photo"
         case .sticker: return "the sticker"
         case .sound: return "the sound"

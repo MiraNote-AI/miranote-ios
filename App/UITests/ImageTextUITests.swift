@@ -36,11 +36,10 @@ final class ImageTextUITests: XCTestCase {
         samples.tap()
         let second = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 1)
+        // Placed photos arrive unselected (addImages never selects), so no
+        // deselect tap: on some phones every candidate point lands off the
+        // canvas, on the dock.
         XCTAssertTrue(second.waitForExistence(timeout: 5))
-        // Beside the photo, not below it: below can run off the canvas onto
-        // the dock on tall phones (the Text tool took that tap).
-        second.coordinate(withNormalizedOffset: CGVector(dx: 1.0, dy: 0.5))
-            .withOffset(CGVector(dx: 40, dy: 0)).tap()
     }
 
     func testDescribeAskAddsWordsNotARestyle() {
