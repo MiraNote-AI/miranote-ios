@@ -17,6 +17,21 @@ final class TextStyleTests: XCTestCase {
         XCTAssertEqual(block.backgroundColorName, "", "old pages had no text background")
     }
 
+    // A page saved by a later build may carry a value this build does not
+    // know. It must still load -- a throw here fails the whole library.
+    func testAnUnknownAlignmentFallsBackToLeading() throws {
+        let future = #"{"text":"hi","pointSize":17,"colorName":"ink","alignment":"justified"}"#
+        let block = try JSONDecoder().decode(TextBlock.self, from: Data(future.utf8))
+        XCTAssertEqual(block.alignment, .leading)
+    }
+
+    func testAnUnknownPaperFallsBackToBlank() throws {
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Memory())) as! [String: Any]
+        json["paper"] = "watercolor"
+        let memory = try JSONDecoder().decode(Memory.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(memory.paper, .blank)
+    }
+
     func testStyledBlockSurvivesARoundTrip() throws {
         var block = TextBlock(text: "styled", pointSize: 20, colorName: "#E5AC95")
         block.fontName = "Futura"

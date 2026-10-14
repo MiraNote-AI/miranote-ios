@@ -91,9 +91,20 @@ public struct FileCollectionStore: CollectionStore {
         if let legacy = try? JSONDecoder().decode([MemoryCollection].self, from: data) {
             return MemoryLibrary(collections: legacy)
         }
+        // Unreadable (a later build's format, or damage): keep it aside --
+        // the user's journal -- and open on the seed, never over it.
+        keepAside()
         let seeded = MemoryLibrary(collections: MemoryCollection.seed)
         save(seeded)
         return seeded
+    }
+
+    private func keepAside() {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let aside = url.deletingPathExtension()
+            .appendingPathExtension("unreadable-\(stamp)")
+            .appendingPathExtension(url.pathExtension)
+        try? FileManager.default.moveItem(at: url, to: aside)
     }
 
     public func save(_ library: MemoryLibrary) {

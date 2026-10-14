@@ -101,8 +101,11 @@ extension Memory: Codable {
             // Saves written before this field decode to "" -- same
             // pattern backgroundFileName itself arrived with.
             backgroundSummary: try container.decodeIfPresent(String.self, forKey: .backgroundSummary) ?? "",
-            // Saves before phase B2: blank paper on the default backdrop.
-            paper: try container.decodeIfPresent(PaperKind.self, forKey: .paper) ?? .blank,
+            // Saves before phase B2: blank paper on the default backdrop. A
+            // kind a later build added also reads as blank: a throw here
+            // would fail the whole library.
+            paper: (try container.decodeIfPresent(String.self, forKey: .paper))
+                .flatMap(PaperKind.init(rawValue:)) ?? .blank,
             pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? ""
         )
     }
@@ -183,7 +186,10 @@ extension TextBlock: Codable {
             pointSize: try container.decode(CGFloat.self, forKey: .pointSize),
             colorName: try container.decode(String.self, forKey: .colorName),
             fontName: try container.decodeIfPresent(String.self, forKey: .fontName) ?? "",
-            alignment: try container.decodeIfPresent(TextAlign.self, forKey: .alignment) ?? .leading,
+            // An alignment a later build added reads as leading, rather
+            // than failing the whole library.
+            alignment: (try container.decodeIfPresent(String.self, forKey: .alignment))
+                .flatMap(TextAlign.init(rawValue:)) ?? .leading,
             backgroundColorName: try container.decodeIfPresent(String.self, forKey: .backgroundColorName) ?? ""
         )
     }
