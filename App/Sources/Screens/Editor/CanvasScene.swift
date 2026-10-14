@@ -68,12 +68,14 @@ struct CanvasScene: View {
                     guard !mira.isWorking else { return }
                     cancelRecording()
                     cancelDictationIfNeeded()
+                    backgroundPanelOpen = false
                     editingImageItem = id
                 },
                 onEditSticker: { id in
                     guard !mira.isWorking else { return }
                     cancelRecording()
                     cancelDictationIfNeeded()
+                    backgroundPanelOpen = false
                     editingStickerItem = id
                 },
                 onPaperTap: {
@@ -81,6 +83,8 @@ struct CanvasScene: View {
                     // folds it like it folds the text tools. Recording and
                     // review keep their bar: a stray tap must not lose audio.
                     if case .armed = recorderState { recorderState = .idle }
+                    // The Background card is a tool too: the paper folds it.
+                    backgroundPanelOpen = false
                 },
                 onFavorite: { item in
                     switch item.content {
@@ -124,8 +128,10 @@ struct CanvasScene: View {
             }
         }
         .onAppear {
-            // The tools introduction meets the first blank page only.
-            if editor.items.isEmpty, HintCenter.shouldShow(ToolsOnboarding.hintID) {
+            // The tools introduction meets the first blank page only -- and
+            // not when a tool or a placement is already on its way in.
+            if editor.items.isEmpty, pendingTool == nil, pendingPlacement == nil,
+               HintCenter.shouldShow(ToolsOnboarding.hintID) {
                 showsToolsOnboarding = true
             }
             remeasureTextBlocks()
@@ -175,7 +181,15 @@ struct CanvasScene: View {
             if editing == nil {
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
+            } else {
+                // Writing takes the bottom cluster; the Background card must
+                // not come back over Mira's strip once it ends.
+                backgroundPanelOpen = false
             }
+        }
+        .onChange(of: mira.isWorking) { _, working in
+            // A running turn owns the strip (Stop, then the receipt).
+            if working { backgroundPanelOpen = false }
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
@@ -257,7 +271,11 @@ struct CanvasScene: View {
             } else if backgroundPanelOpen {
                 BackgroundPanel(
                     editor: editor,
-                    onAsk: { mira.ask($0, editor: editor) },
+                    // Never cancel a running turn by starting another.
+                    onAsk: { words in
+                        guard !mira.isWorking else { return }
+                        mira.ask(words, editor: editor)
+                    },
                     onClose: { backgroundPanelOpen = false }
                 )
                 InputModeBar(active: .background, onSelect: handleTool)
@@ -318,8 +336,13 @@ struct CanvasScene: View {
         switch mode {
         case .background:
             // Same guards as the recorder: the panel would unmount a live
-            // Mira turn's Stop, and the mic must not keep running under it.
+            // Mira turn's Stop, and a take being recorded or reviewed is not
+            // thrown away by the tool beside Voice (an armed one folds).
             guard !mira.isWorking else { return }
+            switch recorderState {
+            case .recording, .review: return
+            case .idle, .armed: break
+            }
             cancelRecording()
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
@@ -348,7 +371,8 @@ struct CanvasScene: View {
     private func finishToolsOnboarding(openBackground: Bool) {
         HintCenter.graduate(ToolsOnboarding.hintID)
         withAnimation(.easeOut(duration: 0.2)) { showsToolsOnboarding = false }
-        if openBackground { handleTool(.background) }
+        // Open, never toggle shut: the tool's tap toggles.
+        if openBackground, !backgroundPanelOpen { handleTool(.background) }
     }
 
     /// Text tool: a new block appears on the canvas and the keyboard rises --

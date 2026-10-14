@@ -105,6 +105,16 @@ final class PageEditApplyTests: XCTestCase {
         XCTAssertFalse(model.canUndo)
     }
 
+    // A change whose every field was dropped (or already matches) is not a
+    // change: no undo step, and false so no "Adjusted" receipt is shown.
+    func testAChangeThatAltersNothingRecordsNothing() {
+        let item = textItem()
+        let model = editor([item])
+        XCTAssertFalse(model.applyPageEdits([ResolvedChange(id: item.id)]))
+        XCTAssertFalse(model.applyPageEdits([ResolvedChange(id: item.id, colorName: "ink")]), "already ink")
+        XCTAssertFalse(model.canUndo)
+    }
+
     func testChangesNamingMissingItemsTouchNothing() {
         let model = editor([textItem()])
         XCTAssertFalse(model.applyPageEdits([ResolvedChange(id: UUID(), x: 10)]))

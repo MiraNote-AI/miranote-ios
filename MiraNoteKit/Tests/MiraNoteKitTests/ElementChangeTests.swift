@@ -47,6 +47,14 @@ final class ElementChangeTests: XCTestCase {
         XCTAssertEqual(resolve([change(color: "forest")])[0].colorName, "forest")
     }
 
+    // The text swatches store "#RRGGBB" (redesign B1): Mira must be able to
+    // reproduce a color the user picked, normalized to the stored form.
+    func testAHexColorSurvivesNormalized() {
+        XCTAssertEqual(resolve([change(color: "#24382d")])[0].colorName, "#24382D")
+        XCTAssertNil(resolve([change(color: "#24382")])[0].colorName, "not a full hex")
+        XCTAssertNil(resolve([change(color: "#GGGGGG")])[0].colorName)
+    }
+
     // MARK: Clamping
 
     func testAnXInsideTheRealCanvasIsLeftAlone() {
