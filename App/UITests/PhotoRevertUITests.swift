@@ -83,6 +83,51 @@ final class PhotoRevertUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 3), .completed, "the photo is its original again")
     }
 
+    // A change made while the panel was closed -- here Mira's black and
+    // white from the bar -- is not the reopened panel's to revert: Revert
+    // takes back the frame and keeps Mira's edit (#102).
+    func testRevertKeepsAMiraEditMadeWhileThePanelWasClosed() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let samples = app.buttons["image.library.samples"]
+        XCTAssertTrue(samples.waitForExistence(timeout: 5))
+        samples.tap()
+
+        let photo = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        openEditor(photo)
+        XCTAssertTrue(app.buttons["photo.done"].waitForExistence(timeout: 5))
+        app.buttons["photo.done"].tap()
+
+        photo.tap()
+        let input = app.textFields["mira.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("make the photo black and white")
+        app.buttons["mira.go"].tap()
+        XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 5))
+
+        openEditor(photo)
+        let blackAndWhite = app.buttons["photo.filter.bw"]
+        XCTAssertTrue(blackAndWhite.waitForExistence(timeout: 5))
+        XCTAssertTrue(blackAndWhite.isSelected, "Mira's edit shows in the panel")
+        XCTAssertFalse(app.buttons["photo.revert"].exists, "and is not this panel's to revert")
+
+        app.buttons["photo.section.frame"].tap()
+        let polaroid = app.buttons["photo.frame.polaroid"]
+        XCTAssertTrue(polaroid.waitForExistence(timeout: 5))
+        polaroid.tap()
+        let revert = app.buttons["photo.revert"]
+        XCTAssertTrue(revert.waitForExistence(timeout: 3))
+        revert.tap()
+
+        app.buttons["photo.section.filters"].tap()
+        XCTAssertTrue(blackAndWhite.waitForExistence(timeout: 5))
+        XCTAssertTrue(blackAndWhite.isSelected, "Revert kept Mira's black and white")
+    }
+
     private func openEditor(_ photo: XCUIElement) {
         photo.press(forDuration: 0.9)
         XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))

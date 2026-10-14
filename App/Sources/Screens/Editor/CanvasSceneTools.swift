@@ -23,6 +23,24 @@ struct PhotoSession {
     let itemID: CanvasItem.ID
     let original: ImageRef
     var edited = false
+    /// The photo as the session last saw it. A change made while the panel
+    /// was closed (a Mira edit from the bar, a header Undo) is not the
+    /// session's to compare or revert, so reopening then starts anew (#102).
+    var lastSeen: ImageRef
+
+    init(itemID: CanvasItem.ID, original: ImageRef) {
+        self.itemID = itemID
+        self.original = original
+        self.lastSeen = original
+    }
+
+    /// Whether opening `id`, which now looks like `ref`, picks this session
+    /// up again: the same photo, unchanged since the session last saw it.
+    /// A caption or a description is not an edit.
+    func continues(_ id: CanvasItem.ID, showing ref: ImageRef) -> Bool {
+        id == itemID && ref.fileName == lastSeen.fileName
+            && ref.filterName == lastSeen.filterName && ref.frameName == lastSeen.frameName
+    }
 }
 
 enum TextSizeChoice: CaseIterable {
