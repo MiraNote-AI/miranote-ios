@@ -1,10 +1,12 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The Sticker panel, the bar's fifth tool (2026-10-07 handoff): make a
-/// sticker with AI, or reuse a saved favorite. A made sticker is placed the
-/// same way as a generated picture -- the canvas asks where it goes. Saved
-/// favorites are global across memories: tap places one, long-press removes it.
+/// The Sticker panel, the bar's fifth tool (2026-10-07 handoff, screen 30):
+/// two tabs -- Make (first, and clean: only what you are creating) and
+/// Favorites -- as the Oct 3 meeting decided, with the generate prompt in
+/// the fixed bottom composer. A made sticker is placed the same way as a
+/// generated picture -- the canvas asks where it goes. Saved favorites are
+/// global across memories: tap places one, long-press removes it.
 struct StickerPanelScene: View {
     @Bindable var editor: CanvasViewModel
     var studio: ImageStudioService = MockImageStudioService()
@@ -12,6 +14,9 @@ struct StickerPanelScene: View {
     /// Set when a made sticker is waiting for the canvas tap that places it.
     @Binding var pendingPlacement: PendingPlacement?
 
+    private enum Tab: String { case make, favorites }
+
+    @State private var tab: Tab = .make
     @State private var favorites: [GeneratedSticker] = []
     @State private var prompt = ""
     @State private var results: [GeneratedResult] = []
@@ -47,6 +52,7 @@ struct StickerPanelScene: View {
         } bottom: {
             panel
             InputModeBar(active: .sticker, onSelect: actions.selectMode)
+            composer
         }
         .onAppear {
             // Entries whose image file is gone or degenerate would render as
@@ -61,23 +67,13 @@ struct StickerPanelScene: View {
     }
 
     private var panel: some View {
-        ContextCard(title: "Sticker", subtitle: "Make one with Mira, or reuse a favorite.") {
+        ContextCard(title: "Sticker") {
             VStack(alignment: .leading, spacing: 12) {
-                createRow
+                tabRow
 
-                if !results.isEmpty {
-                    HStack(spacing: 10) {
-                        ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
-                            Button {
-                                place(result)
-                            } label: {
-                                thumb(data: result.data)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("sticker.result.\(index)")
-                        }
-                        Spacer()
-                    }
+                switch tab {
+                case .make: makeTab
+                case .favorites: favoritesTab
                 }
 
                 if let notice {
@@ -85,36 +81,94 @@ struct StickerPanelScene: View {
                         .font(.miraCaption)
                         .foregroundStyle(Palette.textSecondary)
                 }
-
-                favoritesSection
             }
         }
     }
 
+    /// The handoff's round tab chips: sparkles for making, a star for
+    /// favorites (sticker sets from the designer join this row later).
+    private var tabRow: some View {
+        HStack(spacing: 10) {
+            tabChip(.make, symbol: "sparkles", label: "Make a sticker")
+            tabChip(.favorites, symbol: "star.fill", label: "Favorites")
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func tabChip(_ value: Tab, symbol: String, label: String) -> some View {
+        let active = tab == value
+        return Button {
+            tab = value
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Palette.ink)
+                .frame(width: 46, height: 44)
+                .background(
+                    Capsule()
+                        .fill(Palette.warmWhite)
+                        .overlay(Capsule().strokeBorder(active ? Palette.ink : Palette.hairline,
+                                                        lineWidth: active ? 1.5 : 1))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(active ? .isSelected : [])
+        .accessibilityIdentifier("sticker.tab.\(value.rawValue)")
+    }
+
     // MARK: Make
 
-    private var createRow: some View {
+    /// Clean on purpose (Oct 3): nothing here but what is being made.
+    @ViewBuilder private var makeTab: some View {
+        if results.isEmpty {
+            Text(generating
+                 ? "Mira is making your sticker..."
+                 : "Describe a sticker below -- Mira makes a couple to pick from.")
+                .font(.miraCaption)
+                .foregroundStyle(Palette.textSecondary)
+        } else {
+            HStack(spacing: 10) {
+                ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                    Button {
+                        place(result)
+                    } label: {
+                        thumb(data: result.data)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("sticker.result.\(index)")
+                }
+                Spacer()
+            }
+        }
+    }
+
+    /// The fixed bottom composer (handoff screen 30): the one place to ask
+    /// Mira, as on every page.
+    private var composer: some View {
         HStack(spacing: 8) {
-            TextField("Describe a sticker", text: $prompt)
+            TextField("Ask Mira to generate a sticker", text: $prompt)
                 .font(.miraBody)
                 .foregroundStyle(Palette.ink)
                 .tint(Palette.forest)
                 .submitLabel(.go)
                 .onSubmit(generate)
                 .accessibilityIdentifier("sticker.prompt")
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Palette.paper)
-                        .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-                )
 
             Button(generating ? "Working..." : "Generate", action: generate)
                 .buttonStyle(PrimaryPill(horizontalPadding: 16, verticalPadding: 9))
-                .disabled(generating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!canGenerate)
                 .accessibilityIdentifier("sticker.generate.run")
         }
+        .padding(.leading, 17)
+        .padding(.trailing, 10)
+        .frame(minHeight: 54)
+        .background(GlassCapsule())
+        .padding(.horizontal, Metrics.screenPadding)
+    }
+
+    private var canGenerate: Bool {
+        !generating && !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func generate() {
@@ -123,6 +177,8 @@ struct StickerPanelScene: View {
         generating = true
         notice = nil
         results = []
+        // What is being made shows on the Make tab.
+        tab = .make
         Task {
             defer { generating = false }
             do {
@@ -160,16 +216,21 @@ struct StickerPanelScene: View {
 
     // MARK: Favorites
 
-    @ViewBuilder private var favoritesSection: some View {
-        Label("Favorites", systemImage: "heart")
-            .font(.miraLabel)
-            .foregroundStyle(Palette.ink)
+    /// While a sticker is being made or waits to be picked, placing a
+    /// favorite would leave the panel and drop it.
+    private var makingInProgress: Bool { generating || !results.isEmpty }
 
+    @ViewBuilder private var favoritesTab: some View {
         if favorites.isEmpty {
             Text("Long-press any image or sticker on the canvas and choose Favorite to keep it here.")
                 .font(.miraCaption)
                 .foregroundStyle(Palette.textSecondary)
         } else {
+            Text(makingInProgress
+                 ? "Pick your new sticker on Make first."
+                 : "Tap to place. Long-press to remove.")
+                .font(.miraCaption)
+                .foregroundStyle(Palette.textSecondary)
             ScrollView(showsIndicators: false) {
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(favorites) { favorite in
@@ -179,6 +240,8 @@ struct StickerPanelScene: View {
                             favoriteThumb(favorite)
                         }
                         .buttonStyle(.plain)
+                        .disabled(makingInProgress)
+                        .opacity(makingInProgress ? 0.45 : 1)
                         .accessibilityIdentifier("library.item.\(favorite.id.uuidString)")
                         .contextMenu {
                             Button(role: .destructive) {

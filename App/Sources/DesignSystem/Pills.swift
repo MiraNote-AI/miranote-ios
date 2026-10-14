@@ -5,6 +5,8 @@ import SwiftUI
 struct PrimaryPill: ButtonStyle {
     var horizontalPadding: CGFloat = 22
     var verticalPadding: CGFloat = 11
+    /// A disabled pill must look it (Generate with an empty prompt).
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -13,7 +15,7 @@ struct PrimaryPill: ButtonStyle {
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
             .background(Palette.ink, in: Capsule())
-            .opacity(configuration.isPressed ? 0.82 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
             .minimumHitTarget()
     }
 }
