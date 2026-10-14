@@ -54,6 +54,32 @@ final class TextStyleTests: XCTestCase {
         return block
     }
 
+    // Text tool -> background -> align -> Done without typing: the husk is
+    // discarded and so are its style steps -- Undo must not bring back an
+    // empty colored box.
+    func testStylingAnAbandonedBlockLeavesNoUndoBehind() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.setTextBackground(itemID: id, to: "#24382D")
+        editor.setTextAlignment(itemID: id, to: .center)
+
+        editor.discardAbandonedText(itemID: id)
+        XCTAssertTrue(editor.items.isEmpty)
+        XCTAssertFalse(editor.canUndo, "nothing the user kept to undo")
+    }
+
+    // A block that had words keeps its history: emptying it and leaving is
+    // still undoable back to the words.
+    func testEmptyingAWrittenBlockStaysUndoable() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("kept words", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.setText(itemID: id, to: "")
+        editor.discardAbandonedText(itemID: id)
+        editor.undo()
+        XCTAssertEqual(block(editor, id)?.text, "kept words")
+    }
+
     func testFontChangeIsOneUndo() {
         let (editor, id) = editorWithText()
         editor.setTextFont(itemID: id, to: "Futura")
@@ -80,11 +106,12 @@ final class TextStyleTests: XCTestCase {
 
     func testSettingTheSameStyleBurnsNoUndo() {
         let (editor, id) = editorWithText()
-        let undoableBefore = editor.canUndo
+        // changeCount, not canUndo: addText already made the page undoable.
+        let countBefore = editor.changeCount
         editor.setTextFont(itemID: id, to: "")
         editor.setTextAlignment(itemID: id, to: .leading)
         editor.setTextBackground(itemID: id, to: "")
-        XCTAssertEqual(editor.canUndo, undoableBefore, "no-change calls record no snapshot")
+        XCTAssertEqual(editor.changeCount, countBefore, "no-change calls record no snapshot")
     }
 
     func testAPickerDragIsOneUndo() {

@@ -325,13 +325,19 @@ extension CanvasViewModel {
     }
 
     /// Removes an abandoned husk (e.g. an empty text block) without
-    /// recording an undo step, then drops any trailing history snapshots
-    /// identical to the result so undo never "restores" the husk state.
+    /// recording an undo step, then drops the trailing history snapshots
+    /// that only ever held the husk -- style taps on the empty block -- and
+    /// those identical to the result, so undo never "restores" a husk. A
+    /// snapshot where the block still had words is kept: emptying a
+    /// written block stays undoable.
     public func discardAbandonedText(itemID: CanvasItem.ID) {
         guard let index = index(of: itemID) else { return }
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
+        while let last = history.last, last.items.contains(where: { $0.id == itemID && $0.isEmptyText }) {
+            history.removeLast()
+        }
         while let last = history.last, last == currentSnapshot {
             history.removeLast()
         }
@@ -425,4 +431,14 @@ extension CanvasViewModel {
     // Internal so +PageEdits can restack without the snapshotting helpers.
     var topZ: Int { memory.items.map(\.zIndex).max() ?? 0 }
     var bottomZ: Int { memory.items.map(\.zIndex).min() ?? 0 }
+}
+
+private extension CanvasItem {
+    /// A text block with no words yet -- a husk if abandoned.
+    var isEmptyText: Bool {
+        if case .text(let block) = content {
+            return block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return false
+    }
 }
