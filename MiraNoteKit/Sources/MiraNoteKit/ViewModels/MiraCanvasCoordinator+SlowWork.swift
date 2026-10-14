@@ -13,10 +13,9 @@ extension MiraCanvasCoordinator {
     func startBackgroundTurn(_ request: BackgroundRequest, editor: CanvasViewModel) {
         switch request {
         case .clear:
-            // The same call the existing .backgroundCleared branch makes.
-            editor.beginChange()
-            editor.setBackground(fileName: "")
-            showReceipt(MiraReceipt(
+            // The same settle as the keyword route: page color too, one
+            // step, and an honest no-op on a default page.
+            settleBackgroundCleared(MiraReceipt(
                 changed: "Cleared the backdrop.",
                 kept: "Your words and photos are unchanged."
             ), editor: editor)
