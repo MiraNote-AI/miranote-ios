@@ -85,7 +85,10 @@ struct BackgroundPanel: View {
                 .accessibilityAddTraits(onDefault ? .isSelected : [])
 
                 ForEach(Self.pageSwatches, id: \.hex) { swatch in
+                    // Not while a painting covers the page: the swatch is
+                    // not what the reader sees.
                     let chosen = editor.memory.pageColorName == swatch.hex
+                        && editor.memory.backgroundFileName.isEmpty
                     Button {
                         editor.setPageColor(swatch.hex)
                         pickerUndo.reset()
@@ -110,6 +113,9 @@ struct BackgroundPanel: View {
                                           ? "#F3EFE3" : editor.memory.pageColorName)
                         },
                         set: { color in
+                            // An unchanged value must not spend the drag's
+                            // one undo step before the drag really starts.
+                            guard color.hexName != editor.memory.pageColorName else { return }
                             let record = pickerUndo.shouldRecord(item: Self.pageKey, field: "page")
                             editor.setPageColor(color.hexName, recordingUndo: record)
                         }

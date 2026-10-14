@@ -207,7 +207,9 @@ extension CanvasScene {
                     selection: Binding(
                         get: { Palette.color(named: current.isEmpty ? "ink" : current) },
                         set: { color in
-                            guard let id = editor.editingTextItemID else { return }
+                            // An unchanged value must not spend the drag's
+                            // one undo step before the drag really starts.
+                            guard let id = editor.editingTextItemID, color.hexName != current else { return }
                             let record = pickerUndo.shouldRecord(item: id, field: idPrefix)
                             apply(id, color.hexName, record)
                         }
