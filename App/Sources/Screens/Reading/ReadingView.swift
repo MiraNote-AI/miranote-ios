@@ -42,8 +42,10 @@ struct ReadingView: View {
             .background(Palette.paper.opacity(0.94))
         }
         .sheet(isPresented: $showsExport) {
+            // Large too: with Advanced open the sheet outgrows the medium
+            // detent on small phones.
             ExportSheet(memory: memory)
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
         }
         .onDisappear { player.stop() }
     }
@@ -93,6 +95,8 @@ struct ExportSheet: View {
     /// a PDF is too costly to remake on every view update.
     @State private var exportData: Data?
     @State private var shareURL: URL?
+    /// Bumps per option change; a slower earlier encode must not land last.
+    @State private var exportGeneration = 0
 
     private var fileName: String { PageExporter.fileName(title: memory.title, format: format) }
 
@@ -187,6 +191,8 @@ struct ExportSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Palette.paper)
         .task { render() }
+        // The share file is only needed while the sheet is up.
+        .onDisappear { try? FileManager.default.removeItem(at: folderURL) }
         .onChange(of: quality) { render() }
         .onChange(of: format) { refreshExport() }
         .onChange(of: pdfLayout) { refreshExport() }
@@ -293,19 +299,35 @@ struct ExportSheet: View {
         refreshExport()
     }
 
+    /// A folder per sheet, so two pages with one title never share a file.
+    private var folderURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent(exportFolder, isDirectory: true)
+    }
+
     /// Re-encodes the render for the chosen format and writes it to a temp
     /// file named after the page, which is what Share hands to receivers.
+    /// Off the main actor: a long page at High is tens of megabytes, and the
+    /// tapped chip should highlight at once. The destinations stay disabled
+    /// until the bytes are ready.
     private func refreshExport() {
-        exportData = rendered.flatMap { PageExporter.data(from: $0, format: format, pdfLayout: pdfLayout) }
-        guard let exportData else {
-            shareURL = nil
-            return
+        exportGeneration += 1
+        let generation = exportGeneration
+        exportData = nil
+        shareURL = nil
+        guard let rendered else { return }
+        let format = format, layout = pdfLayout
+        let url = folderURL.appendingPathComponent(fileName)
+        Task {
+            let encoded = await Task.detached(priority: .userInitiated) { () -> (Data, URL?)? in
+                guard let data = PageExporter.data(from: rendered, format: format, pdfLayout: layout) else { return nil }
+                try? FileManager.default.createDirectory(
+                    at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                return (data, (try? data.write(to: url, options: .atomic)) == nil ? nil : url)
+            }.value
+            guard generation == exportGeneration else { return }
+            exportData = encoded?.0
+            shareURL = encoded?.1
         }
-        // A folder per sheet, so two pages with one title never share a file.
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(exportFolder, isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let url = folder.appendingPathComponent(fileName)
-        shareURL = (try? exportData.write(to: url, options: .atomic)) == nil ? nil : url
     }
 
     /// Hands Photos the encoded bytes as they are, so a PNG export stays a
@@ -326,8 +348,10 @@ struct ExportSheet: View {
     /// Printing always goes out as A4 pages, whatever the export format: a
     /// printer cannot take one 4,000 pt sheet.
     private func printPage() {
+        // Reuse the A4 PDF when that is what the sheet already built.
+        let built = format == .pdf && pdfLayout == .a4Pages ? exportData : nil
         guard let rendered,
-              let pages = PageExporter.data(from: rendered, format: .pdf, pdfLayout: .a4Pages) else { return }
+              let pages = built ?? PageExporter.data(from: rendered, format: .pdf, pdfLayout: .a4Pages) else { return }
         let info = UIPrintInfo(dictionary: nil)
         info.jobName = memory.title.isEmpty ? "MiraNote page" : memory.title
         info.outputType = .general

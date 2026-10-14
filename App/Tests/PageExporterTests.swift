@@ -34,6 +34,35 @@ final class PageExporterTests: XCTestCase {
         XCTAssertEqual(prefix(data, 3), [0xFF, 0xD8, 0xFF])
     }
 
+    // The page's backdrop has rounded corners, so the render is transparent
+    // there; JPG has no alpha and must not turn those corners black.
+    func testJPGCornersAreTheScreenNotBlack() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let rounded = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100), format: format).image { _ in
+            UIColor.orange.setFill()
+            UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: 100, height: 100), cornerRadius: 24).fill()
+        }
+        let data = try XCTUnwrap(PageExporter.data(from: rounded, format: .jpg))
+        let corner = try XCTUnwrap(pixel(at: CGPoint(x: 0, y: 0), in: data))
+        XCTAssertGreaterThan(corner.red + corner.green + corner.blue, 600, "the corner is light, like the app's screen")
+    }
+
+    /// The RGB of one pixel of an encoded image.
+    private func pixel(at point: CGPoint, in data: Data) -> (red: Int, green: Int, blue: Int)? {
+        guard let cgImage = UIImage(data: data)?.cgImage else { return nil }
+        var bytes = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(
+            data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.draw(cgImage, in: CGRect(x: -point.x, y: -(CGFloat(cgImage.height) - 1 - point.y),
+                                         width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+        return (Int(bytes[0]), Int(bytes[1]), Int(bytes[2]))
+    }
+
     func testLongPDFIsOnePageTheSizeOfThePage() throws {
         let data = try XCTUnwrap(PageExporter.data(from: page, format: .pdf, pdfLayout: .longPage))
         XCTAssertEqual(prefix(data, 4), Array("%PDF".utf8))
