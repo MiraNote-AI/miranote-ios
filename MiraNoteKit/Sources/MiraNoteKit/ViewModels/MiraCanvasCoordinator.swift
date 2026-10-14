@@ -386,6 +386,14 @@ public final class MiraCanvasCoordinator {
             changes, handles: handles, canvasWidth: MiraNoteConfig.pageWidth
         )
         guard editor.applyPageEdits(resolved) else {
+            if resolved.contains(where: { editor.item($0.id) != nil }) {
+                // The right piece, but nothing asked for changes it (already
+                // so, or a value the page cannot use): say so, with no Revert
+                // -- an undo would take back an older step (#100).
+                showReceipt(Self.unchangedReceipt(for: resolved, editor: editor),
+                            editor: editor, revertible: false)
+                return
+            }
             // A receipt for a change that never landed would be a lie.
             failClarify("I could not tell which piece you meant -- which one should I move?")
             return

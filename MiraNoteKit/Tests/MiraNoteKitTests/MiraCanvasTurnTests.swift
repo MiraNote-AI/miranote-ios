@@ -3,9 +3,9 @@ import XCTest
 
 @MainActor
 final class MiraCanvasTurnTests: XCTestCase {
-    private func editor(extraBlocks: Int = 0) -> CanvasViewModel {
+    private func editor(extraBlocks: Int = 0, titleColor: String = "ink") -> CanvasViewModel {
         var items = [CanvasItem(
-            content: .text(TextBlock(text: "Noodle shop", pointSize: 30)),
+            content: .text(TextBlock(text: "Noodle shop", pointSize: 30, colorName: titleColor)),
             position: CGPoint(x: 180, y: 300),
             size: CGSize(width: 304, height: 44)
         )]
@@ -104,6 +104,39 @@ final class MiraCanvasTurnTests: XCTestCase {
         XCTAssertEqual(failure.kind, .clarify)
         XCTAssertEqual(board.items[0].position, before)
         XCTAssertFalse(board.canUndo, "a change that never landed leaves no undo step")
+    }
+
+    // The right piece, but nothing asked for changes it -- already that
+    // color, already there, or a color the page cannot use: say so, with no
+    // Revert, rather than asking which piece was meant (#100).
+    func testAnEditThatChangesNothingSaysSoWithoutRevert() async {
+        let asks = [
+            ElementChange(handle: "t1", color: "forest"),
+            ElementChange(handle: "t1", x: 28, y: 278),
+            ElementChange(handle: "t1", color: "orange")
+        ]
+        for change in asks {
+            var chat = ScriptedChat()
+            chat.reply = "Done."
+            chat.pageEdits = [change]
+            let board = editor(titleColor: "forest")
+            let mira = coordinator(chat)
+
+            mira.ask("tweak the title for me", editor: board)
+            await waitUntil {
+                switch mira.phase {
+                case .receipt, .failure: return true
+                default: return false
+                }
+            }
+
+            guard case .receipt(let receipt) = mira.phase else {
+                return XCTFail("expected a receipt for \(change), got \(mira.phase)")
+            }
+            XCTAssertEqual(receipt.changed, "Left the title as it was.")
+            XCTAssertFalse(mira.receiptCanRevert, "nothing to take back")
+            XCTAssertFalse(board.canUndo, "and no undo step")
+        }
     }
 
     func testTidyOnASingleElementPageAsksRatherThanPretending() async {

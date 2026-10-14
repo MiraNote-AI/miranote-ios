@@ -30,6 +30,18 @@ extension MiraCanvasCoordinator {
         return MiraReceipt(changed: "Adjusted \(noun).", kept: kept)
     }
 
+    /// A page edit that named the right piece but changed nothing: said as
+    /// it is, never as a change.
+    static func unchangedReceipt(
+        for changes: [ResolvedChange], editor: CanvasViewModel
+    ) -> MiraReceipt {
+        let live = changes.filter { editor.item($0.id) != nil }
+        let changed = live.count == 1
+            ? "Left \(Self.noun(for: live[0].id, editor: editor)) as it was."
+            : "Left the page as it was."
+        return MiraReceipt(changed: changed, kept: "Everything else stayed put.")
+    }
+
     private static func noun(for id: CanvasItem.ID, editor: CanvasViewModel) -> String {
         switch editor.item(id)?.content {
         case .text(let block): return block.pointSize >= CanvasViewModel.displayPointSize ? "the title" : "the text"
