@@ -23,9 +23,16 @@ public extension CanvasViewModel {
         let live = changes.filter { index(of: $0.id) != nil }
         guard !live.isEmpty else { return false }
 
-        beginChange()
+        let before = memory.items
         for change in live { applyStyle(change) }
         for change in live { applyGeometry(change) }
+        // Every field dropped, or already as asked: no step, no receipt.
+        guard memory.items != before else { return false }
+        // One undo step holding the page as it was before the whole set.
+        let after = memory.items
+        memory.items = before
+        beginChange()
+        memory.items = after
         return true
     }
 }

@@ -72,6 +72,8 @@ struct ToolsOnboarding: View {
         .accessibilityElement(children: .contain)
         // VoiceOver stays on the card, as touches do via the scrim.
         .accessibilityAddTraits(.isModal)
+        // The two-finger scrub closes a modal: here it is Skip.
+        .accessibilityAction(.escape, onSkip)
         .accessibilityIdentifier("onboarding.tools")
     }
 
@@ -81,6 +83,7 @@ struct ToolsOnboarding: View {
                 .renderingMode(.template)
                 .resizable()
                 .frame(width: 20, height: 20)
+                .accessibilityHidden(true)
                 .foregroundStyle(mode == .background ? Palette.onInk : Palette.toolIcon)
                 .frame(width: 40, height: 40)
                 .background(

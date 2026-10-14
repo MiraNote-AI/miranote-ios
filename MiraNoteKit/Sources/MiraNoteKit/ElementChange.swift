@@ -130,12 +130,20 @@ public enum PageEditGuard {
                     min(max(Self.pointSizeRange.lowerBound, CGFloat($0)),
                         Self.pointSizeRange.upperBound)
                 },
-                colorName: change.color.flatMap {
-                    CanvasPalette.names.contains($0) ? $0 : nil
-                },
+                colorName: change.color.flatMap(Self.colorName),
                 layer: change.layer
             )
         }
+    }
+
+    /// A palette name, or a custom "#RRGGBB" in the uppercase form the text
+    /// swatches store -- so Mira can reproduce a color the user picked.
+    static func colorName(_ value: String) -> String? {
+        if CanvasPalette.names.contains(value) { return value }
+        let hex = value.uppercased()
+        guard hex.count == 7, hex.first == "#",
+              hex.dropFirst().allSatisfy(\.isHexDigit) else { return nil }
+        return hex
     }
 }
 
