@@ -11,6 +11,10 @@ BETA_API_TOKEN =
 // every `xcodegen generate` resets their team back to this one.
 DEVELOPMENT_TEAM = FBY8RBCZ9M
 
+// No app icon is committed yet (MiraNote-AI/.github#26). Empty here keeps
+// debug builds icon-free; a TestFlight build sets AppIcon in Secrets.xcconfig.
+MIRANOTE_APP_ICON =
+
 // The real token lives in Config/Secrets.xcconfig, which is gitignored.
 // "#include?" is the optional form: it is skipped without error when the file
 // is absent, which is what keeps a fresh clone working. A plain "#include"
