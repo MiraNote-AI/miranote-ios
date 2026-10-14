@@ -28,6 +28,9 @@ struct SoftPill: ButtonStyle {
             .foregroundStyle(selected ? Palette.onInk : Palette.ink)
             .padding(.horizontal, 15)
             .padding(.vertical, 8)
+            // Josefin's line box is 1.0 em, so the label alone left the pill
+            // ~29 pt; the design's 34 pt floor lets the +5 reach 44.
+            .frame(minHeight: 34)
             .background(selected ? Palette.ink : Palette.paper, in: Capsule())
             .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: selected ? 0 : Metrics.hairline))
             .opacity(configuration.isPressed ? 0.7 : 1)

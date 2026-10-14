@@ -80,6 +80,25 @@ final class TextStyleTests: XCTestCase {
         XCTAssertEqual(block(editor, id)?.text, "kept words")
     }
 
+    // A page whose only content is its background is not blank: Done,
+    // Home and backgrounding must keep it (a painting may have been paid
+    // for).
+    func testABackgroundAloneMakesAPageWorthKeeping() {
+        XCTAssertTrue(CanvasViewModel(memory: Memory()).isBlankPage)
+
+        let painted = CanvasViewModel(memory: Memory())
+        painted.setBackground(fileName: "dusk.png")
+        XCTAssertFalse(painted.isBlankPage)
+
+        let colored = CanvasViewModel(memory: Memory())
+        colored.setPageColor("#E5D9F0")
+        XCTAssertFalse(colored.isBlankPage)
+
+        let ruled = CanvasViewModel(memory: Memory())
+        ruled.setPaper(.grid)
+        XCTAssertFalse(ruled.isBlankPage)
+    }
+
     func testFontChangeIsOneUndo() {
         let (editor, id) = editorWithText()
         editor.setTextFont(itemID: id, to: "Futura")

@@ -38,6 +38,10 @@ public final class ChatViewModel {
     }
 
     public func sendDraft() async {
+        // Return reaches here even while the Send pill is disabled: a second
+        // message mid-answer would go out without the session and start a
+        // new one. The draft stays for when Mira has answered.
+        guard canSend else { return }
         let text = draft
         draft = ""
         await send(text)

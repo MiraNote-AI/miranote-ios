@@ -308,7 +308,8 @@ public final class MiraCanvasCoordinator {
             // than a failure card. Everything else honestly fails.
             if case .canvasTurn(let words, _, _) = intent,
                MiraIntent.isLayoutAsk(words), editor.items.count >= 2 {
-                editor.beginChange()
+                // quickOrganize records its own step: the receipt's Revert
+                // is exactly this one.
                 editor.quickOrganize(canvasWidth: MiraNoteConfig.pageWidth)
                 showReceipt(MiraReceipt(
                     changed: "Tidied the layout.",

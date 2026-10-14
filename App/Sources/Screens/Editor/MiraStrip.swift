@@ -11,13 +11,11 @@ struct MiraCard: View {
     var onRephrase: () -> Void
     var onRetry: () -> Void
 
+    // A user edit while a receipt shows makes Revert dishonest; CanvasScene
+    // tells the coordinator (it is always mounted -- this card is not
+    // while a panel or the recorder holds the dock).
     var body: some View {
         content
-            // A user edit while the receipt shows makes Revert dishonest --
-            // the receipt keeps itself out of the way.
-            .onChange(of: editor.changeCount) {
-                coordinator.canvasDidChange(editor)
-            }
     }
 
     @ViewBuilder private var content: some View {
@@ -331,6 +329,10 @@ struct MiraBar: View {
         .padding(.trailing, 10)
         .frame(minHeight: 54)
         .background(GlassCapsule())
+        // The field is one line inside a 54 pt capsule: a tap anywhere on
+        // the capsule focuses it (Go still takes its own taps).
+        .contentShape(Capsule())
+        .onTapGesture { promptFocus.wrappedValue = true }
         .padding(.horizontal, Metrics.screenPadding)
     }
 
@@ -354,7 +356,9 @@ struct MiraBar: View {
                 .accessibilityIdentifier("mira.stop")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 9)
+        // The composer's 54 pt: a shorter working bar moved the tool bar
+        // and canvas on every turn longer than 400 ms.
+        .frame(minHeight: 54)
         .background(Capsule().fill(Palette.ink))
         .padding(.horizontal, Metrics.screenPadding)
     }

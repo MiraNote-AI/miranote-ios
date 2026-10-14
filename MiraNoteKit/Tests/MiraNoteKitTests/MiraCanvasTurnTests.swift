@@ -359,6 +359,7 @@ final class MiraCanvasTurnTests: XCTestCase {
         chat.error = BackendError.unreachable
         let board = editor(extraBlocks: 2)
         let before = board.items.map(\.position)
+        let countBefore = board.changeCount
         let mira = coordinator(chat)
 
         mira.ask("tidy this page up", editor: board)
@@ -369,6 +370,7 @@ final class MiraCanvasTurnTests: XCTestCase {
         }
         XCTAssertEqual(receipt.changed, "Tidied the layout.")
         XCTAssertNotEqual(board.items.map(\.position), before)
+        XCTAssertEqual(board.changeCount - countBefore, 1, "one action, one undo step")
         board.undo()
         XCTAssertEqual(board.items.map(\.position), before)
     }

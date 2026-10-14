@@ -305,16 +305,36 @@ final class ChatNoteTests: XCTestCase {
         let sent = await chat.recorder.all
         XCTAssertEqual(sent, [[ChatNote(title: "hit for noodles", body: "", date: "")]])
     }
+
+    // Return goes through sendDraft, which the disabled Send pill does not
+    // guard: a second message while the first answer is pending would go
+    // out without the session and start a new one.
+    func testReturnWhileAnAnswerIsPendingSendsNothing() async {
+        let chat = CapturingChat(delay: .milliseconds(300))
+        let viewModel = ChatViewModel(service: chat) { _ in [] }
+
+        let first = Task { await viewModel.send("hello") }
+        try? await Task.sleep(for: .milliseconds(50))
+        viewModel.draft = "and another thing"
+        await viewModel.sendDraft()
+        await first.value
+
+        let sent = await chat.recorder.all
+        XCTAssertEqual(sent.count, 1, "only the first message went out")
+        XCTAssertEqual(viewModel.draft, "and another thing", "kept for when Mira has answered")
+    }
 }
 
 private struct CapturingChat: ChatService {
     let recorder = NotesRecorder()
+    var delay: Duration = .zero
 
     func reply(
         to message: String, sessionID: String?,
         notes: [ChatNote], page: PageContext?
     ) async throws -> ChatReply {
         await recorder.record(notes)
+        try? await Task.sleep(for: delay)
         return ChatReply(text: "ok", sessionID: "s")
     }
 }

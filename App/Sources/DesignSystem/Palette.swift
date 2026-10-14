@@ -26,26 +26,33 @@ enum Palette {
     static let sheetFill = Color(hex: 0xDCD5C6)
     static let hairline = Color(hex: 0xD8D5CA)
     /// The design's muted #878476, darkened along the same hue until it
-    /// reads at 4.5:1 or better on paper, tool surface, card fill and white
-    /// (worst case 4.67:1 on card fill). The original is 3.4:1 on paper.
-    static let textSecondary = Color(hex: 0x68665B)
+    /// reads at 4.5:1 or better on every surface it sits on, the panel
+    /// sheet included (4.6:1 there, 6.1:1 on paper). The original is
+    /// 3.4:1 on paper.
+    static let textSecondary = Color(hex: 0x5E5C52)
 
     /// Resolves the palette names persisted on canvas text blocks
     /// (`TextBlock.colorName`). Unknown names fall back to ink.
+    ///
+    /// Saved words keep the colors they were written in: the four names
+    /// whose UI token the redesign moved resolve to their pre-redesign
+    /// values here, so a restyle of the app's chrome never repaints a page
+    /// (or makes it differ from its earlier exports).
     static func color(named name: String) -> Color {
         switch name {
-        case "onInk": return onInk
-        case "forest": return forest
+        case "ink": return Color(hex: 0x201C16)
+        case "onInk": return Color(hex: 0xF6F2EA)
+        case "forest": return Color(hex: 0x353F2D)
+        case "textSecondary": return Color(hex: 0x8B857A)
         case "taupe": return taupe
         case "tan": return tan
         case "sage": return sage
-        case "textSecondary": return textSecondary
         default:
             // A custom color picked in the editor is stored as "#RRGGBB".
             if name.count == 7, name.hasPrefix("#"), let hex = UInt32(name.dropFirst(), radix: 16) {
                 return Color(hex: hex)
             }
-            return ink
+            return color(named: "ink")
         }
     }
 

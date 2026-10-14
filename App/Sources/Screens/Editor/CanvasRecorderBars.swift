@@ -65,10 +65,11 @@ extension CanvasScene {
             WaveformView(barCount: 18, tint: Palette.onInk.opacity(0.85), maxHeight: 34)
             Spacer()
             TimelineView(.periodic(from: start, by: 1)) { context in
+                // The system face: Josefin has no tabular digits, so a
+                // ticking clock in it would jitter every second.
                 Text(CanvasScene.timestamp(context.date.timeIntervalSince(start)))
-                    .font(Sans.font(size: 13, weight: 700))
+                    .font(.system(size: 13, weight: .bold).monospacedDigit())
                     .foregroundStyle(Palette.warmWhite)
-                    .monospacedDigit()
             }
             Button(action: stopRecording) {
                 RoundedRectangle(cornerRadius: 2)

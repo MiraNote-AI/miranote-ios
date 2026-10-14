@@ -324,7 +324,8 @@ extension CanvasBoardView {
 
     /// Past the canvas edge by a margin: a drop aimed at the page's last
     /// line must not delete. (A drag never runs over the keyboard: moving
-    /// an element selects it, which ends text editing and lowers it.)
+    /// an element selects it, which ends text editing, and CanvasScene
+    /// lowers the Mira prompt's keyboard when a move starts.)
     private func isOverDeleteZone(_ location: CGPoint) -> Bool {
         location.y > visibleFrame.maxY + 24
     }
