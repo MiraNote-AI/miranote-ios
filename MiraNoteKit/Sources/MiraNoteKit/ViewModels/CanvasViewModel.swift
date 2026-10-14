@@ -30,6 +30,12 @@ public final class CanvasViewModel {
         let backgroundSummary: String
         let paper: PaperKind
         let pageColorName: String
+
+        /// The same page without one element.
+        func removingItem(_ id: CanvasItem.ID) -> UndoSnapshot {
+            UndoSnapshot(items: items.filter { $0.id != id }, backgroundFileName: backgroundFileName,
+                         backgroundSummary: backgroundSummary, paper: paper, pageColorName: pageColorName)
+        }
     }
     private var history: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
@@ -333,16 +339,19 @@ extension CanvasViewModel {
 
     /// Removes an abandoned husk (e.g. an empty text block) without
     /// recording an undo step, then drops the trailing history snapshots
-    /// that only ever held the husk -- style taps on the empty block -- and
-    /// those identical to the result, so undo never "restores" a husk. A
-    /// snapshot where the block still had words is kept: emptying a
+    /// that changed nothing but the husk -- style taps on the empty block --
+    /// and those identical to the result, so undo never "restores" a husk.
+    /// A step that also changed something else (a photo moved meanwhile)
+    /// is kept, as is one where the block still had words: emptying a
     /// written block stays undoable.
     public func discardAbandonedText(itemID: CanvasItem.ID) {
         guard let index = index(of: itemID) else { return }
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
-        while let last = history.last, last.items.contains(where: { $0.id == itemID && $0.isEmptyText }) {
+        while let last = history.last,
+              last.items.contains(where: { $0.id == itemID && $0.isEmptyText }),
+              last.removingItem(itemID) == currentSnapshot {
             history.removeLast()
         }
         while let last = history.last, last == currentSnapshot {

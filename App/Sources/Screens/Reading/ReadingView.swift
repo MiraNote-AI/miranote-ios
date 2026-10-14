@@ -316,7 +316,10 @@ struct ExportSheet: View {
         shareURL = nil
         guard let rendered else { return }
         let format = format, layout = pdfLayout
-        let url = folderURL.appendingPathComponent(fileName)
+        // A folder per encode: an older encode finishing last must not
+        // overwrite the file Share hands out.
+        let url = folderURL.appendingPathComponent("\(generation)", isDirectory: true)
+            .appendingPathComponent(fileName)
         Task {
             let encoded = await Task.detached(priority: .userInitiated) { () -> (Data, URL?)? in
                 guard let data = PageExporter.data(from: rendered, format: format, pdfLayout: layout) else { return nil }

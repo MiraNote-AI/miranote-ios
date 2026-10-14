@@ -277,7 +277,11 @@ struct CanvasScene: View {
                     comparing: $comparingImage,
                     original: session.original,
                     edited: session.edited,
-                    onEdited: { photoSession?.edited = true }
+                    // Only this photo's session: a slow AI edit for A that
+                    // lands after B was opened must not mark B as edited.
+                    onEdited: {
+                        if photoSession?.itemID == editingImageItem { photoSession?.edited = true }
+                    }
                 )
                 // A new photo gets fresh panel state (section, notices).
                 .id(editingImageItem)

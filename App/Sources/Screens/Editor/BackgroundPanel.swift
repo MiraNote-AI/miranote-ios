@@ -115,7 +115,12 @@ struct BackgroundPanel: View {
                         set: { color in
                             // An unchanged value must not spend the drag's
                             // one undo step before the drag really starts.
-                            guard color.hexName != editor.memory.pageColorName else { return }
+                            // Compared with the color the picker SHOWS (the
+                            // default page reads as cream), so its echo of
+                            // that value paints nothing.
+                            let current = editor.memory.pageColorName
+                            let shown = Palette.color(named: current.isEmpty ? "#F3EFE3" : current).hexName
+                            guard color.hexName != shown else { return }
                             let record = pickerUndo.shouldRecord(item: Self.pageKey, field: "page")
                             editor.setPageColor(color.hexName, recordingUndo: record)
                         }

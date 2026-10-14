@@ -68,6 +68,22 @@ final class TextStyleTests: XCTestCase {
         XCTAssertFalse(editor.canUndo, "nothing the user kept to undo")
     }
 
+    // A step that changed something besides the husk -- a photo moved while
+    // the empty block was open -- stays undoable.
+    func testAnUnrelatedStepTakenMeanwhileIsKept() {
+        let editor = CanvasViewModel(memory: Memory())
+        let photo = editor.addImages([ImageRef(displayName: "p", fileName: "p.png")],
+                                     around: CGPoint(x: 150, y: 400))[0]
+        let start = editor.item(photo)?.position
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.beginChange()
+        editor.move(itemID: photo, to: CGPoint(x: 200, y: 500))
+
+        editor.discardAbandonedText(itemID: id)
+        editor.undo()
+        XCTAssertEqual(editor.item(photo)?.position, start, "the move is still one undo away")
+    }
+
     // A block that had words keeps its history: emptying it and leaving is
     // still undoable back to the words.
     func testEmptyingAWrittenBlockStaysUndoable() {
