@@ -217,7 +217,11 @@ extension CanvasScene {
                         set: { color in
                             // An unchanged value must not spend the drag's
                             // one undo step before the drag really starts.
-                            guard let id = editor.editingTextItemID, color.hexName != current else { return }
+                            // Compared with the color the picker SHOWS (a name
+                            // or "" resolves to a hex), so its echo of that
+                            // value is no change.
+                            let shown = Palette.color(named: current.isEmpty ? "ink" : current).hexName
+                            guard let id = editor.editingTextItemID, color.hexName != shown else { return }
                             let record = pickerUndo.shouldRecord(item: id, field: idPrefix)
                             apply(id, color.hexName, record)
                         }

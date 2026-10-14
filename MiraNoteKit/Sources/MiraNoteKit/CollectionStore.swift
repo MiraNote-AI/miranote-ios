@@ -79,10 +79,16 @@ public struct FileCollectionStore: CollectionStore {
     }
 
     public func load() -> MemoryLibrary {
-        guard let data = try? Data(contentsOf: url) else {
+        // Only a truly absent file is a fresh install. A file that exists
+        // but cannot be read (say, data protection early after boot) is
+        // the user's journal: kept, never seeded over.
+        guard FileManager.default.fileExists(atPath: url.path) else {
             let seeded = MemoryLibrary(collections: MemoryCollection.seed)
             save(seeded)
             return seeded
+        }
+        guard let data = try? Data(contentsOf: url) else {
+            return keepAsideThenSeed()
         }
         if let library = try? JSONDecoder().decode(MemoryLibrary.self, from: data) {
             return library
@@ -91,20 +97,24 @@ public struct FileCollectionStore: CollectionStore {
         if let legacy = try? JSONDecoder().decode([MemoryCollection].self, from: data) {
             return MemoryLibrary(collections: legacy)
         }
-        // Unreadable (a later build's format, or damage): keep it aside --
-        // the user's journal -- and open on the seed, never over it.
-        keepAside()
-        let seeded = MemoryLibrary(collections: MemoryCollection.seed)
-        save(seeded)
-        return seeded
+        // Unreadable (a later build's format, or damage).
+        return keepAsideThenSeed()
     }
 
-    private func keepAside() {
+    /// Keeps the unreadable file -- the user's journal -- beside a fresh
+    /// seed. If it cannot be kept, the seed is not written over it either.
+    private func keepAsideThenSeed() -> MemoryLibrary {
+        let seeded = MemoryLibrary(collections: MemoryCollection.seed)
         let stamp = Int(Date().timeIntervalSince1970)
         let aside = url.deletingPathExtension()
             .appendingPathExtension("unreadable-\(stamp)")
             .appendingPathExtension(url.pathExtension)
-        try? FileManager.default.moveItem(at: url, to: aside)
+        let fileManager = FileManager.default
+        if (try? fileManager.moveItem(at: url, to: aside)) != nil
+            || (try? fileManager.copyItem(at: url, to: aside)) != nil {
+            save(seeded)
+        }
+        return seeded
     }
 
     public func save(_ library: MemoryLibrary) {
