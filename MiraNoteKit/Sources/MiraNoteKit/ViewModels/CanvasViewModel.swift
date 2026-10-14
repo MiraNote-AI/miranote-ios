@@ -36,6 +36,26 @@ public final class CanvasViewModel {
             UndoSnapshot(items: items.filter { $0.id != id }, backgroundFileName: backgroundFileName,
                          backgroundSummary: backgroundSummary, paper: paper, pageColorName: pageColorName)
         }
+
+        /// Equal as far as the user's edits go: a photo's description lands
+        /// later without an undo step, so it never sets two steps apart.
+        func sameEdits(as other: UndoSnapshot) -> Bool {
+            withoutPhotoDescriptions == other.withoutPhotoDescriptions
+        }
+
+        private var withoutPhotoDescriptions: UndoSnapshot {
+            UndoSnapshot(
+                items: items.map { item in
+                    guard case .image(var ref) = item.content else { return item }
+                    var plain = item
+                    ref.summary = ""
+                    plain.content = .image(ref)
+                    return plain
+                },
+                backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
+                paper: paper, pageColorName: pageColorName
+            )
+        }
     }
     private var history: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
@@ -338,25 +358,33 @@ extension CanvasViewModel {
     }
 
     /// Removes an abandoned husk (e.g. an empty text block) without
-    /// recording an undo step, then drops the trailing history snapshots
-    /// that changed nothing but the husk -- style taps on the empty block --
-    /// and those identical to the result, so undo never "restores" a husk.
-    /// A step that also changed something else (a photo moved meanwhile)
-    /// is kept, as is one where the block still had words: emptying a
-    /// written block stays undoable.
+    /// recording an undo step, and takes it out of the trailing history
+    /// snapshots taken while it was empty, so undo never "restores" a husk.
+    /// Steps that then change nothing -- style taps on the empty block, the
+    /// step that added it -- go; one that also changed something else (a
+    /// photo moved meanwhile) stays, without the husk. A step where the
+    /// block still had words is kept: emptying a written block stays
+    /// undoable. Photo descriptions, which land without an undo step, never
+    /// make a step count as a change (#101).
     public func discardAbandonedText(itemID: CanvasItem.ID) {
         guard let index = index(of: itemID) else { return }
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
-        while let last = history.last,
-              last.items.contains(where: { $0.id == itemID && $0.isEmptyText }),
-              last.removingItem(itemID) == currentSnapshot {
+        var next = currentSnapshot
+        var kept: [UndoSnapshot] = []
+        while let last = history.last, last.items.contains(where: { $0.id == itemID && $0.isEmptyText }) {
+            history.removeLast()
+            let step = last.removingItem(itemID)
+            if !step.sameEdits(as: next) {
+                kept.insert(step, at: 0)
+                next = step
+            }
+        }
+        while let last = history.last, last.sameEdits(as: next) {
             history.removeLast()
         }
-        while let last = history.last, last == currentSnapshot {
-            history.removeLast()
-        }
+        history += kept
     }
 
     public func bringToFront(itemID: CanvasItem.ID) {
