@@ -74,7 +74,8 @@ struct CanvasScene: View {
                     cancelRecording()
                     cancelDictationIfNeeded()
                     backgroundPanelOpen = false
-                    if photoSession?.itemID != id, case .image(let ref) = editor.item(id)?.content {
+                    if case .image(let ref) = editor.item(id)?.content,
+                       photoSession?.continues(id, showing: ref) != true {
                         photoSession = PhotoSession(itemID: id, original: ref)
                     }
                     editingImageItem = id
@@ -199,6 +200,11 @@ struct CanvasScene: View {
                 backgroundPanelOpen = false
             }
         }
+        .onChange(of: editingImageItem) { left, _ in
+            // The panel let go of a photo: its session picks up from here,
+            // unless something else changes the photo first (#102).
+            if let left { notePhotoSeen(left) }
+        }
         .onChange(of: dropToDelete) { _, phase in
             // Moving an element lowers any keyboard -- canvas text already
             // ends editing; the Mira prompt must too, or a drop over the
@@ -279,8 +285,11 @@ struct CanvasScene: View {
                     edited: session.edited,
                     // Only this photo's session: a slow AI edit for A that
                     // lands after B was opened must not mark B as edited.
+                    // One that lands after A's panel closed is still A's.
                     onEdited: {
-                        if photoSession?.itemID == editingImageItem { photoSession?.edited = true }
+                        guard photoSession?.itemID == editingImageItem else { return }
+                        photoSession?.edited = true
+                        notePhotoSeen(editingImageItem)
                     }
                 )
                 // A new photo gets fresh panel state (section, notices).
@@ -401,6 +410,12 @@ struct CanvasScene: View {
         withAnimation(.easeOut(duration: 0.2)) { showsToolsOnboarding = false }
         // Open, never toggle shut: the tool's tap toggles.
         if openBackground, !backgroundPanelOpen { handleTool(.background) }
+    }
+
+    /// The photo session's photo as it looks now (PhotoSession.lastSeen).
+    private func notePhotoSeen(_ id: CanvasItem.ID) {
+        guard photoSession?.itemID == id, case .image(let ref) = editor.item(id)?.content else { return }
+        photoSession?.lastSeen = ref
     }
 
     /// Text tool: a new block appears on the canvas and the keyboard rises --

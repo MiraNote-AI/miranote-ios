@@ -175,6 +175,8 @@ struct PhotoEditPanel: View {
                 ForEach(PhotoFilter.allCases) { filter in
                     let selected = (currentRef?.filterName ?? "") == (filter == .none ? "" : filter.rawValue)
                     Button {
+                        // The filter already on is no edit (#102).
+                        guard !selected else { return }
                         editor.setImageFilter(itemID: itemID, to: filter == .none ? "" : filter.rawValue)
                         onEdited()
                     } label: {
@@ -191,15 +193,14 @@ struct PhotoEditPanel: View {
     private var frameRow: some View {
         HStack(spacing: 8) {
             ForEach(PhotoFrame.allCases) { frame in
+                let selected = (currentRef?.frameName ?? "") == (frame == .none ? "" : frame.rawValue)
                 Button {
+                    // The frame already on is no edit (#102).
+                    guard !selected else { return }
                     editor.setImageFrame(itemID: itemID, to: frame == .none ? "" : frame.rawValue)
                     onEdited()
                 } label: {
-                    Chip(
-                        text: frame.label,
-                        selected: (currentRef?.frameName ?? "") == (frame == .none ? "" : frame.rawValue),
-                        compact: true
-                    )
+                    Chip(text: frame.label, selected: selected, compact: true)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("photo.frame.\(frame.rawValue)")
