@@ -257,7 +257,7 @@ final class MiraCanvasTurnTests: XCTestCase {
         mira.ask("remove the background", editor: board)
         await waitUntil { if case .receipt = mira.phase { return true }; return false }
         guard case .receipt(let receipt) = mira.phase else { return XCTFail("expected a receipt") }
-        XCTAssertEqual(receipt.changed, "The page is already on its default background.",
+        XCTAssertEqual(receipt.changed, "Already on the default background.",
                        "the receipt says nothing changed")
 
         mira.revert(editor: board)
@@ -314,6 +314,44 @@ final class MiraCanvasTurnTests: XCTestCase {
         board.undo()
         XCTAssertEqual(board.memory.pageColorName, "#E5D9F0", "Revert restores the color")
         XCTAssertEqual(board.memory.paper, .grid, "and never the user's earlier paper step")
+    }
+
+    // The chat route (Mira's clear_background tool, for words the keyword
+    // router does not catch) settles exactly like the keyword route: the
+    // page color goes too, in one step.
+    func testAChatRoutedClearAlsoClearsAPageColor() async {
+        var chat = ScriptedChat()
+        chat.reply = "Done."
+        chat.backgroundRequest = .clear
+        let board = editor()
+        board.setPaper(.grid)
+        board.setPageColor("#E5D9F0")
+        let mira = coordinator(chat)
+
+        mira.ask("get rid of the backdrop", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+
+        XCTAssertEqual(board.memory.pageColorName, "")
+        XCTAssertTrue(mira.receiptCanRevert)
+        board.undo()
+        XCTAssertEqual(board.memory.pageColorName, "#E5D9F0")
+        XCTAssertEqual(board.memory.paper, .grid, "one step: the earlier paper pick stays")
+    }
+
+    func testAChatRoutedClearOnADefaultPageIsANoOp() async {
+        var chat = ScriptedChat()
+        chat.reply = "Done."
+        chat.backgroundRequest = .clear
+        let board = editor()
+        board.setPaper(.dot)
+        let count = board.changeCount
+        let mira = coordinator(chat)
+
+        mira.ask("get rid of the backdrop", editor: board)
+        await waitUntil { if case .receipt = mira.phase { return true }; return false }
+
+        XCTAssertEqual(board.changeCount, count, "no empty undo step")
+        XCTAssertFalse(mira.receiptCanRevert, "and no Revert that would eat the paper pick")
     }
 
     func testTidyFallsBackToLocalRearrangeWhenTheBackendIsDown() async {

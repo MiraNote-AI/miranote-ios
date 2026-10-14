@@ -12,21 +12,7 @@ extension MiraCanvasCoordinator {
         case .imageChoices(let images, let prompt, let placement):
             phase = .imageChoices(images, prompt: prompt, placement: placement)
         case .backgroundCleared(let receipt):
-            // The same as the Background tool's Default: painting and page
-            // color both go, in one undo step, so Revert undoes this turn.
-            // On a page already on the default there is nothing to undo, and
-            // a Revert would eat the user's previous step instead (#87).
-            let before = editor.changeCount
-            editor.resetPageBackground()
-            if editor.changeCount == before {
-                showReceipt(
-                    MiraReceipt(changed: "The page is already on its default background.", kept: receipt.kept),
-                    editor: editor,
-                    revertible: false
-                )
-            } else {
-                showReceipt(receipt, editor: editor)
-            }
+            settleBackgroundCleared(receipt, editor: editor)
         case .imageReplaced(let id, let data, let receipt):
             settleImageReplaced(id, data: data, receipt: receipt, editor: editor)
         case .stickerReplaced(let id, let data, let prompt, let receipt):
@@ -53,6 +39,26 @@ extension MiraCanvasCoordinator {
             showReceipt(receipt, editor: editor, revertible: editor.changeCount != before)
         default:
             return
+        }
+    }
+
+    /// Clearing the background, from either route (the keyword router or
+    /// Mira's clear_background tool). The same as the Background tool's
+    /// Default: painting and page color both go, in one undo step, so
+    /// Revert undoes this turn. On a page already on the default there is
+    /// nothing to undo, and a Revert would eat the user's previous step
+    /// instead (#87).
+    func settleBackgroundCleared(_ receipt: MiraReceipt, editor: CanvasViewModel) {
+        let before = editor.changeCount
+        editor.resetPageBackground()
+        if editor.changeCount == before {
+            showReceipt(
+                MiraReceipt(changed: "Already on the default background.", kept: receipt.kept),
+                editor: editor,
+                revertible: false
+            )
+        } else {
+            showReceipt(receipt, editor: editor)
         }
     }
 

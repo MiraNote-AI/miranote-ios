@@ -44,7 +44,7 @@ final class BackgroundUITests: XCTestCase {
         // so rather than claiming a change it cannot revert (#87).
         ask("remove the background")
         XCTAssertTrue(
-            app.staticTexts["The page is already on its default background."].waitForExistence(timeout: 8))
+            app.staticTexts["Already on the default background."].waitForExistence(timeout: 8))
 
         app.buttons["mode.background"].tap()
         let lilac = app.buttons["background.color.#E5D9F0"]
@@ -88,10 +88,18 @@ final class BackgroundUITests: XCTestCase {
         let first = app.buttons["mira.imageChoice.0"]
         XCTAssertTrue(first.waitForExistence(timeout: 8), "the chip ran a background turn")
         first.tap()
-        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
+        let receipt = app.staticTexts["Set the page background."]
+        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
 
+        // The receipt fills the strip while it shows; dismiss it so the
+        // chip row is really back before checking what it offers.
+        receipt.tap()
+        XCTAssertTrue(
+            app.buttons["mira.suggestion.Add a soft title"].waitForExistence(timeout: 5),
+            "the chip row is back"
+        )
         XCTAssertFalse(
-            app.buttons["mira.suggestion.Change the background"].waitForExistence(timeout: 3),
+            app.buttons["mira.suggestion.Change the background"].exists,
             "a page with its own background is not offered another"
         )
     }
