@@ -82,6 +82,27 @@ final class TextStyleTests: XCTestCase {
         editor.discardAbandonedText(itemID: id)
         editor.undo()
         XCTAssertEqual(editor.item(photo)?.position, start, "the move is still one undo away")
+        XCTAssertNil(editor.item(id), "and it does not bring the empty block back")
+        editor.undo()
+        XCTAssertTrue(editor.items.isEmpty, "the next undo takes the photo away, not a no-op")
+    }
+
+    // A photo description lands without an undo step. It must not make the
+    // husk's style steps look like real ones: Undo after Done still never
+    // brings back the empty colored box (#101).
+    func testADescriptionLandingMeanwhileStillDropsTheHusk() {
+        let editor = CanvasViewModel(memory: Memory())
+        let photo = editor.addImages([ImageRef(displayName: "p", fileName: "p.png")],
+                                     around: CGPoint(x: 150, y: 400))[0]
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.setTextBackground(itemID: id, to: "#24382D")
+        editor.setImageSummary(itemID: photo, to: "a bowl of noodles")
+
+        editor.discardAbandonedText(itemID: id)
+        editor.undo()
+        XCTAssertNil(editor.item(id), "the empty box stays gone")
+        XCTAssertTrue(editor.items.isEmpty, "the one undo left takes back the photo")
+        XCTAssertFalse(editor.canUndo)
     }
 
     // A block that had words keeps its history: emptying it and leaving is
