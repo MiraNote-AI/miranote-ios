@@ -22,7 +22,7 @@ final class PageTapReturnsUITests: XCTestCase {
     private func startMemory() {
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
         app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
     }
 
     private func tapPage() {
@@ -38,35 +38,33 @@ final class PageTapReturnsUITests: XCTestCase {
     func testTapOnPageLeavesImagePanel() {
         startMemory()
         app.buttons["mode.image"].tap()
-        let generate = app.buttons["image.source.generate"]
-        XCTAssertTrue(generate.waitForExistence(timeout: 5))
+        let library = app.buttons["image.library.open"]
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
 
         // The side margins are not the page: a tap there stays put.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).tap()
         sleep(1)
-        XCTAssertTrue(generate.exists, "a margin tap keeps the panel open")
+        XCTAssertTrue(library.exists, "a margin tap keeps the panel open")
 
         tapPage()
-        waitGone(generate, "a page tap closes the Image panel")
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
+        waitGone(library, "a page tap closes the Image panel")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5),
                       "back on the idle canvas")
     }
 
-    func testTapOnPageKeepsUnpickedResults() {
+    func testTapOnPageKeepsPhotosBeingPicked() {
         startMemory()
         app.buttons["mode.image"].tap()
-        app.buttons["image.source.generate"].tap()
-        let prompt = app.textFields["image.prompt"]
-        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
-        prompt.tap()
-        prompt.typeText("a coffee cup")
-        app.buttons["image.generate.run"].tap()
-        let firstResult = app.buttons["image.result.0"]
-        XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
+        app.buttons["image.library.open"].tap()
+        let first = app.descendants(matching: .any).matching(identifier: "image.library.photo.0").firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        first.tap()
+        XCTAssertTrue(first.isSelected)
 
         tapPage()
         sleep(1)
-        XCTAssertTrue(firstResult.exists, "unpicked results are not dropped by a page tap")
+        XCTAssertTrue(first.exists, "a pick in progress is not dropped by a page tap")
+        XCTAssertTrue(first.isSelected)
     }
 
     // Saved became the Sticker tool (Favorites live there).
@@ -91,7 +89,7 @@ final class PageTapReturnsUITests: XCTestCase {
 
         tapPage()
         waitGone(favorites, "a page tap closes the Sticker panel")
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5),
                       "back on the idle canvas")
     }
 
@@ -103,7 +101,7 @@ final class PageTapReturnsUITests: XCTestCase {
         prompt.tap()
         prompt.typeText("a coffee cup")
         app.buttons["sticker.generate.run"].tap()
-        let firstResult = app.buttons["sticker.result.0"]
+        let firstResult = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
 
         tapPage()
@@ -119,7 +117,7 @@ final class PageTapReturnsUITests: XCTestCase {
 
         tapPage()
         waitGone(record, "a paper tap folds the armed recorder")
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5),
                       "back on the idle canvas")
 
         // Once recording, the bar stays: a stray tap must not lose audio.

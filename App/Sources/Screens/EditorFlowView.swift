@@ -18,8 +18,8 @@ struct EditorFlowView: View {
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
-    /// Survives the panel-to-canvas hop: the Image or Sticker panel fills it,
-    /// the canvas empties it on the placing tap.
+    /// Survives the panel-to-canvas hop: the Sticker panel fills it, the
+    /// canvas empties it on the placing tap.
     @State private var pendingPlacement: PendingPlacement?
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
@@ -88,13 +88,6 @@ struct EditorFlowView: View {
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
             )
-        case .imageStart:
-            ImagePanelScene(
-                editor: editor,
-                studio: services.imageStudio,
-                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
-                pendingPlacement: $pendingPlacement
-            )
         case .sticker:
             StickerPanelScene(
                 editor: editor,
@@ -102,7 +95,7 @@ struct EditorFlowView: View {
                 actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
                 pendingPlacement: $pendingPlacement
             )
-        case .home, .chat, .collection, .note, .export:
+        case .home, .imageStart, .chat, .collection, .note, .export:
             // Export left the main flow in v2.1 (share/export moves to
             // reading mode in Phase E); the scene stays catalog-only.
             EmptyView()
@@ -122,15 +115,14 @@ struct EditorFlowView: View {
         )
     }
 
-    /// Background, Voice and Text always act on the canvas; from another
-    /// scene they carry over as a pending tool the canvas consumes on arrival.
+    /// Background, Voice, Text and Image always act on the canvas; from the
+    /// Sticker panel they carry over as a pending tool the canvas consumes
+    /// on arrival.
     private func select(mode: EditorMode) {
         switch mode {
-        case .image:
-            navigate(.imageStart)
         case .sticker:
             navigate(.sticker)
-        case .background, .voice, .text:
+        case .background, .voice, .text, .image:
             pendingTool = mode
             navigate(.canvas)
         }
@@ -182,14 +174,28 @@ struct HomeFlow: View {
         return base
     }
 
-    /// UI tests record with a canned in-memory recorder (no mic permission).
+    /// UI tests record with a canned in-memory recorder (no mic permission),
+    /// at full level so the live bars draw the handoff's pattern.
     @MainActor private static func makeRecorder() -> AudioRecording {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            return MockAudioRecorder()
+            return MockAudioRecorder(recordingLevel: 1)
         }
         #endif
         return AudioRecorder()
+    }
+
+    /// UI tests save to a stub Photos library (no permission prompt) that
+    /// succeeds, or refuses under `-PHOTOS-DENIED`.
+    private static func makePhotoSaver() -> PhotoSaver {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") {
+            let denied = arguments.contains("-PHOTOS-DENIED")
+            return PhotoSaver { _ in !denied }
+        }
+        #endif
+        return .library
     }
 
     private enum Route: Identifiable {
@@ -236,7 +242,8 @@ struct HomeFlow: View {
                     ReadingView(
                         memory: memory,
                         onBack: { path.removeLast() },
-                        onEdit: { route = .editMemory(memory) }
+                        onEdit: { route = .editMemory(memory) },
+                        photoSaver: Self.makePhotoSaver()
                     )
                     .navigationBarHidden(true)
                 }
@@ -279,8 +286,19 @@ struct HomeFlow: View {
                 // chat so replies (and drafts) are deterministic.
                 MiraChatView(
                     service: Self.editorServices(base: services).chat,
+                    transcription: Self.editorServices(base: services).voiceTranscription,
+                    studio: Self.editorServices(base: services).imageStudio,
+                    recorderFactory: Self.makeRecorder,
                     seed: seed,
                     onExit: { route = nil },
+                    onOpenCanvas: {
+                        route = nil
+                        // Swap covers only after this one is gone.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(300))
+                            route = .editor
+                        }
+                    },
                     findPages: { LibrarySearch.find($0, in: viewModel.library) },
                     onOpenPage: { hit in
                         route = nil
