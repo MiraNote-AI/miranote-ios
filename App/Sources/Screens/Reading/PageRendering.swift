@@ -16,11 +16,27 @@ struct StaticPageView: View {
     /// The page's drawn height: its lowest element plus a margin, at least
     /// one screenful.
     static func contentHeight(of memory: Memory) -> CGFloat {
-        let bottom = memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
+        let bottom = laidOut(memory).map { $0.position.y + $0.size.height / 2 }.max() ?? 0
         return max(620, bottom + 120)
     }
 
-    private var contentHeight: CGFloat { Self.contentHeight(of: memory) }
+    /// The page's elements as drawn: a text box saved shorter than its text
+    /// now measures (pages saved under the old 6 pt padding, which only the
+    /// editor re-measures) grows down to fit, top fixed, as the editor
+    /// would grow it. Taller boxes keep their height.
+    static func laidOut(_ memory: Memory) -> [CanvasItem] {
+        memory.items.map { item in
+            guard case .text(let block) = item.content else { return item }
+            let needed = TextMeasure.blockHeight(
+                text: block.text, pointSize: block.pointSize, fontName: block.fontName, width: item.size.width
+            )
+            guard needed > item.size.height + 0.5 else { return item }
+            var grown = item
+            grown.position.y += (needed - item.size.height) / 2
+            grown.size.height = needed
+            return grown
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -28,11 +44,11 @@ struct StaticPageView: View {
             if memory.items.isEmpty {
                 metadataFallback
             }
-            ForEach(memory.items.sorted { $0.zIndex < $1.zIndex }) { item in
+            ForEach(Self.laidOut(memory).sorted { $0.zIndex < $1.zIndex }) { item in
                 element(item)
             }
         }
-        .frame(width: designWidth, height: contentHeight)
+        .frame(width: designWidth, height: Self.contentHeight(of: memory))
     }
 
     /// Pages without canvas elements (legacy seeds, chat-filed notes) still
