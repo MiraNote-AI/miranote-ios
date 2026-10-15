@@ -104,6 +104,30 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(saved.firstMatch.waitForExistence(timeout: 5), "the favorite shows in the grid")
     }
 
+    // A made sticker waiting to be added is not dropped by a preset or a
+    // favorite tap (regression of #93): those wait, and say why.
+    func testAPresetTapNeverDropsAMadeSticker() {
+        generate("a coffee cup")
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        app.buttons["sticker.favorite"].tap()
+
+        app.buttons["sticker.tab.food"].tap()
+        let martini = app.buttons["sticker.preset.martini"]
+        XCTAssertTrue(martini.waitForExistence(timeout: 5))
+        XCTAssertFalse(martini.isEnabled, "presets wait for the made sticker")
+        XCTAssertTrue(any("sticker.waiting").exists, "and say why")
+        martini.tap()
+        app.buttons["sticker.tab.favorites"].tap()
+        let saved = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'library.item.'")).firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertFalse(saved.isEnabled, "so do favorites")
+        saved.tap()
+
+        app.buttons["sticker.tab.make"].tap()
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 5), "the coffee cup still waits")
+        XCTAssertEqual(stickers.count, 0, "nothing was placed meanwhile")
+    }
+
     func testCancelDropsTheResult() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))

@@ -57,7 +57,7 @@ struct StickerPanelScene: View {
                 // A tap on the page goes back to it -- except while a
                 // sticker is being made or waits to be added: it took
                 // seconds and real credits, and leaving would drop it.
-                guard !busy, drafts.isEmpty else { return }
+                guard !placingWouldDropWork else { return }
                 actions.leading()
             }
         ) {
@@ -94,6 +94,11 @@ struct StickerPanelScene: View {
     }
 
     private var busy: Bool { generating || styling }
+
+    /// A favorite or preset tap places it and leaves the panel, which would
+    /// drop a sticker being made or waiting to be added -- it took seconds
+    /// and real credits (#93).
+    private var placingWouldDropWork: Bool { busy || !drafts.isEmpty }
 
     /// Collapsed 147 at rest (screen 30); 430 while making or showing a
     /// sticker (32-33); 420 for a full grid (34-35).
@@ -350,6 +355,7 @@ struct StickerPanelScene: View {
                 .foregroundStyle(Palette.textSecondary)
                 .padding(.top, 12)
         } else {
+            waitingWorkLine
             ScrollView(showsIndicators: false) {
                 // Five 60 pt cells across the sheet (screen 34).
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 50, maximum: 60), spacing: 4),
@@ -362,6 +368,7 @@ struct StickerPanelScene: View {
                             favoriteThumb(favorite)
                         }
                         .buttonStyle(.plain)
+                        .disabled(placingWouldDropWork)
                         .accessibilityIdentifier("library.item.\(favorite.id.uuidString)")
                         .contextMenu {
                             Button(role: .destructive) {
@@ -378,7 +385,25 @@ struct StickerPanelScene: View {
         }
     }
 
+    /// Why favorites and presets are dimmed while a made sticker waits.
+    @ViewBuilder private var waitingWorkLine: some View {
+        if placingWouldDropWork {
+            Text("Add the sticker you made first, or Cancel to let it go.")
+                .font(.miraComposer)
+                .foregroundStyle(Palette.textSecondary)
+                .padding(.top, 10)
+                .accessibilityIdentifier("sticker.waiting")
+        }
+    }
+
     private func setTab(_ set: StickerSet) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            waitingWorkLine
+            setGrid(set)
+        }
+    }
+
+    private func setGrid(_ set: StickerSet) -> some View {
         ScrollView(showsIndicators: false) {
             // Five 50 pt stickers across the sheet, rows 60 apart (screen 35).
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 13), count: 5),
@@ -393,6 +418,8 @@ struct StickerPanelScene: View {
                             .frame(width: 50, height: 50)
                     }
                     .buttonStyle(.plain)
+                    .disabled(placingWouldDropWork)
+                    .opacity(placingWouldDropWork ? 0.45 : 1)
                     .accessibilityLabel(name.replacingOccurrences(of: "-", with: " "))
                     .accessibilityIdentifier("sticker.preset.\(name)")
                 }
@@ -551,7 +578,7 @@ struct StickerPanelScene: View {
 
     /// Tap-to-place: stickers come back as stickers, photos as photos.
     private func place(_ favorite: GeneratedSticker) {
-        guard !busy else { return }
+        guard !placingWouldDropWork else { return }
         let centerX = MiraNoteConfig.pageWidth / 2
         switch favorite.kind {
         case .sticker:
@@ -575,10 +602,11 @@ struct StickerPanelScene: View {
         actions.leading()
     }
 
-    /// A preset sticker: its bundled pixels are stored like a made one,
-    /// then it lands centred below the page's content.
+    /// A preset sticker: its bundled pixels are stored like a made one (at
+    /// least `StickerSet.minPlacedSide` on the short side), then it lands
+    /// centred below the page's content.
     private func place(_ name: String, from set: StickerSet) {
-        guard !busy, let data = UIImage(named: set.imageName(name))?.pngData(),
+        guard !placingWouldDropWork, let data = set.placeableData(name),
               let fileName = try? imageStore.save(data, id: UUID()) else { return }
         let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 80, 4000))
         editor.addSticker(
