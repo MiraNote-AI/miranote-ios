@@ -56,6 +56,8 @@ public final class ChatViewModel {
     /// shows a placeholder that can remove it.
     public private(set) var loadingPicks: [UUID] = []
     public var loadingImages: Int { loadingPicks.count }
+    /// Picks that arrived while one picked before them still loads.
+    @ObservationIgnored private var arrivedPicks: [UUID: Data?] = [:]
     public private(set) var voice: ChatVoiceState = .idle
     public var hint: ChatHint?
 
@@ -305,46 +307,51 @@ extension ChatViewModel {
         let ids = accepted.map { _ in UUID() }
         loadingPicks += ids
         let timeout = pickTimeout
-        var arrived: [Int: Data?] = [:]
-        var next = 0
-        var failed = false
-        await withTaskGroup(of: (Int, Data?).self) { group in
-            for (index, load) in accepted.enumerated() {
-                group.addTask { (index, await Self.load(load, within: timeout)) }
-            }
-            for await (index, data) in group {
-                arrived[index] = data
-                // Stage the ready run at the front, so the order is the pick's.
-                while let ready = arrived[next] {
-                    let id = ids[next]
-                    next += 1
-                    guard loadingPicks.contains(id) else { continue }
-                    loadingPicks.removeAll { $0 == id }
-                    if let ready {
-                        staged.append(StagedPhoto(data: ready))
-                    } else {
-                        failed = true
-                    }
+        await withTaskGroup(of: Void.self) { group in
+            for (id, load) in zip(ids, accepted) {
+                group.addTask {
+                    let data = await Self.load(load, within: timeout)
+                    await self.pickArrived(id, data)
                 }
             }
         }
-        if failed { hint = .photoNotLoaded }
     }
 
-    /// One pick's bytes, or nil when it fails or outlasts `timeout`.
+    private func pickArrived(_ id: UUID, _ data: Data?) {
+        // Removed while it loaded: dropped.
+        guard loadingPicks.contains(id) else { return }
+        arrivedPicks[id] = data
+        stageArrivedPicks()
+    }
+
+    /// Stages the arrived run at the front of the loading picks, so the
+    /// order is the pick's; a removed pick no longer holds the ones after it.
+    private func stageArrivedPicks() {
+        while let first = loadingPicks.first, let data = arrivedPicks.removeValue(forKey: first) {
+            loadingPicks.removeFirst()
+            if let data {
+                staged.append(StagedPhoto(data: data))
+            } else {
+                hint = .photoNotLoaded
+            }
+        }
+    }
+
+    /// One pick's bytes, or nil when it fails or outlasts `timeout` -- on
+    /// time even when the loader does not stop on cancellation: it is left
+    /// to finish on its own.
     private nonisolated static func load(
         _ load: @escaping @Sendable () async -> Data?,
         within timeout: Duration
     ) async -> Data? {
-        await withTaskGroup(of: Data?.self) { group in
-            group.addTask { await load() }
-            group.addTask {
+        await withCheckedContinuation { continuation in
+            let first = FirstResult(continuation)
+            let loader = Task { first.resume(await load()) }
+            Task {
                 try? await Task.sleep(for: timeout)
-                return nil
+                loader.cancel()
+                first.resume(nil)
             }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
         }
     }
 
@@ -356,6 +363,8 @@ extension ChatViewModel {
     /// The loading placeholder's remove: Send no longer waits for it.
     public func removeLoadingPick(_ id: UUID) {
         loadingPicks.removeAll { $0 == id }
+        arrivedPicks[id] = nil
+        stageArrivedPicks()
     }
 
     /// The chat closed: its sent photos lived only for the transcript.
@@ -363,5 +372,24 @@ extension ChatViewModel {
         for fileName in messages.flatMap(\.imageFileNames) {
             imageStore.delete(fileName: fileName)
         }
+    }
+}
+
+/// Resumes a pick's continuation once, with whichever of its load and its
+/// timeout ends first.
+private final class FirstResult: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Data?, Never>?
+
+    init(_ continuation: CheckedContinuation<Data?, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ data: Data?) {
+        lock.lock()
+        let waiting = continuation
+        continuation = nil
+        lock.unlock()
+        waiting?.resume(returning: data)
     }
 }

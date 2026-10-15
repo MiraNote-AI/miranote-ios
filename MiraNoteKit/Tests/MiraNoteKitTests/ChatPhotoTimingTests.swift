@@ -121,6 +121,39 @@ final class ChatPhotoTimingTests: XCTestCase {
         XCTAssertTrue(viewModel.canSend, "the typed words can go")
     }
 
+    func testRemovingAStuckFirstPickStagesTheLoadedOneBehindIt() async throws {
+        let viewModel = makeViewModel(studio: MockImageStudioService())
+        let quick: @Sendable () async -> Data? = { Data([2]) }
+        let loading = Task { await viewModel.stagePhotos([stuckPick, quick]) }
+        defer { loading.cancel() }
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertTrue(viewModel.stagedImages.isEmpty, "the second waits its turn behind the first")
+        let first = try XCTUnwrap(viewModel.loadingPicks.first)
+        viewModel.removeLoadingPick(first)
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(viewModel.stagedImages, [Data([2])], "the loaded second pick is still held behind the removed one")
+        XCTAssertEqual(viewModel.loadingImages, 0, "Send still held")
+    }
+
+    /// A loader that does not observe cancellation: the timeout still frees
+    /// Send on time, without waiting for the loader to give up.
+    func testTheTimeoutHoldsForALoaderThatIgnoresCancellation() async throws {
+        let viewModel = makeViewModel(studio: MockImageStudioService(), pickTimeout: .milliseconds(300))
+        let deaf: @Sendable () async -> Data? = {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                DispatchQueue.global().asyncAfter(deadline: .now() + 5) { continuation.resume() }
+            }
+            return nil
+        }
+        viewModel.draft = "hello"
+        let loading = Task { await viewModel.stagePhotos([deaf]) }
+        try await Task.sleep(for: .seconds(1.5))
+        XCTAssertEqual(viewModel.loadingImages, 0, "still loading 1.2 s after a 0.3 s timeout")
+        XCTAssertEqual(viewModel.hint, .photoNotLoaded)
+        XCTAssertTrue(viewModel.canSend)
+        await loading.value
+    }
+
     func testRemovingALoadingPickFreesSendAndDropsItsLateResult() async throws {
         let viewModel = makeViewModel(studio: MockImageStudioService())
         viewModel.draft = "hello"
