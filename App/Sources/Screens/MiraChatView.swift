@@ -19,7 +19,13 @@ struct MiraChatView: View {
 
     @State private var viewModel: ChatViewModel
     @State private var hits: [ChatMessage.ID: [PageHit]] = [:]
-    private let imageStore = ImageFileStore()
+    private let imageStore = Self.photoStore
+
+    /// Sent chat photos live only as long as the transcript (which is not
+    /// saved): in tmp, out of Documents and backups, for iOS to purge.
+    private static let photoStore = ImageFileStore(
+        directory: FileManager.default.temporaryDirectory.appendingPathComponent("ChatPhotos", isDirectory: true)
+    )
 
     init(
         service: ChatService,
@@ -40,7 +46,7 @@ struct MiraChatView: View {
             studio: studio,
             transcription: transcription,
             makeRecorder: recorderFactory,
-            imageStore: ImageFileStore(),
+            imageStore: Self.photoStore,
             notesForMessage: { message in
                 findPages(message).map { ChatNote(page: $0.memory) }
             }
