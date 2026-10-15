@@ -17,6 +17,8 @@ struct MiraChatOverlay: View {
     var onClose: () -> Void
     var onHoldStart: () -> Void
     var onHoldEnd: () -> Void
+    /// Starts or ends the take in one activation (assistive technologies).
+    var onToggle: () -> Void
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -51,10 +53,14 @@ struct MiraChatOverlay: View {
                     onPress: onHoldStart,
                     onRelease: onHoldEnd
                 )
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Mira Dictation")
-                .accessibilityHint("Hold to talk; your words land in the question")
+                .accessibilityValue(dictation.detail)
+                .accessibilityHint(dictation == .listening
+                    ? "Ends the dictation."
+                    : "Hold to talk, or tap to start; your words land in the question.")
                 .accessibilityAddTraits(.isButton)
+                .accessibilityAction { onToggle() }
                 .accessibilityIdentifier("mira.dictation")
                 .padding(.horizontal, Metrics.chromeInset)
                 .padding(.bottom, 8)
@@ -83,10 +89,11 @@ struct MiraChatOverlay: View {
             .submitLabel(.go)
             .focused(focus)
             // A multi-line field takes Return as a new line; here Return
-            // sends, as the keyboard's Go key says.
+            // sends, as the keyboard's Go key says. Only a trailing new
+            // line is Return: pasted lines stay in the field.
             .onChange(of: prompt) { _, words in
-                guard words.contains("\n") else { return }
-                prompt = words.replacingOccurrences(of: "\n", with: "")
+                guard let typed = Self.returnPressed(in: words) else { return }
+                prompt = typed
                 onSend()
             }
             // The dark keyboard of the handoff (forest-tinted in the mock).
@@ -175,6 +182,13 @@ struct MiraChatOverlay: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("mira.action.\(action)")
+    }
+
+    /// The words without the Return just typed after them; nil when the
+    /// field's text does not end in a new line (none, or lines pasted in).
+    static func returnPressed(in words: String) -> String? {
+        guard words.hasSuffix("\n") else { return nil }
+        return String(words.dropLast())
     }
 
     /// The handoff's warm grey for the panel's body line.

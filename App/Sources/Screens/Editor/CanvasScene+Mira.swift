@@ -91,8 +91,9 @@ extension CanvasScene {
                 mira.askQuickAction(action, editor: editor)
             },
             onClose: closeMiraChat,
-            onHoldStart: startMiraDictation,
-            onHoldEnd: finishMiraDictation
+            onHoldStart: pressMiraDictation,
+            onHoldEnd: releaseMiraDictation,
+            onToggle: { miraDictation == .listening ? finishMiraDictation() : startMiraDictation() }
         )
     }
 
@@ -121,10 +122,26 @@ extension CanvasScene {
 
     // MARK: Mira Dictation (hold to talk)
 
-    /// Press on the strip: the mic goes live. One audio owner at a time --
-    /// not while the Voice tool or text dictation holds the recorder.
+    /// Touch down on the strip: the mic goes live unless it already is.
+    func pressMiraDictation() {
+        let live = miraDictation == .listening
+        miraPress = (start: .now, wasLive: live)
+        if !live { startMiraDictation() }
+    }
+
+    /// Release: a hold ends the take (hold to talk); a quick tap leaves the
+    /// mic listening until the next tap -- the way VoiceOver, Voice Control
+    /// and Switch Control activate it -- and a tap on a live mic ends it.
+    func releaseMiraDictation() {
+        guard let press = miraPress else { return }
+        miraPress = nil
+        if press.wasLive || Date.now.timeIntervalSince(press.start) >= 0.35 { finishMiraDictation() }
+    }
+
+    /// The mic goes live. One audio owner at a time -- not while the Voice
+    /// tool or text dictation holds the recorder.
     func startMiraDictation() {
-        miraHoldActive = true
+        miraFinishWhenLive = false
         guard recorder == nil, !dictating, case .idle = recorderState else { return }
         let newRecorder = recorderFactory()
         recorder = newRecorder
@@ -132,8 +149,8 @@ extension CanvasScene {
             do {
                 try await newRecorder.start()
                 miraDictation = .listening
-                // Let go before the mic came up: finish right away.
-                if !miraHoldActive { finishMiraDictation() }
+                // A hold let go before the mic came up: finish right away.
+                if miraFinishWhenLive { finishMiraDictation() }
             } catch {
                 recorder = nil
                 miraDictation = .notice(error.localizedDescription)
@@ -141,10 +158,15 @@ extension CanvasScene {
         }
     }
 
-    /// Release: the words land in the question for editing, never sent.
+    /// The take ends: the words land in the question for editing, never
+    /// sent.
     func finishMiraDictation() {
-        miraHoldActive = false
-        guard miraDictation == .listening, let recorder else { return }
+        guard miraDictation == .listening, let recorder else {
+            // Still coming up: end it once it is live.
+            if recorder != nil { miraFinishWhenLive = true }
+            return
+        }
+        miraFinishWhenLive = false
         self.recorder = nil
         miraDictation = .transcribing
         Task {
@@ -168,7 +190,8 @@ extension CanvasScene {
 
     /// The chat closed mid-take: stop the mic quietly, keep nothing.
     func cancelMiraDictation() {
-        miraHoldActive = false
+        miraPress = nil
+        miraFinishWhenLive = false
         guard miraDictation == .listening else { return }
         let abandoned = recorder
         recorder = nil

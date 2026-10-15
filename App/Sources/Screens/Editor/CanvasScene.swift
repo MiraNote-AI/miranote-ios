@@ -45,8 +45,10 @@ struct CanvasScene: View {
     /// The Mira canvas chat (screen 06) is up over the canvas.
     @State var miraChatOpen = false
     @State var miraDictation: DictationStripState = .idle
-    /// The finger is still on the dictation strip.
-    @State var miraHoldActive = false
+    /// The Mira strip's press in progress (hold to talk, or a tap toggle).
+    @State var miraPress: (start: Date, wasLive: Bool)?
+    /// A hold ended before the mic came up: finish as soon as it is live.
+    @State var miraFinishWhenLive = false
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState private var applyFocus: Bool
