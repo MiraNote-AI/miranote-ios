@@ -50,6 +50,20 @@ final class PhotoEditController {
     var pinnedCompare = false
     var holdingCompare = false
     private(set) var isFavorite: Bool
+    /// The photo as this visit opened it: Cancel puts it back. Edits kept
+    /// with Done on an earlier visit are not this visit's to discard.
+    let visitStart: ImageRef?
+
+    /// This visit's own undo steps on top of the page's history, and the
+    /// page's change count right after the last of them. Any other change
+    /// (a text block, a Mira edit between visits) moves the count, and the
+    /// floating Undo then steps aside instead of taking that change back.
+    private var ownSteps = 0
+    private var ownCount: Int?
+    /// The running studio call; Cancel stops it, and a result that still
+    /// arrives afterwards is dropped.
+    private var work: Task<Void, Never>?
+    private var cancelled = false
 
     private let editor: CanvasViewModel
     private let studio: ImageStudioService
@@ -70,12 +84,46 @@ final class PhotoEditController {
         self.studio = studio
         self.onEdited = onEdited
         self.onClose = onClose
-        var file = ""
-        if case .image(let ref) = editor.item(itemID)?.content { file = ref.fileName }
+        var start: ImageRef?
+        if case .image(let ref) = editor.item(itemID)?.content { start = ref }
+        visitStart = start
+        let file = start?.fileName ?? ""
         isFavorite = favoritesStore.all().contains { $0.fileName == file && !file.isEmpty }
     }
 
     var comparing: Bool { pinnedCompare || holdingCompare }
+
+    // MARK: This visit's steps
+
+    /// The floating Undo: only while the page's newest step is this visit's.
+    var canUndo: Bool { !working && ownSteps > 0 && editor.changeCount == ownCount }
+
+    func undo() {
+        guard canUndo else { return }
+        editor.undo()
+        ownSteps -= 1
+        ownCount = editor.changeCount
+    }
+
+    /// Runs one of this visit's edits, counting the step it records.
+    private func recordOwn(_ edit: () -> Void) {
+        let before = editor.changeCount
+        edit()
+        guard editor.changeCount != before else { return }
+        // Something else came between: those older steps are not on top.
+        if ownCount != before { ownSteps = 0 }
+        ownSteps += 1
+        ownCount = editor.changeCount
+    }
+
+    /// The header's Cancel: a running AI edit or cutout stops, and its
+    /// result, should it still arrive, is dropped.
+    func cancelWork() {
+        cancelled = true
+        work?.cancel()
+        work = nil
+        working = false
+    }
 
     var currentRef: ImageRef? {
         if case .image(let ref) = editor.item(itemID)?.content { return ref }
@@ -105,12 +153,14 @@ final class PhotoEditController {
             wordsFor = nil
             lastRun = tile
             // A second tap takes the filter back off -- one step either way.
-            editor.setImageFilter(itemID: itemID, to: isSelected(tile) ? "" : tile.rawValue)
+            let filter = isSelected(tile) ? "" : tile.rawValue
+            recordOwn { editor.setImageFilter(itemID: itemID, to: filter) }
             onEdited()
         case .white, .polaroid:
             wordsFor = nil
             lastRun = tile
-            editor.setImageFrame(itemID: itemID, to: isSelected(tile) ? "" : tile.rawValue)
+            let frame = isSelected(tile) ? "" : tile.rawValue
+            recordOwn { editor.setImageFrame(itemID: itemID, to: frame) }
             onEdited()
         }
     }
@@ -167,8 +217,9 @@ final class PhotoEditController {
         lastRun = .outline
         run {
             let outlined = try await self.studio.outline(image: data)
+            guard !self.cancelled else { return }
             let fileName = try self.imageStore.save(outlined, id: UUID())
-            self.editor.replaceImageFile(itemID: self.itemID, fileName: fileName)
+            self.recordOwn { self.editor.replaceImageFile(itemID: self.itemID, fileName: fileName) }
             self.onEdited()
         }
     }
@@ -185,13 +236,14 @@ final class PhotoEditController {
         lastRun = .ai
         run {
             let edited = try await self.studio.stylize(image: data, instruction: instruction)
+            guard !self.cancelled else { return }
             let fileName = try self.imageStore.save(edited, id: UUID())
-            self.editor.replaceImageFile(itemID: self.itemID, fileName: fileName)
+            self.recordOwn { self.editor.replaceImageFile(itemID: self.itemID, fileName: fileName) }
             self.onEdited()
             self.prompt = ""
             self.wordsFor = nil
             // New pixels, new sentence: refresh the vision summary.
-            if let summary = try? await self.studio.describe(image: edited) {
+            if let summary = try? await self.studio.describe(image: edited), !self.cancelled {
                 self.editor.setImageSummary(itemID: self.itemID, to: summary)
             }
         }
@@ -208,6 +260,7 @@ final class PhotoEditController {
         let target = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         run {
             let cut = try await self.studio.cutout(image: data, target: target.isEmpty ? nil : target)
+            guard !self.cancelled else { return }
             let fileName = try self.imageStore.save(cut, id: UUID())
             self.editor.replaceImageWithSticker(itemID: self.itemID, sticker: GeneratedSticker(
                 prompt: target.isEmpty ? ref.displayName : target,
@@ -219,14 +272,17 @@ final class PhotoEditController {
     }
 
     private func run(_ work: @escaping @MainActor () async throws -> Void) {
-        guard !working else { return }
+        guard !working, !cancelled else { return }
         working = true
         notice = nil
-        Task {
-            defer { working = false }
+        self.work = Task {
+            defer {
+                if !cancelled { working = false }
+            }
             do {
                 try await work()
             } catch {
+                guard !cancelled, !(error is CancellationError) else { return }
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? "That didn't work this time. Try again?"
             }
@@ -245,15 +301,13 @@ struct PhotoEditOverlay: View {
     /// Whether the session edited the photo (an older edit undone from the
     /// header is not one to take back here).
     let edited: Bool
-    var onUndo: () -> Void
 
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 30) {
                 Spacer(minLength: 0)
                 PhotoEditStage(
-                    controller: controller, original: original, edited: edited,
-                    width: geo.size.width, onUndo: onUndo
+                    controller: controller, original: original, edited: edited, width: geo.size.width
                 )
                 PhotoEditSheet(controller: controller)
             }
@@ -267,7 +321,6 @@ private struct PhotoEditStage: View {
     let edited: Bool
     /// The sheet's width: the lifted photo is at most this wide.
     let width: CGFloat
-    var onUndo: () -> Void
 
     @GestureState private var holding = false
     @State private var pressBegan: Date?
@@ -416,11 +469,12 @@ private struct PhotoEditStage: View {
 
     private var cluster: some View {
         HStack(spacing: 9.5) {
-            Button(action: onUndo) {
+            Button(action: controller.undo) {
                 FloatingCircle { FloatingGlyph.undo() }
             }
             .buttonStyle(.plain)
-            .disabled(!looksEdited || controller.working)
+            // Only this visit's own steps: never something newer on the page.
+            .disabled(!controller.canUndo)
             .accessibilityLabel("Undo last edit")
             .accessibilityIdentifier("photo.undo")
 

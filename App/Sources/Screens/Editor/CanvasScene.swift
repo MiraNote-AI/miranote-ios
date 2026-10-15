@@ -730,8 +730,7 @@ struct CanvasScene: View {
             PhotoEditOverlay(
                 controller: photoEdit,
                 original: session.original,
-                edited: session.edited,
-                onUndo: editor.undo
+                edited: session.edited
             )
         } else if editor.editingTextItemID == nil {
             switch imagePhase {
@@ -883,11 +882,13 @@ struct CanvasScene: View {
         editingImageItem = nil
     }
 
-    /// Cancel puts the photo back the way it was when editing began -- one
-    /// undoable step, none if unchanged -- and closes.
+    /// Cancel discards this visit: a running AI edit or cutout stops, and
+    /// the photo goes back to how this visit opened it -- one undoable step,
+    /// none if unchanged. Edits kept with Done on an earlier visit stay.
     private func cancelPhotoEdit() {
-        if let id = editingImageItem, let session = photoSession, session.itemID == id {
-            editor.restoreImage(itemID: id, to: session.original)
+        if let id = editingImageItem, let photoEdit, photoEdit.itemID == id {
+            photoEdit.cancelWork()
+            if let start = photoEdit.visitStart { editor.restoreImage(itemID: id, to: start) }
         }
         closePhotoEditor()
     }

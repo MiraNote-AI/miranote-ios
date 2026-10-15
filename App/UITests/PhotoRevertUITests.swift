@@ -133,9 +133,11 @@ final class PhotoRevertUITests: XCTestCase {
         }
     }
 
-    // An AI edit stays on the lifted photo (screen 28); the session outlives
-    // the editor, so reopening the photo can still put the original back.
-    func testAnAIEditCanStillBeRevertedAfterTheEditorCloses() {
+    // An AI edit stays on the lifted photo (screen 28). Done keeps it: a
+    // later visit's Undo and Cancel discard only that visit's own edits
+    // (owner decision; this test used to codify Cancel reverting to the
+    // first visit's original). Compare still shows the photo as it came.
+    func testALaterVisitKeepsAnEditConfirmedWithDone() {
         let photo = placeSamples()
         openEditor(photo)
         app.buttons["photo.tile.ai"].tap()
@@ -153,10 +155,44 @@ final class PhotoRevertUITests: XCTestCase {
         waitGone(undo, "Done closes the editor")
 
         openEditor(photo)
-        XCTAssertTrue(app.buttons["photo.undo"].isEnabled, "the reopened editor still knows the original")
+        XCTAssertFalse(app.buttons["photo.undo"].isEnabled, "the kept AI edit is not this visit's to undo")
+        app.buttons["photo.filter.bw"].tap()
+        XCTAssertTrue(app.buttons["photo.undo"].isEnabled, "this visit's own edit is")
         app.buttons["Cancel"].tap()
+        waitGone(app.buttons["photo.filter.bw"], "Cancel closes the editor")
+
         openEditor(photo)
-        XCTAssertFalse(app.buttons["photo.undo"].isEnabled, "the photo is its original again")
+        XCTAssertFalse(app.buttons["photo.filter.bw"].isSelected, "Cancel took this visit's B&W back")
+        compare.tap()
+        XCTAssertTrue(any("photo.before").waitForExistence(timeout: 3),
+                      "and kept the AI edit: the photo still differs from how it came")
+    }
+
+    // The floating Undo never takes back another element's step: Meng's
+    // probe (B&W, Done, a text block, reopen, Undo) lost the text block.
+    func testTheFloatingUndoLeavesANewerTextBlock() {
+        let photo = placeSamples()
+        openEditor(photo)
+        app.buttons["photo.filter.bw"].tap()
+        app.buttons["photo.composer.action"].tap()
+        let add = app.buttons["nav.trailing"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
+
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Dinner with Mom")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.staticTexts["Dinner with Mom"].waitForExistence(timeout: 5))
+
+        openEditor(photo)
+        let undo = app.buttons["photo.undo"]
+        XCTAssertFalse(undo.isEnabled, "the newest step is the text block's")
+        undo.tap()
+        XCTAssertTrue(app.buttons["photo.filter.bw"].isSelected, "the B&W stays")
+        app.buttons["photo.composer.action"].tap()
+        XCTAssertTrue(app.staticTexts["Dinner with Mom"].waitForExistence(timeout: 5), "and so does the text")
     }
 
     // A change made while the editor was closed -- here Mira's black and
