@@ -1,8 +1,10 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The card above the Mira bar: idle suggestion chips, conversational
-/// replies, the Keep-pattern receipt, and taxonomy failures. Never red --
+/// The card above the Mira bar: conversational replies (with their
+/// follow-up chips), the Keep-pattern receipt, and taxonomy failures. At
+/// rest it is empty: the handoff draws nothing between the tool bar and the
+/// composer (screens 04, 05, 07, 22). Never red --
 /// failure is calm and still; waiting is motion elsewhere (bar + element).
 struct MiraCard: View {
     @Bindable var coordinator: MiraCanvasCoordinator
@@ -20,9 +22,7 @@ struct MiraCard: View {
 
     @ViewBuilder private var content: some View {
         switch coordinator.phase {
-        case .idle:
-            chipsRow(coordinator.suggestions(for: editor))
-        case .working:
+        case .idle, .working:
             EmptyView()
         case .reply(_, let chips):
             // The conversation reads as one thread: the transcript scrolls
@@ -95,7 +95,7 @@ struct MiraCard: View {
                         Capsule().strokeBorder(Palette.forest.opacity(0.35), lineWidth: Metrics.hairline)
                     )
             )
-            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.horizontal, Metrics.chromeInset)
             .onTapGesture { coordinator.dismiss() }
         case .failure(let failure):
             card {
@@ -242,7 +242,7 @@ struct MiraCard: View {
                     .accessibilityIdentifier("mira.suggestion.\(chip)")
                 }
             }
-            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.horizontal, Metrics.chromeInset)
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -252,7 +252,7 @@ struct MiraCard: View {
                             .accessibilityIdentifier("mira.suggestion.\(chip)")
                     }
                 }
-                .padding(.horizontal, Metrics.screenPadding)
+                .padding(.horizontal, Metrics.chromeInset)
             }
         }
     }
@@ -273,7 +273,7 @@ struct MiraCard: View {
                 )
                 .shadow(color: Palette.ink.opacity(0.08), radius: 20, y: 12)
         )
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 }
 
@@ -303,9 +303,15 @@ struct MiraBar: View {
     }
 
     private var inputBar: some View {
+        // Handoff composer: Medium 12 field from x 17, a 52x34 Bold 12 Go
+        // pill 9 from the capsule's trailing edge, 54 tall.
         HStack(spacing: 8) {
-            TextField("Ask Mira anything", text: $prompt)
-                .font(.miraBody)
+            TextField(
+                "Ask Mira anything",
+                text: $prompt,
+                prompt: Text("Ask Mira anything").foregroundStyle(Palette.muted)
+            )
+                .font(.miraComposer)
                 .foregroundStyle(Palette.ink)
                 .tint(Palette.forest)
                 .submitLabel(.go)
@@ -315,25 +321,28 @@ struct MiraBar: View {
 
             Button(action: submit) {
                 Text("Go")
-                    .font(Sans.font(size: 13, weight: 700))
+                    .font(.miraComposerAction)
                     .foregroundStyle(Palette.onInk)
-                    .frame(minWidth: 52, minHeight: 34)
+                    .frame(minWidth: 52)
+                    .frame(height: 34)
                     .background(Capsule().fill(Palette.ink))
                     .minimumHitTarget()
             }
-            .buttonStyle(.plain)
+            // The handoff draws Go in full ink at rest: it stays disabled
+            // with nothing to send, but is not greyed out.
+            .buttonStyle(ComposerActionStyle())
             .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || coordinator.isWorking)
             .accessibilityIdentifier("mira.go")
         }
         .padding(.leading, 17)
-        .padding(.trailing, 10)
-        .frame(minHeight: 54)
+        .padding(.trailing, 9)
+        .frame(height: 54)
         .background(GlassCapsule())
         // The field is one line inside a 54 pt capsule: a tap anywhere on
         // the capsule focuses it (Go still takes its own taps).
         .contentShape(Capsule())
         .onTapGesture { promptFocus.wrappedValue = true }
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 
     private func workingBar(_ verb: String) -> some View {
@@ -360,7 +369,7 @@ struct MiraBar: View {
         // and canvas on every turn longer than 400 ms.
         .frame(minHeight: 54)
         .background(Capsule().fill(Palette.ink))
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 
     private func submit() {
@@ -368,5 +377,12 @@ struct MiraBar: View {
         guard !trimmed.isEmpty else { return }
         prompt = ""
         coordinator.ask(trimmed, editor: editor)
+    }
+}
+
+/// The composer's action pill as drawn: no disabled dimming, a light press.
+private struct ComposerActionStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.opacity(configuration.isPressed ? 0.82 : 1)
     }
 }
