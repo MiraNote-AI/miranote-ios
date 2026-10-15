@@ -40,8 +40,10 @@ enum TextFace {
     /// Bundled variable faces of the curated sets (screen 05). Their default
     /// instance is often Thin or Light, so a weight is always set on the
     /// axis (Regular unless asked). Raleway has its own Medium default below.
+    /// Merriweather ships as static Regular and Bold instead (the variable
+    /// font was 4.6 MB), so it takes the family-and-bold path.
     private static let variableFamilies: Set<String> = [
-        "Lora", "Merriweather", "Montserrat", "Open Sans", "Playfair Display",
+        "Lora", "Montserrat", "Open Sans", "Playfair Display",
         "Oswald", "Darker Grotesque"
     ]
 

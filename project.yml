@@ -39,7 +39,10 @@ targets:
           - Poppins-Regular.ttf
           - Lora.ttf
           - Cardo-Regular.ttf
-          - Merriweather.ttf
+          # Static Regular/Bold (v2.002, ~0.3 MB) in place of the 4.6 MB
+          # variable font: the set uses no other weight.
+          - Merriweather-Regular.ttf
+          - Merriweather-Bold.ttf
           - Montserrat.ttf
           - OpenSans.ttf
           - PlayfairDisplay.ttf
