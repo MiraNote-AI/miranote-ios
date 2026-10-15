@@ -20,6 +20,9 @@ extension XCUIApplication {
     func askMira(_ words: String, file: StaticString = #filePath, line: UInt = #line) {
         openMiraChat(file: file, line: line)
         miraInput.tap()
-        miraInput.typeText(words + "\n")
+        miraInput.typeText(words)
+        // Return as its own key press, as a person types it (a phrase that
+        // arrives with its new line in one change reads as a paste).
+        miraInput.typeText("\n")
     }
 }

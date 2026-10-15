@@ -15,6 +15,9 @@ final class MiraNoteAppTests: XCTestCase {
         XCTAssertEqual(ReturnKey.pressed(was: "polish this", now: "polish this\n"), "polish this")
         XCTAssertNil(ReturnKey.pressed(was: "line one", now: "line one\nline two"))
         XCTAssertNil(ReturnKey.pressed(was: "no retur", now: "no return"))
+        // The last letters, or an autocorrection, can arrive with the Return.
+        XCTAssertEqual(ReturnKey.pressed(was: "polish th", now: "polish this\n"), "polish this")
+        XCTAssertEqual(ReturnKey.pressed(was: "polish teh", now: "polish the\n"), "polish the")
     }
 
     func testPastedTextEndingInANewLineIsNotSent() {

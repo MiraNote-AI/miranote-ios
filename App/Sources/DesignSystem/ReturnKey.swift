@@ -6,8 +6,14 @@ import Foundation
 /// in the field and are never sent.
 enum ReturnKey {
     /// The words before the Return just typed after them; nil unless the
-    /// change from `old` to `new` is exactly one new line at the end.
+    /// change from `old` to `new` ends in a new line and adds no more than
+    /// the end of one word before it -- what typing delivers when the last
+    /// letters, or an autocorrection, arrive with the Return. A pasted
+    /// phrase adds spaces or lines, and is not Return.
     static func pressed(was old: String, now new: String) -> String? {
-        new == old + "\n" ? old : nil
+        guard new.hasSuffix("\n") else { return nil }
+        let words = String(new.dropLast())
+        let added = words.dropFirst(words.commonPrefix(with: old).count)
+        return added.contains(where: \.isWhitespace) ? nil : words
     }
 }
