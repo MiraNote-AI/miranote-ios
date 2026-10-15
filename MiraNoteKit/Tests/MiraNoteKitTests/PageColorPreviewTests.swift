@@ -38,6 +38,22 @@ final class PageColorPreviewTests: XCTestCase {
         XCTAssertFalse(editor.canUndo)
     }
 
+    func testTheAutosaveFilesThePageWithoutAnUnappliedPreview() {
+        let editor = CanvasViewModel(memory: Memory(backgroundFileName: "dusk.png", backgroundSummary: "a dusk sky"))
+        editor.addText("Lunch", at: CGPoint(x: 160, y: 120))
+        let original = editor.pageLook
+        editor.setPageColor("#D1E0F0", recordingUndo: false)
+
+        // The app leaves the foreground with the custom color sheet up.
+        let filed = editor.composedMemory()
+        XCTAssertEqual(filed.pageColorName, "", "the preview was never applied")
+        XCTAssertEqual(filed.backgroundFileName, "dusk.png")
+        XCTAssertEqual(filed.backgroundSummary, "a dusk sky")
+
+        editor.commitPagePreview(from: original)
+        XCTAssertEqual(editor.composedMemory().pageColorName, "#D1E0F0", "an applied color is filed")
+    }
+
     func testDiscardedPreviewRestoresThePageWithoutAStep() {
         let editor = CanvasViewModel(memory: Memory(backgroundFileName: "dusk.png", backgroundSummary: "a dusk sky"))
         let original = editor.pageLook

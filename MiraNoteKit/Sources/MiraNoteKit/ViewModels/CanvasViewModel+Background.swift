@@ -29,7 +29,11 @@ extension CanvasViewModel {
     public func setPageColor(_ colorName: String, recordingUndo: Bool = true) {
         let clearsPainting = !colorName.isEmpty && !memory.backgroundFileName.isEmpty
         guard memory.pageColorName != colorName || clearsPainting else { return }
-        if recordingUndo { beginChange() }
+        if recordingUndo {
+            beginChange()
+        } else if pagePreviewOrigin == nil {
+            pagePreviewOrigin = pageLook
+        }
         memory.pageColorName = colorName
         if clearsPainting {
             memory.backgroundFileName = ""
@@ -56,6 +60,7 @@ extension CanvasViewModel {
     /// false)`) becomes one undo step back to `original`; none when the page
     /// ends up as it was.
     public func commitPagePreview(from original: PageLook) {
+        pagePreviewOrigin = nil
         let previewed = pageLook
         guard previewed != original else { return }
         restore(original)
@@ -65,6 +70,7 @@ extension CanvasViewModel {
 
     /// Drops a live page color preview: the page as it was, no undo step.
     public func discardPagePreview(from original: PageLook) {
+        pagePreviewOrigin = nil
         restore(original)
     }
 

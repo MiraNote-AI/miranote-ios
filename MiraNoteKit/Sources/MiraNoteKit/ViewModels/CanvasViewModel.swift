@@ -39,6 +39,10 @@ public final class CanvasViewModel {
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
 
+    /// The page as it was before a live page color preview, while one is
+    /// shown: the autosave files this, not a color nobody applied.
+    var pagePreviewOrigin: PageLook?
+
     /// One undo step: the canvas elements plus the page background.
     // The backdrop and its description travel together: restoring one
     // without the other leaves the page describing a picture it lost.
@@ -544,6 +548,11 @@ extension CanvasViewModel {
     /// title IS a text element"), body = remaining text in reading order.
     public func composedMemory(defaultTitle: String = "New memory") -> Memory {
         var composed = memory
+        if let origin = pagePreviewOrigin {
+            composed.pageColorName = origin.pageColorName
+            composed.backgroundFileName = origin.backgroundFileName
+            composed.backgroundSummary = origin.backgroundSummary
+        }
         let textBlocks: [(block: TextBlock, item: CanvasItem)] = memory.items.compactMap {
             guard case .text(let block) = $0.content,
                   !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
