@@ -27,7 +27,9 @@ final class StickerTabsUITests: XCTestCase {
         XCTAssertTrue(make.isSelected, "the panel opens on Make")
         XCTAssertTrue(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists,
                       "Make opens on its own prompt")
-        let placeable = NSPredicate(format: "identifier BEGINSWITH 'library.item.' OR identifier BEGINSWITH 'sticker.preset.'")
+        let placeable = NSPredicate(
+            format: "identifier BEGINSWITH 'library.item.' OR identifier BEGINSWITH 'sticker.preset.'"
+        )
         XCTAssertEqual(app.buttons.matching(placeable).count, 0, "no favorites or presets on Make")
         XCTAssertFalse(app.buttons["sticker.generate.run"].isEnabled, "Generate waits for words")
         let shot = XCTAttachment(screenshot: app.screenshot())

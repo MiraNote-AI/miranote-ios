@@ -25,12 +25,13 @@ final class PhotoEditVisitTests: XCTestCase {
         func describe(image: Data) async throws -> String { try await base.describe(image: image) }
     }
 
-    private func makePhoto() throws -> (CanvasViewModel, CanvasItem.ID, ImageRef) {
+    /// A page holding one stored photo, and the photo's id.
+    private func makePhoto() throws -> (CanvasViewModel, CanvasItem.ID) {
         let fileName = try ImageFileStore().save(MockImageStudioService.tinyPNG, id: UUID())
         let ref = ImageRef(displayName: "photo", fileName: fileName)
         let editor = CanvasViewModel(memory: Memory())
         let id = try XCTUnwrap(editor.addImages([ref], around: CGPoint(x: 180, y: 200)).first)
-        return (editor, id, ref)
+        return (editor, id)
     }
 
     private func controller(_ editor: CanvasViewModel, _ id: CanvasItem.ID,
@@ -44,7 +45,7 @@ final class PhotoEditVisitTests: XCTestCase {
     }
 
     func testUndoTakesBackOnlyThisVisitsOwnSteps() throws {
-        let (editor, id, _) = try makePhoto()
+        let (editor, id) = try makePhoto()
         let photoEdit = controller(editor, id)
         XCTAssertFalse(photoEdit.canUndo, "nothing of this visit yet")
 
@@ -57,7 +58,7 @@ final class PhotoEditVisitTests: XCTestCase {
     }
 
     func testUndoStepsAsideWhenSomethingElseIsNewer() throws {
-        let (editor, id, _) = try makePhoto()
+        let (editor, id) = try makePhoto()
         // An earlier visit's B&W, kept with Done; then a text block.
         let earlier = controller(editor, id)
         earlier.tap(.bw)
@@ -70,7 +71,8 @@ final class PhotoEditVisitTests: XCTestCase {
     }
 
     func testCancelDropsAnAIEditThatLandsLater() async throws {
-        let (editor, id, original) = try makePhoto()
+        let (editor, id) = try makePhoto()
+        let original = try XCTUnwrap(fileName(editor, id))
         let photoEdit = controller(editor, id, studio: SlowStudio())
         photoEdit.tap(.ai)
         photoEdit.prompt = "make it autumn"
@@ -82,12 +84,12 @@ final class PhotoEditVisitTests: XCTestCase {
         if let start = photoEdit.visitStart { editor.restoreImage(itemID: id, to: start) }
         try await Task.sleep(for: .milliseconds(1_200))
 
-        XCTAssertEqual(fileName(editor, id), original.fileName, "the late result did not land")
+        XCTAssertEqual(fileName(editor, id), original, "the late result did not land")
         XCTAssertEqual(editor.changeCount, 1, "and recorded no step after placing the photo")
     }
 
     func testCancelDropsACutoutThatLandsLater() async throws {
-        let (editor, id, _) = try makePhoto()
+        let (editor, id) = try makePhoto()
         let photoEdit = controller(editor, id, studio: SlowStudio())
         photoEdit.tap(.cutout)
         photoEdit.runComposer()

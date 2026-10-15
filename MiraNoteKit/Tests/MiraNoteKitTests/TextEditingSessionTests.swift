@@ -78,7 +78,9 @@ final class TextEditingSessionTests: XCTestCase {
 
     func testCancelOnANewBlockKeepsAnotherElementsChange() {
         let editor = CanvasViewModel(memory: Memory())
-        let photo = editor.addImages([ImageRef(displayName: "a", fileName: "a.jpg")], around: CGPoint(x: 100, y: 300))[0]
+        let photo = editor.addImages(
+            [ImageRef(displayName: "a", fileName: "a.jpg")], around: CGPoint(x: 100, y: 300)
+        )[0]
         let id = editor.addText("", at: CGPoint(x: 100, y: 100))
         editor.startEditingText(id, recordingUndo: false)
         editor.setText(itemID: id, to: "caption")

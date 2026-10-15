@@ -196,47 +196,6 @@ public final class CanvasViewModel {
         editingTextItemID = nil
     }
 
-    /// The header's Cancel: ends the session and takes the edited block back
-    /// to how it was when the session began -- words, style and, for a new
-    /// block, the block itself. Other elements and the page keep what landed
-    /// meanwhile. The session's undo steps lose the block's edits; a step
-    /// left with nothing else in it goes.
-    public func cancelEditingText() {
-        guard let id = editingTextItemID else { return }
-        if let steps = sessionSteps, steps < history.count {
-            let origin = sessionOrigin
-            func reverted(_ items: [CanvasItem]) -> [CanvasItem] {
-                var items = items
-                if let index = items.firstIndex(where: { $0.id == id }) {
-                    if let origin { items[index] = origin } else { items.remove(at: index) }
-                } else if let origin {
-                    items.append(origin)
-                }
-                return items
-            }
-            memory.items = reverted(memory.items)
-            changeCount += 1
-            // The session's steps plus its starting point, newest first:
-            // each loses the block's edits, and one that then matches the
-            // page above it recorded nothing else.
-            var next = currentSnapshot
-            var kept: [UndoSnapshot] = []
-            for snapshot in history.suffix(steps + 1).reversed() {
-                let step = snapshot.replacingItems(reverted(snapshot.items))
-                if !step.sameEdits(as: next) {
-                    kept.insert(step, at: 0)
-                    next = step
-                }
-            }
-            history.removeLast(steps + 1)
-            history += kept
-            // Nothing of a cancelled session comes back by redo.
-            future.removeAll()
-        }
-        editingTextItemID = nil
-        if selectedItemID == id, item(id) == nil { selectedItemID = nil }
-    }
-
     /// Changes previewed live without undo steps (an AI rewrite, a custom
     /// color being dragged) become one undo step back to `original`; none
     /// when the item ends up unchanged.
@@ -353,6 +312,51 @@ public final class CanvasViewModel {
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees
+    }
+}
+
+// MARK: - Text session Cancel
+
+extension CanvasViewModel {
+    /// The header's Cancel: ends the session and takes the edited block back
+    /// to how it was when the session began -- words, style and, for a new
+    /// block, the block itself. Other elements and the page keep what landed
+    /// meanwhile. The session's undo steps lose the block's edits; a step
+    /// left with nothing else in it goes.
+    public func cancelEditingText() {
+        guard let id = editingTextItemID else { return }
+        if let steps = sessionSteps, steps < history.count {
+            let origin = sessionOrigin
+            func reverted(_ items: [CanvasItem]) -> [CanvasItem] {
+                var items = items
+                if let index = items.firstIndex(where: { $0.id == id }) {
+                    if let origin { items[index] = origin } else { items.remove(at: index) }
+                } else if let origin {
+                    items.append(origin)
+                }
+                return items
+            }
+            memory.items = reverted(memory.items)
+            changeCount += 1
+            // The session's steps plus its starting point, newest first:
+            // each loses the block's edits, and one that then matches the
+            // page above it recorded nothing else.
+            var next = currentSnapshot
+            var kept: [UndoSnapshot] = []
+            for snapshot in history.suffix(steps + 1).reversed() {
+                let step = snapshot.replacingItems(reverted(snapshot.items))
+                if !step.sameEdits(as: next) {
+                    kept.insert(step, at: 0)
+                    next = step
+                }
+            }
+            history.removeLast(steps + 1)
+            history += kept
+            // Nothing of a cancelled session comes back by redo.
+            future.removeAll()
+        }
+        editingTextItemID = nil
+        if selectedItemID == id, item(id) == nil { selectedItemID = nil }
     }
 }
 

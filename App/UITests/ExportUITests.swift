@@ -104,7 +104,8 @@ final class ExportUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["June 21 - calm afternoon"].exists, "the page behind is out of reach")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
         waitUntil(sheet, "exists == false")
-        XCTAssertTrue(app.staticTexts["June 21 - calm afternoon"].waitForExistence(timeout: 5), "and back once it closes")
+        XCTAssertTrue(app.staticTexts["June 21 - calm afternoon"].waitForExistence(timeout: 5),
+                      "and back once it closes")
     }
 
     // Print sends the A4 pages built off the main actor with the other

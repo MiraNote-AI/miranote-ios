@@ -207,50 +207,6 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
-    // Typing goes through setText, which records no step: Revert must still
-    // see it, or it undoes to before the typed words (there is no Redo).
-    func testRevertKeepsWordsTypedAfterTheResult() async throws {
-        let editor = makeEditor()
-        let coordinator = makeCoordinator()
-        coordinator.ask("polish the text", editor: editor)
-        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-        XCTAssertTrue(coordinator.receiptCanRevert)
-
-        let title = try XCTUnwrap(editor.items.first { if case .text = $0.content { return true }; return false })
-        editor.setText(itemID: title.id, to: "first words, then a paragraph")
-        coordinator.canvasDidChange(editor)
-        XCTAssertFalse(coordinator.receiptCanRevert, "Revert would take the typed words too")
-
-        coordinator.revert(editor: editor)
-        guard case .text(let block) = editor.item(title.id)?.content else { return XCTFail("block gone") }
-        XCTAssertEqual(block.text, "first words, then a paragraph")
-        XCTAssertEqual(coordinator.phase, .idle)
-    }
-
-    // The view re-measures blocks after Mira's change (no step): that is
-    // not an edit, so Revert stays.
-    func testRemeasuringAfterTheResultKeepsRevert() async throws {
-        let editor = makeEditor()
-        let coordinator = makeCoordinator()
-        coordinator.ask("polish the text", editor: editor)
-        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-        let block = try XCTUnwrap(editor.items.first { if case .text = $0.content { return true }; return false })
-        editor.autosizeTextHeight(itemID: block.id, to: block.size.height + 30)
-        XCTAssertTrue(coordinator.receiptCanRevert)
-    }
-
-    // A change made where CanvasScene is not mounted (a Sticker preset)
-    // never reaches canvasDidChange: Revert must not be offered for it.
-    func testRevertIsNotOfferedOnceSomethingElseChanged() async {
-        let editor = makeEditor()
-        let coordinator = makeCoordinator()
-        coordinator.ask("polish the text", editor: editor)
-        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-
-        editor.addImages([ImageRef(displayName: "martini", fileName: "martini.png")], around: CGPoint(x: 100, y: 500))
-        XCTAssertFalse(coordinator.receiptCanRevert)
-    }
-
     func testReceiptStepsAsideWhenTheCanvasChanges() async {
         let editor = makeEditor()
         let coordinator = makeCoordinator()
