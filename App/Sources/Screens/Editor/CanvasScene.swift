@@ -5,7 +5,8 @@ import SwiftUI
 /// Voice and Text act directly on the canvas -- Background opens its panel
 /// in place, Voice swaps the bottom bar for a recorder, Text drops an
 /// editable block; Image and Sticker leave for their panels. Header is
-/// Home / undo / Done.
+/// Home (Canvas while a tool is open in place) / undo / Save; Save still
+/// files the page and leaves.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -56,8 +57,9 @@ struct CanvasScene: View {
 
     var body: some View {
         EditorScaffold(
-            leading: "Home",
-            onLeading: actions.leading,
+            leading: toolOpen ? "Canvas" : "Home",
+            trailing: "Save",
+            onLeading: toolOpen ? closeTool : actions.leading,
             onTrailing: actions.done,
             onUndo: editor.undo,
             undoEnabled: editor.canUndo
@@ -246,7 +248,7 @@ struct CanvasScene: View {
                     .fill(Palette.onInk)
                     .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
             )
-            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.horizontal, Metrics.chromeInset)
         } else {
             if pendingPlacement != nil {
                 HStack(spacing: 8) {
@@ -259,13 +261,13 @@ struct CanvasScene: View {
                         .font(.miraCaption)
                         .accessibilityIdentifier("canvas.place.cancel")
                 }
-                .padding(.horizontal, Metrics.screenPadding)
+                .padding(.horizontal, Metrics.chromeInset)
                 .transition(.opacity)
             } else if let gestureHint {
                 Text(gestureHint)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
-                    .padding(.horizontal, Metrics.screenPadding)
+                    .padding(.horizontal, Metrics.chromeInset)
                     .transition(.opacity)
             }
             if let editingImageItem, let session = photoSession, session.itemID == editingImageItem {
@@ -329,7 +331,7 @@ struct CanvasScene: View {
                 Text(recorderNotice)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
-                    .padding(.horizontal, Metrics.screenPadding)
+                    .padding(.horizontal, Metrics.chromeInset)
             }
             InputModeBar(active: nil, onSelect: handleTool)
             // The card and the bar are one conversational dock.
@@ -402,6 +404,25 @@ struct CanvasScene: View {
         case .sticker:
             cancelRecording()
             actions.selectMode(.sticker)
+        }
+    }
+
+    /// A tool open in place over the canvas (Background, photo or sticker
+    /// editing). The handoff's leading pill then reads "Canvas" and folds
+    /// the tool away (screen 05); on the bare canvas it is the way Home.
+    private var toolOpen: Bool {
+        backgroundPanelOpen || editingImageItem != nil || editingStickerItem != nil
+    }
+
+    private func closeTool() {
+        backgroundPanelOpen = false
+        if let id = editingImageItem {
+            revealItem = id
+            editingImageItem = nil
+        }
+        if let id = editingStickerItem {
+            revealItem = id
+            editingStickerItem = nil
         }
     }
 
