@@ -57,8 +57,12 @@ struct CanvasBoardView: View {
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
 
-    /// Bottom-edge receipts; deleted carries the one-tap Undo.
-    enum Toast { case deleted, favorited }
+    /// Bottom-edge receipts; deleted carries the one-tap Undo, good while
+    /// the delete is still the page's newest change (`changeCount`).
+    enum Toast {
+        case deleted(changeCount: Int)
+        case favorited
+    }
 
     private let minBoardHeight: CGFloat = 620
     private static let revealAnchorID = "canvas.revealAnchor"
@@ -478,7 +482,7 @@ extension CanvasBoardView {
 
     private func deleteWithToast(_ id: CanvasItem.ID) {
         editor.delete(itemID: id)
-        show(toast: .deleted)
+        show(toast: .deleted(changeCount: editor.changeCount))
     }
 
     func show(toast kind: Toast) {
@@ -494,17 +498,20 @@ extension CanvasBoardView {
     @ViewBuilder private func toastView(_ kind: Toast) -> some View {
         HStack(spacing: 14) {
             switch kind {
-            case .deleted:
+            case .deleted(let changeCount):
                 Text("Deleted")
                     .font(.miraLabel)
                     .foregroundStyle(Palette.onInk)
+                // Only the delete: once something newer is on the page, the
+                // canvas-wide undo would take that back instead.
                 Button("Undo") {
-                    editor.undo()
+                    if editor.changeCount == changeCount { editor.undo() }
                     toastDismiss?.cancel()
                     withAnimation(.easeIn(duration: 0.18)) { toast = nil }
                 }
                 .font(.miraLabel.weight(.semibold))
                 .foregroundStyle(Palette.onInk)
+                .disabled(editor.changeCount != changeCount)
                 .accessibilityIdentifier("toast.undo")
             case .favorited:
                 Image(systemName: "heart.fill")

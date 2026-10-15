@@ -28,9 +28,14 @@ extension CanvasScene {
                 initial: request.initial,
                 onLiveChange: { previewColor($0.hex, for: request) },
                 // The color the sheet shows is the one applied, previewed or
-                // not (a background sheet opens on #8B5962 with none set).
+                // not (a background sheet opens on #8B5962 with none set);
+                // the block's own color is left as it is named, no step.
                 onApply: { color in
-                    previewColor(color.hex, for: request)
+                    if let hex = request.applied(color.hex) {
+                        previewColor(hex, for: request)
+                    } else {
+                        dropColorPreview(request)
+                    }
                     closeColorSheet(keeping: true)
                 },
                 onCancel: { closeColorSheet(keeping: false) },

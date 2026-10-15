@@ -12,6 +12,12 @@ enum RecorderState {
     case recording(start: Date)
 }
 
+/// Photos picked while another import still loads, waiting their turn.
+struct QueuedImport {
+    let load: () async -> [Data]
+    let then: ([CanvasItem.ID]) -> Void
+}
+
 /// Which dictation strip's mic is still coming up (it takes the audio
 /// session, and the permission alert the first time): a cancel then has
 /// to know whose it is.
@@ -67,6 +73,16 @@ struct ColorRequest {
     let target: Target
     let original: CanvasItem
     let initial: RGBColor
+
+    /// What Apply puts on the block for the color `hex` the sheet shows;
+    /// nil when it is the block's own color -- "ink" stays "ink" and no
+    /// undo step is spent. A background sheet opened with none set shows
+    /// #8B5962, and applies it.
+    func applied(_ hex: String) -> String? {
+        guard case .text(let block) = original.content else { return hex }
+        let own = target == .text ? block.colorName : block.backgroundColorName
+        return !own.isEmpty && hex == initial.hex ? nil : hex
+    }
 }
 
 // MARK: - Text accessory

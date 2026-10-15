@@ -62,6 +62,9 @@ struct CanvasScene: View {
     @State private var recentPhotos = RecentPhotos()
     @State private var libraryPicks: [LibraryPhoto] = []
     @State private var importingPicks = false
+    /// Picks made while another import loads (the system picker during a
+    /// grid import): they follow it, never dropped.
+    @State private var queuedImports: [QueuedImport] = []
     /// Bumped when a visit or a pick is left; a slower import checks it.
     @State private var importGeneration = 0
     /// The photos this Image visit placed: its Cancel takes them back.
@@ -659,8 +662,12 @@ struct CanvasScene: View {
             switch imageWasOpen {
             case nil: openImageTool()
             case .choose: endImageVisit()
-            // Picking or placed: the tap brings back the first sheet.
-            case .library, .placed: imagePhase = .choose
+            // Picking or placed: the tap brings back the first sheet, and
+            // leaves a pick still importing (it must not land afterwards).
+            case .library:
+                cancelImport()
+                imagePhase = .choose
+            case .placed: imagePhase = .choose
             }
         case .sticker:
             cancelRecording()
@@ -764,6 +771,7 @@ struct CanvasScene: View {
     private func cancelImport() {
         importGeneration += 1
         importingPicks = false
+        queuedImports = []
     }
 
     /// Cancel after placing: this visit's photos come off as one step.
@@ -862,12 +870,15 @@ struct CanvasScene: View {
     }
 
     /// Loads the picks, then places them -- only if the user is still on
-    /// the same pick of the same Image visit.
+    /// the same pick of the same Image visit. Picks made meanwhile follow.
     private func importPicks(
         load: @escaping () async -> [Data],
         then: @escaping ([CanvasItem.ID]) -> Void
     ) {
-        guard !importingPicks else { return }
+        guard !importingPicks else {
+            queuedImports.append(QueuedImport(load: load, then: then))
+            return
+        }
         importingPicks = true
         let generation = importGeneration
         Task {
@@ -876,13 +887,17 @@ struct CanvasScene: View {
             let ids = placer.place(photos)
             importingPicks = false
             libraryPicks = []
-            guard !ids.isEmpty else {
+            if ids.isEmpty {
                 imageNotice = "Those photos couldn't be imported. Try different ones?"
                 imagePhase = .choose
-                return
+            } else {
+                placedThisVisit += ids
+                then(ids)
             }
-            placedThisVisit += ids
-            then(ids)
+            if !queuedImports.isEmpty {
+                let next = queuedImports.removeFirst()
+                importPicks(load: next.load, then: next.then)
+            }
         }
     }
 
