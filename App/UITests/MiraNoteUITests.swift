@@ -320,6 +320,10 @@ final class MiraNoteUITests: XCTestCase {
         save.tap()
 
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["3 notes"].exists, "Daily Log stays at its seeded 2 notes")
+        // Home cards print no count (screen 01): count Daily Log's covers.
+        app.buttons["collection.Daily Log"].tap()
+        let covers = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note.' AND identifier != 'note.add'"))
+        XCTAssertTrue(covers.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(covers.count, 2, "Daily Log stays at its seeded 2 notes")
     }
 }
