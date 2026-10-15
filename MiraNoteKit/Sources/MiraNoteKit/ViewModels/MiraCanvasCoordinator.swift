@@ -144,6 +144,13 @@ public final class MiraCanvasCoordinator {
         return turnTask != nil
     }
 
+    /// The text accessory's in-place rewrite (handoff screen 15): words in,
+    /// words out, no Mira turn -- the block previews the result while the
+    /// keyboard stays up, and the editor commits it.
+    public func rewriteText(_ text: String, mode: TextTransformMode) async throws -> String {
+        try await self.text.transform(text, mode: mode)
+    }
+
     // MARK: Turn lifecycle
 
     public func ask(_ prompt: String, editor: CanvasViewModel) {
