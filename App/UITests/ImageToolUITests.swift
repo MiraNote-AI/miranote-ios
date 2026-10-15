@@ -63,7 +63,7 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mode.image"].isSelected)
 
         app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5), "Add keeps them and leaves")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add keeps them and leaves")
         XCTAssertEqual(photos.count, 2)
     }
 
@@ -76,7 +76,7 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 5), .completed)
 
         app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         XCTAssertEqual(photos.count, 0, "Cancel took them back")
 
         app.buttons["Undo"].tap()

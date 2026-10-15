@@ -17,6 +17,29 @@ final class RedoTests: XCTestCase {
         return (editor, id)
     }
 
+    // The text editor's header Cancel (screens 10-20) takes the session
+    // back even after an undo and a redo inside it, and nothing of the
+    // session comes back by redo.
+    func testCancelledTextSessionLeavesNothingToRedo() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("kept words", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.setTextColorName(itemID: id, to: "#FFFFFF")
+        editor.setTextAlignment(itemID: id, to: .center)
+        editor.undo()
+        editor.redo()
+        editor.undo()
+        XCTAssertTrue(editor.canRedo)
+
+        editor.cancelEditingText()
+        guard case .text(let block) = editor.item(id)?.content else { return XCTFail("the block stays") }
+        XCTAssertEqual(block.colorName, "ink")
+        XCTAssertEqual(block.alignment, .leading)
+        XCTAssertFalse(editor.canRedo, "a cancelled session is not redoable")
+        editor.undo()
+        XCTAssertNil(editor.item(id), "the next undo is the step before the session")
+    }
+
     func testNothingToRedoUntilSomethingIsUndone() {
         let (editor, id) = photo()
         editor.setImageFilter(itemID: id, to: "bw")

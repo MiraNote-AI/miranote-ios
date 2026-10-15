@@ -1,12 +1,14 @@
 import SwiftUI
 
 /// The handoff's 54 pt glass composer: its leading content from x 17 and an
-/// ink 52x34 action pill (Go, Apply) at x 271 of 342 -- 19 from the
-/// trailing edge, vertically centered.
+/// ink 52x34 action pill (Go, Apply, Add; Generate is 74) at x 271 of 342 --
+/// 19 from the trailing edge, vertically centered. The canvas, the
+/// Background tool and every tool page (screens 23-36) use this one.
 struct ComposerCapsule<Leading: View>: View {
     let action: String
     let actionID: String
     let canAct: Bool
+    var actionWidth: CGFloat = 52
     let onAct: () -> Void
     @ViewBuilder var leading: () -> Leading
 
@@ -17,7 +19,7 @@ struct ComposerCapsule<Leading: View>: View {
                 Text(action)
                     .font(.miraComposerAction)
                     .foregroundStyle(Palette.onInk)
-                    .frame(minWidth: 52)
+                    .frame(minWidth: actionWidth)
                     .frame(height: 34)
                     .background(Capsule().fill(Palette.ink))
                     .minimumHitTarget()
@@ -71,7 +73,7 @@ struct BackgroundApplyBar: View {
 }
 
 /// The composer's action pill as drawn: no disabled dimming, a light press.
-struct ComposerActionStyle: ButtonStyle {
+private struct ComposerActionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.opacity(configuration.isPressed ? 0.82 : 1)
     }

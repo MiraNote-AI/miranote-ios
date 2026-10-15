@@ -1,8 +1,7 @@
 import SwiftUI
 
 /// The handoff's Ask-Mira composer as each tool page words it (screens
-/// 23-36): the 54 pt glass capsule, Medium 12 copy from x 17 and a Bold 12
-/// ink action 34 tall, 19 in from the trailing edge -- 52 wide, Generate 74.
+/// 23-36), on the shared `ComposerCapsule` -- action 52 wide, Generate 74.
 struct ToolComposer: View {
     let placeholder: String
     /// The typed words; nil when the page takes none and the copy only says
@@ -18,7 +17,9 @@ struct ToolComposer: View {
     var onAction: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        ComposerCapsule(
+            action: action, actionID: actionID, canAct: actionEnabled, actionWidth: actionWidth, onAct: onAction
+        ) {
             Group {
                 if let text {
                     TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(Palette.muted))
@@ -36,24 +37,7 @@ struct ToolComposer: View {
             .font(.miraComposer)
             .lineLimit(1)
             .accessibilityIdentifier(fieldID)
-
-            Button(action: onAction) {
-                Text(action)
-                    .font(.miraComposerAction)
-                    .foregroundStyle(Palette.onInk)
-                    .frame(width: actionWidth, height: 34)
-                    .background(Capsule().fill(Palette.ink))
-                    .minimumHitTarget()
-            }
-            .buttonStyle(ComposerActionStyle())
-            .disabled(!actionEnabled)
-            .accessibilityIdentifier(actionID)
         }
-        .padding(.leading, 17)
-        .padding(.trailing, 19)
-        .frame(height: 54)
-        .background(GlassCapsule())
-        .padding(.horizontal, Metrics.chromeInset)
     }
 }
 
