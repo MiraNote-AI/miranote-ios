@@ -7,6 +7,8 @@ import SwiftUI
 struct MiraChatView: View {
     var seed: String?
     var onExit: () -> Void = {}
+    /// The header's Canvas pill: leave the chat for a blank page.
+    var onOpenCanvas: () -> Void = {}
     /// Mira answers "find" questions with pages, not paragraphs (v2.1):
     /// every user message also runs the library search; hits render as
     /// tappable covers under it.
@@ -17,6 +19,7 @@ struct MiraChatView: View {
 
     @State private var viewModel: ChatViewModel
     @State private var hits: [ChatMessage.ID: [PageHit]] = [:]
+    private let imageStore = ImageFileStore()
 
     init(
         service: ChatService,
@@ -25,6 +28,7 @@ struct MiraChatView: View {
         recorderFactory: @escaping @MainActor () -> AudioRecording,
         seed: String? = nil,
         onExit: @escaping () -> Void = {},
+        onOpenCanvas: @escaping () -> Void = {},
         findPages: @escaping (String) -> [PageHit] = { _ in [] },
         onOpenPage: @escaping (PageHit) -> Void = { _ in },
         onOpenDraft: @escaping (ChatPageDraft) -> Void = { _ in }
@@ -43,6 +47,7 @@ struct MiraChatView: View {
         ))
         self.seed = seed
         self.onExit = onExit
+        self.onOpenCanvas = onOpenCanvas
         self.findPages = findPages
         self.onOpenPage = onOpenPage
         self.onOpenDraft = onOpenDraft
@@ -52,64 +57,136 @@ struct MiraChatView: View {
         VStack(spacing: 0) {
             header
             transcript
-            inputBar
+            MiraChatComposer(viewModel: viewModel)
         }
         .screenBackground()
         .task { await viewModel.seedIfNeeded(seed) }
     }
 
-    /// Handoff screen 02: the Home pill on the left, the title centered
-    /// over the whole bar.
+    /// Handoff screen 02: Home on frosted white, Canvas on forest, no title.
+    /// The design's center undo glyph is left out -- a conversation has
+    /// nothing to undo.
     private var header: some View {
         HStack {
             Button("Home", action: onExit)
-                .buttonStyle(NavPill(prominent: false, width: NavPill.leadingWidth))
+                .buttonStyle(ChatNavPill(fill: .white.opacity(0.62), rim: .white.opacity(0.40), label: Palette.ink))
                 .accessibilityIdentifier("chat.home")
             Spacer()
+            Button("Canvas", action: onOpenCanvas)
+                .buttonStyle(ChatNavPill(fill: Palette.forest, rim: .clear, label: Palette.onInk))
+                .accessibilityIdentifier("chat.canvas")
         }
-        .overlay {
-            Text("MiraNote AI")
-                .font(.miraScreenTitle)
-                .foregroundStyle(Palette.ink)
-                .allowsHitTesting(false)
-        }
-        .padding(.horizontal, Metrics.chromeInset)
+        .padding(.horizontal, ChatMetrics.inset)
         .padding(.top, 2)
-        .padding(.bottom, 12)
     }
 
     private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                // Rhythm from the handoff: 22 between turns, 28 after the
+                // quick-starts card.
+                VStack(alignment: .leading, spacing: 22) {
+                    MiraBubbleRow(
+                        text: "Hi, I'm Mira. Tell me what you want to remember, change, or create.",
+                        secondary: "You can start with a mood, a photo, a voice note, or a messy idea."
+                    )
+                    quickStarts
+                        .padding(.bottom, 6)
                     ForEach(viewModel.messages) { message in
-                        bubble(message).id(message.id)
-                        if let draft = message.pageDraft {
-                            draftCard(draft)
+                        VStack(alignment: .leading, spacing: 12) {
+                            if message.role == .user {
+                                UserBubbleRow(message: message, imageStore: imageStore)
+                            } else {
+                                MiraBubbleRow(text: message.text, markdown: true)
+                            }
+                            if let draft = message.pageDraft {
+                                draftCard(draft)
+                                    .padding(.leading, ChatMetrics.bubbleIndent)
+                            }
+                            if let pageHits = hits[message.id], !pageHits.isEmpty {
+                                hitsRow(pageHits)
+                            }
                         }
-                        if let pageHits = hits[message.id], !pageHits.isEmpty {
-                            hitsRow(pageHits)
-                        }
+                        .id(message.id)
                     }
                     if viewModel.isResponding {
                         TypingBubble().id("typing")
                     }
                 }
-                .padding(.horizontal, Metrics.screenPadding)
-                .padding(.vertical, 20)
+                .padding(.horizontal, ChatMetrics.inset)
+                .padding(.top, 14)
+                .padding(.bottom, 22)
             }
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: viewModel.messages.count) {
                 collectHits()
                 scrollToEnd(proxy)
             }
             .onChange(of: viewModel.isResponding) { scrollToEnd(proxy) }
+            // The latest turn stays in view when the keyboard or the staged
+            // photos take space from the bottom.
+            .onChange(of: viewModel.stagedImages.count) { scrollToEnd(proxy) }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                scrollToEnd(proxy)
+            }
         }
+    }
+
+    /// Handoff screen 02's empty-state starters; each chip sends its label.
+    private var quickStarts: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            Text("Quick starts")
+                .font(Sans.font(size: 16, weight: 700))
+                .foregroundStyle(Palette.ink)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    quickChip("Make a healing page", width: 132)
+                    quickChip("Use my photos", width: 104)
+                }
+                HStack(spacing: 10) {
+                    quickChip("Rewrite softer", width: 104)
+                    quickChip("Build a layout", width: 108)
+                }
+            }
+        }
+        .padding(.leading, 21)
+        .padding(.top, 15)
+        .padding(.bottom, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 30)
+                .fill(Color.white.opacity(0.73))
+                .overlay(RoundedRectangle(cornerRadius: 30).strokeBorder(Color.white.opacity(0.72), lineWidth: 1))
+        )
+    }
+
+    private func quickChip(_ label: String, width: CGFloat) -> some View {
+        Button {
+            Task { await viewModel.send(label) }
+        } label: {
+            Text(label)
+                .font(Sans.font(size: 10, weight: 700))
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(1)
+                .frame(width: width, height: 24)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(0.78))
+                        .overlay(Capsule().strokeBorder(Color(hex: 0x929292).opacity(0.72), lineWidth: 1))
+                )
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+                .padding(.vertical, -10)
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isResponding)
+        .accessibilityIdentifier("chat.quick.\(label)")
     }
 
     /// Search runs for each new user message exactly once.
     private func collectHits() {
         for message in viewModel.messages where message.role == .user && hits[message.id] == nil {
-            hits[message.id] = findPages(message.text)
+            hits[message.id] = message.text.isEmpty ? [] : findPages(message.text)
         }
     }
 
@@ -192,74 +269,157 @@ struct MiraChatView: View {
             }
         }
     }
+}
 
-    /// Handoff screen 02: Mira speaks from a warm-white card beside her "M"
-    /// mark; the user's words sit in ink on the right.
-    private func bubble(_ message: ChatMessage) -> some View {
-        let isUser = message.role == .user
-        return HStack(alignment: .top, spacing: 10) {
-            if isUser {
-                Spacer(minLength: 48)
-            } else {
-                MiraMark()
+/// Handoff screen 02 measures.
+enum ChatMetrics {
+    /// Chrome side inset (nav pills, transcript, composer).
+    static let inset: CGFloat = 16
+    /// Avatar 36 + gap 10: where Mira's bubble starts.
+    static let bubbleIndent: CGFloat = 46
+    static let miraBubbleMaxWidth: CGFloat = 296
+    static let userBubbleMaxWidth: CGFloat = 254
+    /// The design's #81796F muted copy, kept at the palette's legible value.
+    static let muted = Palette.textSecondary
+}
+
+/// The chat header's 70x34 pills (Josefin SemiBold 12).
+private struct ChatNavPill: ButtonStyle {
+    var fill: Color
+    var rim: Color
+    var label: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Sans.font(size: 12, weight: 600))
+            .foregroundStyle(label)
+            .frame(width: 70, height: 34)
+            .background(
+                Capsule()
+                    .fill(fill)
+                    .overlay(Capsule().strokeBorder(rim, lineWidth: 1))
+            )
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .minimumHitTarget()
+    }
+}
+
+/// Mira speaks from a translucent white bubble (r28) beside her "M" mark.
+private struct MiraBubbleRow: View {
+    var text: String
+    var secondary: String?
+    /// Replies carry light markdown (cited titles arrive bolded).
+    var markdown = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            MiraMark()
+                .padding(.top, 12)
+            // 15 between the lines lands the secondary line at the design's
+            // y61 (Josefin's iOS line box is shorter than the mock's).
+            VStack(alignment: .leading, spacing: 15) {
+                Text(markdown ? ChatMarkdown.attributed(text) : AttributedString(text))
+                    .font(Sans.font(size: 14, weight: 400))
+                    .foregroundStyle(Palette.ink)
+                if let secondary {
+                    Text(secondary)
+                        .font(Sans.font(size: 11, weight: 400))
+                        .foregroundStyle(ChatMetrics.muted)
+                }
             }
-            // The user's words verbatim; Mira's with her light markdown
-            // (cited titles arrive bolded) rendered, not shown as **.
-            Text(isUser ? AttributedString(message.text) : ChatMarkdown.attributed(message.text))
-                .font(.miraBody)
-                .foregroundStyle(isUser ? Palette.onInk : Palette.ink)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(isUser ? Palette.ink : Palette.warmWhite)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .strokeBorder(Palette.hairline.opacity(isUser ? 0 : 1), lineWidth: Metrics.hairline)
-                        )
-                )
-            if !isUser { Spacer(minLength: 24) }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 19)
+            .padding(.top, 17)
+            .padding(.bottom, 16)
+            .background(ChatBubbleShape.mira)
+            .frame(maxWidth: ChatMetrics.miraBubbleMaxWidth, alignment: .leading)
+            Spacer(minLength: 0)
         }
     }
+}
 
-    private var inputBar: some View {
-        HStack(spacing: 10) {
-            TextField("", text: $viewModel.draft)
-                .font(.miraBody)
-                .foregroundStyle(Palette.ink)
-                .tint(Palette.forest)
-                .submitLabel(.send)
-                .onSubmit { Task { await viewModel.sendDraft() } }
-                .accessibilityLabel("Message Mira")
-                .overlay(alignment: .leading) {
-                    if viewModel.draft.isEmpty {
-                        Text("Ask Mira anything...")
-                            .font(.miraBody)
-                            .foregroundStyle(Palette.textSecondary)
-                            .allowsHitTesting(false)
-                    }
+/// The user's words in ink on the right (r24, 13 pt); photos sit above.
+private struct UserBubbleRow: View {
+    let message: ChatMessage
+    let imageStore: ImageFileStore
+
+    var body: some View {
+        HStack {
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 8) {
+                if !message.imageFileNames.isEmpty {
+                    ChatPhotoStack(fileNames: message.imageFileNames, imageStore: imageStore)
                 }
-
-            // Handoff screen 02: an ink Send pill, the composer's one action.
-            Button("Send") {
-                Task { await viewModel.sendDraft() }
+                if !message.text.isEmpty {
+                    Text(message.text)
+                        .font(Sans.font(size: 13, weight: 400))
+                        .foregroundStyle(Palette.onInk)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 16)
+                        .background(RoundedRectangle(cornerRadius: 24).fill(Palette.ink))
+                }
             }
-            .buttonStyle(NavPill(prominent: true))
-            .disabled(!viewModel.canSend)
-            .opacity(viewModel.canSend ? 1 : 0.45)
-            .accessibilityIdentifier("chat.send")
+            .frame(maxWidth: ChatMetrics.userBubbleMaxWidth, alignment: .trailing)
         }
-        .padding(.leading, 18)
-        .padding(.trailing, 8)
-        .padding(.vertical, 8)
-        .background(
-            Capsule()
-                .fill(Palette.warmWhite.opacity(0.8))
-                .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-                .shadow(color: Palette.ink.opacity(0.08), radius: 13, y: 12)
-        )
-        .padding(.horizontal, Metrics.screenPadding)
-        .padding(.bottom, 8)
+    }
+}
+
+/// Sent photos: one at up to 180 pt, several as a two-column grid inside
+/// the same 180 pt column. Corners r24 like the bubble they belong to.
+private struct ChatPhotoStack: View {
+    let fileNames: [String]
+    let imageStore: ImageFileStore
+
+    var body: some View {
+        if fileNames.count == 1 {
+            ChatPhoto(fileName: fileNames[0], imageStore: imageStore, side: 180, corner: 24)
+        } else {
+            LazyVGrid(columns: [GridItem(.fixed(86), spacing: 8), GridItem(.fixed(86), spacing: 8)], spacing: 8) {
+                ForEach(Array(fileNames.enumerated()), id: \.offset) { _, name in
+                    ChatPhoto(fileName: name, imageStore: imageStore, side: 86, corner: 18)
+                }
+            }
+            .frame(width: 180)
+        }
+    }
+}
+
+private struct ChatPhoto: View {
+    let fileName: String
+    let imageStore: ImageFileStore
+    let side: CGFloat
+    let corner: CGFloat
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Palette.cardFill
+            }
+        }
+        .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: corner))
+        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(Palette.ink.opacity(0.08), lineWidth: 1))
+        .accessibilityElement()
+        .accessibilityLabel("Photo you sent")
+        .accessibilityAddTraits(.isImage)
+        .accessibilityIdentifier("chat.message.photo")
+        .task(id: fileName) {
+            image = imageStore.data(forFileName: fileName).flatMap(UIImage.init(data:))
+        }
+    }
+}
+
+/// Mira's bubble surface: white at 48% with a white rim.
+private enum ChatBubbleShape {
+    static var mira: some View {
+        RoundedRectangle(cornerRadius: 28)
+            .fill(Color.white.opacity(0.48))
+            .overlay(RoundedRectangle(cornerRadius: 28).strokeBorder(Color.white.opacity(0.72), lineWidth: 1))
     }
 }
 
@@ -280,13 +440,9 @@ private struct TypingBubble: View {
                         .animation(pulse(index), value: animating)
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(Palette.warmWhite)
-                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-            )
+            .padding(.horizontal, 19)
+            .padding(.vertical, 14.5)
+            .background(ChatBubbleShape.mira)
             Spacer(minLength: 24)
         }
         .accessibilityHidden(true)
@@ -299,13 +455,14 @@ private struct TypingBubble: View {
     }
 }
 
-/// Mira's mark beside everything she says (handoff screens 02 and 06).
+/// Mira's mark beside everything she says (handoff screens 02 and 06):
+/// a 36 pt ink circle, "M" in Josefin Bold 13.
 struct MiraMark: View {
     var body: some View {
         Text("M")
-            .font(Sans.font(size: 15, weight: 700))
+            .font(Sans.font(size: 13, weight: 700))
             .foregroundStyle(Palette.onInk)
-            .frame(width: 34, height: 34)
+            .frame(width: 36, height: 36)
             .background(Circle().fill(Palette.ink))
             .accessibilityHidden(true)
     }

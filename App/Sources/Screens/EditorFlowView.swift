@@ -291,6 +291,14 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     seed: seed,
                     onExit: { route = nil },
+                    onOpenCanvas: {
+                        route = nil
+                        // Swap covers only after this one is gone.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(300))
+                            route = .editor
+                        }
+                    },
                     findPages: { LibrarySearch.find($0, in: viewModel.library) },
                     onOpenPage: { hit in
                         route = nil
