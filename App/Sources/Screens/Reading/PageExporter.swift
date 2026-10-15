@@ -39,15 +39,15 @@ enum ExportQuality: String, ExportOption {
     static let originalPixelBudget: CGFloat = 24_000_000
 
     /// The scale a page of `size` points renders at: 2x, 3x, and for
-    /// Original 4x -- less on a page too long for the pixel budget, but
-    /// never below High.
+    /// Original 4x -- less on a page too long for the pixel budget, as far
+    /// down as it takes to stay inside it.
     func scale(for size: CGSize) -> CGFloat {
         switch self {
         case .standard: return 2
         case .high: return 3
         case .original:
             let area = max(size.width * size.height, 1)
-            return min(4, max(3, (Self.originalPixelBudget / area).squareRoot()))
+            return min(4, (Self.originalPixelBudget / area).squareRoot())
         }
     }
 }

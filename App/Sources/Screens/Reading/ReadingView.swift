@@ -179,6 +179,7 @@ struct ExportSheet: View {
     @State private var shareURL: URL?
     /// Bumps per option change; a slower earlier encode must not land last.
     @State private var exportGeneration = 0
+    @State private var closed = false
 
     /// The file format the bytes are in; Print sends A4 PDF pages.
     private var format: ExportFormat { tile.format ?? .pdf }
@@ -236,8 +237,13 @@ struct ExportSheet: View {
         .accessibilityIdentifier("export.sheet")
         .accessibilityAction(.escape, onClose)
         .task { render() }
-        // The share file is only needed while the sheet is up.
-        .onDisappear { try? FileManager.default.removeItem(at: folderURL) }
+        // The share file is only needed while the sheet is up; an encode
+        // still running finds the sheet gone and removes what it wrote.
+        .onDisappear {
+            exportGeneration += 1
+            closed = true
+            try? FileManager.default.removeItem(at: folderURL)
+        }
         .onChange(of: quality) { render() }
         .onChange(of: tile) { refreshExport() }
         .onChange(of: pdfLayout) { refreshExport() }
@@ -415,7 +421,14 @@ struct ExportSheet: View {
                     at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 return (data, (try? data.write(to: url, options: .atomic)) == nil ? nil : url)
             }.value
-            guard generation == exportGeneration else { return }
+            guard generation == exportGeneration else {
+                // Stale: its file is no one's. After the sheet closed, the
+                // whole folder it recreated goes.
+                if let url {
+                    try? FileManager.default.removeItem(at: closed ? folderURL : url.deletingLastPathComponent())
+                }
+                return
+            }
             exportData = encoded?.0
             shareURL = encoded?.1
         }

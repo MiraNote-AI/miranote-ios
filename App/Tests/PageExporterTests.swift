@@ -136,8 +136,8 @@ final class PageExporterTests: XCTestCase {
     }
 
     // Quality (screen 37): Standard 2x and High 3x at any length; Original
-    // renders 4x, but a page too long for the pixel budget comes down
-    // toward High -- never below it.
+    // renders 4x, but a page too long for the pixel budget comes down to
+    // fit it, however long the page.
     func testQualityScales() {
         let short = CGSize(width: 360, height: 620)
         XCTAssertEqual(ExportQuality.standard.scale(for: short), 2)
@@ -155,8 +155,13 @@ final class PageExporterTests: XCTestCase {
                        accuracy: ExportQuality.originalPixelBudget * 0.001)
     }
 
-    func testOriginalNeverDropsBelowHigh() {
-        XCTAssertEqual(ExportQuality.original.scale(for: CGSize(width: 360, height: 40_000)), 3)
+    func testAVeryLongPageStillStaysInsideTheOriginalBudget() {
+        for height: CGFloat in [10_000, 40_000] {
+            let size = CGSize(width: MiraNoteConfig.pageWidth, height: height)
+            let scale = ExportQuality.original.scale(for: size)
+            XCTAssertLessThanOrEqual(size.width * size.height * scale * scale,
+                                     ExportQuality.originalPixelBudget * 1.001, "\(height) pt")
+        }
     }
 
     func testOnlyImageFormatsCanGoToPhotos() {

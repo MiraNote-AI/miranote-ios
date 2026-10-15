@@ -87,7 +87,7 @@ Acceptance (per stream):
 | "tap to play" (P4b) | the tap that selects an unselected marker also plays it | the label must be true |
 | Export entry (P4b) | stays in Reading (share button opens the in-scene sheet); Share as a header glyph in the sheet | decisions row "Header trailing label" |
 | Export tiles (P4b) | fill the row (design 66x54 on 374); PDF hides Save to Photos and Files takes the ink; Print tile swaps the actions for one Print button; PDF adds a page-cut row | flexible widths on wider phones; Photos takes images only |
-| Export quality (P4b) | default High; Original = 4x within a 24 MP budget, never below 3x | memory on long pages |
+| Export quality (P4b, adversarial review) | default High; Original = 4x within a 24 MP budget, as low as the budget needs on a very long page (no 3x floor) | memory on long pages; the floor broke the budget (32 MP at 10,000 pt) |
 | Save toast (P4b) | success closes the sheet; failure (#8C4A3A) keeps it, toast above; 2 s; no Open/Share bar | screen 38's Files UI is system UI |
 | Idle suggestion chips (P0) | removed from the canvas; follow-up chips stay on Mira reply cards; quick actions return in the screen-06 overlay (P2) | design draws nothing between tool bar and composer |
 | Screen 10 (P1) | reading (a): tapping Text shows the Text tool active, the editing header and "Type or polish your memory" for a 250 ms beat, then the block and keyboard appear | the minimal reading; the composer-as-entry reading changes the flow |
