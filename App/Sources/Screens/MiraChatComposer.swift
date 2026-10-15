@@ -166,6 +166,9 @@ struct MiraChatComposer: View {
                 mode = .voice
                 fieldFocused = false
             } else {
+                // Back to the keyboard (also from VoiceOver, whose tap
+                // toggle leaves a take running): the take stops.
+                stopListening()
                 mode = .text
                 fieldFocused = true
             }
@@ -327,7 +330,11 @@ struct MiraChatComposer: View {
             RoundedRectangle(cornerRadius: 27)
                 .fill(releaseCancels ? Color(hex: 0x8C4A3A) : Palette.ink)
         )
-        .accessibilityHidden(true)
+        // A live mic is never invisible to VoiceOver.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Recording")
+        .accessibilityValue(statusCaption ?? "")
+        .accessibilityIdentifier("chat.voice.recording")
     }
 
     private func hintRow(_ hint: ChatHint) -> some View {
@@ -424,30 +431,24 @@ struct MiraChatComposer: View {
                     .accessibilityAddTraits(.isImage)
                     .accessibilityIdentifier("chat.staged.\(index)")
 
-                    Button {
+                    removeBadge(label: "Remove photo \(index + 1)", id: "chat.staged.\(index).remove") {
                         viewModel.removeStagedImage(at: index)
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(Palette.onInk)
-                            .frame(width: 16, height: 16)
-                            .background(Circle().fill(Palette.ink))
-                            .padding(10)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .offset(x: 14, y: -14)
-                    .accessibilityLabel("Remove photo \(index + 1)")
-                    .accessibilityIdentifier("chat.staged.\(index).remove")
                 }
             }
-            // Picks still loading hold their place (and Send).
-            ForEach(0..<viewModel.loadingImages, id: \.self) { _ in
-                ProgressView()
-                    .frame(width: 56, height: 56)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Palette.cardFill))
-                    .accessibilityLabel("Photo loading")
-                    .accessibilityIdentifier("chat.staged.loading")
+            // Picks still loading hold their place (and Send) -- until they
+            // load, time out, or are removed here.
+            ForEach(viewModel.loadingPicks, id: \.self) { pick in
+                ZStack(alignment: .topTrailing) {
+                    ProgressView()
+                        .frame(width: 56, height: 56)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Palette.cardFill))
+                        .accessibilityLabel("Photo loading")
+                        .accessibilityIdentifier("chat.staged.loading")
+                    removeBadge(label: "Remove the loading photo", id: "chat.staged.loading.remove") {
+                        viewModel.removeLoadingPick(pick)
+                    }
+                }
             }
         }
         .padding(.top, 4)
@@ -457,8 +458,25 @@ struct MiraChatComposer: View {
         }
     }
 
-    /// Picks load in order, counted toward the four; Send waits for them,
-    /// and one that cannot load says so.
+    /// The ink x on a staged photo's corner.
+    private func removeBadge(label: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(Palette.onInk)
+                .frame(width: 16, height: 16)
+                .background(Circle().fill(Palette.ink))
+                .padding(10)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .offset(x: 14, y: -14)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(id)
+    }
+
+    /// Picks load side by side, counted toward the four; Send waits for
+    /// them, and one that cannot load (or takes too long) says so.
     private func stagePicked(_ items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
         pickerItems = []

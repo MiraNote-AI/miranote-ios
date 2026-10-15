@@ -67,6 +67,8 @@ struct MiraChatView: View {
         }
         .screenBackground()
         .task { await viewModel.seedIfNeeded(seed) }
+        // The transcript is not kept, so neither are its photos.
+        .onDisappear { viewModel.discardSentPhotos() }
     }
 
     /// Handoff screen 02: Home on frosted white, Canvas on forest, no title.

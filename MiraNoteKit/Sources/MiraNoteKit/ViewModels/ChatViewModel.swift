@@ -52,8 +52,10 @@ public final class ChatViewModel {
     public private(set) var isResponding = false
     public private(set) var staged: [StagedPhoto] = []
     public var stagedImages: [Data] { staged.map(\.data) }
-    /// Picks still loading (iCloud originals): Send waits for them.
-    public private(set) var loadingImages = 0
+    /// Picks still loading (iCloud originals): Send waits for them, each
+    /// shows a placeholder that can remove it.
+    public private(set) var loadingPicks: [UUID] = []
+    public var loadingImages: Int { loadingPicks.count }
     public private(set) var voice: ChatVoiceState = .idle
     public var hint: ChatHint?
 
@@ -65,6 +67,9 @@ public final class ChatViewModel {
     /// How long the photos' descriptions may hold a message (all of them
     /// together, as the canvas caps its look at the page).
     private let describeTimeout: Duration
+    /// How long one pick may load before it counts as failed: an iCloud
+    /// original that never arrives must not hold Send for good.
+    private let pickTimeout: Duration
     /// Selects the user's own pages to ground each message in (journal
     /// mode). Injected by the screen that owns the library.
     private let notesForMessage: (String) -> [ChatNote]
@@ -82,6 +87,7 @@ public final class ChatViewModel {
         makeRecorder: @escaping @MainActor () -> AudioRecording,
         imageStore: ImageFileStore,
         describeTimeout: Duration = .seconds(8),
+        pickTimeout: Duration = .seconds(20),
         notesForMessage: @escaping (String) -> [ChatNote] = { _ in [] }
     ) {
         self.service = service
@@ -90,6 +96,7 @@ public final class ChatViewModel {
         self.makeRecorder = makeRecorder
         self.imageStore = imageStore
         self.describeTimeout = describeTimeout
+        self.pickTimeout = pickTimeout
         self.notesForMessage = notesForMessage
     }
 
@@ -121,17 +128,23 @@ public final class ChatViewModel {
 
     public func send(_ text: String, images: [Data] = []) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty || !images.isEmpty else { return }
+        // One message at a time (the quick chips come here directly): a
+        // second one mid-answer would go out without the session.
+        guard !trimmed.isEmpty || !images.isEmpty, !isResponding else { return }
         let fileNames = images.compactMap { try? imageStore.save($0, id: UUID()) }
         messages.append(ChatMessage(role: .user, text: trimmed, imageFileNames: fileNames))
         isResponding = true
         defer { isResponding = false }
-        let outgoing = await withPhotoDescriptions(trimmed, images: images)
+        let summaries = await describe(images)
+        let outgoing = withPhotoDescriptions(trimmed, summaries: summaries)
+        // Pages are searched with words the user said or a photo showed --
+        // never with the app's own "could not look at" line.
+        let query = trimmed.isEmpty ? summaries.filter { !$0.isEmpty }.joined(separator: "\n") : trimmed
         do {
             let reply = try await service.reply(
                 to: outgoing,
                 sessionID: sessionID,
-                notes: notesForMessage(trimmed.isEmpty ? outgoing : trimmed)
+                notes: query.isEmpty ? [] : notesForMessage(query)
             )
             sessionID = reply.sessionID
             messages.append(ChatMessage(
@@ -149,10 +162,10 @@ public final class ChatViewModel {
     /// One "(photo) <description>" line per photo, then the user's words.
     /// A photo the service could not describe (or not within the cap) still
     /// says it is there, and the user is told Mira did not see it.
-    private func withPhotoDescriptions(_ text: String, images: [Data]) async -> String {
-        guard !images.isEmpty else { return text }
+    private func withPhotoDescriptions(_ text: String, summaries: [String]) -> String {
+        guard !summaries.isEmpty else { return text }
         var lines: [String] = []
-        for summary in await describe(images) {
+        for summary in summaries {
             if summary.isEmpty {
                 lines.append("(photo) a photo Mira could not look at")
                 hint = .photoUnseen
@@ -167,6 +180,7 @@ public final class ChatViewModel {
     /// The photos' descriptions in pick order, looked at side by side; any
     /// not back within `describeTimeout` (or failed) is "".
     private func describe(_ images: [Data]) async -> [String] {
+        guard !images.isEmpty else { return [] }
         let studio = self.studio
         let cap = describeTimeout
         var summaries = Array(repeating: "", count: images.count)
@@ -192,38 +206,6 @@ public final class ChatViewModel {
             group.cancelAll()
         }
         return summaries
-    }
-
-    // MARK: - Photos
-
-    public func stageImage(_ data: Data) {
-        guard canStageMoreImages else { return }
-        staged.append(StagedPhoto(data: data))
-    }
-
-    /// Picks from the system picker, loading in pick order: each counts
-    /// toward the four while it loads, Send waits for them, and one that
-    /// fails to load says so instead of vanishing.
-    public func stagePhotos(_ loaders: [@Sendable () async -> Data?]) async {
-        let room = Self.maxStagedImages - staged.count - loadingImages
-        let accepted = loaders.prefix(max(0, room))
-        loadingImages += accepted.count
-        var failed = false
-        for load in accepted {
-            let data = await load()
-            loadingImages -= 1
-            if let data {
-                staged.append(StagedPhoto(data: data))
-            } else {
-                failed = true
-            }
-        }
-        if failed { hint = .photoNotLoaded }
-    }
-
-    public func removeStagedImage(at index: Int) {
-        guard staged.indices.contains(index) else { return }
-        staged.remove(at: index)
     }
 
     // MARK: - Voice
@@ -300,6 +282,86 @@ public final class ChatViewModel {
         Task {
             guard await start?.value == true else { return }
             _ = try? await recorder.stop()
+        }
+    }
+}
+
+// MARK: - Photos
+
+extension ChatViewModel {
+    public func stageImage(_ data: Data) {
+        guard canStageMoreImages else { return }
+        staged.append(StagedPhoto(data: data))
+    }
+
+    /// Picks from the system picker, loading side by side and staged in
+    /// pick order: each counts toward the four while it loads, Send waits
+    /// for them, and one that fails -- or is still not there after
+    /// `pickTimeout` -- says so instead of vanishing. A pick removed while
+    /// it loads is dropped when it arrives.
+    public func stagePhotos(_ loaders: [@Sendable () async -> Data?]) async {
+        let room = Self.maxStagedImages - staged.count - loadingImages
+        let accepted = Array(loaders.prefix(max(0, room)))
+        let ids = accepted.map { _ in UUID() }
+        loadingPicks += ids
+        let timeout = pickTimeout
+        var arrived: [Int: Data?] = [:]
+        var next = 0
+        var failed = false
+        await withTaskGroup(of: (Int, Data?).self) { group in
+            for (index, load) in accepted.enumerated() {
+                group.addTask { (index, await Self.load(load, within: timeout)) }
+            }
+            for await (index, data) in group {
+                arrived[index] = data
+                // Stage the ready run at the front, so the order is the pick's.
+                while let ready = arrived[next] {
+                    let id = ids[next]
+                    next += 1
+                    guard loadingPicks.contains(id) else { continue }
+                    loadingPicks.removeAll { $0 == id }
+                    if let ready {
+                        staged.append(StagedPhoto(data: ready))
+                    } else {
+                        failed = true
+                    }
+                }
+            }
+        }
+        if failed { hint = .photoNotLoaded }
+    }
+
+    /// One pick's bytes, or nil when it fails or outlasts `timeout`.
+    private nonisolated static func load(
+        _ load: @escaping @Sendable () async -> Data?,
+        within timeout: Duration
+    ) async -> Data? {
+        await withTaskGroup(of: Data?.self) { group in
+            group.addTask { await load() }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    public func removeStagedImage(at index: Int) {
+        guard staged.indices.contains(index) else { return }
+        staged.remove(at: index)
+    }
+
+    /// The loading placeholder's remove: Send no longer waits for it.
+    public func removeLoadingPick(_ id: UUID) {
+        loadingPicks.removeAll { $0 == id }
+    }
+
+    /// The chat closed: its sent photos lived only for the transcript.
+    public func discardSentPhotos() {
+        for fileName in messages.flatMap(\.imageFileNames) {
+            imageStore.delete(fileName: fileName)
         }
     }
 }

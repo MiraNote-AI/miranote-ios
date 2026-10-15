@@ -22,19 +22,20 @@ final class ChatPhotoTimingTests: XCTestCase {
     private func makeViewModel(
         chat: MessageCapturingChat = MessageCapturingChat(),
         studio: ImageStudioService,
-        describeTimeout: Duration? = nil
+        describeTimeout: Duration = .seconds(8),
+        pickTimeout: Duration = .seconds(20)
     ) -> ChatViewModel {
-        let store = ImageFileStore(directory: imageDirectory)
-        if let describeTimeout {
-            return ChatViewModel(
-                service: chat, studio: studio, transcription: MockVoiceTranscriptionService(),
-                makeRecorder: { MockAudioRecorder() }, imageStore: store, describeTimeout: describeTimeout
-            )
-        }
-        return ChatViewModel(
+        ChatViewModel(
             service: chat, studio: studio, transcription: MockVoiceTranscriptionService(),
-            makeRecorder: { MockAudioRecorder() }, imageStore: store
+            makeRecorder: { MockAudioRecorder() }, imageStore: ImageFileStore(directory: imageDirectory),
+            describeTimeout: describeTimeout, pickTimeout: pickTimeout
         )
+    }
+
+    /// A pick that never finishes loading (an iCloud original, offline).
+    private let stuckPick: @Sendable () async -> Data? = {
+        try? await Task.sleep(for: .seconds(3600))
+        return nil
     }
 
     func testPhotosAreDescribedTogetherInPickOrder() async {
@@ -107,6 +108,52 @@ final class ChatPhotoTimingTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(50))
         XCTAssertFalse(viewModel.canStageMoreImages)
         await loading.value
+    }
+
+    func testAStuckPickTimesOutIntoTheFailedPickNotice() async {
+        let viewModel = makeViewModel(studio: MockImageStudioService(), pickTimeout: .milliseconds(300))
+        viewModel.draft = "hello"
+        let loading = Task { await viewModel.stagePhotos([stuckPick]) }
+        defer { loading.cancel() }
+        try? await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(viewModel.loadingImages, 0, "the pick gave up at its timeout")
+        XCTAssertEqual(viewModel.hint, .photoNotLoaded)
+        XCTAssertTrue(viewModel.canSend, "the typed words can go")
+    }
+
+    func testRemovingALoadingPickFreesSendAndDropsItsLateResult() async throws {
+        let viewModel = makeViewModel(studio: MockImageStudioService())
+        viewModel.draft = "hello"
+        let loading = Task {
+            await viewModel.stagePhotos([{
+                try? await Task.sleep(for: .milliseconds(300))
+                return MockImageStudioService.tinyPNG
+            }])
+        }
+        try? await Task.sleep(for: .milliseconds(50))
+        let pick = try XCTUnwrap(viewModel.loadingPicks.first, "the pick shows as loading")
+        viewModel.removeLoadingPick(pick)
+        XCTAssertEqual(viewModel.loadingImages, 0)
+        XCTAssertTrue(viewModel.canSend, "nothing holds Send any more")
+
+        await loading.value
+        XCTAssertTrue(viewModel.stagedImages.isEmpty, "the removed pick does not come back when it loads")
+        XCTAssertNil(viewModel.hint, "and is not reported as failed")
+    }
+
+    func testPicksLoadSideBySideInPickOrder() async {
+        let viewModel = makeViewModel(studio: MockImageStudioService())
+        let loaders: [@Sendable () async -> Data?] = (1...4).map { byte in
+            {
+                // The first pick is the slowest: order is the pick's, not the arrival's.
+                try? await Task.sleep(for: .milliseconds(400 - byte * 50))
+                return Data([UInt8(byte)])
+            }
+        }
+        let started = ContinuousClock.now
+        await viewModel.stagePhotos(loaders)
+        XCTAssertLessThan(ContinuousClock.now - started, .milliseconds(800), "four loads run together, not in a row")
+        XCTAssertEqual(viewModel.stagedImages, (1...4).map { Data([UInt8($0)]) })
     }
 }
 
