@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Warm earthen palette. UI values follow DESIGN_TOKENS.md of the 2026-10-07
 /// design handoff; `taupe`, `tan` and `sage` are older Flow 7 values kept
@@ -23,13 +22,18 @@ enum Palette {
     static let backdropDawn = Color(hex: 0xF0B78E)
     static let backdropDusk = Color(hex: 0x702E4E)
     static let cardFill = Color(hex: 0xECE7D8)
-    static let sheetFill = Color(hex: 0xDCD5C6)
     static let hairline = Color(hex: 0xD8D5CA)
     /// The design's muted #878476, darkened along the same hue until it
     /// reads at 4.5:1 or better on every surface it sits on, the panel
     /// sheet included (4.6:1 there, 6.1:1 on paper). The original is
     /// 3.4:1 on paper.
     static let textSecondary = Color(hex: 0x5E5C52)
+    /// The handoff's muted #878476 as drawn: the leading nav label on editor
+    /// scenes and the composer placeholder (design fidelity pass, 2026-10-15).
+    static let muted = Color(hex: 0x878476)
+    /// "Story canvas dim glass scrim" (screens 11-20): forest at 34% over
+    /// the page and everything around the text being written.
+    static let editingScrim = Color(hex: 0x293322).opacity(0.34)
 
     /// Resolves the palette names persisted on canvas text blocks
     /// (`TextBlock.colorName`). Unknown names fall back to ink.
@@ -56,13 +60,21 @@ enum Palette {
         }
     }
 
-    /// The editor's quick swatches for text and text backgrounds: the
-    /// handoff's text-color row (screens 12-13). `hex` is what TextBlock
-    /// stores; `name` is what VoiceOver reads.
+    /// The text-color row (handoff screens 12-13), in the drawn order;
+    /// the custom disc follows them. `hex` is what TextBlock stores;
+    /// `name` is what VoiceOver reads. Older blocks keep the colors they
+    /// stored -- a hex never repaints.
     static let textSwatches: [(hex: String, name: String)] = [
-        ("#201E1C", "Ink"), ("#FFFDF8", "Warm white"), ("#24382D", "Forest"),
-        ("#8C7468", "Cocoa"), ("#7B8A70", "Sage"), ("#C98F72", "Clay"),
-        ("#8B5962", "Plum"), ("#E5AC95", "Peach"),
+        ("#24382D", "Forest"), ("#F1EBDD", "Linen"), ("#9B7A70", "Rosewood"),
+        ("#74806B", "Sage"), ("#B4826D", "Clay"), ("#8B5662", "Plum"),
+        ("#FFFFFF", "White"),
+    ]
+
+    /// The text-background row (handoff screen 18): no background (the
+    /// first chip, drawn #293322 and read here as "none", outlined), Ink
+    /// and Highlight; the custom chip follows them.
+    static let textBackgroundSwatches: [(hex: String, name: String)] = [
+        ("#171914", "Ink"), ("#B4826D", "Highlight"),
     ]
 }
 
@@ -73,13 +85,5 @@ extension Color {
         let green = Double((hex >> 8) & 0xFF) / 255
         let blue = Double(hex & 0xFF) / 255
         self.init(.sRGB, red: red, green: green, blue: blue, opacity: 1)
-    }
-
-    /// The "#RRGGBB" form TextBlock stores for a custom color (alpha dropped).
-    var hexName: String {
-        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-        UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        func byte(_ value: CGFloat) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }
-        return String(format: "#%02X%02X%02X", byte(red), byte(green), byte(blue))
     }
 }

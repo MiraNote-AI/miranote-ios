@@ -23,11 +23,7 @@ final class MiraImageAskUITests: XCTestCase {
     }
 
     private func ask(_ words: String) {
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText(words)
-        app.buttons["mira.go"].tap()
+        app.askMira(words)
     }
 
     /// Samples land two photos, neither selected.

@@ -22,7 +22,7 @@ final class PageTapReturnsUITests: XCTestCase {
     private func startMemory() {
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
         app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
     }
 
     private func tapPage() {
@@ -48,7 +48,7 @@ final class PageTapReturnsUITests: XCTestCase {
 
         tapPage()
         waitGone(generate, "a page tap closes the Image panel")
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5),
                       "back on the idle canvas")
     }
 
@@ -91,7 +91,7 @@ final class PageTapReturnsUITests: XCTestCase {
 
         tapPage()
         waitGone(favorites, "a page tap closes the Sticker panel")
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5),
                       "back on the idle canvas")
     }
 
@@ -119,7 +119,7 @@ final class PageTapReturnsUITests: XCTestCase {
 
         tapPage()
         waitGone(record, "a paper tap folds the armed recorder")
-        XCTAssertTrue(app.textFields["mira.input"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5),
                       "back on the idle canvas")
 
         // Once recording, the bar stays: a stray tap must not lose audio.

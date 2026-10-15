@@ -117,7 +117,7 @@ final class CanvasEditorUITests: XCTestCase {
         samples.tap()
 
         // Back on the blank canvas: the two stored sample photos.
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(
@@ -158,7 +158,7 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
         firstResult.tap()
 
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         let hint = app.staticTexts["canvas.place.hint"]
         XCTAssertTrue(hint.waitForExistence(timeout: 5), "the canvas asks where it should go")
 
@@ -170,34 +170,30 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the tap placed the sticker on the canvas")
     }
 
-    // Done round-trip (the save-does-not-wipe regression under autosave
-    // semantics): Done composes the memory -- its title taken from the most
-    // prominent text on the canvas -- files it into Daily Log, and returns
-    // Home.
-    func testDoneFilesMemoryAndReturnsHome() {
+    // Save round-trip (the save-does-not-wipe regression under autosave
+    // semantics): Save -- the handoff's label for the canvas's trailing
+    // pill -- composes the memory, its title taken from the most prominent
+    // text on the canvas, files it into Daily Log, and returns Home.
+    func testSaveFilesMemoryAndReturnsHome() {
         app.buttons["Start a memory"].tap()
         addTextBlock("golden broth by the window")
-        let done = app.buttons["Done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["Save"].exists)
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Done"].exists, "the canvas header says Save, as drawn")
 
-        done.tap()
+        save.tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
         XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
     }
 
-    // Mira applies a change atomically and shows the Keep-pattern receipt;
-    // Revert is one tap and restores the original.
+    // Mira applies a change atomically and shows the result sheet (screen
+    // 07); Revert is one tap and restores the original.
     func testMiraPolishShowsReceiptAndRevertRestores() {
         app.buttons["Start a memory"].tap()
         addTextBlock("sunny afternoon by the bridge")
 
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("polish the text")
-        app.buttons["mira.go"].tap()
+        app.askMira("polish the text")
 
         XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8))
         let polished = "(polished -- mock) sunny afternoon by the bridge"
@@ -222,19 +218,13 @@ final class CanvasEditorUITests: XCTestCase {
     func testPlaceReplyPutsOnlyTheLastReplyOnThePage() {
         app.buttons["Start a memory"].tap()
 
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("just chatting with you")
-        app.buttons["mira.go"].tap()
+        app.askMira("just chatting with you")
 
         let chip = app.buttons["Put this on the page"]
         XCTAssertTrue(chip.waitForExistence(timeout: 8), "reply card shows the place chip")
 
         // Second turn: the card now shows a multi-message transcript.
-        input.tap()
-        input.typeText("still just chatting")
-        app.buttons["mira.go"].tap()
+        app.askMira("still just chatting")
         XCTAssertTrue(chip.waitForExistence(timeout: 8))
 
         chip.tap()
@@ -259,18 +249,15 @@ final class CanvasEditorUITests: XCTestCase {
     // applies nothing and gives the words back.
     func testMiraStopRefillsPromptAndAppliesNothing() {
         app.buttons["Start a memory"].tap()
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("think about this slowly")
-        app.buttons["mira.go"].tap()
+        app.askMira("think about this slowly")
 
         let stop = app.buttons["mira.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5), "working bar appears with Stop")
         stop.tap()
 
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        XCTAssertEqual(input.value as? String, "think about this slowly", "prompt refilled")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.miraComposer.label, "think about this slowly", "prompt refilled")
+        XCTAssertTrue(app.buttons["mira.go"].isEnabled, "the words wait, ready to send again")
     }
 
     // Failure is a calm card with a retry chip; the prompt is refilled and
@@ -278,15 +265,11 @@ final class CanvasEditorUITests: XCTestCase {
     func testMiraFailureShowsRetryAndRefills() {
         app.buttons["Start a memory"].tap()
         addTextBlock("still here untouched")
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("please fail now")
-        app.buttons["mira.go"].tap()
+        app.askMira("please fail now")
 
         XCTAssertTrue(app.staticTexts["mira.failure"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["mira.retry"].exists)
-        XCTAssertEqual(input.value as? String, "please fail now", "prompt refilled on failure")
+        XCTAssertEqual(app.miraComposer.label, "please fail now", "prompt refilled on failure")
         XCTAssertTrue(app.staticTexts["still here untouched"].exists, "canvas untouched")
     }
 

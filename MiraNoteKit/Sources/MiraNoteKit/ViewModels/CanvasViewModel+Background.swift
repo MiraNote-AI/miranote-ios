@@ -37,6 +37,43 @@ extension CanvasViewModel {
         }
     }
 
+    /// The page's color and painting: what a live color preview starts from.
+    public struct PageLook: Equatable {
+        let pageColorName: String
+        let backgroundFileName: String
+        let backgroundSummary: String
+    }
+
+    public var pageLook: PageLook {
+        PageLook(
+            pageColorName: memory.pageColorName,
+            backgroundFileName: memory.backgroundFileName,
+            backgroundSummary: memory.backgroundSummary
+        )
+    }
+
+    /// A custom page color previewed live (`setPageColor(_:recordingUndo:
+    /// false)`) becomes one undo step back to `original`; none when the page
+    /// ends up as it was.
+    public func commitPagePreview(from original: PageLook) {
+        let previewed = pageLook
+        guard previewed != original else { return }
+        restore(original)
+        beginChange()
+        restore(previewed)
+    }
+
+    /// Drops a live page color preview: the page as it was, no undo step.
+    public func discardPagePreview(from original: PageLook) {
+        restore(original)
+    }
+
+    private func restore(_ look: PageLook) {
+        memory.pageColorName = look.pageColorName
+        memory.backgroundFileName = look.backgroundFileName
+        memory.backgroundSummary = look.backgroundSummary
+    }
+
     /// Back to the default gradient: no page color, no painting. One undo.
     public func resetPageBackground() {
         guard !memory.pageColorName.isEmpty || !memory.backgroundFileName.isEmpty else { return }

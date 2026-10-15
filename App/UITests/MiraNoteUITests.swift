@@ -183,7 +183,7 @@ final class MiraNoteUITests: XCTestCase {
     }
 
     // Mira can draft a page from the conversation: the card opens the
-    // editor with the drafted words on the canvas; Done files it.
+    // editor with the drafted words on the canvas; Save files it.
     func testChatDraftOpensEditorAndFiles() {
         let field = app.textFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -206,7 +206,7 @@ final class MiraNoteUITests: XCTestCase {
             "title and body must not drift apart into islands"
         )
 
-        app.buttons["Done"].tap()
+        app.buttons["Save"].tap()
 
         let dailyLog = app.buttons["collection.Daily Log"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
@@ -214,21 +214,21 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["note.Drafted by Mira"].waitForExistence(timeout: 5))
     }
 
-    // "Start a memory" opens a BLANK canvas (v2.1) with the teaching line
-    // and the instrument panel.
+    // "Start a memory" opens a BLANK canvas (handoff screen 04): an empty
+    // card, the tools and the composer -- no hint on the page.
     func testStartOpensBlankCanvas() {
         app.buttons["Start a memory"].tap()
 
-        XCTAssertTrue(
-            app.staticTexts["Tap a tool below, or tell Mira about today."].waitForExistence(timeout: 5)
-        )
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira anything", "the composer is the invitation")
+        XCTAssertFalse(app.staticTexts["Tap a tool below, or tell Mira about today."].exists, "the card is empty")
         XCTAssertFalse(app.staticTexts["Lunch by the river"].exists, "no leftover demo content")
         XCTAssertTrue(app.buttons["mode.text"].exists)
         XCTAssertTrue(app.buttons["mode.image"].exists)
     }
 
     // Autosave semantics: leaving with Home keeps the words exactly like
-    // Done -- the silent-discard path was a data-loss bug.
+    // Save -- the silent-discard path was a data-loss bug.
     func testHomeFilesNonEmptyCanvasLikeDone() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
@@ -302,12 +302,12 @@ final class MiraNoteUITests: XCTestCase {
         )
     }
 
-    // Done on an untouched blank canvas keeps nothing.
-    func testDoneOnBlankCanvasFilesNothing() {
+    // Save on an untouched blank canvas keeps nothing.
+    func testSaveOnBlankCanvasFilesNothing() {
         app.buttons["Start a memory"].tap()
-        let done = app.buttons["Done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
-        done.tap()
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
 
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["3 notes"].exists, "Daily Log stays at its seeded 2 notes")

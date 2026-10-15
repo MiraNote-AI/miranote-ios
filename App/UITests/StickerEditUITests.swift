@@ -23,15 +23,11 @@ final class StickerEditUITests: XCTestCase {
     }
 
     private func ask(_ words: String) {
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText(words)
-        app.buttons["mira.go"].tap()
+        app.askMira(words)
     }
 
-    /// Draw-and-place one sticker, then wait out the placement receipt
-    /// so the next step starts from a quiet strip.
+    /// Draw-and-place one sticker, then Keep the placement (the result
+    /// sheet waits for a choice) so the next step starts from a quiet strip.
     private func placeOneSticker() {
         ask("draw a sticker of a coffee cup")
         let first = app.buttons["mira.imageChoice.0"]
@@ -40,11 +36,14 @@ final class StickerEditUITests: XCTestCase {
         let sticker = app.descendants(matching: .any)
             .matching(identifier: "element.sticker").firstMatch
         XCTAssertTrue(sticker.waitForExistence(timeout: 5))
+        let keep = app.buttons["mira.keep"]
+        XCTAssertTrue(keep.waitForExistence(timeout: 5))
+        keep.tap()
         let receipt = app.staticTexts["mira.receipt"]
         let gone = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: receipt)
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 12), .completed,
-                       "the placement receipt clears")
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed,
+                       "Keep clears the result sheet")
     }
 
     func testAskRestylesThePlacedSticker() {

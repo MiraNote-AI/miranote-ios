@@ -2,10 +2,13 @@ import MiraNoteKit
 import SwiftUI
 
 /// The base editor: the infinite canvas plus the five-tool bar. Background,
-/// Voice and Text act directly on the canvas -- Background opens its panel
-/// in place, Voice swaps the bottom bar for a recorder, Text drops an
-/// editable block; Image and Sticker leave for their panels. Header is
-/// Home / undo / Done.
+/// Voice and Text act directly on the canvas -- Background lays its glass
+/// sheet over the card (screen 05), Voice swaps the bottom bar for a
+/// recorder, Text drops an editable block; Image and Sticker leave for their
+/// panels. The composer opens the Mira canvas chat (06); a landed change
+/// waits on the result sheet (07); a dragged element floats above the dock
+/// over the composer's delete zone (22). Header is Home (Canvas while a tool
+/// is open in place) / undo / Save; Save still files the page and leaves.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -24,10 +27,24 @@ struct CanvasScene: View {
     @State var recorder: AudioRecording?
     @State var recorderNotice: String?
     @State var reviewNote = ""
-    @State var accessoryRow: AccessoryRow = .tools
-    /// Groups a color picker drag into one undo step.
-    @State var pickerUndo = PickerUndoGate()
-    @State private var miraPrompt = ""
+    /// The text tool whose row is open (screen 11: Aa when writing starts).
+    @State var textTool: TextTool = .font
+    @State var rewrite: RewriteState?
+    @State var colorRequest: ColorRequest?
+    /// The beat between tapping Text and the block appearing (screen 10):
+    /// the Text tool shows active and the composer reads as text entry.
+    @State var textModeArming = false
+    /// The dictation strip's press in progress.
+    @State var dictationPress: (start: Date, wasLive: Bool)?
+    @State var miraPrompt = ""
+    /// The Mira canvas chat (screen 06) is up over the canvas.
+    @State var miraChatOpen = false
+    @State var miraDictation: DictationStripState = .idle
+    /// The finger is still on the dictation strip.
+    @State var miraHoldActive = false
+    /// The Background tool's composer words ("Apply to this page").
+    @State private var applyWords = ""
+    @FocusState private var applyFocus: Bool
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
     /// The edited photo's original, while the panel's compare is held.
@@ -40,93 +57,133 @@ struct CanvasScene: View {
     @State private var editingStickerItem: CanvasItem.ID?
     /// The element an edit panel just closed on, scrolled into view.
     @State private var revealItem: CanvasItem.ID?
-    @State private var backgroundPanelOpen = false
+    @State var backgroundPanelOpen = false
+    /// The Background tool's custom page color sheet, while it is up.
+    @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
+    @State private var lifted: LiftedElement?
+    #if DEBUG
+    /// -UITEST only: the drop-zone phases one drag went through. XCUITest
+    /// cannot look mid-drag, so the trail is left for it to read.
+    @State var dropZoneTrail: [String] = []
+    #endif
     @State var dictating = false
-    /// Inline feedback in the text accessory: "Listening..." while the
-    /// mic is live, or why nothing landed after it stopped.
+    /// The dictation strip's subtitle when the mic is not live: why nothing
+    /// landed, or why a rewrite failed.
     @State var dictationHint: String?
     @FocusState var textFocus: CanvasItem.ID?
-    @FocusState private var miraFocus: Bool
+    @FocusState var miraFocus: Bool
 
     private let soundStore = SoundFileStore()
     private let imageStore = ImageFileStore()
     private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
+    /// Words are being written (or the Text tool is on its way in): the
+    /// header reads Cancel / undo / Done, and Done ends the writing.
+    private var writing: Bool { editor.editingTextItemID != nil || textModeArming }
+
     var body: some View {
+        ZStack(alignment: .bottom) {
+            scaffold
+                // While words are written the page keeps its size and the
+                // keyboard rides over the dock, as drawn (screens 11-20).
+                .ignoresSafeArea(.keyboard, edges: editor.editingTextItemID != nil ? .bottom : [])
+            // The text chrome floats over the page, on the keyboard.
+            if editor.editingTextItemID != nil {
+                if colorRequest != nil {
+                    // 14 above the composer's slot (screens 14 and 20).
+                    colorSheet.padding(.bottom, 54 + 14 + 2)
+                } else {
+                    textAccessory
+                }
+            }
+            if pageColorEdit != nil {
+                // A tap anywhere outside the sheet cancels it.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture { closePageColorSheet(keeping: false) }
+                pageColorSheet.padding(.bottom, 54 + 14 + 2)
+            }
+        }
+        .onChange(of: backgroundPanelOpen) { _, open in
+            if !open { closePageColorSheet(keeping: false) }
+        }
+    }
+
+    /// The canvas scene proper: header, page, dock, and the scene's
+    /// lifecycle (the body adds the floating text chrome).
+    private var scaffold: some View {
         EditorScaffold(
-            leading: "Home",
-            onLeading: actions.leading,
-            onTrailing: actions.done,
-            onUndo: editor.undo,
-            undoEnabled: editor.canUndo
+            leading: writing ? "Cancel" : (toolOpen ? "Canvas" : "Home"),
+            trailing: writing ? "Done" : "Save",
+            onLeading: writing ? cancelTextEditing : (toolOpen ? closeTool : actions.leading),
+            onTrailing: writing ? endTextEditing : actions.done,
+            onUndo: writing ? undoFromHeader : editor.undo,
+            undoEnabled: editor.canUndo,
+            leadingMuted: !writing,
+            leadingID: writing ? "text.cancel" : nil,
+            trailingID: writing ? "keyboard.done" : nil,
+            // Screen 07: Save turns forest while a Mira change waits.
+            trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
+            dimmed: editor.editingTextItemID != nil
         ) {
-            CanvasBoardView(
-                editor: editor,
-                soundStore: soundStore,
-                textFocus: $textFocus,
-                workingItemIDs: mira.workingItemIDs,
-                onEditImage: { id in
-                    // The panel takes the bottom cluster: never unmount a
-                    // live Mira turn's Stop, and stop the mic first.
-                    guard !mira.isWorking else { return }
-                    cancelRecording()
-                    cancelDictationIfNeeded()
-                    backgroundPanelOpen = false
-                    if case .image(let ref) = editor.item(id)?.content,
-                       photoSession?.continues(id, showing: ref) != true {
-                        photoSession = PhotoSession(itemID: id, original: ref)
+            board
+                .overlay(alignment: .top) {
+                    if backgroundPanelOpen {
+                        backgroundSheet
                     }
-                    editingImageItem = id
-                },
-                onEditSticker: { id in
-                    guard !mira.isWorking else { return }
-                    cancelRecording()
-                    cancelDictationIfNeeded()
-                    backgroundPanelOpen = false
-                    editingStickerItem = id
-                },
-                onPaperTap: {
-                    // An armed recorder holds nothing yet, so a paper tap
-                    // folds it like it folds the text tools. Recording and
-                    // review keep their bar: a stray tap must not lose audio.
-                    if case .armed = recorderState { recorderState = .idle }
-                    // The Background card is a tool too: the paper folds it.
-                    backgroundPanelOpen = false
-                },
-                onFavorite: { item in
-                    switch item.content {
-                    case .sticker(let sticker):
-                        favoritesStore.add(sticker)
-                    case .image(let ref):
-                        favoritesStore.add(GeneratedSticker(
-                            prompt: ref.displayName,
-                            symbolName: "photo",
-                            fileName: ref.fileName,
-                            kind: .image
-                        ))
-                    case .text, .sound:
-                        break
+                }
+                .overlay(alignment: .bottom) {
+                    if let receipt {
+                        MiraResultSheet(
+                            receipt: receipt,
+                            canRevert: mira.receiptCanRevert,
+                            onRevert: { mira.revert(editor: editor) },
+                            onKeep: { mira.dismiss() }
+                        )
+                        .frame(width: MiraNoteConfig.pageWidth + 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                },
-                onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
-                revealItem: $revealItem,
-                dropToDelete: $dropToDelete,
-                comparing: editingImageItem.flatMap { id in comparingImage.map { (id, $0) } }
-            )
-        } bottom: {
-            // One container, so the sign covers the dock as a whole: an
-            // overlay on the bare builder would repeat on every child.
-            VStack(spacing: 16) { bottomCluster }
+                }
+                .animation(.easeOut(duration: 0.2), value: receipt)
                 .overlay {
-                    if let dropToDelete {
-                        DeleteDropZone(armed: dropToDelete == .armed)
+                    // With the color sheet up, a tap on the page cancels it
+                    // instead of ending the writing.
+                    if colorRequest != nil {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { closeColorSheet(keeping: false) }
+                    }
+                }
+        } bottom: {
+            // One container: the zone sits on its last 54 pt -- the
+            // composer's slot on the idle canvas (screen 22).
+            VStack(spacing: 16) { bottomCluster }
+                .overlay(alignment: .bottom) {
+                    if dropToDelete != nil {
+                        DeleteDropZone()
                             .transition(.opacity)
                     }
                 }
                 .animation(.easeOut(duration: 0.15), value: dropToDelete)
         }
+        .overlay {
+            if let lifted, dropToDelete != nil {
+                LiftedElementLayer(lifted: lifted, armed: dropToDelete == .armed, textFocus: $textFocus)
+            }
+        }
+        .overlay {
+            if miraChatOpen {
+                miraChat
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: miraChatOpen)
+        #if DEBUG
+        .background(dropZoneTrailProbe)
+        #endif
         .overlay {
             if showsToolsOnboarding {
                 ToolsOnboarding(
@@ -192,6 +249,14 @@ struct CanvasScene: View {
         }
         .onChange(of: editor.editingTextItemID) { _, editing in
             if editing == nil {
+                // Ended from anywhere (a paper tap, an undo past the block):
+                // an open preview is kept, like Done keeps it.
+                finishRewrite()
+                if let request = colorRequest {
+                    editor.commitPreview(of: request.original)
+                    colorRequest = nil
+                }
+                resetTextTools()
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
             } else {
@@ -207,9 +272,15 @@ struct CanvasScene: View {
         }
         .onChange(of: dropToDelete) { _, phase in
             // Moving an element lowers any keyboard -- canvas text already
-            // ends editing; the Mira prompt must too, or a drop over the
+            // ends editing; the composers must too, or a drop over the
             // keyboard would delete with no sign over it.
-            if phase != nil { miraFocus = false }
+            if phase != nil {
+                miraFocus = false
+                applyFocus = false
+            }
+            #if DEBUG
+            dropZoneTrail.append(phase.map { $0 == .armed ? "armed" : "dragging" } ?? "none")
+            #endif
         }
         .onChange(of: mira.isWorking) { _, working in
             // A running turn owns the strip (Stop, then the receipt).
@@ -217,12 +288,70 @@ struct CanvasScene: View {
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
-            // through the Done button; keep the editing state in sync.
-            if focus == nil, editor.editingTextItemID != nil {
-                editor.endEditingText()
-                accessoryRow = .tools
+            // through the Done button; keep the editing state in sync. The
+            // color sheet lowers the keyboard on purpose and keeps writing.
+            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil {
+                endTextEditing()
             }
         }
+        .onChange(of: editingBlock?.text) { _, text in noteTyped(text) }
+    }
+
+    private var board: some View {
+        CanvasBoardView(
+            editor: editor,
+            soundStore: soundStore,
+            textFocus: $textFocus,
+            workingItemIDs: mira.workingItemIDs,
+            onEditImage: { id in
+                // The panel takes the bottom cluster: never unmount a
+                // live Mira turn's Stop, and stop the mic first.
+                guard !mira.isWorking else { return }
+                cancelRecording()
+                cancelDictationIfNeeded()
+                backgroundPanelOpen = false
+                if case .image(let ref) = editor.item(id)?.content,
+                   photoSession?.continues(id, showing: ref) != true {
+                    photoSession = PhotoSession(itemID: id, original: ref)
+                }
+                editingImageItem = id
+            },
+            onEditSticker: { id in
+                guard !mira.isWorking else { return }
+                cancelRecording()
+                cancelDictationIfNeeded()
+                backgroundPanelOpen = false
+                editingStickerItem = id
+            },
+            onPaperTap: {
+                // An armed recorder holds nothing yet, so a paper tap
+                // folds it like it folds the text tools. Recording and
+                // review keep their bar: a stray tap must not lose audio.
+                if case .armed = recorderState { recorderState = .idle }
+                // The Background card is a tool too: the paper folds it.
+                backgroundPanelOpen = false
+            },
+            onFavorite: { item in
+                switch item.content {
+                case .sticker(let sticker):
+                    favoritesStore.add(sticker)
+                case .image(let ref):
+                    favoritesStore.add(GeneratedSticker(
+                        prompt: ref.displayName,
+                        symbolName: "photo",
+                        fileName: ref.fileName,
+                        kind: .image
+                    ))
+                case .text, .sound:
+                    break
+                }
+            },
+            onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
+            revealItem: $revealItem,
+            dropToDelete: $dropToDelete,
+            lifted: $lifted,
+            comparing: editingImageItem.flatMap { id in comparingImage.map { (id, $0) } }
+        )
     }
 
     // MARK: Bottom cluster (instrument panel + context bar)
@@ -234,19 +363,34 @@ struct CanvasScene: View {
         // (it used to ride the keyboard toolbar, which a connected
         // hardware keyboard simply never shows).
         if editor.editingTextItemID != nil {
-            HStack(spacing: 18) {
-                textAccessory
+            // The dock keeps its room, so the page keeps its size; the
+            // keyboard and the text chrome ride over it (CanvasScene.body).
+            Color.clear.frame(height: 40)
+            if colorRequest != nil {
+                // Screens 14 and 20: the keyboard is down and the composer
+                // is back under the sheet; a tap there is a tap outside it.
+                MiraBar(
+                    coordinator: mira,
+                    editor: editor,
+                    prompt: $miraPrompt,
+                    placeholder: "Type or polish your memory",
+                    onOpenChat: {}
+                )
+                .allowsHitTesting(false)
+                .contentShape(Rectangle())
+                .onTapGesture { closeColorSheet(keeping: false) }
+            } else {
+                Color.clear.frame(height: 54)
             }
-            .font(.miraLabel)
-            .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(Palette.onInk)
-                    .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+        } else if textModeArming {
+            InputModeBar(active: .text, onSelect: handleTool)
+            MiraBar(
+                coordinator: mira,
+                editor: editor,
+                prompt: $miraPrompt,
+                placeholder: "Type or polish your memory",
+                onOpenChat: openMiraChat
             )
-            .padding(.horizontal, Metrics.screenPadding)
         } else {
             if pendingPlacement != nil {
                 HStack(spacing: 8) {
@@ -259,13 +403,13 @@ struct CanvasScene: View {
                         .font(.miraCaption)
                         .accessibilityIdentifier("canvas.place.cancel")
                 }
-                .padding(.horizontal, Metrics.screenPadding)
+                .padding(.horizontal, Metrics.chromeInset)
                 .transition(.opacity)
             } else if let gestureHint {
                 Text(gestureHint)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
-                    .padding(.horizontal, Metrics.screenPadding)
+                    .padding(.horizontal, Metrics.chromeInset)
                     .transition(.opacity)
             }
             if let editingImageItem, let session = photoSession, session.itemID == editingImageItem {
@@ -306,16 +450,15 @@ struct CanvasScene: View {
                     }
                 )
             } else if backgroundPanelOpen {
-                BackgroundPanel(
-                    editor: editor,
-                    // Never cancel a running turn by starting another.
-                    onAsk: { words in
-                        guard !mira.isWorking else { return }
-                        mira.ask(words, editor: editor)
-                    },
-                    onClose: { backgroundPanelOpen = false }
-                )
+                // The tool's sheet lies over the canvas; the composer below
+                // asks Mira to paint a backdrop from words (screen 05).
                 InputModeBar(active: .background, onSelect: handleTool)
+                BackgroundApplyBar(
+                    words: $applyWords,
+                    focus: $applyFocus,
+                    canApply: !mira.isWorking,
+                    onApply: { mira.askBackground($0, editor: editor) }
+                )
             } else {
                 recorderCluster
             }
@@ -329,7 +472,7 @@ struct CanvasScene: View {
                 Text(recorderNotice)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
-                    .padding(.horizontal, Metrics.screenPadding)
+                    .padding(.horizontal, Metrics.chromeInset)
             }
             InputModeBar(active: nil, onSelect: handleTool)
             // The card and the bar are one conversational dock.
@@ -338,7 +481,7 @@ struct CanvasScene: View {
                     coordinator: mira,
                     editor: editor,
                     onAsk: { mira.ask($0, editor: editor) },
-                    onRephrase: { miraFocus = true },
+                    onRephrase: openMiraChat,
                     onRetry: {
                         miraPrompt = ""
                         mira.retry(editor: editor)
@@ -348,7 +491,11 @@ struct CanvasScene: View {
                     coordinator: mira,
                     editor: editor,
                     prompt: $miraPrompt,
-                    promptFocus: $miraFocus
+                    // "Ask Mira to refine..." with an element selected
+                    // (screen 21) or while a result waits (screen 07).
+                    placeholder: receipt == nil && editor.selectedItemID == nil
+                        ? "Ask Mira anything" : "Ask Mira to refine...",
+                    onOpenChat: openMiraChat
                 )
             }
         case .armed:
@@ -383,7 +530,8 @@ struct CanvasScene: View {
             cancelRecording()
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
-            addTextBlock()
+            guard !textModeArming else { return }
+            armTextMode()
         case .voice:
             // The tool arms the recorder; only the Record button goes live.
             // One audio owner at a time: not while dictating, and recording
@@ -405,6 +553,25 @@ struct CanvasScene: View {
         }
     }
 
+    /// A tool open in place over the canvas (Background, photo or sticker
+    /// editing). The handoff's leading pill then reads "Canvas" and folds
+    /// the tool away (screen 05); on the bare canvas it is the way Home.
+    private var toolOpen: Bool {
+        backgroundPanelOpen || editingImageItem != nil || editingStickerItem != nil
+    }
+
+    private func closeTool() {
+        backgroundPanelOpen = false
+        if let id = editingImageItem {
+            revealItem = id
+            editingImageItem = nil
+        }
+        if let id = editingStickerItem {
+            revealItem = id
+            editingStickerItem = nil
+        }
+    }
+
     private func finishToolsOnboarding(openBackground: Bool) {
         HintCenter.graduate(ToolsOnboarding.hintID)
         withAnimation(.easeOut(duration: 0.2)) { showsToolsOnboarding = false }
@@ -416,16 +583,6 @@ struct CanvasScene: View {
     private func notePhotoSeen(_ id: CanvasItem.ID) {
         guard photoSession?.itemID == id, case .image(let ref) = editor.item(id)?.content else { return }
         photoSession?.lastSeen = ref
-    }
-
-    /// Text tool: a new block appears on the canvas and the keyboard rises --
-    /// typing happens where the words will live.
-    private func addTextBlock() {
-        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 70, 4000))
-        let id = editor.addText("", at: position, pointSize: 17, size: CGSize(width: 320, height: 48))
-        // addText already recorded the undo point for this compound action.
-        editor.startEditingText(id, recordingUndo: false)
-        textFocus = id
     }
 
     /// Photos that predate the vision feature -- or whose import-time

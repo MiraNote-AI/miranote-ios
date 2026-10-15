@@ -22,18 +22,21 @@ struct InputModeBar: View {
                 .accessibilityAddTraits(mode == active ? .isSelected : [])
             }
         }
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.toolBarInset)
     }
 
     private func item(_ mode: EditorMode) -> some View {
         let isActive = mode == active
         return icon(mode)
             .foregroundStyle(isActive ? Palette.onInk : Palette.toolIcon)
-            .frame(maxWidth: .infinity, minHeight: 40)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
             .background(
                 Capsule()
                     .fill(isActive ? Palette.selectedTool : Palette.toolSurface)
                     .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: isActive ? 0 : 1))
+                    // The handoff lifts the active tile: 0 12 12 ink@0.10.
+                    .shadow(color: Palette.ink.opacity(isActive ? 0.10 : 0), radius: 6, y: 12)
             )
             .minimumHitTarget()
     }

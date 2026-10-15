@@ -36,18 +36,12 @@ struct StickerPanelScene: View {
         ) {
             // Same stage as the Image panel: the page the sticker will land
             // on, read-only.
-            ScrollView(showsIndicators: false) {
-                StaticPageView(memory: editor.memory, showsSound: false)
-                    .padding(.horizontal, Metrics.screenPadding)
-                    // A tap on the page goes back to it, like the Image
-                    // panel -- except while a sticker is being made or its
-                    // results wait to be picked: leaving would drop them.
-                    .contentShape(Rectangle())
-                    .onTapGesture(coordinateSpace: .local) { point in
-                        guard PagePreviewTap.isOnPage(point),
-                              !generating, results.isEmpty else { return }
-                        actions.leading()
-                    }
+            PagePreview(memory: editor.memory) {
+                // A tap on the page goes back to it, like the Image
+                // panel -- except while a sticker is being made or its
+                // results wait to be picked: leaving would drop them.
+                guard !generating, results.isEmpty else { return }
+                actions.leading()
             }
         } bottom: {
             panel
@@ -164,7 +158,7 @@ struct StickerPanelScene: View {
         .padding(.trailing, 10)
         .frame(minHeight: 54)
         .background(GlassCapsule())
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 
     private var canGenerate: Bool {
