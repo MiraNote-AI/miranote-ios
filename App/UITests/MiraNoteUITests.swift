@@ -47,7 +47,8 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(send.waitForExistence(timeout: 5))
         send.tap()
 
-        XCTAssertTrue(app.staticTexts["MiraNote AI"].waitForExistence(timeout: 5))
+        // Screen 02 has no title; the chat's own Home pill marks it.
+        XCTAssertTrue(app.buttons["chat.home"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["noodles by the river"].waitForExistence(timeout: 5))
     }
 
@@ -299,7 +300,7 @@ final class MiraNoteUITests: XCTestCase {
         field.typeText("say hello")
         app.buttons["quick.send"].tap()
 
-        XCTAssertTrue(app.staticTexts["MiraNote AI"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["chat.home"].waitForExistence(timeout: 5))
         let rendered = "A scripted reply for UI tests. How about: \"a quiet line for the page\"?"
         XCTAssertTrue(
             app.staticTexts[rendered].waitForExistence(timeout: 8),
