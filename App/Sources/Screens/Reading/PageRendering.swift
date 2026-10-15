@@ -78,10 +78,11 @@ struct StaticElementView: View {
         case .text(let block):
             Text(block.text)
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(Palette.color(named: block.colorName))
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
-                .padding(6)
+                .padding(TextFace.inset)
                 .textBlockBackground(block)
         case .image(let ref):
             if let image = CanvasImageCache.image(

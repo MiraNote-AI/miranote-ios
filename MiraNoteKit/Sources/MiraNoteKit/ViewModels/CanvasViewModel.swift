@@ -192,11 +192,13 @@ public final class CanvasViewModel {
         _ text: String,
         at position: CGPoint,
         pointSize: CGFloat = 17,
-        size: CGSize = CGSize(width: 220, height: 84)
+        size: CGSize = CGSize(width: 220, height: 84),
+        fontName: String = "",
+        colorName: String = "ink"
     ) -> CanvasItem.ID {
         beginChange()
         let item = CanvasItem(
-            content: .text(TextBlock(text: text, pointSize: pointSize)),
+            content: .text(TextBlock(text: text, pointSize: pointSize, colorName: colorName, fontName: fontName)),
             position: position,
             size: size,
             zIndex: topZ + 1
