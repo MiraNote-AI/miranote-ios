@@ -63,6 +63,17 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         dismissHexKeyboard()
         settle()
         shot("14")
+
+        // Pick color: the page under a loupe; a tap takes its color.
+        app.buttons["colorSheet.pick"].tap()
+        let page = app.descendants(matching: .any)["colorSheet.pick.page"]
+        XCTAssertTrue(page.waitForExistence(timeout: 5))
+        shot("14-eyedropper")
+        page.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)).tap()
+        XCTAssertTrue(hex.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(hex.value as? String, "#E5AC95", "the sampled page color replaced the typed one")
+        replace(hex, with: "E5AC95")
+        dismissHexKeyboard()
         app.buttons["colorSheet.apply"].tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "the keyboard comes back")
         summonKeyboard(field)
