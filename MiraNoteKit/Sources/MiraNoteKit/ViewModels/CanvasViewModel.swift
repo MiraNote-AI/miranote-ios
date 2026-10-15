@@ -21,6 +21,7 @@ public final class CanvasViewModel {
             if editingTextItemID == nil {
                 sessionSteps = nil
                 sessionOrigin = nil
+                sessionStartHeight = nil
             }
         }
     }
@@ -35,6 +36,11 @@ public final class CanvasViewModel {
     /// landed meanwhile (a Mira backdrop, a photo AI edit) is not the
     /// session's to take back.
     private var sessionOrigin: CanvasItem?
+
+    /// The edited block's height when the session began. Writing grows the
+    /// block in place; what it grew over is pushed down when the session
+    /// ends, so the page never jumps under the cursor.
+    private var sessionStartHeight: CGFloat?
 
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
@@ -179,6 +185,7 @@ public final class CanvasViewModel {
     public func select(_ id: CanvasItem.ID?) {
         selectedItemID = id
         if editingTextItemID != id {
+            pushBelowWrittenGrowth()
             editingTextItemID = nil
         }
     }
@@ -194,10 +201,27 @@ public final class CanvasViewModel {
         // caller made) is the page as it was before the session.
         sessionSteps = history.isEmpty ? nil : 0
         sessionOrigin = history.last?.items.first { $0.id == id }
+        sessionStartHeight = item(id)?.size.height
     }
 
     public func endEditingText() {
+        pushBelowWrittenGrowth()
         editingTextItemID = nil
+    }
+
+    /// The session's growth pushes the elements below the block down, as
+    /// part of the session's undo step (no step of its own).
+    private func pushBelowWrittenGrowth() {
+        guard let id = editingTextItemID, let start = sessionStartHeight,
+              let index = index(of: id) else { return }
+        let grown = memory.items[index].size.height
+        guard grown > start + 0.5 else { return }
+        // The page with the block at its starting height, top where it is.
+        var before = memory.items
+        before[index].position.y -= (grown - start) / 2
+        before[index].size.height = start
+        let fitted = TextFit.apply(to: before) { $0.id == id ? grown : nil }
+        if fitted != memory.items { memory.items = fitted }
     }
 
     /// Changes previewed live without undo steps (an AI rewrite, a custom
