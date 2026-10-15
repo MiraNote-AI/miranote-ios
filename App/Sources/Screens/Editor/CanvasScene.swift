@@ -25,9 +25,15 @@ struct CanvasScene: View {
     @State var recorder: AudioRecording?
     @State var recorderNotice: String?
     @State var reviewNote = ""
-    @State var accessoryRow: AccessoryRow = .tools
-    /// Groups a color picker drag into one undo step.
-    @State var pickerUndo = PickerUndoGate()
+    /// The text tool whose row is open (screen 11: Aa when writing starts).
+    @State var textTool: TextTool = .font
+    @State var rewrite: RewriteState?
+    @State var colorRequest: ColorRequest?
+    /// The beat between tapping Text and the block appearing (screen 10):
+    /// the Text tool shows active and the composer reads as text entry.
+    @State var textModeArming = false
+    /// The dictation strip's press in progress.
+    @State var dictationPress: (start: Date, wasLive: Bool)?
     @State private var miraPrompt = ""
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
@@ -45,8 +51,8 @@ struct CanvasScene: View {
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
     @State var dictating = false
-    /// Inline feedback in the text accessory: "Listening..." while the
-    /// mic is live, or why nothing landed after it stopped.
+    /// The dictation strip's subtitle when the mic is not live: why nothing
+    /// landed, or why a rewrite failed.
     @State var dictationHint: String?
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState private var miraFocus: Bool
@@ -55,14 +61,42 @@ struct CanvasScene: View {
     private let imageStore = ImageFileStore()
     private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
+    /// Words are being written (or the Text tool is on its way in): the
+    /// header reads Cancel / undo / Done, and Done ends the writing.
+    private var writing: Bool { editor.editingTextItemID != nil || textModeArming }
+
     var body: some View {
+        ZStack(alignment: .bottom) {
+            scaffold
+                // While words are written the page keeps its size and the
+                // keyboard rides over the dock, as drawn (screens 11-20).
+                .ignoresSafeArea(.keyboard, edges: editor.editingTextItemID != nil ? .bottom : [])
+            // The text chrome floats over the page, on the keyboard.
+            if editor.editingTextItemID != nil {
+                if colorRequest != nil {
+                    // 14 above the composer's slot (screens 14 and 20).
+                    colorSheet.padding(.bottom, 54 + 14 + 2)
+                } else {
+                    textAccessory
+                }
+            }
+        }
+    }
+
+    /// The canvas scene proper: header, page, dock, and the scene's
+    /// lifecycle (the body adds the floating text chrome).
+    private var scaffold: some View {
         EditorScaffold(
-            leading: toolOpen ? "Canvas" : "Home",
-            trailing: "Save",
-            onLeading: toolOpen ? closeTool : actions.leading,
-            onTrailing: actions.done,
-            onUndo: editor.undo,
-            undoEnabled: editor.canUndo
+            leading: writing ? "Cancel" : (toolOpen ? "Canvas" : "Home"),
+            trailing: writing ? "Done" : "Save",
+            onLeading: writing ? cancelTextEditing : (toolOpen ? closeTool : actions.leading),
+            onTrailing: writing ? endTextEditing : actions.done,
+            onUndo: writing ? undoFromHeader : editor.undo,
+            undoEnabled: editor.canUndo,
+            leadingMuted: !writing,
+            leadingID: writing ? "text.cancel" : nil,
+            trailingID: writing ? "keyboard.done" : nil,
+            dimmed: editor.editingTextItemID != nil
         ) {
             CanvasBoardView(
                 editor: editor,
@@ -117,6 +151,15 @@ struct CanvasScene: View {
                 dropToDelete: $dropToDelete,
                 comparing: editingImageItem.flatMap { id in comparingImage.map { (id, $0) } }
             )
+            .overlay {
+                // With the color sheet up, a tap on the page cancels it
+                // instead of ending the writing.
+                if colorRequest != nil {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { closeColorSheet(keeping: false) }
+                }
+            }
         } bottom: {
             // One container, so the sign covers the dock as a whole: an
             // overlay on the bare builder would repeat on every child.
@@ -194,6 +237,14 @@ struct CanvasScene: View {
         }
         .onChange(of: editor.editingTextItemID) { _, editing in
             if editing == nil {
+                // Ended from anywhere (a paper tap, an undo past the block):
+                // an open preview is kept, like Done keeps it.
+                finishRewrite()
+                if let request = colorRequest {
+                    editor.commitPreview(of: request.original)
+                    colorRequest = nil
+                }
+                resetTextTools()
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
             } else {
@@ -219,12 +270,13 @@ struct CanvasScene: View {
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
-            // through the Done button; keep the editing state in sync.
-            if focus == nil, editor.editingTextItemID != nil {
-                editor.endEditingText()
-                accessoryRow = .tools
+            // through the Done button; keep the editing state in sync. The
+            // color sheet lowers the keyboard on purpose and keeps writing.
+            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil {
+                endTextEditing()
             }
         }
+        .onChange(of: editingBlock?.text) { _, text in noteTyped(text) }
     }
 
     // MARK: Bottom cluster (instrument panel + context bar)
@@ -236,19 +288,34 @@ struct CanvasScene: View {
         // (it used to ride the keyboard toolbar, which a connected
         // hardware keyboard simply never shows).
         if editor.editingTextItemID != nil {
-            HStack(spacing: 18) {
-                textAccessory
+            // The dock keeps its room, so the page keeps its size; the
+            // keyboard and the text chrome ride over it (CanvasScene.body).
+            Color.clear.frame(height: 40)
+            if colorRequest != nil {
+                // Screens 14 and 20: the keyboard is down and the composer
+                // is back under the sheet; a tap there is a tap outside it.
+                MiraBar(
+                    coordinator: mira,
+                    editor: editor,
+                    prompt: $miraPrompt,
+                    promptFocus: $miraFocus,
+                    placeholder: "Type or polish your memory"
+                )
+                .allowsHitTesting(false)
+                .contentShape(Rectangle())
+                .onTapGesture { closeColorSheet(keeping: false) }
+            } else {
+                Color.clear.frame(height: 54)
             }
-            .font(.miraLabel)
-            .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(Palette.onInk)
-                    .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+        } else if textModeArming {
+            InputModeBar(active: .text, onSelect: handleTool)
+            MiraBar(
+                coordinator: mira,
+                editor: editor,
+                prompt: $miraPrompt,
+                promptFocus: $miraFocus,
+                placeholder: "Type or polish your memory"
             )
-            .padding(.horizontal, Metrics.chromeInset)
         } else {
             if pendingPlacement != nil {
                 HStack(spacing: 8) {
@@ -350,7 +417,8 @@ struct CanvasScene: View {
                     coordinator: mira,
                     editor: editor,
                     prompt: $miraPrompt,
-                    promptFocus: $miraFocus
+                    promptFocus: $miraFocus,
+                    placeholder: editor.selectedItemID != nil ? "Ask Mira to refine..." : "Ask Mira anything"
                 )
             }
         case .armed:
@@ -385,7 +453,8 @@ struct CanvasScene: View {
             cancelRecording()
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
-            addTextBlock()
+            guard !textModeArming else { return }
+            armTextMode()
         case .voice:
             // The tool arms the recorder; only the Record button goes live.
             // One audio owner at a time: not while dictating, and recording
@@ -439,11 +508,43 @@ struct CanvasScene: View {
         photoSession?.lastSeen = ref
     }
 
-    /// Text tool: a new block appears on the canvas and the keyboard rises --
+    /// Text tool, screen 10 then 11: the Text tool lights up for a beat,
+    /// then a new block appears on the canvas and the keyboard rises --
     /// typing happens where the words will live.
+    private func armTextMode() {
+        withAnimation(.easeOut(duration: 0.15)) { textModeArming = true }
+        Task {
+            try? await Task.sleep(for: .milliseconds(Self.textModeBeat))
+            // Cancel (or Done) during the beat called it off.
+            guard textModeArming else { return }
+            textModeArming = false
+            addTextBlock()
+        }
+    }
+
+    /// Long enough to read the Text tool turning on; screen-capture runs
+    /// stretch it (`-TEXT_MODE_BEAT <ms>`) to photograph the state.
+    private static var textModeBeat: Int {
+        let stretched = UserDefaults.standard.integer(forKey: "TEXT_MODE_BEAT")
+        return stretched > 0 ? stretched : 250
+    }
+
+    /// The handoff's new block (screens 11-20): Josefin Medium 21, ink
+    /// #293322, 230 wide (206 of words inside the 12 pt insets).
     private func addTextBlock() {
-        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 70, 4000))
-        let id = editor.addText("", at: position, pointSize: 17, size: CGSize(width: 320, height: 48))
+        let width: CGFloat = 230
+        let height = TextMeasure.blockHeight(
+            text: "", pointSize: TextFace.newBlockSize, fontName: TextFace.newBlockFont, width: width
+        )
+        // Below what is there; on a near-empty page, a third of the way
+        // down the card, clear of the keyboard and the text chrome.
+        let top = max(editor.contentBottom + 70 - height / 2, 110)
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(top + height / 2, 4000))
+        let id = editor.addText(
+            "", at: position, pointSize: TextFace.newBlockSize,
+            size: CGSize(width: width, height: height),
+            fontName: TextFace.newBlockFont, colorName: TextFace.newBlockColor
+        )
         // addText already recorded the undo point for this compound action.
         editor.startEditingText(id, recordingUndo: false)
         textFocus = id

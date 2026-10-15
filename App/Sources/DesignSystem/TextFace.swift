@@ -105,14 +105,6 @@ extension TextAlign {
         case .trailing: return .topTrailing
         }
     }
-
-    var symbol: String {
-        switch self {
-        case .leading: return "text.alignleft"
-        case .center: return "text.aligncenter"
-        case .trailing: return "text.alignright"
-        }
-    }
 }
 
 extension View {
