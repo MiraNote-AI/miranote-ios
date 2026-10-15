@@ -183,6 +183,9 @@ struct CanvasScene: View {
         }
         .onChange(of: backgroundPanelOpen) { _, open in
             if !open { closePageColorSheet(keeping: false) }
+            // Opening Background moves on from a waiting result (Keep):
+            // its sheet would draw over the tool's sets and layout.
+            if open, receipt != nil { mira.dismiss() }
         }
     }
 

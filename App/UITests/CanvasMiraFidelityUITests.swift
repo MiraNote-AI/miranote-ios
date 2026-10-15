@@ -74,7 +74,37 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["mira.receipt"].exists)
     }
 
+    // A quick tap (how VoiceOver, Voice Control and Switch Control
+    // activate it) leaves the mic listening; the next tap ends the take.
+    func testATapTogglesTheDictationStrip() {
+        app.openMiraChat()
+        let strip = app.descendants(matching: .any)["mira.dictation"]
+        strip.tap()
+        expectation(for: NSPredicate(format: "value == %@", "Listening..."), evaluatedWith: strip)
+        waitForExpectations(timeout: 5)
+        XCTAssertFalse((app.miraInput.value as? String ?? "").contains("Transcribed"), "nothing taken yet")
+
+        strip.tap()
+        let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
+        expectation(for: filled, evaluatedWith: app.miraInput)
+        waitForExpectations(timeout: 5)
+    }
+
     // MARK: 07
+
+    // Opening Background moves on from a waiting result: the sheet would
+    // cover the curated sets and One-tap layout.
+    func testOpeningBackgroundClosesTheResultSheet() {
+        addText("sunny afternoon by the bridge")
+        app.askMira("polish the text")
+        XCTAssertTrue(app.buttons["mira.keep"].waitForExistence(timeout: 8))
+
+        app.buttons["mode.background"].tap()
+        waitGone(app.buttons["mira.keep"], "the result sheet steps aside for the tool")
+        app.buttons["Canvas"].tap()
+        XCTAssertTrue(app.staticTexts["(polished -- mock) sunny afternoon by the bridge"].waitForExistence(timeout: 5),
+                      "and the change is kept")
+    }
 
     // The result sheet says what changed and what was kept, waits for the
     // choice (no auto-keep), turns Save forest meanwhile, and the composer
