@@ -67,7 +67,10 @@ struct ReadingView: View {
                         onClose: { setExport(open: false) },
                         onSaved: saved
                     )
-                    .padding(.horizontal, Metrics.chromeInset)
+                    // The screen's width, not the page's: the reading page is
+                    // wider than a 390 pt phone, and padding it would push
+                    // the sheet off the chrome inset.
+                    .containerRelativeFrame(.horizontal) { width, _ in width - 2 * Metrics.chromeInset }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
