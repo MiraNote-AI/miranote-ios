@@ -16,7 +16,14 @@ public final class CanvasViewModel {
     public var selectedItemID: CanvasItem.ID?
 
     /// The text element currently being edited in place, if any.
-    public var editingTextItemID: CanvasItem.ID?
+    public var editingTextItemID: CanvasItem.ID? {
+        didSet { if editingTextItemID == nil { sessionSteps = nil } }
+    }
+
+    /// Undo steps recorded since the open text editing session began, so
+    /// Cancel can take the whole session back. Nil when no session is open,
+    /// or when its starting point was undone or fell off the history cap.
+    private var sessionSteps: Int?
 
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
@@ -100,10 +107,16 @@ public final class CanvasViewModel {
         if history.count > Self.historyCap {
             history.removeFirst()
         }
+        if let steps = sessionSteps {
+            sessionSteps = steps + 1 < history.count ? steps + 1 : nil
+        }
     }
 
     public func undo() {
         guard let snapshot = history.popLast() else { return }
+        if let steps = sessionSteps {
+            sessionSteps = steps > 0 ? steps - 1 : nil
+        }
         changeCount += 1
         memory.items = snapshot.items
         memory.backgroundFileName = snapshot.backgroundFileName
@@ -134,10 +147,42 @@ public final class CanvasViewModel {
         if recordingUndo { beginChange() }
         selectedItemID = id
         editingTextItemID = id
+        // The undo point on top of the history (this call's, or the one the
+        // caller made) is the page as it was before the session.
+        sessionSteps = history.isEmpty ? nil : 0
     }
 
     public func endEditingText() {
         editingTextItemID = nil
+    }
+
+    /// The header's Cancel: ends the session and takes the page back to how
+    /// it was when the session began -- words, style and, for a new block,
+    /// the block itself. The session's undo steps go with it.
+    public func cancelEditingText() {
+        guard editingTextItemID != nil else { return }
+        if let steps = sessionSteps, steps < history.count {
+            history.removeLast(steps)
+            undo()
+        }
+        editingTextItemID = nil
+    }
+
+    /// Changes previewed live without undo steps (an AI rewrite, a custom
+    /// color being dragged) become one undo step back to `original`; none
+    /// when the item ends up unchanged.
+    public func commitPreview(of original: CanvasItem) {
+        guard let index = index(of: original.id), memory.items[index] != original else { return }
+        let previewed = memory.items[index]
+        memory.items[index] = original
+        beginChange()
+        memory.items[index] = previewed
+    }
+
+    /// Drops a live preview: the item as it was, no undo step.
+    public func discardPreview(of original: CanvasItem) {
+        guard let index = index(of: original.id) else { return }
+        memory.items[index] = original
     }
 
     // MARK: Insertion
@@ -147,11 +192,13 @@ public final class CanvasViewModel {
         _ text: String,
         at position: CGPoint,
         pointSize: CGFloat = 17,
-        size: CGSize = CGSize(width: 220, height: 84)
+        size: CGSize = CGSize(width: 220, height: 84),
+        fontName: String = "",
+        colorName: String = "ink"
     ) -> CanvasItem.ID {
         beginChange()
         let item = CanvasItem(
-            content: .text(TextBlock(text: text, pointSize: pointSize)),
+            content: .text(TextBlock(text: text, pointSize: pointSize, colorName: colorName, fontName: fontName)),
             position: position,
             size: size,
             zIndex: topZ + 1

@@ -38,7 +38,7 @@ struct DeleteDropZone: View {
                     .strokeBorder(Self.red.opacity(armed ? 0.6 : 0.2), lineWidth: 1))
         )
         .scaleEffect(armed ? 1.03 : 1)
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
         .allowsHitTesting(false)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("canvas.deleteZone")

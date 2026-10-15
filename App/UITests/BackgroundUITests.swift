@@ -71,10 +71,11 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
     }
 
-    // The handoff's "Change background" quick action (screen 06): offered once
-    // the page has something on it, it runs a normal background turn, and it
-    // leaves once the page has a background of its own.
-    func testChangeBackgroundQuickActionRunsAndLeaves() {
+    // The handoff draws nothing between the tool bar and the composer on the
+    // canvas (screens 04, 05, 07, 22): no idle suggestion chips, even once
+    // the page has words that used to summon them, and exactly 16 pt.
+    // Quick actions return inside the Mira chat overlay (screen 06).
+    func testIdleCanvasHasNoChipRowAboveTheComposer() {
         startMemory()
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any)["canvas.textEditor"]
@@ -82,26 +83,16 @@ final class BackgroundUITests: XCTestCase {
         field.typeText("lunch by the river")
         app.buttons["keyboard.done"].tap()
 
-        let chip = app.buttons["mira.suggestion.Change the background"]
-        XCTAssertTrue(chip.waitForExistence(timeout: 5))
-        chip.tap()
-        let first = app.buttons["mira.imageChoice.0"]
-        XCTAssertTrue(first.waitForExistence(timeout: 8), "the chip ran a background turn")
-        first.tap()
-        let receipt = app.staticTexts["Set the page background."]
-        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
+        let go = app.buttons["mira.go"]
+        XCTAssertTrue(go.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["mira.suggestion.Change the background"].exists)
+        XCTAssertFalse(app.buttons["mira.suggestion.Add a soft title"].exists)
 
-        // The receipt fills the strip while it shows; dismiss it so the
-        // chip row is really back before checking what it offers.
-        receipt.tap()
-        XCTAssertTrue(
-            app.buttons["mira.suggestion.Add a soft title"].waitForExistence(timeout: 5),
-            "the chip row is back"
-        )
-        XCTAssertFalse(
-            app.buttons["mira.suggestion.Change the background"].exists,
-            "a page with its own background is not offered another"
-        )
+        // Hit frames reach 5 pt past the drawn 40/34 pt capsules; the Go
+        // pill sits 10 below the composer's top edge.
+        let toolBarBottom = app.buttons["mode.text"].frame.maxY - 5
+        let composerTop = go.frame.minY + 5 - 10
+        XCTAssertEqual(composerTop - toolBarBottom, 16, accuracy: 1)
     }
 
     // Paper and page color apply in place; Default returns to the gradient

@@ -33,6 +33,7 @@ targets:
         UIAppFonts:
           - Fraunces.ttf
           - JosefinSans.ttf
+          - Raleway.ttf
         # Version and build number for TestFlight. Both read from build
         # settings so a new upload is a one-line bump of CURRENT_PROJECT_VERSION
         # (TestFlight rejects a re-used build number).

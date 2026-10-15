@@ -183,7 +183,7 @@ final class MiraNoteUITests: XCTestCase {
     }
 
     // Mira can draft a page from the conversation: the card opens the
-    // editor with the drafted words on the canvas; Done files it.
+    // editor with the drafted words on the canvas; Save files it.
     func testChatDraftOpensEditorAndFiles() {
         let field = app.textFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -206,7 +206,7 @@ final class MiraNoteUITests: XCTestCase {
             "title and body must not drift apart into islands"
         )
 
-        app.buttons["Done"].tap()
+        app.buttons["Save"].tap()
 
         let dailyLog = app.buttons["collection.Daily Log"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
@@ -228,7 +228,7 @@ final class MiraNoteUITests: XCTestCase {
     }
 
     // Autosave semantics: leaving with Home keeps the words exactly like
-    // Done -- the silent-discard path was a data-loss bug.
+    // Save -- the silent-discard path was a data-loss bug.
     func testHomeFilesNonEmptyCanvasLikeDone() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
@@ -302,12 +302,12 @@ final class MiraNoteUITests: XCTestCase {
         )
     }
 
-    // Done on an untouched blank canvas keeps nothing.
-    func testDoneOnBlankCanvasFilesNothing() {
+    // Save on an untouched blank canvas keeps nothing.
+    func testSaveOnBlankCanvasFilesNothing() {
         app.buttons["Start a memory"].tap()
-        let done = app.buttons["Done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
-        done.tap()
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
 
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["3 notes"].exists, "Daily Log stays at its seeded 2 notes")
