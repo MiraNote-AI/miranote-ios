@@ -1,4 +1,5 @@
 import CoreGraphics
+import MiraNoteKit
 import UIKit
 import XCTest
 @testable import MiraNote
@@ -47,6 +48,28 @@ final class PageExporterTests: XCTestCase {
         let data = try XCTUnwrap(PageExporter.data(from: rounded, format: .jpg))
         let corner = try XCTUnwrap(pixel(at: CGPoint(x: 0, y: 0), in: data))
         XCTAssertGreaterThan(corner.red + corner.green + corner.blue, 600, "the corner is light, like the app's screen")
+    }
+
+    // Exports keep the r24 page corner they always had; the editor's r30
+    // card clips its own view of the page. At (8.5, 8.5) pt a r24 corner is
+    // filled and a r30 one is not.
+    @MainActor
+    func testExportedPagesKeepTheR24Corner() throws {
+        let image = try XCTUnwrap(PageExporter.render(Memory(pageColorName: "#24382D"), quality: .standard))
+        let cgImage = try XCTUnwrap(image.cgImage)
+        func alpha(atPoint point: CGFloat) -> UInt8 {
+            var bytes = [UInt8](repeating: 0, count: 4)
+            let context = CGContext(
+                data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+            let pixel = point * image.scale
+            context?.draw(cgImage, in: CGRect(x: -pixel, y: -(CGFloat(cgImage.height) - 1 - pixel),
+                                              width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+            return bytes[3]
+        }
+        XCTAssertGreaterThan(alpha(atPoint: 8.5), 200, "inside a r24 corner")
+        XCTAssertLessThan(alpha(atPoint: 2), 50, "the corner itself stays open")
     }
 
     /// The RGB of one pixel of an encoded image.

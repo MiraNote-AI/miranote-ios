@@ -11,7 +11,9 @@ struct PageBackdrop: View {
     let memory: Memory
 
     private let imageStore = ImageFileStore()
-    private static let shape = RoundedRectangle(cornerRadius: Metrics.canvasCorner)
+    /// r24 as pages have always been drawn and exported; the editor's r30
+    /// card (`canvasCard()`) clips its own view of the page.
+    private static let shape = RoundedRectangle(cornerRadius: 24)
 
     var body: some View {
         base
