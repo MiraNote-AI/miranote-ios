@@ -55,15 +55,36 @@ struct GlassSheet<Content: View>: View {
     }
 
     private var background: some View {
-        Self.shape
+        GlassSurface(
+            shape: Self.shape,
+            tint: Palette.paper.opacity(fillOpacity),
+            rim: border,
+            shadowOpacity: elevation == .raised ? 0.16 : 0.10,
+            shadowRadius: elevation == .raised ? 18 : 13,
+            shadowY: elevation == .raised ? 18 : 12
+        )
+    }
+}
+
+/// The handoff's frosted glass in any shape: blur, a tint over it, the inner
+/// top highlight, a 1 pt rim and an ink drop shadow. GlassSheet, the
+/// Background tool, the Mira result sheet and the canvas chat panel differ
+/// only in these values.
+struct GlassSurface<S: InsettableShape>: View {
+    let shape: S
+    let tint: Color
+    var rim: Color = Color.white.opacity(0.46)
+    var highlight = true
+    var shadowOpacity: Double = 0.10
+    var shadowRadius: CGFloat = 13
+    var shadowY: CGFloat = 12
+
+    var body: some View {
+        shape
             .fill(.ultraThinMaterial)
-            .overlay(Self.shape.fill(Palette.paper.opacity(fillOpacity)))
-            .overlay(InnerTopHighlight(shape: Self.shape))
-            .overlay(Self.shape.strokeBorder(border, lineWidth: 1))
-            .shadow(
-                color: Palette.ink.opacity(elevation == .raised ? 0.16 : 0.10),
-                radius: elevation == .raised ? 18 : 13,
-                y: elevation == .raised ? 18 : 12
-            )
+            .overlay(shape.fill(tint))
+            .overlay { if highlight { InnerTopHighlight(shape: shape) } }
+            .overlay(shape.strokeBorder(rim, lineWidth: 1))
+            .shadow(color: Palette.ink.opacity(shadowOpacity), radius: shadowRadius, y: shadowY)
     }
 }

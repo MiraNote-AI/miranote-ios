@@ -21,6 +21,11 @@ struct TopBar: View {
     var leadingMuted = true
     var leadingID: String?
     var trailingID: String?
+    /// The leading pill over the Mira chat's frosted scrim (screen 06):
+    /// white@0.54 with a white rim and an ink label.
+    var leadingOnGlass = false
+    /// Ink; forest (#293322) while a Mira result waits (screen 07).
+    var trailingFill = Palette.ink
 
     var body: some View {
         ZStack {
@@ -61,7 +66,10 @@ struct TopBar: View {
                             Text(leading)
                         }
                     }
-                    .buttonStyle(NavPill(prominent: false, muted: leadingMuted, width: NavPill.leadingWidth))
+                    .buttonStyle(NavPill(
+                        prominent: false, muted: leadingMuted && !leadingOnGlass, onGlass: leadingOnGlass,
+                        width: NavPill.leadingWidth
+                    ))
                     .optionalIdentifier(leadingID)
                 }
 
@@ -69,7 +77,7 @@ struct TopBar: View {
 
                 if let trailing {
                     Button(trailing, action: onTrailing)
-                        .buttonStyle(NavPill(prominent: true, width: NavPill.trailingWidth))
+                        .buttonStyle(NavPill(prominent: true, fill: trailingFill, width: NavPill.trailingWidth))
                         .optionalIdentifier(trailingID)
                 }
             }
@@ -99,6 +107,10 @@ struct NavPill: ButtonStyle {
 
     var prominent: Bool
     var muted = false
+    /// Over the chat's glass scrim: white@0.54 with a white@0.35 rim.
+    var onGlass = false
+    /// The prominent pill's fill.
+    var fill = Palette.ink
     /// The design's fixed pill width; nil sizes the pill to its label.
     var width: CGFloat?
 
@@ -112,12 +124,17 @@ struct NavPill: ButtonStyle {
             .frame(minWidth: width == nil ? 60 : nil)
             .background(
                 Capsule()
-                    .fill(prominent ? Palette.ink : Color.white.opacity(0.72))
+                    .fill(prominent ? fill : Color.white.opacity(onGlass ? 0.54 : 0.72))
                     .overlay(
-                        Capsule().strokeBorder(Palette.ink.opacity(prominent ? 0 : 0.07), lineWidth: 1)
+                        Capsule().strokeBorder(rim, lineWidth: 1)
                     )
             )
             .opacity(configuration.isPressed ? 0.75 : 1)
             .minimumHitTarget()
+    }
+
+    private var rim: Color {
+        if prominent { return .clear }
+        return onGlass ? Color.white.opacity(0.35) : Palette.ink.opacity(0.07)
     }
 }

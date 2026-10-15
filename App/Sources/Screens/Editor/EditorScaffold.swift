@@ -25,6 +25,7 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
     var leadingMuted = true
     var leadingID: String?
     var trailingID: String?
+    var trailingFill = Palette.ink
     /// The text editing scrim (screens 11-20) over the margins around the
     /// page; the header and the bottom cluster stay above it.
     var dimmed = false
@@ -44,7 +45,8 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
                 undoEnabled: undoEnabled,
                 leadingMuted: leadingMuted,
                 leadingID: leadingID,
-                trailingID: trailingID
+                trailingID: trailingID,
+                trailingFill: trailingFill
             )
             page()
             // Handoff rhythm: canvas card, 20, tool bar, 16, composer, and

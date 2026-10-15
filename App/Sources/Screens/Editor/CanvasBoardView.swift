@@ -32,6 +32,10 @@ struct CanvasBoardView: View {
     /// Where an in-flight move stands against the delete zone; nil when
     /// nothing is being moved.
     @Binding var dropToDelete: DropToDelete?
+    /// The element being moved, for the scene to draw above the dock
+    /// (screen 22): the board's own copy hides, so the drag is never cut at
+    /// the card's edge. Nil when nothing is being moved.
+    var lifted: Binding<LiftedElement?> = .constant(nil)
     /// The photo panel's held compare: this image drawn as it was.
     var comparing: (itemID: CanvasItem.ID, original: ImageRef)?
 
@@ -109,7 +113,10 @@ struct CanvasBoardView: View {
         )
         // Derived from the @GestureState, so a cancelled drag clears the
         // zone too.
-        .onChange(of: dropPhase) { _, phase in dropToDelete = phase }
+        .onChange(of: dropPhase) { _, phase in
+            dropToDelete = phase
+            if phase == nil { lifted.wrappedValue = nil }
+        }
         .overlay(alignment: .bottom) {
             if let toast {
                 toastView(toast)
@@ -137,6 +144,8 @@ struct CanvasBoardView: View {
 
     private var board: some View {
         ZStack(alignment: .topLeading) {
+            // A blank page is just the page (handoff screen 04): the tools
+            // and the composer below are the invitation.
             paper
                 .blur(radius: writing ? 4 : 0)
             if writing {
@@ -149,24 +158,6 @@ struct CanvasBoardView: View {
                     .accessibilityElement()
                     .accessibilityLabel("Writing")
                     .accessibilityIdentifier("text.scrim")
-            }
-            if editor.items.isEmpty {
-                // On a soft paper chip: the grey was tuned for cream paper
-                // and vanishes mid-gradient (Meng, 2026-07-11); the chip
-                // keeps the pairing readable on ANY backdrop.
-                Text("Tap a tool below, or tell Mira about today.")
-                    .font(.miraBody)
-                    .foregroundStyle(Palette.textSecondary)
-                    .frame(width: 240)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Palette.paper.opacity(0.78))
-                    )
-                    .position(x: MiraNoteConfig.pageWidth / 2, y: 200)
-                    .allowsHitTesting(false)
             }
             ForEach(editor.orderedItems) { item in
                 let edited = editor.editingTextItemID == item.id
@@ -236,6 +227,7 @@ struct CanvasBoardView: View {
         let isSelected = editor.selectedItemID == item.id
         let isEditing = editor.editingTextItemID == item.id
         let geometry = effectiveGeometry(item)
+        let isLifted = activeMove?.itemID == item.id
 
         CanvasElementView(
             item: shown(item),
@@ -266,6 +258,9 @@ struct CanvasBoardView: View {
                 handles(for: item, size: geometry.size)
             }
         }
+        .background { if isLifted { liftReporter(item, rotation: geometry.rotation) } }
+        // Drawn by the scene while lifted; the gesture stays with this view.
+        .opacity(isLifted ? 0 : 1)
         .rotationEffect(.degrees(geometry.rotation))
         .position(geometry.position)
         .id(item.id)
@@ -274,6 +269,25 @@ struct CanvasBoardView: View {
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
+    }
+
+    /// The moving element's box on screen, translation included: the scene
+    /// draws the lifted copy exactly there.
+    private func liftReporter(_ item: CanvasItem, rotation: Double) -> some View {
+        GeometryReader { geo in
+            Color.clear
+                .onAppear { lift(shown(item), frame: geo.frame(in: .global), rotation: rotation) }
+                .onChange(of: geo.frame(in: .global)) { _, frame in
+                    lift(shown(item), frame: frame, rotation: rotation)
+                }
+        }
+    }
+
+    private func lift(_ item: CanvasItem, frame: CGRect, rotation: Double) {
+        // The drop's own frame change can land after the move ended: never
+        // bring the copy back then.
+        guard activeMove?.itemID == item.id else { return }
+        lifted.wrappedValue = LiftedElement(item: item, frame: frame, rotation: rotation)
     }
 
     /// The item as drawn: the original pixels and treatments while the

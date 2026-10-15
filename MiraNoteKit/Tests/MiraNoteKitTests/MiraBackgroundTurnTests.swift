@@ -14,7 +14,6 @@ final class MiraBackgroundTurnTests: XCTestCase {
             chat: ScriptedChat(),
             workingDelay: .milliseconds(1),
             timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
             imageStudio: ScriptedImageStudio(),
             imageTimeout: .seconds(5),
             imageStore: ImageFileStore(directory: tempDir),
@@ -52,6 +51,45 @@ final class MiraBackgroundTurnTests: XCTestCase {
             return XCTFail("Retry must rerun the background turn, got \(coordinator.phase)")
         }
         XCTAssertEqual(again, .background)
+    }
+
+    // The Background tool's "Apply to this page": whatever the words say,
+    // they describe a backdrop -- photo words included.
+    func testApplyToThisPagePaintsABackdropFromAnyWords() async {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addImages([ImageRef(displayName: "trip", fileName: "t.png")], around: CGPoint(x: 100, y: 300))
+        let coordinator = makeCoordinator(tempDir: tempDir)
+
+        coordinator.askBackground("  a garden behind my photo  ", editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+        guard case .imageChoices(_, let prompt, let placement) = coordinator.phase else {
+            return XCTFail("expected background choices, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(placement, .background)
+        XCTAssertEqual(prompt, "a garden behind my photo")
+    }
+
+    func testApplyToThisPageWithNoWordsDoesNothing() {
+        let editor = CanvasViewModel(memory: Memory())
+        let coordinator = makeCoordinator(tempDir: tempDir)
+        coordinator.askBackground("   ", editor: editor)
+        XCTAssertEqual(coordinator.phase, .idle)
+        XCTAssertFalse(coordinator.isWorking)
+    }
+
+    // Screen 06's primary chip paints for the page, like the old idle chip.
+    func testChangeBackgroundQuickActionIsABackgroundTurn() async {
+        let editor = CanvasViewModel(memory: Memory())
+        _ = editor.addText("photo dump from the trip", at: CGPoint(x: 100, y: 100), pointSize: 30)
+        let coordinator = makeCoordinator(tempDir: tempDir)
+        XCTAssertEqual(MiraCanvasCoordinator.quickActions.first, "Change background")
+
+        coordinator.askQuickAction("Change background", editor: editor)
+        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
+        guard case .imageChoices(_, _, let placement) = coordinator.phase else {
+            return XCTFail("expected background choices, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(placement, .background)
     }
 
     func testBackgroundAskYieldsChoicesAndPlacingSetsIt() async {

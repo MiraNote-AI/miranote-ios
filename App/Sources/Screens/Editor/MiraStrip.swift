@@ -2,10 +2,11 @@ import MiraNoteKit
 import SwiftUI
 
 /// The card above the Mira bar: conversational replies (with their
-/// follow-up chips), the Keep-pattern receipt, and taxonomy failures. At
-/// rest it is empty: the handoff draws nothing between the tool bar and the
-/// composer (screens 04, 05, 07, 22). Never red --
-/// failure is calm and still; waiting is motion elsewhere (bar + element).
+/// follow-up chips), image choices and taxonomy failures. At rest it is
+/// empty: the handoff draws nothing between the tool bar and the composer
+/// (screens 04, 05, 07, 22); a landed change shows as the result sheet over
+/// the canvas (MiraResultSheet, screen 07). Never red -- failure is calm
+/// and still; waiting is motion elsewhere (bar + element).
 struct MiraCard: View {
     @Bindable var coordinator: MiraCanvasCoordinator
     @Bindable var editor: CanvasViewModel
@@ -22,7 +23,7 @@ struct MiraCard: View {
 
     @ViewBuilder private var content: some View {
         switch coordinator.phase {
-        case .idle, .working:
+        case .idle, .working, .receipt:
             EmptyView()
         case .reply(_, let chips):
             // The conversation reads as one thread: the transcript scrolls
@@ -64,39 +65,6 @@ struct MiraCard: View {
                 }
                 chipsRow(chips)
             }
-        case .receipt(let receipt):
-            // A confirmation stamp, not a chat element (Meng, 2026-07-09):
-            // one forest-tinted line, with Revert when the turn changed
-            // something, kept-line dropped, and it keeps by itself after a
-            // short window. Tap dismisses.
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Palette.forest)
-                Text(receipt.changed)
-                    .font(.miraLabel)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .accessibilityIdentifier("mira.receipt")
-                Spacer()
-                if coordinator.receiptCanRevert {
-                    Button("Revert") { coordinator.revert(editor: editor) }
-                        .font(.miraLabel)
-                        .foregroundStyle(Palette.forest)
-                        .accessibilityIdentifier("mira.revert")
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(
-                Capsule()
-                    .fill(Palette.forest.opacity(0.1))
-                    .overlay(
-                        Capsule().strokeBorder(Palette.forest.opacity(0.35), lineWidth: Metrics.hairline)
-                    )
-            )
-            .padding(.horizontal, Metrics.chromeInset)
-            .onTapGesture { coordinator.dismiss() }
         case .failure(let failure):
             card {
                 HStack(alignment: .top, spacing: 8) {
@@ -277,17 +245,18 @@ struct MiraCard: View {
     }
 }
 
-/// The unified command bar: an input at rest; past 400 ms of work it becomes
-/// the verb-specific working bar with the Stop control (stop refills the
-/// prompt, applies nothing).
+/// The unified command bar: the composer at rest -- a tap opens the Mira
+/// canvas chat (screen 06), where the words are typed; a draft left there
+/// waits here with Go -- and past 400 ms of work the verb-specific working
+/// bar with the Stop control (stop refills the prompt, applies nothing).
 struct MiraBar: View {
     @Bindable var coordinator: MiraCanvasCoordinator
     @Bindable var editor: CanvasViewModel
     @Binding var prompt: String
-    var promptFocus: FocusState<Bool>.Binding
-    /// "Type or polish your memory" in Text mode (screens 10, 14, 20),
-    /// "Ask Mira to refine..." with an element selected (screen 21).
+    /// "Ask Mira anything"; "Ask Mira to refine..." while a result waits
+    /// for Keep or Revert (screen 07).
     var placeholder = "Ask Mira anything"
+    var onOpenChat: () -> Void
 
     var body: some View {
         Group {
@@ -306,46 +275,26 @@ struct MiraBar: View {
     }
 
     private var inputBar: some View {
-        // Handoff composer: Medium 12 field from x 17, a 52x34 Bold 12 Go
-        // pill 9 from the capsule's trailing edge, 54 tall.
-        HStack(spacing: 8) {
-            TextField(
-                placeholder,
-                text: $prompt,
-                prompt: Text(placeholder).foregroundStyle(Palette.muted)
-            )
-                .font(.miraComposer)
-                .foregroundStyle(Palette.ink)
-                .tint(Palette.forest)
-                .submitLabel(.go)
-                .focused(promptFocus)
-                .onSubmit(submit)
-                .accessibilityIdentifier("mira.input")
-
-            Button(action: submit) {
-                Text("Go")
-                    .font(.miraComposerAction)
-                    .foregroundStyle(Palette.onInk)
-                    .frame(minWidth: 52)
-                    .frame(height: 34)
-                    .background(Capsule().fill(Palette.ink))
-                    .minimumHitTarget()
+        // Handoff composer: Medium 12 words from x 17 and the Go pill. The
+        // words are the draft left in the chat, or the placeholder.
+        ComposerCapsule(action: "Go", actionID: "mira.go", canAct: canSend, onAct: submit) {
+            Button(action: onOpenChat) {
+                Text(prompt.isEmpty ? placeholder : prompt)
+                    .font(.miraComposer)
+                    .foregroundStyle(prompt.isEmpty ? Palette.muted : Palette.ink)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                    .contentShape(Rectangle())
             }
-            // The handoff draws Go in full ink at rest: it stays disabled
-            // with nothing to send, but is not greyed out.
-            .buttonStyle(ComposerActionStyle())
-            .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || coordinator.isWorking)
-            .accessibilityIdentifier("mira.go")
+            .buttonStyle(.plain)
+            .accessibilityLabel(prompt.isEmpty ? placeholder : prompt)
+            .accessibilityHint("Opens the Mira chat")
+            .accessibilityIdentifier("mira.composer")
         }
-        .padding(.leading, 17)
-        .padding(.trailing, 9)
-        .frame(height: 54)
-        .background(GlassCapsule())
-        // The field is one line inside a 54 pt capsule: a tap anywhere on
-        // the capsule focuses it (Go still takes its own taps).
-        .contentShape(Capsule())
-        .onTapGesture { promptFocus.wrappedValue = true }
-        .padding(.horizontal, Metrics.chromeInset)
+    }
+
+    private var canSend: Bool {
+        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !coordinator.isWorking
     }
 
     private func workingBar(_ verb: String) -> some View {
@@ -380,12 +329,5 @@ struct MiraBar: View {
         guard !trimmed.isEmpty else { return }
         prompt = ""
         coordinator.ask(trimmed, editor: editor)
-    }
-}
-
-/// The composer's action pill as drawn: no disabled dimming, a light press.
-private struct ComposerActionStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.82 : 1)
     }
 }
