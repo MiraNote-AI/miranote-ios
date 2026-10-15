@@ -136,4 +136,19 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["canvas.place.hint"].exists)
         XCTAssertEqual(stickers.count, 0)
     }
+
+    /// #93 through the panel's own tool bar: a tap there leaves the panel,
+    /// which would drop the made sticker with it.
+    func testAToolBarTapNeverDropsAMadeSticker() {
+        generate("a coffee cup")
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+
+        app.buttons["mode.background"].tap()
+        // Either the tap is refused (still in the panel) or the sticker
+        // survives the round trip.
+        if app.buttons["mode.sticker"].waitForExistence(timeout: 2), !any("sticker.result.0").exists {
+            app.buttons["mode.sticker"].tap()
+        }
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 5), "the made coffee cup still waits")
+    }
 }

@@ -68,7 +68,14 @@ struct StickerPanelScene: View {
                 .frame(height: sheetHeight)
                 .animation(.spring(response: 0.35), value: sheetHeight)
         } bottom: {
-            InputModeBar(active: .sticker, onSelect: actions.selectMode)
+            InputModeBar(active: .sticker, onSelect: { mode in
+                // Another tool leaves the panel: same rule as the presets.
+                guard mode == .sticker || !placingWouldDropWork else {
+                    notice = "Add the sticker you made first, or Cancel to let it go."
+                    return
+                }
+                actions.selectMode(mode)
+            })
             ToolComposer(
                 placeholder: "Ask mira to generate a sticker",
                 text: $prompt,
@@ -84,12 +91,7 @@ struct StickerPanelScene: View {
         .onAppear {
             // Entries whose image file is gone or degenerate would render as
             // blank squares.
-            favorites = favoritesStore.pruned(imageSide: { name in
-                guard let image = CanvasImageCache.image(
-                    fileName: name, filterName: "", store: imageStore
-                ) else { return nil }
-                return min(image.size.width, image.size.height)
-            })
+            favorites = favoritesStore.prunedRaisingSmall(images: imageStore)
         }
     }
 

@@ -30,6 +30,32 @@ final class StickerPresetTests: XCTestCase {
         }
     }
 
+    /// A Food preset favorited before presets were raised holds its 50 x 22
+    /// file: opening the panel keeps it (raised, as a preset now lands),
+    /// and still drops a degenerate mock-era thumbnail.
+    func testAFavoritePlacedBeforeTheSizeFixIsKeptAndRaised() throws {
+        let images = ImageFileStore(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("favorite-images-\(UUID().uuidString)", isDirectory: true))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let thin = UIGraphicsImageRenderer(size: CGSize(width: 50, height: 22), format: format).pngData { context in
+            UIColor.brown.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 50, height: 22))
+        }
+        let thinFile = try images.save(thin, id: UUID())
+        let tinyFile = try images.save(MockImageStudioService.tinyPNG, id: UUID())
+        let store = StickerFavoritesStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("old-favorites-\(UUID().uuidString).json"))
+        store.add(GeneratedSticker(prompt: "fries", symbolName: "sparkles", fileName: thinFile))
+        store.add(GeneratedSticker(prompt: "mock", symbolName: "sparkles", fileName: tinyFile))
+
+        let kept = store.prunedRaisingSmall(images: images)
+        XCTAssertEqual(kept.map(\.fileName), [thinFile], "the old preset stays, the 8 px thumbnail goes")
+        XCTAssertEqual(store.all().map(\.fileName), [thinFile], "and stays the next time too")
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(shortSide(images.data(forFileName: thinFile))),
+                                    StickerSet.minPlacedSide, "its file is raised like a preset placed today")
+    }
+
     func testALargePresetIsStoredAsItCame() throws {
         let set = StickerSet.food
         let raw = try XCTUnwrap(UIImage(named: set.imageName(set.hero))?.cgImage)

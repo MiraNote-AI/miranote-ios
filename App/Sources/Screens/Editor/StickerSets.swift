@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 import UIKit
 
@@ -23,8 +24,14 @@ struct StickerSet: Identifiable, Equatable {
     /// is under `minPlacedSide`.
     func placeableData(_ name: String) -> Data? {
         guard let cgImage = UIImage(named: imageName(name))?.cgImage else { return nil }
+        return Self.raised(cgImage)
+    }
+
+    /// The pixels as PNG, scaled up so the short side is at least
+    /// `minPlacedSide`.
+    static func raised(_ cgImage: CGImage) -> Data? {
         let size = CGSize(width: cgImage.width, height: cgImage.height)
-        let scale = max(1, Self.minPlacedSide / max(1, min(size.width, size.height)))
+        let scale = max(1, minPlacedSide / max(1, min(size.width, size.height)))
         let image = UIImage(cgImage: cgImage)
         guard scale > 1 else { return image.pngData() }
         let format = UIGraphicsImageRendererFormat()
@@ -53,4 +60,26 @@ struct StickerSet: Identifiable, Equatable {
     /// The sets the panel offers after Make and Favorites. The handoff's
     /// other tab icons (heart, croissant, cat) have no sets behind them yet.
     static let all: [StickerSet] = [.food]
+}
+
+extension StickerFavoritesStore {
+    /// The Sticker panel's open-time hygiene. A favorite under the prune's
+    /// 24 px short side whose long side is visible -- a 50 x 22 Food preset
+    /// placed before presets were raised -- is raised in its own file, as a
+    /// preset lands today, and kept; a degenerate thumbnail still goes.
+    func prunedRaisingSmall(images: ImageFileStore) -> [GeneratedSticker] {
+        pruned(imageSide: { name in
+            guard let image = CanvasImageCache.image(fileName: name, filterName: "", store: images) else { return nil }
+            let short = min(image.size.width, image.size.height)
+            guard short < Self.visibleSide, max(image.size.width, image.size.height) >= Self.visibleSide,
+                  let cgImage = image.cgImage, let raised = StickerSet.raised(cgImage),
+                  (try? raised.write(to: images.url(forFileName: name), options: .atomic)) != nil else {
+                return short
+            }
+            return StickerSet.minPlacedSide
+        }, minSide: Self.visibleSide)
+    }
+
+    /// The prune's floor: shorter than this on both sides reads as a blank square.
+    private static let visibleSide: CGFloat = 24
 }
