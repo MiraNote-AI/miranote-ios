@@ -1,13 +1,13 @@
 import Foundation
 
 /// A multi-line field takes Return as a new line; the Mira fields treat it
-/// as Send instead. Only a trailing new line counts: lines pasted in (or a
-/// transcript with a line break) stay in the field and are never sent.
+/// as Send instead. Only a Return typed at the end counts: lines pasted in
+/// (even ones ending in a new line) or a transcript with a line break stay
+/// in the field and are never sent.
 enum ReturnKey {
-    /// The words without the Return just typed after them; nil when the
-    /// text does not end in a new line.
-    static func pressed(in words: String) -> String? {
-        guard words.hasSuffix("\n") else { return nil }
-        return String(words.dropLast())
+    /// The words before the Return just typed after them; nil unless the
+    /// change from `old` to `new` is exactly one new line at the end.
+    static func pressed(was old: String, now new: String) -> String? {
+        new == old + "\n" ? old : nil
     }
 }

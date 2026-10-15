@@ -9,12 +9,17 @@ final class MiraNoteAppTests: XCTestCase {
         XCTAssertNotNil(MiraNoteApp.self)
     }
 
-    // In the Mira fields only a trailing new line is Return: pasted lines
-    // (or a transcript with a line break) are never sent by themselves.
-    func testOnlyATrailingNewLineSendsTheMiraQuestion() {
-        XCTAssertEqual(ReturnKey.pressed(in: "polish this\n"), "polish this")
-        XCTAssertNil(ReturnKey.pressed(in: "line one\nline two"))
-        XCTAssertNil(ReturnKey.pressed(in: "no return"))
+    // In the Mira fields only a typed Return sends: pasted lines (or a
+    // transcript with a line break) are never sent by themselves.
+    func testOnlyATypedReturnSendsTheMiraQuestion() {
+        XCTAssertEqual(ReturnKey.pressed(was: "polish this", now: "polish this\n"), "polish this")
+        XCTAssertNil(ReturnKey.pressed(was: "line one", now: "line one\nline two"))
+        XCTAssertNil(ReturnKey.pressed(was: "no retur", now: "no return"))
+    }
+
+    func testPastedTextEndingInANewLineIsNotSent() {
+        XCTAssertNil(ReturnKey.pressed(was: "", now: "copied from Notes\n"))
+        XCTAssertNil(ReturnKey.pressed(was: "Lunch: ", now: "Lunch: ramen by the river\n"))
     }
 
     // Curated set 03 still renders in Merriweather from its static faces:

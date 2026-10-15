@@ -62,11 +62,11 @@ struct MiraChatComposer: View {
         .onChange(of: fieldFocused) { _, focused in
             if focused { trayOpen = false }
         }
-        .onChange(of: viewModel.draft) { _, words in
+        .onChange(of: viewModel.draft) { old, words in
             viewModel.hint = nil
             // Return sends (the field is multi-line, so onSubmit never
             // fires), through sendDraft so its guards apply.
-            guard let typed = ReturnKey.pressed(in: words) else { return }
+            guard let typed = ReturnKey.pressed(was: old, now: words) else { return }
             viewModel.draft = typed
             Task { await viewModel.sendDraft() }
         }

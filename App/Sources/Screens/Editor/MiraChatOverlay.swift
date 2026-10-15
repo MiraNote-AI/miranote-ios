@@ -92,10 +92,10 @@ struct MiraChatOverlay: View {
             .submitLabel(.go)
             .focused(focus)
             // A multi-line field takes Return as a new line; here Return
-            // sends, as the keyboard's Go key says. Only a trailing new
-            // line is Return: pasted lines stay in the field.
-            .onChange(of: prompt) { _, words in
-                guard let typed = ReturnKey.pressed(in: words) else { return }
+            // sends, as the keyboard's Go key says. Only a typed Return
+            // counts: pasted lines stay in the field.
+            .onChange(of: prompt) { old, words in
+                guard let typed = ReturnKey.pressed(was: old, now: words) else { return }
                 prompt = typed
                 onSend()
             }
