@@ -23,6 +23,14 @@ public struct ChatHint: Equatable, Sendable {
     public static let noWords = ChatHint(text: "I couldn't catch any words -- try again?")
     public static let transcriberUnreachable = ChatHint(text: "Couldn't reach the transcriber -- try again?")
     public static let photoUnseen = ChatHint(text: "Mira couldn't look at that photo -- she answered from your words.")
+    public static let photoNotLoaded = ChatHint(text: "That photo couldn't be loaded. Try another?")
+}
+
+/// A photo staged in the composer; the id lets the view decode its
+/// thumbnail once.
+public struct StagedPhoto: Identifiable, Equatable, Sendable {
+    public let id = UUID()
+    public let data: Data
 }
 
 /// Drives the MiraNote AI conversation: holds the transcript, sends the user's
@@ -42,7 +50,10 @@ public final class ChatViewModel {
     public private(set) var messages: [ChatMessage] = []
     public var draft = ""
     public private(set) var isResponding = false
-    public private(set) var stagedImages: [Data] = []
+    public private(set) var staged: [StagedPhoto] = []
+    public var stagedImages: [Data] { staged.map(\.data) }
+    /// Picks still loading (iCloud originals): Send waits for them.
+    public private(set) var loadingImages = 0
     public private(set) var voice: ChatVoiceState = .idle
     public var hint: ChatHint?
 
@@ -51,6 +62,9 @@ public final class ChatViewModel {
     private let transcription: VoiceTranscriptionService
     private let makeRecorder: @MainActor () -> AudioRecording
     private let imageStore: ImageFileStore
+    /// How long the photos' descriptions may hold a message (all of them
+    /// together, as the canvas caps its look at the page).
+    private let describeTimeout: Duration
     /// Selects the user's own pages to ground each message in (journal
     /// mode). Injected by the screen that owns the library.
     private let notesForMessage: (String) -> [ChatNote]
@@ -67,6 +81,7 @@ public final class ChatViewModel {
         transcription: VoiceTranscriptionService,
         makeRecorder: @escaping @MainActor () -> AudioRecording,
         imageStore: ImageFileStore,
+        describeTimeout: Duration = .seconds(8),
         notesForMessage: @escaping (String) -> [ChatNote] = { _ in [] }
     ) {
         self.service = service
@@ -74,15 +89,16 @@ public final class ChatViewModel {
         self.transcription = transcription
         self.makeRecorder = makeRecorder
         self.imageStore = imageStore
+        self.describeTimeout = describeTimeout
         self.notesForMessage = notesForMessage
     }
 
     public var canSend: Bool {
         let hasWords = !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return (hasWords || !stagedImages.isEmpty) && !isResponding
+        return (hasWords || !staged.isEmpty) && !isResponding && loadingImages == 0
     }
 
-    public var canStageMoreImages: Bool { stagedImages.count < Self.maxStagedImages }
+    public var canStageMoreImages: Bool { staged.count + loadingImages < Self.maxStagedImages }
 
     /// Send the first message exactly once (the Home hand-off text).
     public func seedIfNeeded(_ text: String?) async {
@@ -99,7 +115,7 @@ public final class ChatViewModel {
         let text = draft
         let images = stagedImages
         draft = ""
-        stagedImages = []
+        staged = []
         await send(text, images: images)
     }
 
@@ -131,14 +147,12 @@ public final class ChatViewModel {
     }
 
     /// One "(photo) <description>" line per photo, then the user's words.
-    /// A photo the service could not describe still says it is there, and
-    /// the user is told Mira did not see it.
+    /// A photo the service could not describe (or not within the cap) still
+    /// says it is there, and the user is told Mira did not see it.
     private func withPhotoDescriptions(_ text: String, images: [Data]) async -> String {
         guard !images.isEmpty else { return text }
         var lines: [String] = []
-        for image in images {
-            let summary = (try? await studio.describe(image: image))?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        for summary in await describe(images) {
             if summary.isEmpty {
                 lines.append("(photo) a photo Mira could not look at")
                 hint = .photoUnseen
@@ -150,16 +164,66 @@ public final class ChatViewModel {
         return lines.joined(separator: "\n")
     }
 
+    /// The photos' descriptions in pick order, looked at side by side; any
+    /// not back within `describeTimeout` (or failed) is "".
+    private func describe(_ images: [Data]) async -> [String] {
+        let studio = self.studio
+        let cap = describeTimeout
+        var summaries = Array(repeating: "", count: images.count)
+        await withTaskGroup(of: (Int, String)?.self) { group in
+            for (index, image) in images.enumerated() {
+                group.addTask {
+                    let summary = (try? await studio.describe(image: image)) ?? ""
+                    return (index, summary.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+            }
+            // Vision takes seconds; never hold a message hostage longer.
+            group.addTask {
+                try? await Task.sleep(for: cap)
+                return nil
+            }
+            var pending = images.count
+            while pending > 0, let next = await group.next() {
+                // nil: the cap ran out first.
+                guard let described = next else { break }
+                summaries[described.0] = described.1
+                pending -= 1
+            }
+            group.cancelAll()
+        }
+        return summaries
+    }
+
     // MARK: - Photos
 
     public func stageImage(_ data: Data) {
         guard canStageMoreImages else { return }
-        stagedImages.append(data)
+        staged.append(StagedPhoto(data: data))
+    }
+
+    /// Picks from the system picker, loading in pick order: each counts
+    /// toward the four while it loads, Send waits for them, and one that
+    /// fails to load says so instead of vanishing.
+    public func stagePhotos(_ loaders: [@Sendable () async -> Data?]) async {
+        let room = Self.maxStagedImages - staged.count - loadingImages
+        let accepted = loaders.prefix(max(0, room))
+        loadingImages += accepted.count
+        var failed = false
+        for load in accepted {
+            let data = await load()
+            loadingImages -= 1
+            if let data {
+                staged.append(StagedPhoto(data: data))
+            } else {
+                failed = true
+            }
+        }
+        if failed { hint = .photoNotLoaded }
     }
 
     public func removeStagedImage(at index: Int) {
-        guard stagedImages.indices.contains(index) else { return }
-        stagedImages.remove(at: index)
+        guard staged.indices.contains(index) else { return }
+        staged.remove(at: index)
     }
 
     // MARK: - Voice
