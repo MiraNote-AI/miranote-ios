@@ -11,8 +11,8 @@ struct EditorActions {
 
 /// Shared editor layout (v2.1): a single-row top bar, the memory page, and a
 /// bottom cluster (context card + InputModeBar + action row) pinned to the
-/// lower edge. The Page/Spread/zoom sub-toolbar is gone; editing autosaves,
-/// so the trailing action is "Done", never "Save".
+/// lower edge. The Page/Spread/zoom sub-toolbar is gone. Editing autosaves;
+/// the canvas still labels its trailing action "Save" as the handoff does.
 struct EditorScaffold<Page: View, Bottom: View>: View {
     var leading: String? = "Cancel"
     var leadingSymbol: String?
@@ -38,11 +38,14 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
                 undoEnabled: undoEnabled
             )
             page()
-            Spacer(minLength: 16)
+            // Handoff rhythm: canvas card, 20, tool bar, 16, composer, and
+            // the composer's bottom 36 above the screen edge (2 above the
+            // home-indicator inset).
+            Spacer(minLength: Metrics.canvasToToolBar)
             VStack(spacing: 16) {
                 bottom()
             }
-            .padding(.bottom, 10)
+            .padding(.bottom, 2)
         }
         .screenBackground()
     }

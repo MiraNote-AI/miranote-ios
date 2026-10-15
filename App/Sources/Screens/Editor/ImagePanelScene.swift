@@ -42,19 +42,13 @@ struct ImagePanelScene: View {
         ) {
             // The user's own page, not a demo: what the picked image will
             // land on. Read-only up here; the canvas stays the editor.
-            ScrollView(showsIndicators: false) {
-                StaticPageView(memory: editor.memory, showsSound: false)
-                    .padding(.horizontal, Metrics.screenPadding)
-                    // A tap on the page goes back to it, like tapping the
-                    // canvas paper -- except while a generation is running
-                    // or its results wait to be picked: they took seconds
-                    // and real credits, and leaving would drop them.
-                    .contentShape(Rectangle())
-                    .onTapGesture(coordinateSpace: .local) { point in
-                        guard PagePreviewTap.isOnPage(point),
-                              !generating, results.isEmpty else { return }
-                        actions.leading()
-                    }
+            PagePreview(memory: editor.memory) {
+                // A tap on the page goes back to it, like tapping the
+                // canvas paper -- except while a generation is running
+                // or its results wait to be picked: they took seconds
+                // and real credits, and leaving would drop them.
+                guard !generating, results.isEmpty else { return }
+                actions.leading()
             }
         } bottom: {
             panel

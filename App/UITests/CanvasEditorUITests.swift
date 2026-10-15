@@ -117,7 +117,7 @@ final class CanvasEditorUITests: XCTestCase {
         samples.tap()
 
         // Back on the blank canvas: the two stored sample photos.
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(
@@ -158,7 +158,7 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
         firstResult.tap()
 
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         let hint = app.staticTexts["canvas.place.hint"]
         XCTAssertTrue(hint.waitForExistence(timeout: 5), "the canvas asks where it should go")
 
@@ -170,18 +170,18 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the tap placed the sticker on the canvas")
     }
 
-    // Done round-trip (the save-does-not-wipe regression under autosave
-    // semantics): Done composes the memory -- its title taken from the most
-    // prominent text on the canvas -- files it into Daily Log, and returns
-    // Home.
-    func testDoneFilesMemoryAndReturnsHome() {
+    // Save round-trip (the save-does-not-wipe regression under autosave
+    // semantics): Save -- the handoff's label for the canvas's trailing
+    // pill -- composes the memory, its title taken from the most prominent
+    // text on the canvas, files it into Daily Log, and returns Home.
+    func testSaveFilesMemoryAndReturnsHome() {
         app.buttons["Start a memory"].tap()
         addTextBlock("golden broth by the window")
-        let done = app.buttons["Done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["Save"].exists)
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Done"].exists, "the canvas header says Save, as drawn")
 
-        done.tap()
+        save.tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
         XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))

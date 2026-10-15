@@ -23,13 +23,15 @@ enum Palette {
     static let backdropDawn = Color(hex: 0xF0B78E)
     static let backdropDusk = Color(hex: 0x702E4E)
     static let cardFill = Color(hex: 0xECE7D8)
-    static let sheetFill = Color(hex: 0xDCD5C6)
     static let hairline = Color(hex: 0xD8D5CA)
     /// The design's muted #878476, darkened along the same hue until it
     /// reads at 4.5:1 or better on every surface it sits on, the panel
     /// sheet included (4.6:1 there, 6.1:1 on paper). The original is
     /// 3.4:1 on paper.
     static let textSecondary = Color(hex: 0x5E5C52)
+    /// The handoff's muted #878476 as drawn: the leading nav label on editor
+    /// scenes and the composer placeholder (design fidelity pass, 2026-10-15).
+    static let muted = Color(hex: 0x878476)
 
     /// Resolves the palette names persisted on canvas text blocks
     /// (`TextBlock.colorName`). Unknown names fall back to ink.

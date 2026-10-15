@@ -43,7 +43,7 @@ extension CanvasScene {
                 .fill(Palette.onInk)
                 .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
         )
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 
     /// Handoff screen 08: the live bar is ink -- discard on the left, the
@@ -91,7 +91,7 @@ extension CanvasScene {
                 .fill(Palette.ink)
                 .shadow(color: Palette.ink.opacity(0.1), radius: 13, y: 12)
         )
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 
     /// After stopping: listen result, optionally note it, then Re-record or
@@ -137,6 +137,6 @@ extension CanvasScene {
                 .fill(Palette.onInk)
                 .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
         )
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
     }
 }

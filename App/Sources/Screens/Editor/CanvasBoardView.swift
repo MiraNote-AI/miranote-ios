@@ -67,9 +67,9 @@ struct CanvasBoardView: View {
                 // which made the same page a different width on every
                 // phone and disagree with its own export.
                 board
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 8)
             }
+            // The card holds still; the page scrolls inside it.
+            .canvasCard()
             .onChange(of: editor.editingTextItemID) { _, id in bring(id, into: proxy) }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
             .onChange(of: revealItem.wrappedValue) { _, id in
@@ -178,8 +178,9 @@ struct CanvasBoardView: View {
         )
     }
 
+    /// At least the card's own height, so the page always fills the card.
     private var boardHeight: CGFloat {
-        max(minBoardHeight, editor.contentBottom + 240)
+        max(minBoardHeight, visibleFrame.height, editor.contentBottom + 240)
     }
 
     private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy) {
@@ -191,10 +192,6 @@ struct CanvasBoardView: View {
     /// background never "runs out".
     private var paper: some View {
         PageBackdrop(memory: editor.memory)
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
-            )
             // One tap path, so placing and deselecting can never both fire.
             .onTapGesture(coordinateSpace: .local) { point in
                 if let onPlaceTap {
