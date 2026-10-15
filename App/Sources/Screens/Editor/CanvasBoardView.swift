@@ -36,8 +36,6 @@ struct CanvasBoardView: View {
     /// (screen 22): the board's own copy hides, so the drag is never cut at
     /// the card's edge. Nil when nothing is being moved.
     var lifted: Binding<LiftedElement?> = .constant(nil)
-    /// The photo panel's held compare: this image drawn as it was.
-    var comparing: (itemID: CanvasItem.ID, original: ImageRef)?
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -230,7 +228,7 @@ struct CanvasBoardView: View {
         let isLifted = activeMove?.itemID == item.id
 
         CanvasElementView(
-            item: shown(item),
+            item: item,
             isSelected: isSelected,
             isEditingText: isEditing,
             isPlaying: player.playingID == clipID(of: item),
@@ -241,18 +239,6 @@ struct CanvasBoardView: View {
         )
         .frame(width: geometry.size.width, height: geometry.size.height)
         .contentShape(Rectangle())
-        .overlay(alignment: .bottom) {
-            if comparing?.itemID == item.id {
-                Text("Before")
-                    .font(.miraLabel)
-                    .foregroundStyle(Palette.onInk)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(Palette.ink.opacity(0.75)))
-                    .padding(.bottom, 10)
-                    .accessibilityIdentifier("photo.before")
-            }
-        }
         .overlay {
             if isSelected && !isEditing {
                 handles(for: item, size: geometry.size)
@@ -276,9 +262,9 @@ struct CanvasBoardView: View {
     private func liftReporter(_ item: CanvasItem, rotation: Double) -> some View {
         GeometryReader { geo in
             Color.clear
-                .onAppear { lift(shown(item), frame: geo.frame(in: .global), rotation: rotation) }
+                .onAppear { lift(item, frame: geo.frame(in: .global), rotation: rotation) }
                 .onChange(of: geo.frame(in: .global)) { _, frame in
-                    lift(shown(item), frame: frame, rotation: rotation)
+                    lift(item, frame: frame, rotation: rotation)
                 }
         }
     }
@@ -288,15 +274,6 @@ struct CanvasBoardView: View {
         // bring the copy back then.
         guard activeMove?.itemID == item.id else { return }
         lifted.wrappedValue = LiftedElement(item: item, frame: frame, rotation: rotation)
-    }
-
-    /// The item as drawn: the original pixels and treatments while the
-    /// photo panel's compare is held, the model otherwise.
-    private func shown(_ item: CanvasItem) -> CanvasItem {
-        guard let comparing, comparing.itemID == item.id else { return item }
-        var shown = item
-        shown.content = .image(comparing.original)
-        return shown
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.
@@ -401,18 +378,27 @@ extension CanvasBoardView {
     }
 
     /// The arrange-state frame (handoff screen 21): a 1 pt dashed #263521
-    /// r16 frame 6 outside the element, with 10 pt corner handles that hit-
-    /// test at 44. Corner drags resize around the opposite corner; deltas
-    /// are applied in unrotated space (a deliberate simplification --
-    /// scrapbook tilts stay small).
+    /// r16 frame 6 outside the element -- or, on an unframed photo, the 3 pt
+    /// ink border along its r18 edge (screen 29) -- with 10 pt corner
+    /// handles that hit-test at 44. Corner drags resize around the opposite
+    /// corner; deltas are applied in unrotated space (a deliberate
+    /// simplification -- scrapbook tilts stay small).
     private func handles(for item: CanvasItem, size: CGSize) -> some View {
         let line = Color(hex: 0x263521)
-        let outset: CGFloat = 6
+        var photoBorder = false
+        if case .image(let ref) = item.content { photoBorder = ref.frameName.isEmpty }
+        let outset: CGFloat = photoBorder ? 0 : 6
         return ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(line, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                .padding(-outset)
-                .allowsHitTesting(false)
+            if photoBorder {
+                RoundedRectangle(cornerRadius: Metrics.imageCorner)
+                    .strokeBorder(Palette.ink, lineWidth: 3)
+                    .allowsHitTesting(false)
+            } else {
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(line, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .padding(-outset)
+                    .allowsHitTesting(false)
+            }
             ForEach(HandleCorner.allCases, id: \.self) { corner in
                 Circle()
                     .fill(Palette.warmWhite)

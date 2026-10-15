@@ -63,17 +63,18 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertFalse(app.buttons["mira.suggestion.Add a soft title"].exists)
     }
 
-    // The Image tool still opens its panel (contents are Phase D work).
+    // The Image tool opens its "Choose photos" sheet over the live canvas
+    // (screen 23).
     func testImageToolOpensPanel() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         addTextBlock("panel shows my page")
 
         app.buttons["mode.image"].tap()
-        XCTAssertTrue(app.staticTexts["Add an image"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Choose photos"].waitForExistence(timeout: 5))
 
-        // The page preview above the panel is the USER's live page --
-        // their words appear, the old catalog demo page does not.
+        // The page behind the sheet is the USER's live page -- their words
+        // appear, the old catalog demo page does not.
         XCTAssertTrue(
             app.staticTexts["panel shows my page"].waitForExistence(timeout: 3),
             "image panel renders the live canvas"
@@ -116,17 +117,23 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
 
-        // Back on the blank canvas: the two stored sample photos.
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        // On the live canvas: the two stored sample photos, the Image tool
+        // still open (screen 25) until its header Add keeps them.
         let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(
             app.descendants(matching: .any).matching(identifier: "element.image").count, 2
         )
+        let add = app.buttons["nav.trailing"]
+        XCTAssertEqual(add.label, "Add")
+        add.tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "element.image").count, 2)
     }
 
-    // The bar carries the handoff's five tools, and the Image panel no
-    // longer offers a sticker style -- stickers have their own tool.
+    // The bar carries the handoff's five tools; the Image sheet offers
+    // Photo Library / Camera / AI Sticker (screen 23) and no generate
+    // styles -- AI Sticker goes to the Sticker tool.
     func testFiveToolsAndImageHasNoStickerStyle() {
         app.buttons["Start a memory"].tap()
         for tool in ["background", "voice", "text", "image", "sticker"] {
@@ -135,14 +142,18 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertFalse(app.buttons["mode.library"].exists, "Saved became Sticker")
 
         app.buttons["mode.image"].tap()
-        app.buttons["image.source.generate"].tap()
-        XCTAssertTrue(app.buttons["image.style.photo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["image.library.open"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["image.camera.open"].exists)
+        XCTAssertFalse(app.buttons["image.style.photo"].exists)
         XCTAssertFalse(app.buttons["image.style.sticker"].exists)
+
+        app.buttons["image.source.sticker"].tap()
+        XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5), "AI Sticker opens the Sticker tool")
     }
 
-    // Stickers are made in the Sticker tool. Picking a result does not place
-    // it and does not file it in Favorites: the canvas asks where it goes,
-    // and the next tap on the paper lands it there.
+    // Stickers are made in the Sticker tool. Add does not place the showing
+    // result and does not file it in Favorites: the canvas asks where it
+    // goes, and the next tap on the paper lands it there.
     func testGenerateStickerPlacesElement() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
@@ -154,9 +165,11 @@ final class CanvasEditorUITests: XCTestCase {
         prompt.typeText("a coffee cup")
         app.buttons["sticker.generate.run"].tap()
 
-        let firstResult = app.buttons["sticker.result.0"]
+        let firstResult = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
-        firstResult.tap()
+        let add = app.buttons["nav.trailing"]
+        XCTAssertEqual(add.label, "Add")
+        add.tap()
 
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         let hint = app.staticTexts["canvas.place.hint"]
@@ -273,9 +286,9 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["still here untouched"].exists, "canvas untouched")
     }
 
-    // Long-press Edit photo opens the treatment panel; Make sticker runs
-    // cutout + outline and replaces the photo with a sticker in place.
-    // Ask AI in the photo panel: one instruction, new pixels in place.
+    // Long-press Edit photo lifts the photo into the editor; Cutout lifts
+    // the subject and the photo becomes a sticker in place. AI Editing: one
+    // instruction, new pixels in place, the editor stays on the result.
     func testPhotoAIEditRunsAndConfirms() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
@@ -291,17 +304,22 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))
         app.buttons["Edit photo"].tap()
 
-        app.buttons["photo.section.ai"].tap()
-        let field = app.textFields["photo.ai.instruction"]
+        app.buttons["photo.tile.ai"].tap()
+        let field = app.textFields["photo.prompt"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("make it autumn")
-        app.buttons["photo.ai.run"].tap()
+        app.buttons["photo.composer.action"].tap()
 
         let closed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: field)
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 8), .completed,
-                       "the AI edit lands and the panel closes itself")
+                       "the AI edit lands and the composer turns to Done")
+        XCTAssertTrue(app.buttons["photo.undo"].isEnabled, "the edit is on the lifted photo")
+        app.buttons["photo.composer.action"].tap()
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: app.buttons["photo.undo"])
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed, "Done closes the editor")
         let edited = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(edited.waitForExistence(timeout: 5), "the photo is still on the page")
@@ -342,8 +360,9 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         edit.tap()
 
-        app.buttons["photo.section.sticker"].tap()
-        app.buttons["photo.makeSticker"].tap()
+        app.buttons["photo.tile.cutout"].tap()
+        XCTAssertEqual(app.buttons["photo.composer.action"].label, "Edit")
+        app.buttons["photo.composer.action"].tap()
 
         let sticker = app.descendants(matching: .any)
             .matching(identifier: "element.sticker").firstMatch

@@ -2,31 +2,6 @@ import MiraNoteKit
 import SwiftUI
 import UIKit
 
-/// The Image panel's generate styles. All ride the api's art command with a
-/// style-carrying prompt; stickers are made in the Sticker panel.
-enum GenerateStyle: String, CaseIterable, Identifiable {
-    case photo, illustration, watercolor
-
-    var id: String { rawValue }
-
-    var label: String { rawValue.capitalized }
-
-    func fullPrompt(_ core: String) -> String {
-        switch self {
-        case .photo: return "a soft natural photograph of \(core)"
-        case .illustration: return "a gentle storybook illustration of \(core)"
-        case .watercolor: return "a light watercolor painting of \(core)"
-        }
-    }
-}
-
-/// A picture a panel generated, shown as a thumbnail until it is picked.
-struct GeneratedResult: Identifiable {
-    let id = UUID()
-    let data: Data
-    let prompt: String
-}
-
 /// Minimal camera bridge; unavailable in the simulator.
 struct CameraCapture: UIViewControllerRepresentable {
     static var isAvailable: Bool {

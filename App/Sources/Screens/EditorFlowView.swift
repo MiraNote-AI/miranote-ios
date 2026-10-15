@@ -18,8 +18,8 @@ struct EditorFlowView: View {
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
-    /// Survives the panel-to-canvas hop: the Image or Sticker panel fills it,
-    /// the canvas empties it on the placing tap.
+    /// Survives the panel-to-canvas hop: the Sticker panel fills it, the
+    /// canvas empties it on the placing tap.
     @State private var pendingPlacement: PendingPlacement?
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
@@ -88,13 +88,6 @@ struct EditorFlowView: View {
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
             )
-        case .imageStart:
-            ImagePanelScene(
-                editor: editor,
-                studio: services.imageStudio,
-                actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
-                pendingPlacement: $pendingPlacement
-            )
         case .sticker:
             StickerPanelScene(
                 editor: editor,
@@ -102,7 +95,7 @@ struct EditorFlowView: View {
                 actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
                 pendingPlacement: $pendingPlacement
             )
-        case .home, .chat, .collection, .note, .export:
+        case .home, .imageStart, .chat, .collection, .note, .export:
             // Export left the main flow in v2.1 (share/export moves to
             // reading mode in Phase E); the scene stays catalog-only.
             EmptyView()
@@ -122,15 +115,14 @@ struct EditorFlowView: View {
         )
     }
 
-    /// Background, Voice and Text always act on the canvas; from another
-    /// scene they carry over as a pending tool the canvas consumes on arrival.
+    /// Background, Voice, Text and Image always act on the canvas; from the
+    /// Sticker panel they carry over as a pending tool the canvas consumes
+    /// on arrival.
     private func select(mode: EditorMode) {
         switch mode {
-        case .image:
-            navigate(.imageStart)
         case .sticker:
             navigate(.sticker)
-        case .background, .voice, .text:
+        case .background, .voice, .text, .image:
             pendingTool = mode
             navigate(.canvas)
         }

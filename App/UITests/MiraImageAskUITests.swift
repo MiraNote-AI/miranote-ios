@@ -38,6 +38,9 @@ final class MiraImageAskUITests: XCTestCase {
         // deselect tap: on some phones every candidate point lands off the
         // canvas, on the dock.
         XCTAssertTrue(second.waitForExistence(timeout: 5))
+        // The Image tool stays open after placing (screen 25); its header
+        // Add keeps the photos and returns to the canvas and Mira's bar.
+        app.buttons["nav.trailing"].tap()
     }
 
     // "draw ..." -> two candidates on the card; tapping one places it.

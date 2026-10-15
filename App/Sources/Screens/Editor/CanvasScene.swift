@@ -1,14 +1,18 @@
 import MiraNoteKit
+import PhotosUI
 import SwiftUI
 
 /// The base editor: the infinite canvas plus the five-tool bar. Background,
-/// Voice and Text act directly on the canvas -- Background lays its glass
-/// sheet over the card (screen 05), Voice swaps the bottom bar for a
-/// recorder, Text drops an editable block; Image and Sticker leave for their
-/// panels. The composer opens the Mira canvas chat (06); a landed change
-/// waits on the result sheet (07); a dragged element floats above the dock
-/// over the composer's delete zone (22). Header is Home (Canvas while a tool
-/// is open in place) / undo / Save; Save still files the page and leaves.
+/// Voice, Text and Image act directly on the canvas -- Background lays its
+/// glass sheet over the card (screen 05), Image opens its sheets in place
+/// and lifts a photo into its editor (23-29), Voice swaps the bottom bar for
+/// a recorder, Text drops an editable block; Sticker leaves for its panel.
+/// The composer opens the Mira canvas chat (06); a landed change waits on
+/// the result sheet (07); a dragged element floats above the dock over the
+/// composer's delete zone (22). Header is Home (Canvas while a tool is open
+/// in place) / undo / Save; Save still files the page and leaves. Writing
+/// reads Cancel / Done, picking photos Cancel / Add, a lifted photo
+/// Cancel / Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -47,8 +51,18 @@ struct CanvasScene: View {
     @FocusState private var applyFocus: Bool
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
-    /// The edited photo's original, while the panel's compare is held.
-    @State private var comparingImage: ImageRef?
+    /// The lifted photo's editor state (tile, words, compare), while
+    /// `editingImageItem` is set.
+    @State private var photoEdit: PhotoEditController?
+    /// The Image tool, open in place over the live canvas; nil when closed.
+    @State private var imagePhase: ImagePhase?
+    @State private var recentPhotos = RecentPhotos()
+    @State private var libraryPicks: [LibraryPhoto] = []
+    @State private var importingPicks = false
+    /// The photos this Image visit placed: its Cancel takes them back.
+    @State private var placedThisVisit: [CanvasItem.ID] = []
+    @State private var imageNotice: String?
+    @State private var showsCamera = false
     /// The photo editing session: which photo, how it looked when editing
     /// began, and whether it has been edited since. It outlives the panel
     /// (an AI edit closes it, a caption edit rebuilds it) and ends when
@@ -115,11 +129,12 @@ struct CanvasScene: View {
     /// The canvas scene proper: header, page, dock, and the scene's
     /// lifecycle (the body adds the floating text chrome).
     private var scaffold: some View {
-        EditorScaffold(
-            leading: writing ? "Cancel" : (toolOpen ? "Canvas" : "Home"),
-            trailing: writing ? "Done" : "Save",
-            onLeading: writing ? cancelTextEditing : (toolOpen ? closeTool : actions.leading),
-            onTrailing: writing ? endTextEditing : actions.done,
+        let header = self.header
+        return EditorScaffold(
+            leading: header.leading,
+            trailing: header.trailing,
+            onLeading: header.onLeading,
+            onTrailing: header.onTrailing,
             onUndo: writing ? undoFromHeader : editor.undo,
             undoEnabled: editor.canUndo,
             leadingMuted: !writing,
@@ -127,7 +142,9 @@ struct CanvasScene: View {
             trailingID: writing ? "keyboard.done" : nil,
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
-            dimmed: editor.editingTextItemID != nil
+            dimmed: editor.editingTextItemID != nil,
+            scrimmed: editingImageItem != nil,
+            onScrimTap: closePhotoEditor
         ) {
             board
                 .overlay(alignment: .top) {
@@ -157,6 +174,8 @@ struct CanvasScene: View {
                             .onTapGesture { closeColorSheet(keeping: false) }
                     }
                 }
+        } sheet: {
+            toolSheet
         } bottom: {
             // One container: the zone sits on its last 54 pt -- the
             // composer's slot on the idle canvas (screen 22).
@@ -265,10 +284,22 @@ struct CanvasScene: View {
                 backgroundPanelOpen = false
             }
         }
-        .onChange(of: editingImageItem) { left, _ in
+        .onChange(of: editingImageItem) { left, now in
             // The panel let go of a photo: its session picks up from here,
             // unless something else changes the photo first (#102).
             if let left { notePhotoSeen(left) }
+            if now == nil { photoEdit = nil }
+        }
+        .sheet(isPresented: $showsCamera) {
+            CameraCapture { image in
+                guard let data = image.downscaled(), let id = placer.place(data, name: "Camera photo") else {
+                    imageNotice = "That photo couldn't be saved. Try again?"
+                    return
+                }
+                placedThisVisit.append(id)
+                imagePhase = .placed
+            }
+            .ignoresSafeArea()
         }
         .onChange(of: dropToDelete) { _, phase in
             // Moving an element lowers any keyboard -- canvas text already
@@ -303,19 +334,7 @@ struct CanvasScene: View {
             soundStore: soundStore,
             textFocus: $textFocus,
             workingItemIDs: mira.workingItemIDs,
-            onEditImage: { id in
-                // The panel takes the bottom cluster: never unmount a
-                // live Mira turn's Stop, and stop the mic first.
-                guard !mira.isWorking else { return }
-                cancelRecording()
-                cancelDictationIfNeeded()
-                backgroundPanelOpen = false
-                if case .image(let ref) = editor.item(id)?.content,
-                   photoSession?.continues(id, showing: ref) != true {
-                    photoSession = PhotoSession(itemID: id, original: ref)
-                }
-                editingImageItem = id
-            },
+            onEditImage: openPhotoEditor,
             onEditSticker: { id in
                 guard !mira.isWorking else { return }
                 cancelRecording()
@@ -328,8 +347,10 @@ struct CanvasScene: View {
                 // folds it like it folds the text tools. Recording and
                 // review keep their bar: a stray tap must not lose audio.
                 if case .armed = recorderState { recorderState = .idle }
-                // The Background card is a tool too: the paper folds it.
+                // The Background card is a tool too: the paper folds it,
+                // and the Image tool before anything is picked.
                 backgroundPanelOpen = false
+                if imagePhase == .choose { endImageVisit() }
             },
             onFavorite: { item in
                 switch item.content {
@@ -349,8 +370,7 @@ struct CanvasScene: View {
             onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
             revealItem: $revealItem,
             dropToDelete: $dropToDelete,
-            lifted: $lifted,
-            comparing: editingImageItem.flatMap { id in comparingImage.map { (id, $0) } }
+            lifted: $lifted
         )
     }
 
@@ -412,33 +432,12 @@ struct CanvasScene: View {
                     .padding(.horizontal, Metrics.chromeInset)
                     .transition(.opacity)
             }
-            if let editingImageItem, let session = photoSession, session.itemID == editingImageItem {
-                PhotoEditPanel(
-                    editor: editor,
-                    itemID: editingImageItem,
-                    studio: imageStudio,
-                    onClose: {
-                        // A slow AI edit for photo A finishing while B is
-                        // open must not close B's panel.
-                        guard self.editingImageItem == editingImageItem else { return }
-                        revealItem = editingImageItem
-                        self.editingImageItem = nil
-                    },
-                    comparing: $comparingImage,
-                    original: session.original,
-                    edited: session.edited,
-                    // Only this photo's session: a slow AI edit for A that
-                    // lands after B was opened must not mark B as edited.
-                    // One that lands after A's panel closed is still A's.
-                    onEdited: {
-                        guard photoSession?.itemID == editingImageItem else { return }
-                        photoSession?.edited = true
-                        notePhotoSeen(editingImageItem)
-                    }
-                )
-                // A new photo gets fresh panel state (section, notices).
-                .id(editingImageItem)
+            if editingImageItem != nil, let photoEdit {
                 InputModeBar(active: .image, onSelect: handleTool)
+                PhotoEditComposer(controller: photoEdit)
+            } else if let imagePhase {
+                InputModeBar(active: .image, onSelect: handleTool)
+                imageComposer(imagePhase)
             } else if let editingStickerItem {
                 StickerEditPanel(
                     editor: editor,
@@ -517,6 +516,10 @@ struct CanvasScene: View {
         editingStickerItem = nil
         let backgroundWasOpen = backgroundPanelOpen
         backgroundPanelOpen = false
+        // Another tool keeps the photos this Image visit placed (as Add);
+        // the Image tool itself toggles shut only from its first sheet.
+        let imageWasOpen = imagePhase
+        if mode != .image { endImageVisit() }
         switch mode {
         case .background:
             // Same guards as the recorder: the panel would unmount a live
@@ -546,7 +549,12 @@ struct CanvasScene: View {
             }
         case .image:
             cancelRecording()
-            actions.selectMode(.image)
+            switch imageWasOpen {
+            case nil: openImageTool()
+            case .choose: endImageVisit()
+            // Picking or placed: the tap brings back the first sheet.
+            case .library, .placed: imagePhase = .choose
+            }
         case .sticker:
             cancelRecording()
             actions.selectMode(.sticker)
@@ -557,11 +565,12 @@ struct CanvasScene: View {
     /// editing). The handoff's leading pill then reads "Canvas" and folds
     /// the tool away (screen 05); on the bare canvas it is the way Home.
     private var toolOpen: Bool {
-        backgroundPanelOpen || editingImageItem != nil || editingStickerItem != nil
+        backgroundPanelOpen || editingImageItem != nil || editingStickerItem != nil || imagePhase != nil
     }
 
     private func closeTool() {
         backgroundPanelOpen = false
+        endImageVisit()
         if let id = editingImageItem {
             revealItem = id
             editingImageItem = nil
@@ -570,6 +579,236 @@ struct CanvasScene: View {
             revealItem = id
             editingStickerItem = nil
         }
+    }
+
+    // MARK: Header
+
+    private struct Header {
+        let leading: String
+        let trailing: String
+        let onLeading: () -> Void
+        let onTrailing: () -> Void
+    }
+
+    /// The handoff's labels per state: writing reads Cancel / Done (screens
+    /// 10-20), a lifted photo Cancel / Done (27), picking and placed photos
+    /// Cancel / Add (24-29), any other open tool Canvas / Save (05, 23), the
+    /// bare canvas Home / Save.
+    private var header: Header {
+        if writing {
+            return Header(leading: "Cancel", trailing: "Done",
+                          onLeading: cancelTextEditing, onTrailing: endTextEditing)
+        }
+        if editingImageItem != nil {
+            return Header(leading: "Cancel", trailing: "Done",
+                          onLeading: cancelPhotoEdit, onTrailing: closePhotoEditor)
+        }
+        switch imagePhase {
+        case .library:
+            return Header(leading: "Cancel", trailing: "Add", onLeading: {
+                libraryPicks = []
+                imagePhase = placedThisVisit.isEmpty ? .choose : .placed
+            }, onTrailing: addPicks)
+        case .placed:
+            return Header(leading: "Cancel", trailing: "Add",
+                          onLeading: cancelImageVisit, onTrailing: endImageVisit)
+        case .choose, nil:
+            return Header(leading: toolOpen ? "Canvas" : "Home", trailing: "Save",
+                          onLeading: toolOpen ? closeTool : actions.leading, onTrailing: actions.done)
+        }
+    }
+
+    // MARK: Image tool (handoff screens 23-26, 29)
+
+    private var placer: PhotoPlacer { PhotoPlacer(editor: editor, studio: imageStudio) }
+
+    private func openImageTool() {
+        imageNotice = nil
+        libraryPicks = []
+        placedThisVisit = []
+        imagePhase = .choose
+    }
+
+    /// Closes the Image tool keeping what it placed (Add, another tool).
+    private func endImageVisit() {
+        imagePhase = nil
+        libraryPicks = []
+        placedThisVisit = []
+        imageNotice = nil
+    }
+
+    /// Cancel after placing: this visit's photos come off as one step.
+    private func cancelImageVisit() {
+        editor.remove(itemIDs: placedThisVisit)
+        endImageVisit()
+    }
+
+    @ViewBuilder private var toolSheet: some View {
+        if editingImageItem != nil, let photoEdit, let session = photoSession,
+           session.itemID == photoEdit.itemID {
+            PhotoEditOverlay(
+                controller: photoEdit,
+                original: session.original,
+                edited: session.edited,
+                onUndo: editor.undo
+            )
+        } else if editor.editingTextItemID == nil {
+            switch imagePhase {
+            case .choose:
+                ChoosePhotosSheet(
+                    notice: imageNotice,
+                    onLibrary: { imagePhase = .library },
+                    onCamera: {
+                        if CameraCapture.isAvailable {
+                            showsCamera = true
+                        } else {
+                            imageNotice = "The camera isn't available here."
+                        }
+                    },
+                    onSticker: { handleTool(.sticker) },
+                    onSamples: placeSamples
+                )
+                .transition(.opacity)
+            case .library:
+                RecentsSheet(
+                    library: recentPhotos,
+                    selection: $libraryPicks,
+                    onEditing: editPick,
+                    onSystemPicks: { items in
+                        importPicks(load: { await placer.place(items) }) { _ in imagePhase = .placed }
+                    }
+                )
+                .transition(.opacity)
+            case .placed, nil:
+                EmptyView()
+            }
+        }
+    }
+
+    @ViewBuilder private func imageComposer(_ phase: ImagePhase) -> some View {
+        switch phase {
+        case .choose:
+            ToolComposer(
+                placeholder: "Open Photo Library",
+                action: "Go",
+                fieldID: "image.composer",
+                actionID: "image.composer.go",
+                onAction: { imagePhase = .library }
+            )
+        case .library, .placed:
+            ToolComposer(
+                placeholder: "Add selected photos to canvas",
+                action: "Add",
+                actionEnabled: phase == .placed || (!libraryPicks.isEmpty && !importingPicks),
+                fieldID: "image.composer",
+                actionID: "image.composer.add",
+                onAction: {
+                    // Placed: Add opens the grid for more.
+                    if phase == .placed { imagePhase = .library } else { addPicks() }
+                }
+            )
+        }
+    }
+
+    private func addPicks() {
+        guard !libraryPicks.isEmpty else { return }
+        importPicks(load: libraryLoad) { _ in imagePhase = .placed }
+    }
+
+    /// Screen 26: one pick, "Editing" -- it lands, and lifts straight into
+    /// the photo editor; Done returns to the placed state (29).
+    private func editPick() {
+        importPicks(load: libraryLoad) { ids in
+            imagePhase = .placed
+            guard let id = ids.first else { return }
+            editor.select(id)
+            openPhotoEditor(id)
+        }
+    }
+
+    /// Places the grid's picks; nothing when none are picked.
+    private var libraryLoad: () async -> [CanvasItem.ID] {
+        let picks = libraryPicks
+        let library = recentPhotos
+        let placer = self.placer
+        return { placer.place(await library.data(for: picks)) }
+    }
+
+    private func importPicks(
+        load: @escaping () async -> [CanvasItem.ID],
+        then: @escaping ([CanvasItem.ID]) -> Void
+    ) {
+        guard !importingPicks else { return }
+        importingPicks = true
+        Task {
+            let ids = await load()
+            importingPicks = false
+            libraryPicks = []
+            guard !ids.isEmpty else {
+                imageNotice = "Those photos couldn't be imported. Try different ones?"
+                imagePhase = .choose
+                return
+            }
+            placedThisVisit += ids
+            then(ids)
+        }
+    }
+
+    private func placeSamples() {
+        #if DEBUG
+        placedThisVisit += placer.placeSamples()
+        imagePhase = .placed
+        #endif
+    }
+
+    // MARK: Photo editor (handoff screens 27-28)
+
+    /// Lifts a photo into the editor. Never while a Mira turn runs (the
+    /// editor takes the bottom cluster and would unmount its Stop); the
+    /// mic stops first.
+    private func openPhotoEditor(_ id: CanvasItem.ID) {
+        guard !mira.isWorking, case .image(let ref) = editor.item(id)?.content else { return }
+        cancelRecording()
+        cancelDictationIfNeeded()
+        backgroundPanelOpen = false
+        if photoSession?.continues(id, showing: ref) != true {
+            photoSession = PhotoSession(itemID: id, original: ref)
+        }
+        photoEdit = PhotoEditController(
+            itemID: id,
+            editor: editor,
+            studio: imageStudio,
+            // Only this photo's session: a slow AI edit for A that lands
+            // after B was opened must not mark B as edited. One that lands
+            // after A's editor closed is still A's.
+            onEdited: {
+                guard photoSession?.itemID == id else { return }
+                photoSession?.edited = true
+                notePhotoSeen(id)
+            },
+            onClose: {
+                // A slow edit for photo A finishing while B is open must
+                // not close B's editor.
+                guard editingImageItem == id else { return }
+                closePhotoEditor()
+            }
+        )
+        editingImageItem = id
+    }
+
+    private func closePhotoEditor() {
+        guard let id = editingImageItem else { return }
+        revealItem = id
+        editingImageItem = nil
+    }
+
+    /// Cancel puts the photo back the way it was when editing began -- one
+    /// undoable step, none if unchanged -- and closes.
+    private func cancelPhotoEdit() {
+        if let id = editingImageItem, let session = photoSession, session.itemID == id {
+            editor.restoreImage(itemID: id, to: session.original)
+        }
+        closePhotoEditor()
     }
 
     private func finishToolsOnboarding(openBackground: Bool) {
