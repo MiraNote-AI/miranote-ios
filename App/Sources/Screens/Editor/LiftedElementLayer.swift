@@ -12,15 +12,68 @@ struct LiftedElement: Equatable {
 }
 
 /// Handoff screen 22: the dragged element floats in a scene-level layer,
-/// above the tool bar and the composer, lifted into a compact card with a
-/// shadow -- never cut at the canvas card's edge. Over the delete zone its
-/// selection frame and handles turn red. Purely a picture: the board keeps
-/// the gesture, and the element on the page keeps its own size.
+/// above the tool bar and the composer -- never cut at the canvas card's
+/// edge. An ordinary move shows the element itself, at its size, under the
+/// finger; only armed over the delete zone does it shrink into the
+/// design's compact card with a shadow and a red frame (owner decision).
+/// Purely a picture: the board keeps the gesture.
 struct LiftedElementLayer: View {
     let lifted: LiftedElement
     let armed: Bool
     /// The delete zone's top edge (global), once measured: the card rides on
     /// it, never over the zone's two lines.
+    let zoneTop: CGFloat?
+    var textFocus: FocusState<CanvasItem.ID?>.Binding
+
+    var body: some View {
+        if armed {
+            CompactLift(lifted: lifted, zoneTop: zoneTop, textFocus: textFocus)
+        } else {
+            GeometryReader { geo in
+                let bounds = geo.frame(in: .global)
+                let full = lifted.frame
+                LiftedElementView(item: lifted.item, size: full.size, textFocus: textFocus)
+                    .overlay { SelectionChrome(size: full.size, armed: false) }
+                    .rotationEffect(.degrees(lifted.rotation))
+                    .position(x: full.midX - bounds.minX, y: full.midY - bounds.minY)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// The element as the page draws it, selected, at `size`.
+private struct LiftedElementView: View {
+    let item: CanvasItem
+    let size: CGSize
+    var textFocus: FocusState<CanvasItem.ID?>.Binding
+
+    var body: some View {
+        CanvasElementView(
+            item: item,
+            isSelected: true,
+            isEditingText: false,
+            isPlaying: false,
+            text: .constant(text),
+            textFocus: textFocus,
+            onTogglePlay: {},
+            onEditNote: {}
+        )
+        .frame(width: size.width, height: size.height)
+    }
+
+    private var text: String {
+        if case .text(let block) = item.content { return block.text }
+        return ""
+    }
+}
+
+/// Armed over the delete zone: the element shrinks from its page size into
+/// the design's compact card (163.7 x 82.3) under the finger, red-framed.
+private struct CompactLift: View {
+    let lifted: LiftedElement
     let zoneTop: CGFloat?
     var textFocus: FocusState<CanvasItem.ID?>.Binding
 
@@ -37,7 +90,7 @@ struct LiftedElementLayer: View {
             let center = cardCenter(size: size, in: bounds)
             content(size: size)
                 .shadow(color: Color(hex: 0x263521).opacity(0.18), radius: 6, y: 14)
-                .overlay { SelectionChrome(size: size, armed: armed) }
+                .overlay { SelectionChrome(size: size, armed: true) }
                 .rotationEffect(.degrees(lifted.rotation))
                 // The drag starts from the element at page size and shrinks
                 // into the card under the finger.
@@ -94,25 +147,10 @@ struct LiftedElementLayer: View {
                 .background(RoundedRectangle(cornerRadius: 20).fill(Palette.ink.opacity(0.77)))
                 .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Palette.warmWhite.opacity(0.65), lineWidth: 1))
         } else {
-            CanvasElementView(
-                item: lifted.item,
-                isSelected: true,
-                isEditingText: false,
-                isPlaying: false,
-                text: .constant(text),
-                textFocus: textFocus,
-                onTogglePlay: {},
-                onEditNote: {}
-            )
-            .frame(width: lifted.frame.width, height: lifted.frame.height)
-            .scaleEffect(size.width / lifted.frame.width)
-            .frame(width: size.width, height: size.height)
+            LiftedElementView(item: lifted.item, size: lifted.frame.size, textFocus: textFocus)
+                .scaleEffect(size.width / lifted.frame.width)
+                .frame(width: size.width, height: size.height)
         }
-    }
-
-    private var text: String {
-        if case .text(let block) = lifted.item.content { return block.text }
-        return ""
     }
 }
 
