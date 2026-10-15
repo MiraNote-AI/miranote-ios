@@ -428,6 +428,18 @@ extension CanvasViewModel {
         if editingTextItemID == itemID { editingTextItemID = nil }
     }
 
+    /// Takes several elements off the page as ONE undo step (the Image
+    /// tool's Cancel takes back the photos it placed); ids no longer on the
+    /// page are ignored, and nothing is recorded when none are.
+    public func remove(itemIDs: [CanvasItem.ID]) {
+        let ids = Set(itemIDs)
+        guard memory.items.contains(where: { ids.contains($0.id) }) else { return }
+        beginChange()
+        memory.items.removeAll { ids.contains($0.id) }
+        if let selected = selectedItemID, ids.contains(selected) { selectedItemID = nil }
+        if let editing = editingTextItemID, ids.contains(editing) { editingTextItemID = nil }
+    }
+
     /// Removes an abandoned husk (e.g. an empty text block) without
     /// recording an undo step, and takes it out of the trailing history
     /// snapshots taken while it was empty, so undo never "restores" a husk.
