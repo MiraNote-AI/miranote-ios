@@ -78,27 +78,19 @@ struct MiraChatOverlay: View {
     private var questionCapsule: some View {
         HStack {
             Spacer(minLength: 0)
+            // Single line: the keyboard's Send is the system Return
+            // (onSubmit); a paste never sends -- only the key does.
             TextField(
                 "",
                 text: $prompt,
-                prompt: Text("Ask Mira anything").foregroundStyle(Color.white.opacity(0.55)),
-                axis: .vertical
+                prompt: Text("Ask Mira anything").foregroundStyle(Color.white.opacity(0.55))
             )
             .font(.miraComposer)
-            .lineSpacing(4)
-            .lineLimit(1...4)
             .foregroundStyle(Color.white)
             .tint(Color.white)
-            .submitLabel(.go)
+            .submitLabel(.send)
+            .onSubmit(onSend)
             .focused(focus)
-            // A multi-line field takes Return as a new line; here Return
-            // sends, as the keyboard's Go key says. Only a typed Return
-            // counts: pasted lines stay in the field.
-            .onChange(of: prompt) { old, words in
-                guard let typed = ReturnKey.pressed(was: old, now: words) else { return }
-                prompt = typed
-                onSend()
-            }
             // The dark keyboard of the handoff (forest-tinted in the mock).
             .environment(\.colorScheme, .dark)
             .padding(.horizontal, 18)

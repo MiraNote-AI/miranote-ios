@@ -146,14 +146,34 @@ final class MiraChatStyleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chat.plus"].exists)
     }
 
-    // The keyboard's Return sends (the field is multi-line, so onSubmit
-    // never fires); the review's probe.
+    // The keyboard's Send (the system Return of a single-line field)
+    // sends a several-word message -- typed in one go with its Return.
     func testReturnSendsTheDraft() {
         openChat()
         field.tap()
         field.typeText("hello from return\n")
         XCTAssertTrue(app.staticTexts["hello from return"].waitForExistence(timeout: 5), "sent as a bubble")
         XCTAssertTrue(app.staticTexts["Ask Mira anything..."].waitForExistence(timeout: 5), "and the field is empty")
+    }
+
+    // ... and with Return as its own key press after the words.
+    func testReturnAsItsOwnKeyPressSendsTheDraft() {
+        openChat()
+        field.tap()
+        field.typeText("hello from return")
+        field.typeText("\n")
+        XCTAssertTrue(app.staticTexts["hello from return"].waitForExistence(timeout: 5), "sent as a bubble")
+    }
+
+    // A paste never sends, even lines that end in a new line.
+    func testAPastedMultiLineTextIsNotSent() {
+        openChat()
+        field.tap()
+        app.paste("line one\nline two\n", into: field)
+        sleep(2)
+        let bubbles = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "line one"))
+        XCTAssertEqual(bubbles.count, 0, "nothing was sent")
+        XCTAssertTrue((field.value as? String ?? "").contains("line one"), "the words wait in the field")
     }
 
     // A photo can be added after typing: "+" is still there.

@@ -61,6 +61,29 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8), "warmer polished the text")
     }
 
+    // Return as its own key press after a several-word ask sends it (the
+    // one-call typing is askMira's, above).
+    func testReturnAsItsOwnKeyPressSendsTheAsk() {
+        addText("sunny afternoon by the bridge")
+        app.openMiraChat()
+        app.miraInput.tap()
+        app.miraInput.typeText("polish the text")
+        app.miraInput.typeText("\n")
+        waitGone(app.miraInput, "the chat steps aside for the turn")
+        XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8), "the ask ran")
+    }
+
+    // A paste never sends, even lines that end in a new line.
+    func testAPastedMultiLineAskIsNotSent() {
+        app.openMiraChat()
+        app.miraInput.tap()
+        app.paste("polish the text\nand make it warmer\n", into: app.miraInput)
+        sleep(2)
+        XCTAssertTrue(app.miraInput.exists, "still in the chat: nothing was sent")
+        XCTAssertTrue((app.miraInput.value as? String ?? "").contains("polish the text"), "the words wait")
+        XCTAssertFalse(app.staticTexts["mira.receipt"].exists)
+    }
+
     // Hold to talk: the words land in the question for editing -- nothing
     // is sent by itself.
     func testHoldToDictateFillsTheQuestion() {

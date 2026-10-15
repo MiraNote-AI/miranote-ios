@@ -62,14 +62,7 @@ struct MiraChatComposer: View {
         .onChange(of: fieldFocused) { _, focused in
             if focused { trayOpen = false }
         }
-        .onChange(of: viewModel.draft) { old, words in
-            viewModel.hint = nil
-            // Return sends (the field is multi-line, so onSubmit never
-            // fires), through sendDraft so its guards apply.
-            guard let typed = ReturnKey.pressed(was: old, now: words) else { return }
-            viewModel.draft = typed
-            Task { await viewModel.sendDraft() }
-        }
+        .onChange(of: viewModel.draft) { viewModel.hint = nil }
         // A hold the system cancelled never reaches onEnded: the mic stops
         // with it. Leaving the chat or the app stops it too.
         .onChange(of: touching) { _, down in
@@ -176,12 +169,15 @@ struct MiraChatComposer: View {
     }
 
     private var field: some View {
-        TextField("", text: $viewModel.draft, axis: .vertical)
-            .lineLimit(1...4)
+        // Single line, as drawn: the keyboard's Send is the system Return
+        // (onSubmit), through sendDraft so its guards apply. A paste never
+        // sends -- only the key does.
+        TextField("", text: $viewModel.draft)
             .font(Sans.font(size: 12, weight: 400))
             .foregroundStyle(Palette.ink)
             .tint(Palette.forest)
             .submitLabel(.send)
+            .onSubmit { Task { await viewModel.sendDraft() } }
             .focused($fieldFocused)
             .accessibilityLabel("Message Mira")
             .accessibilityIdentifier("chat.field")
