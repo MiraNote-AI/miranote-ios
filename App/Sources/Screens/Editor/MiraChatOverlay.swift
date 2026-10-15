@@ -111,17 +111,8 @@ struct MiraChatOverlay: View {
 
     private var miraPanel: some View {
         HStack(alignment: .top, spacing: 2) {
-            Circle()
-                .fill(Palette.ink)
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Text("M")
-                        .font(Sans.font(size: 13, weight: 700))
-                        .foregroundStyle(Color.white)
-                        .offset(y: 1)
-                )
+            MiraMark()
                 .padding(.top, 24)
-                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
                 Text("Mira can edit this canvas directly.")
                     .font(Sans.font(size: 14, weight: 700))

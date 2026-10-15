@@ -47,7 +47,7 @@ struct MiraChatComposer: View {
             }
             surface
         }
-        .padding(.horizontal, ChatMetrics.inset)
+        .padding(.horizontal, Metrics.chromeInset)
         .padding(.bottom, 8)
         .animation(.easeOut(duration: 0.2), value: trayOpen)
         .animation(.easeOut(duration: 0.15), value: showsSend)

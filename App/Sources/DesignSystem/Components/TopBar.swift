@@ -67,8 +67,8 @@ struct TopBar: View {
                         }
                     }
                     .buttonStyle(NavPill(
-                        prominent: false, muted: leadingMuted && !leadingOnGlass, onGlass: leadingOnGlass,
-                        width: NavPill.leadingWidth
+                        prominent: false, muted: leadingMuted && !leadingOnGlass,
+                        surface: leadingOnGlass ? .scrim : .paper, width: NavPill.leadingWidth
                     ))
                     // Tool pages repeat the pill's word in the composer
                     // (Add, Done); tests reach the header by position.
@@ -91,16 +91,25 @@ struct TopBar: View {
 }
 
 /// The handoff's 34 pt navigation pill: frosted white for the way back, ink
-/// for the way forward. Josefin SemiBold 12. The way-back label is muted
-/// #878476 on editor scenes and ink on the Mira chat.
+/// (or forest) for the way forward. Josefin SemiBold 12. The way-back label
+/// is muted #878476 on editor scenes and ink on the Mira chat.
 struct NavPill: ButtonStyle {
     static let leadingWidth: CGFloat = 70
     static let trailingWidth: CGFloat = 60
 
+    /// What the way-back pill's frost sits on.
+    enum Surface {
+        /// The editor's paper: white@0.72 with an ink@0.07 rim.
+        case paper
+        /// The Mira chat (screen 02): white@0.62 with a white@0.40 rim.
+        case chat
+        /// The Mira canvas chat's glass scrim (06): white@0.54, white@0.35 rim.
+        case scrim
+    }
+
     var prominent: Bool
     var muted = false
-    /// Over the chat's glass scrim: white@0.54 with a white@0.35 rim.
-    var onGlass = false
+    var surface = Surface.paper
     /// The prominent pill's fill.
     var fill = Palette.ink
     /// The design's fixed pill width; nil sizes the pill to its label.
@@ -116,7 +125,7 @@ struct NavPill: ButtonStyle {
             .frame(minWidth: width == nil ? 60 : nil)
             .background(
                 Capsule()
-                    .fill(prominent ? fill : Color.white.opacity(onGlass ? 0.54 : 0.72))
+                    .fill(prominent ? fill : Color.white.opacity(frost))
                     .overlay(
                         Capsule().strokeBorder(rim, lineWidth: 1)
                     )
@@ -125,8 +134,20 @@ struct NavPill: ButtonStyle {
             .minimumHitTarget()
     }
 
+    private var frost: Double {
+        switch surface {
+        case .paper: return 0.72
+        case .chat: return 0.62
+        case .scrim: return 0.54
+        }
+    }
+
     private var rim: Color {
         if prominent { return .clear }
-        return onGlass ? Color.white.opacity(0.35) : Palette.ink.opacity(0.07)
+        switch surface {
+        case .paper: return Palette.ink.opacity(0.07)
+        case .chat: return Color.white.opacity(0.40)
+        case .scrim: return Color.white.opacity(0.35)
+        }
     }
 }

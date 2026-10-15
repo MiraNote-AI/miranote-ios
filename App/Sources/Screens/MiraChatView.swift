@@ -69,14 +69,15 @@ struct MiraChatView: View {
     private var header: some View {
         HStack {
             Button("Home", action: onExit)
-                .buttonStyle(ChatNavPill(fill: .white.opacity(0.62), rim: .white.opacity(0.40), label: Palette.ink))
+                .buttonStyle(NavPill(prominent: false, surface: .chat, width: NavPill.leadingWidth))
                 .accessibilityIdentifier("chat.home")
             Spacer()
             Button("Canvas", action: onOpenCanvas)
-                .buttonStyle(ChatNavPill(fill: Palette.forest, rim: .clear, label: Palette.onInk))
+                // 70 wide like the way back (screen 02).
+                .buttonStyle(NavPill(prominent: true, fill: Palette.forest, width: NavPill.leadingWidth))
                 .accessibilityIdentifier("chat.canvas")
         }
-        .padding(.horizontal, ChatMetrics.inset)
+        .padding(.horizontal, Metrics.chromeInset)
         // Pills at the design's y50 below the status bar.
         .padding(.top, 4)
     }
@@ -114,7 +115,7 @@ struct MiraChatView: View {
                         TypingBubble().id("typing")
                     }
                 }
-                .padding(.horizontal, ChatMetrics.inset)
+                .padding(.horizontal, Metrics.chromeInset)
                 .padding(.top, 14)
                 .padding(.bottom, 22)
             }
@@ -274,35 +275,12 @@ struct MiraChatView: View {
 
 /// Handoff screen 02 measures.
 enum ChatMetrics {
-    /// Chrome side inset (nav pills, transcript, composer).
-    static let inset: CGFloat = 16
     /// Avatar 36 + gap 10: where Mira's bubble starts.
     static let bubbleIndent: CGFloat = 46
     static let miraBubbleMaxWidth: CGFloat = 296
     static let userBubbleMaxWidth: CGFloat = 254
     /// The design's #81796F muted copy, kept at the palette's legible value.
     static let muted = Palette.textSecondary
-}
-
-/// The chat header's 70x34 pills (Josefin SemiBold 12).
-private struct ChatNavPill: ButtonStyle {
-    var fill: Color
-    var rim: Color
-    var label: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Sans.font(size: 12, weight: 600))
-            .foregroundStyle(label)
-            .frame(width: 70, height: 34)
-            .background(
-                Capsule()
-                    .fill(fill)
-                    .overlay(Capsule().strokeBorder(rim, lineWidth: 1))
-            )
-            .opacity(configuration.isPressed ? 0.75 : 1)
-            .minimumHitTarget()
-    }
 }
 
 /// Mira speaks from a translucent white bubble (r28) beside her "M" mark.

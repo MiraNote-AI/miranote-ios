@@ -215,6 +215,7 @@ private struct FixedTranscription: VoiceTranscriptionService {
 @MainActor
 private final class DeniedRecorder: AudioRecording {
     var isRecording: Bool { false }
+    var level: Float { 0 }
     func start() async throws { throw RecordingError.microphonePermissionDenied }
     func stop() async throws -> Data { Data() }
 }

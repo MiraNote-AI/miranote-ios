@@ -115,6 +115,11 @@ Acceptance (per stream):
 | Result sheet (P2) | Keep = accept, Revert only when the turn changed something; an edit or a new ask moves on; the receipt timer is removed from the coordinator | screen 07 + decision above |
 | Delete zone copy and color (P2) | one copy in both phases ("Drop here to delete / Release outside the canvas"), #D86C5D as drawn (2.3:1, owner asked for the design); arming shows on the lifted element's red frame; the design's microphone glyph is a copy-paste slip, a bin is drawn | screen 22 |
 | Blank page empty state (P2) | no hint on the page | screen 04 |
+| Chat header (P3) | Home on the chat's frost (white@0.62) and a forest Canvas pill that opens a blank page, both 70 wide on P0's `NavPill`; no title; the design's centre undo is left out | a conversation has nothing to undo |
+| Chat composer (P3) | the design's 342x54 r27 surface laid out WeChat-style: voice toggle far left, the field (1-4 lines) or "Hold to talk", and "+" that turns into the Send pill once there is text or a photo | owner feedback 1 |
+| Chat voice (P3) | hold shows the ink recorder bar (live bars, clock); release transcribes into the field with the keyboard up, never sent by itself; sliding up 60 pt cancels; VoiceOver gets a tap toggle | owner: voice-to-text |
+| Chat photos (P3) | "+" opens a glass tray (Photos, up to 4; Camera); staged 56 pt thumbnails with remove badges; the image service describes each photo and the descriptions ride with the message as "(photo) ..." lines; sent photos show above the bubble | the chat backend is text-only |
+| Chat hold-to-talk vs `DictationStrip` (integration) | kept separate: in the chat the composer itself becomes the hold button (WeChat), not a strip; the recorder plumbing also differs (chat view model vs canvas scene) | different control; a shared kit dictation helper is a follow-up |
 
 ## Streams (one branch / PR each, stacked on P0)
 
@@ -164,3 +169,15 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    iPhone 17 side-by-sides within ~2 pt of the frames (bottom chrome
    anchored to the bottom on the taller phone); kit metering + Original
    quality + export toast tested -- P4b 6/6 screens.
+7. P3 landed (02 Mira chat): header pills, greeting and Quick starts card,
+   r28 Mira bubbles beside the 36 pt mark, the WeChat-style composer with
+   hold-to-talk into the draft and photo staging (described for the
+   text-only backend); greeting and Quick starts within 2 pt -- P3 1/1.
+8. Integration: the six streams stacked P0 -> P1 -> P2 -> P4a -> P4b -> P3,
+   each later stream reconciled in its own commit. Shared now: one
+   `DictationStrip` (06, 11-20), one `ResultSheet` (07, 09), one
+   `ComposerCapsule` (canvas, Background, tool pages; Go 19 in), one scrim
+   token, `NavPill` surfaces for paper / chat / scrim, P1's
+   `CustomColorSheet` for the page color too, `MiraMark` on 02 and 06.
+   Kit 452, app unit 34, UI 111 (3 skipped) green on iPhone 17 Pro and
+   16e; Release builds; 38 screens re-photographed side by side.
