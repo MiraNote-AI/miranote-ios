@@ -56,7 +56,7 @@ struct MiraChatView: View {
     private var header: some View {
         HStack {
             Button("Home", action: onExit)
-                .buttonStyle(NavPill(prominent: false))
+                .buttonStyle(NavPill(prominent: false, width: NavPill.leadingWidth))
                 .accessibilityIdentifier("chat.home")
             Spacer()
         }
@@ -66,7 +66,7 @@ struct MiraChatView: View {
                 .foregroundStyle(Palette.ink)
                 .allowsHitTesting(false)
         }
-        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.horizontal, Metrics.chromeInset)
         .padding(.top, 2)
         .padding(.bottom, 12)
     }
