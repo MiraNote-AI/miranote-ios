@@ -81,6 +81,23 @@ final class CuratedSetTests: XCTestCase {
         XCTAssertEqual(editor.changeCount, count)
     }
 
+    // A block with a text background keeps its text color: set 01's black
+    // on the Ink chip would read at about 1.2:1 (owner decision).
+    func testABlockWithATextBackgroundKeepsItsTextColor() {
+        let editor = CanvasViewModel(memory: Memory())
+        let chip = editor.addText("on ink", at: CGPoint(x: 100, y: 60), pointSize: 17)
+        editor.setTextBackground(itemID: chip, to: "#293322")
+        editor.setTextColorName(itemID: chip, to: "#FFFFFF")
+        let plain = editor.addText("plain", at: CGPoint(x: 100, y: 160), pointSize: 17)
+        let poppins = CuratedSet.all[0]
+
+        editor.applyCuratedSet(poppins)
+        XCTAssertEqual(block(editor, chip)?.colorName, "#FFFFFF")
+        XCTAssertEqual(block(editor, chip)?.fontName, "Lora", "the faces still apply")
+        XCTAssertEqual(block(editor, plain)?.colorName, poppins.textColor)
+        XCTAssertEqual(editor.wornCuratedSet(), poppins, "the page wears the set")
+    }
+
     // Sets 04 and 08 share their faces; only the page color tells them
     // apart, so the page wears exactly the one tapped.
     func testTwinFacedSetsAreToldApartByThePage() {

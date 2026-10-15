@@ -48,14 +48,15 @@ public struct CuratedSet: Equatable, Sendable, Identifiable {
 extension CanvasViewModel {
     /// Dresses the page in a curated set as ONE undo step: titles take the
     /// display face, the rest the body face, every block the set's text
-    /// color, and the page the set's color (a painted backdrop gives way,
-    /// as with any page color). A page without words still takes the color.
-    /// A set the page already wears records nothing.
+    /// color -- except one on a text background, which keeps the color it
+    /// reads in there -- and the page the set's color (a painted backdrop
+    /// gives way, as with any page color). A page without words still takes
+    /// the color. A set the page already wears records nothing.
     public func applyCuratedSet(_ set: CuratedSet) {
         let styled = memory.items.map { item -> CanvasItem in
             guard case .text(var block) = item.content else { return item }
             block.fontName = block.pointSize >= Self.displayPointSize ? set.displayFont : set.bodyFont
-            block.colorName = set.textColor
+            if block.backgroundColorName.isEmpty { block.colorName = set.textColor }
             var item = item
             item.content = .text(block)
             return item
@@ -80,7 +81,7 @@ extension CanvasViewModel {
         }
         return sets.first { set in
             memory.pageColorName == set.pageColor && blocks.allSatisfy {
-                $0.colorName == set.textColor
+                ($0.colorName == set.textColor || !$0.backgroundColorName.isEmpty)
                     && $0.fontName == ($0.pointSize >= Self.displayPointSize ? set.displayFont : set.bodyFont)
             }
         }
