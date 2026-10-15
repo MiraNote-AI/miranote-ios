@@ -10,7 +10,7 @@ extension ServiceContainer {
     /// purpose.
     static let uiTestScripted = ServiceContainer(
         textTransform: MockTextTransformService(),
-        voiceTranscription: MockVoiceTranscriptionService(),
+        voiceTranscription: UITestScriptedTranscription(),
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
@@ -64,6 +64,18 @@ struct UITestScriptedStudio: ImageStudioService {
             context.cgContext.fillEllipse(in: CGRect(x: 22, y: 22, width: 196, height: 196))
         }
     }()
+}
+
+/// The mock transcriber, slower by `-TRANSCRIBE_DELAY <ms>` so a test can
+/// act while the words are on their way ("Writing it down...").
+struct UITestScriptedTranscription: VoiceTranscriptionService {
+    private let mock = MockVoiceTranscriptionService()
+
+    func transcribe(audio: Data, filename: String) async throws -> String {
+        let delay = UserDefaults.standard.integer(forKey: "TRANSCRIBE_DELAY")
+        if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
+        return try await mock.transcribe(audio: audio, filename: filename)
+    }
 }
 
 /// "slowly" holds the turn long enough to show the working bar; "fail"

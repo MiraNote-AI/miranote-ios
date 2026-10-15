@@ -12,6 +12,13 @@ enum RecorderState {
     case recording(start: Date)
 }
 
+/// Which dictation strip's mic is still coming up (it takes the audio
+/// session, and the permission alert the first time): a cancel then has
+/// to know whose it is.
+enum StartingMic {
+    case text, mira
+}
+
 /// A take Stop just put on the page (handoff screen 09): the result sheet
 /// offers Revert / Keep while the add is still the page's last change.
 struct AttachedSound: Equatable {
@@ -132,7 +139,8 @@ extension CanvasScene {
                 listening: dictating,
                 detail: dictating ? "Listening..." : (dictationHint ?? "accurate voice-to-text"),
                 onPress: { if dictationPress == nil { pressDictation() } },
-                onRelease: releaseDictation
+                onRelease: releaseDictation,
+                onCancel: cancelDictationIfNeeded
             )
             .padding(.horizontal, Metrics.chromeInset)
             .padding(.top, 4)
@@ -239,6 +247,8 @@ extension CanvasScene {
     /// nothing live survives a session the Kit can no longer take back.
     func cancelTextEditing() {
         textModeArming = false
+        // Words still being written down belonged to this session: dropped.
+        dictationTarget = nil
         if let state = rewrite {
             editor.discardPreview(of: state.original)
             rewrite = nil

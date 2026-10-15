@@ -90,6 +90,11 @@ struct CanvasScene: View {
     @State var dropZoneTrail: [String] = []
     #endif
     @State var dictating = false
+    /// A strip's mic on its way up; cancelling it stops it once it is.
+    @State var startingMic: StartingMic?
+    /// The block a dictation's words are for; Cancel clears it, Done not.
+    @State var dictationTarget: CanvasItem.ID?
+    @Environment(\.scenePhase) private var scenePhase
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
@@ -291,7 +296,22 @@ struct CanvasScene: View {
         #if DEBUG
         .background(dropZoneTrailProbe)
         #endif
-        .onDisappear { cancelRecording() }
+        .onDisappear {
+            cancelRecording()
+            // No mic left on behind a closed editor, and no Text beat
+            // opening a session in a scene nobody sees.
+            cancelDictationIfNeeded()
+            cancelMiraDictation()
+            textModeArming = false
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // A hold the system interrupted never ends: the mic stops when
+            // the app leaves the foreground.
+            if phase != .active {
+                cancelDictationIfNeeded()
+                cancelMiraDictation()
+            }
+        }
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.selectedItemID) { _, selected in
             // Layer-1 onboarding: the gesture hint appears on the first
@@ -600,6 +620,8 @@ struct CanvasScene: View {
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
         editingStickerItem = nil
+        // Another tool during the Text beat calls the new block off.
+        if mode != .text { textModeArming = false }
         // Moving on keeps an attached take (its sheet's Keep).
         attachedSound = nil
         let backgroundWasOpen = backgroundPanelOpen

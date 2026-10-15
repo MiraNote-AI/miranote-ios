@@ -56,15 +56,26 @@ public final class MockAudioRecorder: AudioRecording {
     /// What `level` reads while recording.
     public var recordingLevel: Float
     private let cannedAudio: Data
+    /// How long the mic takes to come up (the real one waits on the audio
+    /// session, and on the permission alert the first time).
+    private let startDelay: Duration
 
-    public init(cannedAudio: Data = Data("mock-audio".utf8), recordingLevel: Float = 0.6) {
+    public init(
+        cannedAudio: Data = Data("mock-audio".utf8),
+        recordingLevel: Float = 0.6,
+        startDelay: Duration = .zero
+    ) {
         self.cannedAudio = cannedAudio
         self.recordingLevel = recordingLevel
+        self.startDelay = startDelay
     }
 
     public var level: Float { isRecording ? recordingLevel : 0 }
 
-    public func start() async throws { isRecording = true }
+    public func start() async throws {
+        if startDelay > .zero { try? await Task.sleep(for: startDelay) }
+        isRecording = true
+    }
 
     public func stop() async throws -> Data {
         isRecording = false

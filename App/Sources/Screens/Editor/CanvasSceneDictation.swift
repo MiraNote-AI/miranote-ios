@@ -9,7 +9,8 @@ extension CanvasScene {
     func pressDictation() {
         // A live voice take owns the recorder slot: the strip never takes
         // it over (or its release would transcribe the take into the block).
-        guard case .idle = recorderState else {
+        // An armed Voice tool holds nothing yet.
+        if case .recording = recorderState {
             dictationHint = "Stop the voice recording first."
             return
         }
@@ -27,13 +28,26 @@ extension CanvasScene {
     }
 
     /// Ends a dictation that lost its editing session (keyboard dismissed,
-    /// editing finished): stop the mic quietly, keep nothing.
+    /// editing finished, the app or the editor left): stop the mic quietly,
+    /// keep nothing -- also one still coming up, which stops once it is.
     func cancelDictationIfNeeded() {
+        dictationPress = nil
+        if startingMic == .text {
+            startingMic = nil
+            recorder = nil
+            return
+        }
         guard dictating else { return }
         let abandoned = recorder
         recorder = nil
         dictating = false
         Task { _ = try? await abandoned?.stop() }
+    }
+
+    /// Whether `candidate` still holds the recorder slot (a cancel while it
+    /// came up let go of it).
+    func holdsMic(_ candidate: AudioRecording) -> Bool {
+        recorder.map { $0 as AnyObject } === (candidate as AnyObject)
     }
 
     /// The sound tool and dictation never share the recorder slot (guarded
@@ -43,24 +57,36 @@ extension CanvasScene {
         dictationHint = nil
         let newRecorder = recorderFactory()
         recorder = newRecorder
+        startingMic = .text
         Task {
             do {
                 try await newRecorder.start()
+                guard holdsMic(newRecorder) else {
+                    _ = try? await newRecorder.stop()
+                    return
+                }
+                startingMic = nil
                 dictating = true
             } catch {
+                guard holdsMic(newRecorder) else { return }
+                startingMic = nil
                 recorder = nil
                 dictationHint = error.localizedDescription
             }
         }
     }
 
-    /// Record, transcribe (:8005), append to the block being edited.
+    /// Record, transcribe (:8005), append to the block being edited. Words
+    /// still on their way when Done ends the session land in that block as
+    /// their own step; Cancel (`dictationTarget` cleared) drops them.
     func stopDictation() {
         guard let recorder else {
             dictating = false
             return
         }
         self.recorder = nil
+        let id = editor.editingTextItemID
+        dictationTarget = id
         Task {
             defer { dictating = false }
             // A silent return here looked like a dead feature: say why
@@ -69,7 +95,7 @@ extension CanvasScene {
                 dictationHint = "I couldn't catch any words -- try again?"
                 return
             }
-            guard let id = editor.editingTextItemID else {
+            guard let id else {
                 dictationHint = "Tap a text block first, then dictate."
                 return
             }
@@ -84,17 +110,25 @@ extension CanvasScene {
                 dictationHint = "I couldn't catch any words -- try again?"
                 return
             }
-            // Cancelled or ended while the words were on their way: they
-            // belong to no session any more (and would have no undo step).
-            guard editor.editingTextItemID == id else { return }
-            if case .text(let block) = editor.item(id)?.content {
-                let joined = block.text.isEmpty ? words : block.text + " " + words
-                editor.setText(itemID: id, to: joined)
-                // Grow the box to the new text like typing does, or the
-                // dictated words land clipped below the fold and read as
-                // "nothing happened."
-                remeasureEditedText(id)
+            // Cancelled while the words were on their way: they belong to
+            // no session any more.
+            guard dictationTarget == id else { return }
+            dictationTarget = nil
+            if editor.editingTextItemID == id {
+                append(words, to: id)
+            } else if let before = editor.item(id) {
+                // Done while "Writing it down...": kept, as one undo step.
+                append(words, to: id)
+                editor.commitPreview(of: before)
             }
         }
+    }
+
+    private func append(_ words: String, to id: CanvasItem.ID) {
+        guard case .text(let block) = editor.item(id)?.content else { return }
+        editor.setText(itemID: id, to: block.text.isEmpty ? words : block.text + " " + words)
+        // Grow the box to the new text like typing does, or the dictated
+        // words land clipped below the fold and read as "nothing happened."
+        remeasureEditedText(id)
     }
 }

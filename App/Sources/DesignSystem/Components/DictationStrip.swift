@@ -21,8 +21,14 @@ struct DictationStrip: View {
     var action = "Hold"
     var onPress: () -> Void
     var onRelease: () -> Void
+    /// The system took the touch (the first mic-permission alert, a call,
+    /// the app leaving): the press ends without a release.
+    var onCancel: () -> Void
 
     @State private var pressed = false
+    /// The press as the gesture system sees it: it lets go even when
+    /// onEnded never comes.
+    @GestureState private var touching = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -58,6 +64,7 @@ struct DictationStrip: View {
         .contentShape(Capsule())
         .gesture(
             DragGesture(minimumDistance: 0)
+                .updating($touching) { _, state, _ in state = true }
                 .onChanged { _ in
                     guard !pressed else { return }
                     pressed = true
@@ -68,6 +75,15 @@ struct DictationStrip: View {
                     onRelease()
                 }
         )
+        .onChange(of: touching) { _, down in
+            guard !down else { return }
+            Task { @MainActor in
+                // onEnded, when it comes, has run by now.
+                guard pressed else { return }
+                pressed = false
+                onCancel()
+            }
+        }
     }
 
     @ViewBuilder private var background: some View {

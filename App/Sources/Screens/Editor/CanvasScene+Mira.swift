@@ -93,6 +93,7 @@ extension CanvasScene {
             onClose: closeMiraChat,
             onHoldStart: pressMiraDictation,
             onHoldEnd: releaseMiraDictation,
+            onHoldCancel: cancelMiraDictation,
             onToggle: { miraDictation == .listening ? finishMiraDictation() : startMiraDictation() }
         )
     }
@@ -145,13 +146,22 @@ extension CanvasScene {
         guard recorder == nil, !dictating, case .idle = recorderState else { return }
         let newRecorder = recorderFactory()
         recorder = newRecorder
+        startingMic = .mira
         Task {
             do {
                 try await newRecorder.start()
+                // The chat closed while the mic came up: it stops now.
+                guard holdsMic(newRecorder) else {
+                    _ = try? await newRecorder.stop()
+                    return
+                }
+                startingMic = nil
                 miraDictation = .listening
                 // A hold let go before the mic came up: finish right away.
                 if miraFinishWhenLive { finishMiraDictation() }
             } catch {
+                guard holdsMic(newRecorder) else { return }
+                startingMic = nil
                 recorder = nil
                 miraDictation = .notice(error.localizedDescription)
             }
@@ -188,10 +198,16 @@ extension CanvasScene {
         }
     }
 
-    /// The chat closed mid-take: stop the mic quietly, keep nothing.
+    /// The chat closed mid-take (or the app left): stop the mic quietly,
+    /// keep nothing -- also one still coming up, which stops once it is.
     func cancelMiraDictation() {
         miraPress = nil
         miraFinishWhenLive = false
+        if startingMic == .mira {
+            startingMic = nil
+            recorder = nil
+            return
+        }
         guard miraDictation == .listening else { return }
         let abandoned = recorder
         recorder = nil
