@@ -131,7 +131,11 @@ Acceptance (per stream):
 | Editor bottom gap (review) | 2 above the home indicator (36 from the edge, as drawn), 16 above a bare edge, 10 above a keyboard | a flat 2 sat on the SE's edge |
 | Limited photo access (review) | the Recents sheet says only shared photos show and offers Share more (system limited picker) and Pick photos; a library observer refetches | the grid alone had no way to the other photos |
 | Mira result vs Background (review) | opening Background keeps the waiting result and closes its sheet | the sheet covered the sets and One-tap layout |
-| Chat photos storage (review) | sent chat photos live in tmp/ChatPhotos | the transcript is not saved; Documents kept them forever |
+| Chat photos storage (review) | sent chat photos live in tmp/ChatPhotos and are deleted when the chat closes | the transcript is not saved; Documents kept them forever |
+| Photo editor reopened mid-edit (adversarial review) | Done during an AI edit keeps it running; reopening that photo is the same editor, showing the work; Cancel there never takes back the kept edit; the header Undo is visit-scoped like the floating one | two controllers for one photo let the late result wipe newer edits |
+| Grown legacy text (adversarial review) | a text box that grows to fit (old 6 pt padding, a longer polish) pushes the elements below it (in its columns) down by the growth, in Reading/export and in the editor's remeasure (no undo step) | the grown box ran under the photo below |
+| Chat picks (adversarial review) | picks load side by side, staged in pick order; one still loading after 20 s counts as failed; a loading placeholder has a remove badge | a stuck iCloud original held Send for good |
+| Follow-up: image file garbage collection | not done in this PR: `ImageFileStore` files no page references (AI results, preset taps, undone photos) are never deleted; needs a reference sweep across the library | out of scope for the fidelity PR |
 
 ## Streams (one branch / PR each, stacked on P0)
 
