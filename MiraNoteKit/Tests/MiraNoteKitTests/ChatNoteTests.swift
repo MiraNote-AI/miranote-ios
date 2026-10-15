@@ -284,7 +284,12 @@ final class ChatNoteTests: XCTestCase {
 
     func testSendCarriesTheMatchingPages() async {
         let chat = CapturingChat()
-        let viewModel = ChatViewModel(service: chat) { message in
+        let viewModel = ChatViewModel(
+            service: chat, studio: MockImageStudioService(),
+            transcription: MockVoiceTranscriptionService(),
+            makeRecorder: { MockAudioRecorder() },
+            imageStore: ImageFileStore(directory: FileManager.default.temporaryDirectory)
+        ) { message in
             [ChatNote(title: "hit for " + message, body: "", date: "")]
         }
 
@@ -299,7 +304,12 @@ final class ChatNoteTests: XCTestCase {
     // out without the session and start a new one.
     func testReturnWhileAnAnswerIsPendingSendsNothing() async {
         let chat = CapturingChat(delay: .milliseconds(300))
-        let viewModel = ChatViewModel(service: chat) { _ in [] }
+        let viewModel = ChatViewModel(
+            service: chat, studio: MockImageStudioService(),
+            transcription: MockVoiceTranscriptionService(),
+            makeRecorder: { MockAudioRecorder() },
+            imageStore: ImageFileStore(directory: FileManager.default.temporaryDirectory)
+        ) { _ in [] }
 
         let first = Task { await viewModel.send("hello") }
         try? await Task.sleep(for: .milliseconds(50))

@@ -30,6 +30,9 @@ struct RootView: View {
             if scene == .chat, Self.chatLive {
                 MiraChatView(
                     service: ServiceContainer.live.chat,
+                    transcription: ServiceContainer.live.voiceTranscription,
+                    studio: ServiceContainer.live.imageStudio,
+                    recorderFactory: { AudioRecorder() },
                     seed: "Sunny afternoon, tiny noodle shop by the bridge"
                 )
             } else {

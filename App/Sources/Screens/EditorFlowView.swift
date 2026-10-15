@@ -286,6 +286,9 @@ struct HomeFlow: View {
                 // chat so replies (and drafts) are deterministic.
                 MiraChatView(
                     service: Self.editorServices(base: services).chat,
+                    transcription: Self.editorServices(base: services).voiceTranscription,
+                    studio: Self.editorServices(base: services).imageStudio,
+                    recorderFactory: Self.makeRecorder,
                     seed: seed,
                     onExit: { route = nil },
                     findPages: { LibrarySearch.find($0, in: viewModel.library) },

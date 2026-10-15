@@ -23,6 +23,9 @@ enum FlowScene: String, CaseIterable {
         case .chat:
             MiraChatView(
                 service: MockChatService(),
+                transcription: MockVoiceTranscriptionService(),
+                studio: MockImageStudioService(),
+                recorderFactory: { MockAudioRecorder() },
                 seed: "Sunny afternoon, tiny noodle shop by the bridge"
             )
         case .collection:

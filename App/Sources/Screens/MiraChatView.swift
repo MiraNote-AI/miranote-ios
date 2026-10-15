@@ -20,6 +20,9 @@ struct MiraChatView: View {
 
     init(
         service: ChatService,
+        transcription: VoiceTranscriptionService,
+        studio: ImageStudioService,
+        recorderFactory: @escaping @MainActor () -> AudioRecording,
         seed: String? = nil,
         onExit: @escaping () -> Void = {},
         findPages: @escaping (String) -> [PageHit] = { _ in [] },
@@ -30,6 +33,10 @@ struct MiraChatView: View {
         // companion answers from the user's own notes (journal mode).
         _viewModel = State(initialValue: ChatViewModel(
             service: service,
+            studio: studio,
+            transcription: transcription,
+            makeRecorder: recorderFactory,
+            imageStore: ImageFileStore(),
             notesForMessage: { message in
                 findPages(message).map { ChatNote(page: $0.memory) }
             }
