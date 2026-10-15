@@ -98,6 +98,58 @@ struct CanvasScene: View {
     private var writing: Bool { editor.editingTextItemID != nil || textModeArming }
 
     var body: some View {
+        Group {
+            if showsToolsOnboarding {
+                toolsOnboarding
+            } else {
+                canvas
+            }
+        }
+        .onAppear {
+            // The tools introduction meets the first blank page only -- and
+            // not when a tool or a placement is already on its way in.
+            if editor.items.isEmpty, pendingTool == nil, pendingPlacement == nil,
+               HintCenter.shouldShow(ToolsOnboarding.hintID) {
+                showsToolsOnboarding = true
+            }
+            remeasureTextBlocks()
+            mira.prepareTurn = { await lookAtUnseenPhotos() }
+            mira.renderPage = {
+                CanvasSnapshot.jpeg(
+                    memory: editor.composedMemory(),
+                    canvasWidth: MiraNoteConfig.pageWidth
+                )
+            }
+            Task { await lookAtUnseenPhotos() }
+            consumePendingTool()
+        }
+    }
+
+    /// Handoff screen 03: Back (to the blank canvas) / undo / Next (on to
+    /// Background), the card in the canvas slot, no tool bar -- its 40 pt
+    /// stays empty so the card keeps the canvas card's frame -- and the
+    /// "Choose your background" bar in the composer's place.
+    private var toolsOnboarding: some View {
+        EditorScaffold(
+            leading: "Back",
+            trailing: "Next",
+            onLeading: { finishToolsOnboarding(then: nil) },
+            onTrailing: { finishToolsOnboarding(then: .background) },
+            onUndo: {},
+            undoEnabled: false
+        ) {
+            ToolsOnboarding(onPick: { finishToolsOnboarding(then: $0) })
+        } bottom: {
+            Color.clear.frame(height: 40)
+            ToolsOnboardingBar(onGo: { finishToolsOnboarding(then: .background) })
+        }
+        // The two-finger scrub is Back, as on any pushed screen.
+        .accessibilityAction(.escape) { finishToolsOnboarding(then: nil) }
+        .transition(.opacity)
+    }
+
+    /// The canvas with the text chrome floating over it.
+    private var canvas: some View {
         ZStack(alignment: .bottom) {
             scaffold
                 // While words are written the page keeps its size and the
@@ -127,7 +179,7 @@ struct CanvasScene: View {
     }
 
     /// The canvas scene proper: header, page, dock, and the scene's
-    /// lifecycle (the body adds the floating text chrome).
+    /// lifecycle (the canvas adds the floating text chrome).
     private var scaffold: some View {
         let header = self.header
         return EditorScaffold(
@@ -203,33 +255,6 @@ struct CanvasScene: View {
         #if DEBUG
         .background(dropZoneTrailProbe)
         #endif
-        .overlay {
-            if showsToolsOnboarding {
-                ToolsOnboarding(
-                    onSkip: { finishToolsOnboarding(openBackground: false) },
-                    onChooseBackground: { finishToolsOnboarding(openBackground: true) }
-                )
-                .transition(.opacity)
-            }
-        }
-        .onAppear {
-            // The tools introduction meets the first blank page only -- and
-            // not when a tool or a placement is already on its way in.
-            if editor.items.isEmpty, pendingTool == nil, pendingPlacement == nil,
-               HintCenter.shouldShow(ToolsOnboarding.hintID) {
-                showsToolsOnboarding = true
-            }
-            remeasureTextBlocks()
-            mira.prepareTurn = { await lookAtUnseenPhotos() }
-            mira.renderPage = {
-                CanvasSnapshot.jpeg(
-                    memory: editor.composedMemory(),
-                    canvasWidth: MiraNoteConfig.pageWidth
-                )
-            }
-            Task { await lookAtUnseenPhotos() }
-            consumePendingTool()
-        }
         .onDisappear { cancelRecording() }
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.selectedItemID) { _, selected in
@@ -811,11 +836,16 @@ struct CanvasScene: View {
         closePhotoEditor()
     }
 
-    private func finishToolsOnboarding(openBackground: Bool) {
+    /// Graduates the introduction and lands on the canvas -- with `tool`
+    /// opened when one was picked (Next and Go pick Background).
+    private func finishToolsOnboarding(then tool: EditorMode?) {
         HintCenter.graduate(ToolsOnboarding.hintID)
         withAnimation(.easeOut(duration: 0.2)) { showsToolsOnboarding = false }
-        // Open, never toggle shut: the tool's tap toggles.
-        if openBackground, !backgroundPanelOpen { handleTool(.background) }
+        guard let tool, !(tool == .background && backgroundPanelOpen) else { return }
+        // Next turn, once the canvas is mounted: a new text block's focus
+        // needs its field on screen. (Open, never toggle shut: the
+        // Background tool's tap toggles.)
+        Task { @MainActor in handleTool(tool) }
     }
 
     /// The photo session's photo as it looks now (PhotoSession.lastSeen).
