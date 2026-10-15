@@ -62,6 +62,19 @@ Acceptance (per stream):
 | Composer Go at rest (P0) | full ink as drawn, still disabled with an empty field | design draws it ink; the greyed pill read as broken |
 | Muted text (P0) | #878476 as drawn for the leading nav label, composer placeholder and sheet subtitle (not the darkened #5E5C52) | fidelity bar; ~3.4:1, owner to confirm Saturday |
 | Idle suggestion chips (P0) | removed from the canvas; follow-up chips stay on Mira reply cards; quick actions return in the screen-06 overlay (P2) | design draws nothing between tool bar and composer |
+| Screen 10 (P1) | reading (a): tapping Text shows the Text tool active, the editing header and "Type or polish your memory" for a 250 ms beat, then the block and keyboard appear | the minimal reading; the composer-as-entry reading changes the flow |
+| Page while writing (P1) | the card keeps its full height; the keyboard and text chrome ride over it under the scrim; a new block lands a third of the way down (top 110) and the edited block scrolls to 30% | as drawn; the real keyboard is ~165 pt taller than the mock's, so the drawn mid-card text position would sit under the chrome |
+| Text insets and line height (P1) | every block (old ones too) draws at 12/14 insets on a 30-on-21 line; background r24 in both states plus the screen-21 shadow | one geometry for editing, display, export and TextMeasure; old pages rewrap slightly |
+| Josefin weight (P1) | the Josefin face renders Medium (500) as drawn | every text screen draws Medium |
+| Font row (P1) | Futura, Josefin, Optima, Helvetica, Raleway, Didot, Classic (the old "" default); chip labels in their own face; S/M/L = 15/21/30 | design order; legacy blocks can return to their face |
+| Swatch check / custom slot (P1) | checkmark symbol (forest on light, white on dark); an applied custom color fills the custom slot, which still opens the sheet | glyph contrast; one place to see and change a custom color |
+| Align tool (P1) | every tap activates align and steps the alignment | existing tests and muscle memory; no dead first tap |
+| AI rewrite commit (P1) | previews are free; leaving the row, Done, or header undo commits once (one undo step); typing makes the typed words the new Original; failures go in the dictation subtitle | screen 15 plus the implied states |
+| Custom color model (P1) | the drawn curated spectrum; the hue rail turns it around the wheel (rail rests at 0.38, screen 14's handle); HEX and Pick color set the color exactly and move the target to the nearest spot | design spectrum identical on 14 and 20, so the rail cannot just pick from it; HSV would not look like the design |
+| Custom sheet dock (P1) | the composer shows under the sheet ("Type or polish your memory") but is inert: a tap there, or on the page, cancels the sheet; swipe down on the sheet top cancels | screens 14/20 draw it; typing a Mira ask mid-color-pick has no meaning |
+| Eyedropper (P1) | full-screen page snapshot with a 64 pt loupe; lift to take the color; Cancel keeps the sheet's color | "sample it from your memory": the page only, true colors (not the dimmed screen) |
+| Dictation (P1) | hold to talk; a quick tap starts and a second tap stops (VoiceOver and tests use the tap) | hold as drawn, tap kept for accessibility |
+| Cancel after Done (P1) | Done ends the session; the block stays selected (arrange state, screen 21) | screen 21 follows 20 |
 
 ## Streams (one branch / PR each, stacked on P0)
 
@@ -86,3 +99,9 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    tool bar shadow, canvas card r30 + rim + shadow, Save label, idle chips
    gone. iPhone 17 Pro frames within 1 pt of 04's rhythm (nav 64-98, card
    117-708, tool bar 728-768, composer 784-838) -- P0 1/1.
+3. P1 text editor landed: scrim + blur, three-layer accessory (rows /
+   five-icon glass tool bar / hold-to-talk strip), header Cancel reverts the
+   session, in-place AI rewrite, reusable `CustomColorSheet` with
+   eyedropper, r24 text background, screen-21 frame; side-by-sides for
+   10-21 match within ~2 pt except the system keyboard and the edited
+   text's height on the page -- P1 1/1.
