@@ -120,6 +120,17 @@ Acceptance (per stream):
 | Chat voice (P3) | hold shows the ink recorder bar (live bars, clock); release transcribes into the field with the keyboard up, never sent by itself; sliding up 60 pt cancels; VoiceOver gets a tap toggle | owner: voice-to-text |
 | Chat photos (P3) | "+" opens a glass tray (Photos, up to 4; Camera); staged 56 pt thumbnails with remove badges; the image service describes each photo and the descriptions ride with the message as "(photo) ..." lines; sent photos show above the bubble | the chat backend is text-only |
 | Chat hold-to-talk vs `DictationStrip` (integration) | kept separate: in the chat the composer itself becomes the hold button (WeChat), not a strip; the recorder plumbing also differs (chat view model vs canvas scene) | different control; a shared kit dictation helper is a follow-up |
+| Text Cancel scope (review) | Cancel restores only the edited block from the session start; a Mira backdrop, restyle or photo edit that landed meanwhile stays, as its own undo step | the old whole-page revert took paid work with it (no Redo) |
+| Lifted element (review, owner) | an ordinary move shows the element itself at full size; only armed over the delete zone does it shrink into the compact card | a big photo moving as a 164 x 82 card read wrong |
+| Chat composer "+" (review, owner) | "+" always visible; Send appears beside it with text or a staged photo | photos can be added after typing |
+| Photo editor visit (review, owner) | the floating Undo and header Cancel act on this visit's own edits only; Done keeps them; Compare still shows the photo as it came | "Cancel" next to "Done" means "discard this visit" |
+| Curated sets on a text background (review, owner) | a block with a text background keeps its text color | set 01/03 black on the Ink chip read at ~1.2:1 |
+| Merriweather (review, owner) | static Regular/Bold v2.002 (~0.3 MB) from google/fonts e9263a5 instead of the 4.6 MB variable font | one set, two weights |
+| Food preset size (review) | presets placed at a 72 px short side at least (5 handoff PNGs are 50 x 22) | Favorites prunes anything under 24 px |
+| Editor bottom gap (review) | 2 above the home indicator (36 from the edge, as drawn), 16 above a bare edge, 10 above a keyboard | a flat 2 sat on the SE's edge |
+| Limited photo access (review) | the Recents sheet says only shared photos show and offers Share more (system limited picker) and Pick photos; a library observer refetches | the grid alone had no way to the other photos |
+| Mira result vs Background (review) | opening Background keeps the waiting result and closes its sheet | the sheet covered the sets and One-tap layout |
+| Chat photos storage (review) | sent chat photos live in tmp/ChatPhotos | the transcript is not saved; Documents kept them forever |
 
 ## Streams (one branch / PR each, stacked on P0)
 
@@ -181,3 +192,8 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    `CustomColorSheet` for the page color too, `MiraMark` on 02 and 06.
    Kit 452, app unit 34, UI 111 (3 skipped) green on iPhone 17 Pro and
    16e; Release builds; 38 screens re-photographed side by side.
+9. Review of #104-#109 (maverickjia): 21 should-fix and the nits fixed on
+   `fix/fidelity-review`, each with a test that failed before where a
+   probe could be written; owner decisions on the five questions applied
+   (decisions above). Kit 463, app unit 48, UI 123 (3 skipped) green;
+   swiftlint unchanged at 75; 22, 05 and 37 re-shot.
