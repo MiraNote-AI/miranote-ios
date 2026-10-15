@@ -55,6 +55,41 @@ final class TextEditingSessionTests: XCTestCase {
         XCTAssertTrue(editor.canUndo)
     }
 
+    func testCancelKeepsWhatLandedElsewhereDuringTheSession() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.setText(itemID: id, to: "lunch with Sam")
+        editor.setTextPointSize(itemID: id, to: 30)
+        // A Mira backdrop finishes while the user writes.
+        editor.setBackground(fileName: "dusk.png")
+        editor.setText(itemID: id, to: "lunch with Sam and Jo")
+
+        editor.cancelEditingText()
+        XCTAssertEqual(editor.memory.backgroundFileName, "dusk.png", "the painting is not the session's")
+        XCTAssertEqual(block(editor, id)?.text, "lunch")
+        XCTAssertEqual(block(editor, id)?.pointSize, 17)
+        editor.undo()
+        XCTAssertEqual(editor.memory.backgroundFileName, "", "the painting is still its own undo step")
+        XCTAssertEqual(block(editor, id)?.text, "lunch", "with the block as before the session")
+        editor.undo()
+        XCTAssertNil(editor.item(id), "then the step before the session")
+    }
+
+    func testCancelOnANewBlockKeepsAnotherElementsChange() {
+        let editor = CanvasViewModel(memory: Memory())
+        let photo = editor.addImages([ImageRef(displayName: "a", fileName: "a.jpg")], around: CGPoint(x: 100, y: 300))[0]
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id, recordingUndo: false)
+        editor.setText(itemID: id, to: "caption")
+        editor.replaceImageFile(itemID: photo, fileName: "ai.jpg")
+
+        editor.cancelEditingText()
+        XCTAssertNil(editor.item(id))
+        guard case .image(let ref) = editor.item(photo)?.content else { return XCTFail("photo gone") }
+        XCTAssertEqual(ref.fileName, "ai.jpg", "a photo AI edit that landed meanwhile stays")
+    }
+
     func testDoneKeepsTheSession() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("", at: CGPoint(x: 100, y: 100))
