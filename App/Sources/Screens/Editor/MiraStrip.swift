@@ -5,7 +5,7 @@ import SwiftUI
 /// follow-up chips), image choices and taxonomy failures. At rest it is
 /// empty: the handoff draws nothing between the tool bar and the composer
 /// (screens 04, 05, 07, 22); a landed change shows as the result sheet over
-/// the canvas (MiraResultSheet, screen 07). Never red -- failure is calm
+/// the canvas (ResultSheet, screen 07). Never red -- failure is calm
 /// and still; waiting is motion elsewhere (bar + element).
 struct MiraCard: View {
     @Bindable var coordinator: MiraCanvasCoordinator

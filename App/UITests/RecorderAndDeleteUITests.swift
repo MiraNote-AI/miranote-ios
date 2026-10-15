@@ -64,7 +64,7 @@ final class RecorderAndDeleteUITests: XCTestCase {
         XCTAssertEqual(app.buttons["sound.play"].frame.midX, pendingFrame.midX, accuracy: 2,
                        "the take lands where its marker pulsed")
         XCTAssertEqual(app.buttons["sound.play"].frame.midY, pendingFrame.midY, accuracy: 2)
-        XCTAssertEqual(app.textFields["mira.input"].placeholderValue, "Ask Mira to adjust sound...",
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira to adjust sound...",
                        "the composer speaks of sound")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "sound attached"

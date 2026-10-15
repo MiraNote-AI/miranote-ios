@@ -207,13 +207,18 @@ struct CanvasScene: View {
                 }
                 .overlay(alignment: .bottom) {
                     if let receipt {
-                        MiraResultSheet(
-                            receipt: receipt,
+                        // Screen 07: what Mira changed and what she kept.
+                        ResultSheet(
+                            title: receipt.changed,
+                            detail: receipt.kept,
+                            titleID: "mira.receipt",
+                            detailID: "mira.kept",
                             canRevert: mira.receiptCanRevert,
+                            revertID: "mira.revert",
+                            keepID: "mira.keep",
                             onRevert: { mira.revert(editor: editor) },
                             onKeep: { mira.dismiss() }
                         )
-                        .frame(width: MiraNoteConfig.pageWidth + 8)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }

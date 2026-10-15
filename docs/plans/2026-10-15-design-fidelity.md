@@ -82,7 +82,7 @@ Acceptance (per stream):
 | Voice armed state (P4b) | kept (no live mic without a press), restyled to the 54 pt ink recorder geometry | privacy |
 | Recorder discard circle (P4b) | keeps an xmark | design circle is empty |
 | Pending voice marker (P4b) | pulses where the take will land (blank page: 09's marker spot), not 08's canvas centre | the marker should appear where the sound goes |
-| Voice result (P4b) | attach first, Revert / Keep sheet, no auto-keep; any other edit or tool tap keeps; re-record = Revert + Voice; note editing moves to the selected marker | screen 09 |
+| Voice result (P4b) | attach first, Revert / Keep sheet, no auto-keep; any other edit or tool tap keeps; re-record = Revert + Voice; note editing moves to the selected marker; the same `ResultSheet` as Mira's screen 07 (integration) | screen 09 |
 | "tap to play" (P4b) | the tap that selects an unselected marker also plays it | the label must be true |
 | Export entry (P4b) | stays in Reading (share button opens the in-scene sheet); Share as a header glyph in the sheet | decisions row "Header trailing label" |
 | Export tiles (P4b) | fill the row (design 66x54 on 374); PDF hides Save to Photos and Files takes the ink; Print tile swaps the actions for one Print button; PDF adds a page-cut row | flexible widths on wider phones; Photos takes images only |

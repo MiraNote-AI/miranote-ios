@@ -96,7 +96,6 @@ extension CanvasScene {
             onRevert: revertAttachedSound,
             onKeep: { attachedSound = nil }
         )
-        .padding(.horizontal, Metrics.chromeInset)
     }
 }
 
