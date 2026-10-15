@@ -230,7 +230,9 @@ struct CustomColorSheet: View {
                         hexText = cleaned
                         return
                     }
-                    if let color = RGBColor(hex: cleaned), color != current {
+                    // Typed, not echoed: a drag writes the current color's
+                    // hex here too, and must not snap its own target.
+                    if cleaned != current.hex, let color = RGBColor(hex: cleaned) {
                         set(color, moveTarget: true)
                     }
                 }

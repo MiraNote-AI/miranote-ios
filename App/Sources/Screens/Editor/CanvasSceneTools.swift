@@ -58,6 +58,48 @@ struct ColorRequest {
 // MARK: - Text accessory
 
 extension CanvasScene {
+    /// Text tool, screen 10 then 11: the Text tool lights up for a beat,
+    /// then a new block appears on the canvas and the keyboard rises --
+    /// typing happens where the words will live.
+    func armTextMode() {
+        withAnimation(.easeOut(duration: 0.15)) { textModeArming = true }
+        Task {
+            try? await Task.sleep(for: .milliseconds(Self.textModeBeat))
+            // Cancel (or Done) during the beat called it off.
+            guard textModeArming else { return }
+            textModeArming = false
+            addTextBlock()
+        }
+    }
+
+    /// Long enough to read the Text tool turning on; screen-capture runs
+    /// stretch it (`-TEXT_MODE_BEAT <ms>`) to photograph the state.
+    private static var textModeBeat: Int {
+        let stretched = UserDefaults.standard.integer(forKey: "TEXT_MODE_BEAT")
+        return stretched > 0 ? stretched : 250
+    }
+
+    /// The handoff's new block (screens 11-20): Josefin Medium 21, ink
+    /// #293322, 230 wide (206 of words inside the 12 pt insets).
+    private func addTextBlock() {
+        let width: CGFloat = 230
+        let height = TextMeasure.blockHeight(
+            text: "", pointSize: TextFace.newBlockSize, fontName: TextFace.newBlockFont, width: width
+        )
+        // Below what is there; on a near-empty page, a third of the way
+        // down the card, clear of the keyboard and the text chrome.
+        let top = max(editor.contentBottom + 70 - height / 2, 110)
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(top + height / 2, 4000))
+        let id = editor.addText(
+            "", at: position, pointSize: TextFace.newBlockSize,
+            size: CGSize(width: width, height: height),
+            fontName: TextFace.newBlockFont, colorName: TextFace.newBlockColor
+        )
+        // addText already recorded the undo point for this compound action.
+        editor.startEditingText(id, recordingUndo: false)
+        textFocus = id
+    }
+
     /// The block being edited, for showing its current style.
     var editingBlock: TextBlock? {
         guard let id = editor.editingTextItemID,
@@ -87,8 +129,10 @@ extension CanvasScene {
                         .onChanged { _ in if dictationPress == nil { pressDictation() } }
                         .onEnded { _ in releaseDictation() }
                 )
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(dictating ? "Stop dictation" : "Mira Dictation")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Mira Dictation")
+                .accessibilityValue(dictating ? "Listening..." : (dictationHint ?? ""))
+                .accessibilityHint(dictating ? "Ends the dictation." : "Hold to talk, or tap to start.")
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { dictating ? stopDictation() : startDictation() }
                 .accessibilityIdentifier("style.mic")
@@ -348,93 +392,5 @@ extension CanvasScene {
             fontName: block.fontName,
             width: item.size.width
         ))
-    }
-}
-
-// MARK: - Dictation (hold to talk)
-
-extension CanvasScene {
-    /// Touch down on the strip: the mic goes live unless it already is.
-    private func pressDictation() {
-        dictationPress = (start: .now, wasLive: dictating || recorder != nil)
-        if dictationPress?.wasLive == false { startDictation() }
-    }
-
-    /// Release: a hold ends the take (hold to talk); a quick tap leaves the
-    /// mic listening until the next tap (and a tap on a live mic ends it).
-    private func releaseDictation() {
-        guard let press = dictationPress else { return }
-        dictationPress = nil
-        let held = Date.now.timeIntervalSince(press.start) >= 0.35
-        if press.wasLive || (held && dictating) { stopDictation() }
-    }
-
-    /// Ends a dictation that lost its editing session (keyboard dismissed,
-    /// editing finished): stop the mic quietly, keep nothing.
-    func cancelDictationIfNeeded() {
-        guard dictating else { return }
-        let abandoned = recorder
-        recorder = nil
-        dictating = false
-        Task { _ = try? await abandoned?.stop() }
-    }
-
-    /// The sound tool and dictation never share the recorder slot (guarded
-    /// on both entry points).
-    func startDictation() {
-        guard recorder == nil else { return }
-        dictationHint = nil
-        let newRecorder = recorderFactory()
-        recorder = newRecorder
-        Task {
-            do {
-                try await newRecorder.start()
-                dictating = true
-            } catch {
-                recorder = nil
-                dictationHint = error.localizedDescription
-            }
-        }
-    }
-
-    /// Record, transcribe (:8005), append to the block being edited.
-    func stopDictation() {
-        guard let recorder else {
-            dictating = false
-            return
-        }
-        self.recorder = nil
-        Task {
-            defer { dictating = false }
-            // A silent return here looked like a dead feature: say why
-            // nothing landed instead of swallowing it.
-            guard let data = try? await recorder.stop(), !data.isEmpty else {
-                dictationHint = "I couldn't catch any words -- try again?"
-                return
-            }
-            guard let id = editor.editingTextItemID else {
-                dictationHint = "Tap a text block first, then dictate."
-                return
-            }
-            guard let transcript = try? await transcription.transcribe(
-                audio: data, filename: "dictation.m4a"
-            ) else {
-                dictationHint = "Couldn't reach the transcriber -- try again?"
-                return
-            }
-            let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !words.isEmpty else {
-                dictationHint = "I couldn't catch any words -- try again?"
-                return
-            }
-            if case .text(let block) = editor.item(id)?.content {
-                let joined = block.text.isEmpty ? words : block.text + " " + words
-                editor.setText(itemID: id, to: joined)
-                // Grow the box to the new text like typing does, or the
-                // dictated words land clipped below the fold and read as
-                // "nothing happened."
-                remeasureEditedText(id)
-            }
-        }
     }
 }
