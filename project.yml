@@ -34,6 +34,17 @@ targets:
           - Fraunces.ttf
           - JosefinSans.ttf
           - Raleway.ttf
+          # The Background tool's curated sets (screen 05). Didot, Bodoni 72
+          # and Optima ship with iOS; Raleway is above (also in the font row).
+          - Poppins-Regular.ttf
+          - Lora.ttf
+          - Cardo-Regular.ttf
+          - Merriweather.ttf
+          - Montserrat.ttf
+          - OpenSans.ttf
+          - PlayfairDisplay.ttf
+          - Oswald.ttf
+          - DarkerGrotesque.ttf
         # Version and build number for TestFlight. Both read from build
         # settings so a new upload is a one-line bump of CURRENT_PROJECT_VERSION
         # (TestFlight rejects a re-used build number).

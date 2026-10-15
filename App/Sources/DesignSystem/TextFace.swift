@@ -37,9 +37,17 @@ enum TextFace {
     /// Looked up once: every render and every height measurement asks.
     private static let installedFamilies = Set(UIFont.familyNames)
 
+    /// Bundled variable faces of the curated sets (screen 05). Their default
+    /// instance is often Thin or Light, so a weight is always set on the
+    /// axis (Regular unless asked). Raleway has its own Medium default below.
+    private static let variableFamilies: Set<String> = [
+        "Lora", "Merriweather", "Montserrat", "Open Sans", "Playfair Display",
+        "Oswald", "Darker Grotesque"
+    ]
+
     /// `weight` is a CSS weight. The bundled variable faces (Josefin,
-    /// Raleway) set it on their axis; Josefin and Raleway body text is
-    /// Medium as drawn. System faces go bold from 600.
+    /// Raleway, the curated-set faces) set it on their axis; Josefin and
+    /// Raleway body text is Medium as drawn. System faces go bold from 600.
     static func uiFont(name: String, size: CGFloat, weight: CGFloat? = nil) -> UIFont {
         switch name {
         case "":
@@ -55,6 +63,9 @@ enum TextFace {
             // A face this device lacks falls back to the system font
             // instead of an invisible or mismatched one.
             guard installedFamilies.contains(name) else { return UIFont.systemFont(ofSize: size) }
+            if variableFamilies.contains(name) {
+                return variable(name, size: size, weight: weight ?? 400)
+            }
             var descriptor = UIFontDescriptor(fontAttributes: [.family: name])
             if (weight ?? 400) >= 600, let bold = descriptor.withSymbolicTraits(.traitBold) {
                 descriptor = bold
