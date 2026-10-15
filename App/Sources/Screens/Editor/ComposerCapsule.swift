@@ -71,7 +71,7 @@ struct BackgroundApplyBar: View {
 }
 
 /// The composer's action pill as drawn: no disabled dimming, a light press.
-private struct ComposerActionStyle: ButtonStyle {
+struct ComposerActionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.opacity(configuration.isPressed ? 0.82 : 1)
     }

@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 
 /// Closures a scene calls to drive the editor flow. Every field defaults to a
@@ -10,10 +11,11 @@ struct EditorActions {
 }
 
 /// Shared editor layout (v2.1): a single-row top bar, the memory page, and a
-/// bottom cluster (context card + InputModeBar + action row) pinned to the
-/// lower edge. The Page/Spread/zoom sub-toolbar is gone. Editing autosaves;
-/// the canvas still labels its trailing action "Save" as the handoff does.
-struct EditorScaffold<Page: View, Bottom: View>: View {
+/// bottom cluster (InputModeBar + composer) pinned to the lower edge. Tool
+/// sheets (Choose photos, Photo Editing, Sticker) sit over the canvas card's
+/// lower edge, 20 above the tool bar, as the handoff draws them. Editing
+/// autosaves; the canvas still labels its trailing action "Save".
+struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
     var leading: String? = "Cancel"
     var leadingSymbol: String?
     var title: String = ""
@@ -27,9 +29,17 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
     var trailingID: String?
     var trailingFill = Palette.ink
     /// The text editing scrim (screens 11-20) over the margins around the
-    /// page; the header and the bottom cluster stay above it.
+    /// page; the header and the bottom cluster stay above it. The page
+    /// draws its own scrim around the block being written.
     var dimmed = false
+    /// The handoff's dim glass scrim (screens 27-35): the canvas blurs under
+    /// rgba(41, 51, 34, 0.34) while the chrome and the sheet stay clear.
+    var scrimmed = false
+    /// A tap on the scrimmed canvas card -- the tool's way back. The side
+    /// margins are not the card and do nothing.
+    var onScrimTap: () -> Void = {}
     @ViewBuilder var page: () -> Page
+    @ViewBuilder var sheet: () -> Sheet
     @ViewBuilder var bottom: () -> Bottom
 
     var body: some View {
@@ -49,6 +59,21 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
                 trailingFill: trailingFill
             )
             page()
+                .blur(radius: scrimmed ? 4 : 0)
+                .overlay {
+                    if scrimmed {
+                        RoundedRectangle(cornerRadius: Metrics.canvasCorner)
+                            .fill(Palette.scrim)
+                            .frame(width: MiraNoteConfig.pageWidth)
+                            .contentShape(Rectangle())
+                            .onTapGesture(perform: onScrimTap)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    sheet()
+                        .padding(.horizontal, Metrics.chromeInset)
+                }
             // Handoff rhythm: canvas card, 20, tool bar, 16, composer, and
             // the composer's bottom 36 above the screen edge (2 above the
             // home-indicator inset).
@@ -58,15 +83,46 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
             }
             .padding(.bottom, 2)
         }
+        // Beside and around the card the scrim tints the paper; the card
+        // carries its own (blurred) layer above.
         .background {
-            if dimmed {
-                Palette.editingScrim
+            if dimmed || scrimmed {
+                Palette.scrim
                     .ignoresSafeArea()
                     .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.2), value: dimmed)
         .screenBackground()
+    }
+}
+
+extension EditorScaffold where Sheet == EmptyView {
+    init(
+        leading: String? = "Cancel",
+        leadingSymbol: String? = nil,
+        title: String = "",
+        trailing: String? = "Done",
+        onLeading: @escaping () -> Void = {},
+        onTrailing: @escaping () -> Void = {},
+        onUndo: (() -> Void)? = nil,
+        undoEnabled: Bool = true,
+        @ViewBuilder page: @escaping () -> Page,
+        @ViewBuilder bottom: @escaping () -> Bottom
+    ) {
+        self.init(
+            leading: leading,
+            leadingSymbol: leadingSymbol,
+            title: title,
+            trailing: trailing,
+            onLeading: onLeading,
+            onTrailing: onTrailing,
+            onUndo: onUndo,
+            undoEnabled: undoEnabled,
+            page: page,
+            sheet: { EmptyView() },
+            bottom: bottom
+        )
     }
 }
 

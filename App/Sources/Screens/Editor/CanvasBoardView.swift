@@ -151,7 +151,7 @@ struct CanvasBoardView: View {
             if writing {
                 // Taps fall through to the paper, which ends editing.
                 Rectangle()
-                    .fill(Palette.editingScrim)
+                    .fill(Palette.scrim)
                     .allowsHitTesting(false)
                     .transition(.opacity)
                     .zIndex(1)

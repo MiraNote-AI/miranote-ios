@@ -70,7 +70,9 @@ struct TopBar: View {
                         prominent: false, muted: leadingMuted && !leadingOnGlass, onGlass: leadingOnGlass,
                         width: NavPill.leadingWidth
                     ))
-                    .optionalIdentifier(leadingID)
+                    // Tool pages repeat the pill's word in the composer
+                    // (Add, Done); tests reach the header by position.
+                    .accessibilityIdentifier(leadingID ?? "nav.leading")
                 }
 
                 Spacer()
@@ -78,23 +80,13 @@ struct TopBar: View {
                 if let trailing {
                     Button(trailing, action: onTrailing)
                         .buttonStyle(NavPill(prominent: true, fill: trailingFill, width: NavPill.trailingWidth))
-                        .optionalIdentifier(trailingID)
+                        .accessibilityIdentifier(trailingID ?? "nav.trailing")
                 }
             }
         }
         .padding(.horizontal, Metrics.chromeInset)
         .padding(.top, 2)
         .padding(.bottom, Metrics.navToCanvas)
-    }
-}
-
-private extension View {
-    @ViewBuilder func optionalIdentifier(_ identifier: String?) -> some View {
-        if let identifier {
-            accessibilityIdentifier(identifier)
-        } else {
-            self
-        }
     }
 }
 
