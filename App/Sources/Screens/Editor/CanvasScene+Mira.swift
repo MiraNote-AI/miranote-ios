@@ -52,7 +52,11 @@ extension CanvasScene {
                 initial: edit.initial,
                 idPrefix: "background.colorSheet",
                 onLiveChange: { editor.setPageColor($0.hex, recordingUndo: false) },
-                onApply: { _ in closePageColorSheet(keeping: true) },
+                onApply: { color in
+                    // The color shown is the one applied, previewed or not.
+                    editor.setPageColor(color.hex, recordingUndo: false)
+                    closePageColorSheet(keeping: true)
+                },
                 onCancel: { closePageColorSheet(keeping: false) },
                 snapshot: editor.pageSnapshot,
                 picksOnAppear: edit.request == .pick

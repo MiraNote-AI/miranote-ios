@@ -234,12 +234,19 @@ extension CanvasScene {
         resetTextTools()
     }
 
-    /// The header's Cancel: the page goes back to how it was when the
-    /// session began (a new block disappears).
+    /// The header's Cancel: the block goes back to how it was when the
+    /// session began (a new block disappears). Open previews go first, so
+    /// nothing live survives a session the Kit can no longer take back.
     func cancelTextEditing() {
         textModeArming = false
-        rewrite = nil
-        colorRequest = nil
+        if let state = rewrite {
+            editor.discardPreview(of: state.original)
+            rewrite = nil
+        }
+        if let request = colorRequest {
+            dropColorPreview(request)
+            colorRequest = nil
+        }
         editor.cancelEditingText()
         textFocus = nil
         resetTextTools()
@@ -252,14 +259,17 @@ extension CanvasScene {
         dictationHint = nil
     }
 
-    /// The header's undo while writing: an open preview is committed first,
-    /// so undo takes it back like any other step.
+    /// The header's undo while writing. An open color preview is the newest
+    /// change: undo drops it and nothing more. A rewrite preview is
+    /// committed first, so undo takes it back like any other step.
     func undoFromHeader() {
         finishRewrite()
         if let request = colorRequest {
-            editor.discardPreview(of: request.original)
+            let previewing = previewedColor(request) != nil
+            dropColorPreview(request)
             colorRequest = nil
             refocusEditedText()
+            if previewing { return }
         }
         editor.undo()
         if textTool == .ai, editor.editingTextItemID != nil { startRewrite() }
@@ -343,14 +353,13 @@ extension CanvasScene {
                     ? "Choose a shade, or sample it from your memory."
                     : "Set the color behind your selected text.",
                 initial: request.initial,
-                onLiveChange: { color in
-                    guard let id = editor.editingTextItemID else { return }
-                    switch request.target {
-                    case .text: editor.setTextColorName(itemID: id, to: color.hex, recordingUndo: false)
-                    case .background: editor.setTextBackground(itemID: id, to: color.hex, recordingUndo: false)
-                    }
+                onLiveChange: { previewColor($0.hex, for: request) },
+                // The color the sheet shows is the one applied, previewed or
+                // not (a background sheet opens on #8B5962 with none set).
+                onApply: { color in
+                    previewColor(color.hex, for: request)
+                    closeColorSheet(keeping: true)
                 },
-                onApply: { _ in closeColorSheet(keeping: true) },
                 onCancel: { closeColorSheet(keeping: false) },
                 snapshot: editor.pageSnapshot
             )
@@ -366,10 +375,38 @@ extension CanvasScene {
         if keeping {
             editor.commitPreview(of: request.original)
         } else {
-            editor.discardPreview(of: request.original)
+            dropColorPreview(request)
         }
         withAnimation(.easeOut(duration: 0.2)) { colorRequest = nil }
         refocusEditedText()
+    }
+
+    /// Shows `hex` live on the block, without an undo step.
+    private func previewColor(_ hex: String, for request: ColorRequest) {
+        let id = request.original.id
+        switch request.target {
+        case .text: editor.setTextColorName(itemID: id, to: hex, recordingUndo: false)
+        case .background: editor.setTextBackground(itemID: id, to: hex, recordingUndo: false)
+        }
+    }
+
+    /// Puts back only the color the sheet previewed: words dictated while
+    /// it was open stay.
+    private func dropColorPreview(_ request: ColorRequest) {
+        guard previewedColor(request) != nil,
+              case .text(let original) = request.original.content else { return }
+        previewColor(request.target == .text ? original.colorName : original.backgroundColorName, for: request)
+    }
+
+    /// The color the block shows in place of the one it had when the sheet
+    /// opened; nil when nothing is previewed.
+    private func previewedColor(_ request: ColorRequest) -> String? {
+        guard case .text(let original) = request.original.content,
+              case .text(let now) = editor.item(request.original.id)?.content else { return nil }
+        let (was, shown) = request.target == .text
+            ? (original.colorName, now.colorName)
+            : (original.backgroundColorName, now.backgroundColorName)
+        return was == shown ? nil : shown
     }
 
     /// The keyboard comes back once the sheet has gone (focusing in the
