@@ -75,6 +75,19 @@ Acceptance (per stream):
 | Eyedropper (P1) | full-screen page snapshot with a 64 pt loupe; lift to take the color; Cancel keeps the sheet's color | "sample it from your memory": the page only, true colors (not the dimmed screen) |
 | Dictation (P1) | hold to talk; a quick tap starts and a second tap stops (VoiceOver and tests use the tap) | hold as drawn, tap kept for accessibility |
 | Cancel after Done (P1) | Done ends the session; the block stays selected (arrange state, screen 21) | screen 21 follows 20 |
+| Background sheet size (P2) | the canvas card's width (360) and its height + 7; content scrolls on short phones, One-tap layout pinned 10 above the sheet bottom | screen 05 frames the sheet on the card |
+| Background "Default" (P2) | no Default chip (not drawn): the chosen color dot tapped again returns the page to the gradient; the preview eyebrow reads DEFAULT / PAINTED / #RRGGBB | keeps the gradient reachable without an undrawn control |
+| Swatch hexes (P2) | the design's five (#F6F4E8, #F4E0D1, #D6E3D4, #D1E0F0, #E6D9F0); old pages keep their stored hexes, unselected | screen 05 |
+| Curated set page colors (P2) | 01 #D03A02, 02 #FCD766, 03 #879064, 04 #FBFBFC, 05 #236FB3, 06 #415A58, 07 #24382D, 08 #F59081 (from each card's band where its label sits); text colors as the card labels | the design does not say which band color is the page |
+| Curated set card labels (P2) | "Poppins" (design typo "Poppin"); body-face names at 10 pt per the type floor; bands 01/02 sampled from screen.png (out-of-order Figma stops) | fidelity to what is rendered |
+| Bundled faces not in the font row (P2) | the curated faces are not added to `TextFace.choices`; the font row is P1's | avoids a P1 conflict |
+| Custom / Pick (P2) | both open the system color picker (it has an eyedropper) through one seam, `BackgroundToolSheet.customColorSheet`, until the shared `CustomColorSheet` lands | GAPS #2, parallel stream |
+| Mira chat composer (P2) | the dark capsule IS the live composer (Figma "Canvas question composer"); Return sends; the bottom composer is a button that opens the chat and shows a waiting draft with Go; Canvas, Done and a scrim tap close the chat | design draws no other field; draft never lost |
+| Mira chat quick actions (P2) | the four as drawn, always; "Make text warmer" polishes the target text | design labels |
+| Mira dictation (P2) | hold the strip to talk, release to transcribe into the question; never auto-sent; the system keyboard is set dark | owner: voice-to-text |
+| Result sheet (P2) | Keep = accept, Revert only when the turn changed something; an edit or a new ask moves on; the receipt timer is removed from the coordinator | screen 07 + decision above |
+| Delete zone copy and color (P2) | one copy in both phases ("Drop here to delete / Release outside the canvas"), #D86C5D as drawn (2.3:1, owner asked for the design); arming shows on the lifted element's red frame; the design's microphone glyph is a copy-paste slip, a bin is drawn | screen 22 |
+| Blank page empty state (P2) | no hint on the page | screen 04 |
 
 ## Streams (one branch / PR each, stacked on P0)
 
@@ -105,3 +118,12 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    eyedropper, r24 text background, screen-21 frame; side-by-sides for
    10-21 match within ~2 pt except the system keyboard and the edited
    text's height on the page -- P1 1/1.
+4. P2 canvas landed: Background rebuilt as the screen-05 glass sheet (preview,
+   drawn page-type tiles, 5 swatches + Custom/Pick seam + hex, 8 curated sets
+   with bundled OFL faces, Apply-to-page = Mira backdrop); Mira canvas chat
+   (06) with hold-to-talk dictation; result sheet (07) with Keep/Revert and no
+   timer; drag-delete zone in the composer slot with a lifted element (22);
+   blank page empty (04); composer pill 19 from its trailing edge. iPhone 17
+   Pro Max frames on the 05 sheet land on the spec to the point (tile 205,
+   swatch 302, hex 351, sets 409, layout 518 from the card top); 06 within
+   ~1 pt after half-leading fixes -- P2 1/1, composites in the PR.
