@@ -36,6 +36,8 @@ struct CanvasBoardView: View {
     /// (screen 22): the board's own copy hides, so the drag is never cut at
     /// the card's edge. Nil when nothing is being moved.
     var lifted: Binding<LiftedElement?> = .constant(nil)
+    /// While Voice records: where the take will land, in page points.
+    var pendingSoundMarker: CGPoint?
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -162,6 +164,10 @@ struct CanvasBoardView: View {
                 element(item)
                     .blur(radius: writing && !edited ? 4 : 0)
                     .zIndex(edited ? 2 : 0)
+            }
+            if let pendingSoundMarker {
+                PendingSoundMarker()
+                    .position(pendingSoundMarker)
             }
             if let revealFrame {
                 // Elements are placed with .position, which stretches their
@@ -302,6 +308,9 @@ struct CanvasBoardView: View {
     private func handleTap(_ item: CanvasItem, isSelected: Bool) {
         if !isSelected {
             editor.select(item.id)
+            // An unselected marker reads "tap to play" (screen 09): the
+            // tap that selects it also plays it.
+            if case .sound = item.content { togglePlay(item) }
             return
         }
         if case .text = item.content {

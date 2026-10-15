@@ -30,7 +30,8 @@ struct CanvasScene: View {
     @State var recorderState: RecorderState = .idle
     @State var recorder: AudioRecording?
     @State var recorderNotice: String?
-    @State var reviewNote = ""
+    /// The take Stop just put on the page, while its result sheet shows.
+    @State var attachedSound: AttachedSound?
     /// The text tool whose row is open (screen 11: Aa when writing starts).
     @State var textTool: TextTool = .font
     @State var rewrite: RewriteState?
@@ -238,7 +239,17 @@ struct CanvasScene: View {
                             .transition(.opacity)
                     }
                 }
+                // Screen 09: the result sheet floats over the canvas card's
+                // foot, its bottom 20 above the tool bar.
+                .overlay(alignment: .top) {
+                    if attachedSound != nil, dropToDelete == nil {
+                        soundAttachedSheet
+                            .offset(y: -(ResultSheet.height + Metrics.canvasToToolBar))
+                            .transition(.opacity)
+                    }
+                }
                 .animation(.easeOut(duration: 0.15), value: dropToDelete)
+                .animation(.easeOut(duration: 0.2), value: attachedSound)
         }
         .overlay {
             if let lifted, dropToDelete != nil {
@@ -273,6 +284,10 @@ struct CanvasScene: View {
             // receipt steps aside. Here, not in MiraCard, which a panel or the
             // recorder can unmount -- the receipt then came back stale.
             mira.canvasDidChange(editor)
+            // Same for the attached take: Revert would undo something else.
+            if let attachedSound, attachedSound.changeCount != editor.changeCount {
+                self.attachedSound = nil
+            }
             // The edited photo can be deleted or undone away by canvas
             // interactions above the panel; close the panel when its item
             // is no longer an image.
@@ -369,8 +384,8 @@ struct CanvasScene: View {
             },
             onPaperTap: {
                 // An armed recorder holds nothing yet, so a paper tap
-                // folds it like it folds the text tools. Recording and
-                // review keep their bar: a stray tap must not lose audio.
+                // folds it like it folds the text tools. Recording keeps
+                // its bar: a stray tap must not lose audio.
                 if case .armed = recorderState { recorderState = .idle }
                 // The Background card is a tool too: the paper folds it,
                 // and the Image tool before anything is picked.
@@ -395,7 +410,8 @@ struct CanvasScene: View {
             onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
             revealItem: $revealItem,
             dropToDelete: $dropToDelete,
-            lifted: $lifted
+            lifted: $lifted,
+            pendingSoundMarker: pendingSoundMarker
         )
     }
 
@@ -498,7 +514,8 @@ struct CanvasScene: View {
                     .foregroundStyle(Palette.textSecondary)
                     .padding(.horizontal, Metrics.chromeInset)
             }
-            InputModeBar(active: nil, onSelect: handleTool)
+            // Voice stays lit while its take's result sheet shows (09).
+            InputModeBar(active: attachedSound == nil ? nil : .voice, onSelect: handleTool)
             // The card and the bar are one conversational dock.
             VStack(spacing: 6) {
                 MiraCard(
@@ -515,10 +532,7 @@ struct CanvasScene: View {
                     coordinator: mira,
                     editor: editor,
                     prompt: $miraPrompt,
-                    // "Ask Mira to refine..." with an element selected
-                    // (screen 21) or while a result waits (screen 07).
-                    placeholder: receipt == nil && editor.selectedItemID == nil
-                        ? "Ask Mira anything" : "Ask Mira to refine...",
+                    placeholder: composerPlaceholder,
                     onOpenChat: openMiraChat
                 )
             }
@@ -527,11 +541,31 @@ struct CanvasScene: View {
             armedBar
         case .recording(let start):
             InputModeBar(active: .voice, onSelect: handleTool)
-            recordingBar(since: start)
-        case .review(_, let duration):
-            InputModeBar(active: .voice, onSelect: handleTool)
-            reviewBar(duration: duration)
+            if let recorder {
+                recordingBar(since: start, recorder: recorder)
+            }
         }
+    }
+
+    /// The composer's context copy: beside a new take (screen 09), with an
+    /// element selected (21) or while a Mira result waits (07).
+    private var composerPlaceholder: String {
+        if attachedSound != nil { return "Ask Mira to adjust sound..." }
+        return receipt == nil && editor.selectedItemID == nil ? "Ask Mira anything" : "Ask Mira to refine..."
+    }
+
+    /// While a take records, where it will land (screen 08).
+    private var pendingSoundMarker: CGPoint? {
+        guard case .recording = recorderState else { return nil }
+        // The marker's ring sits at the leading edge of addSound's 200 pt box.
+        let landing = soundLanding
+        return CGPoint(x: landing.x - 100 + CanvasElementView.soundRing / 2, y: landing.y)
+    }
+
+    /// Where Stop puts a take: on a blank page where screen 09 draws its
+    /// marker, otherwise just below the lowest element.
+    private var soundLanding: CGPoint {
+        CGPoint(x: 209, y: min(max(190, editor.contentBottom + 60), 4000))
     }
 
     private func handleTool(_ mode: EditorMode) {
@@ -539,6 +573,8 @@ struct CanvasScene: View {
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
         editingStickerItem = nil
+        // Moving on keeps an attached take (its sheet's Keep).
+        attachedSound = nil
         let backgroundWasOpen = backgroundPanelOpen
         backgroundPanelOpen = false
         // Another tool keeps the photos this Image visit placed (as Add);
@@ -548,13 +584,10 @@ struct CanvasScene: View {
         switch mode {
         case .background:
             // Same guards as the recorder: the panel would unmount a live
-            // Mira turn's Stop, and a take being recorded or reviewed is not
-            // thrown away by the tool beside Voice (an armed one folds).
+            // Mira turn's Stop, and a take being recorded is not thrown
+            // away by the tool beside Voice (an armed one folds).
             guard !mira.isWorking else { return }
-            switch recorderState {
-            case .recording, .review: return
-            case .idle, .armed: break
-            }
+            if case .recording = recorderState { return }
             cancelRecording()
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
@@ -952,29 +985,36 @@ extension CanvasScene {
         Task {
             let data = (try? await recorder.stop()) ?? Data()
             // Discarded while the recorder wound down (or a new take began):
-            // this take must not come back as a review.
+            // this take must not land after all.
             guard case .recording(let current) = recorderState, current == start else { return }
             self.recorder = nil
-            guard !data.isEmpty else {
-                recorderState = .idle
-                return
-            }
+            recorderState = .idle
+            guard !data.isEmpty else { return }
             let measured = AudioInfo.duration(of: data)
             let elapsed = Date.now.timeIntervalSince(start)
-            recorderState = .review(data: data, duration: measured > 0 ? measured : max(1, elapsed))
+            attach(data, duration: measured > 0 ? measured : max(1, elapsed))
         }
     }
 
-    func keepRecording() {
-        guard case .review(let data, let duration) = recorderState else { return }
-        var clip = SoundClip(duration: duration, note: reviewNote)
+    /// Handoff screen 09, attach first: the take goes on the page as one
+    /// undo step, where its marker pulsed, and the result sheet offers
+    /// Revert / Keep.
+    private func attach(_ data: Data, duration: TimeInterval) {
+        var clip = SoundClip(duration: duration)
         if let fileName = try? soundStore.save(data, id: clip.id) {
             clip.fileName = fileName
         }
-        let position = CGPoint(x: 130, y: min(editor.contentBottom + 60, 4000))
-        editor.addSound(clip, at: position)
-        reviewNote = ""
-        recorderState = .idle
+        let id = editor.addSound(clip, at: soundLanding)
+        attachedSound = AttachedSound(itemID: id, changeCount: editor.changeCount)
+    }
+
+    /// Takes the attached take off the page again -- the add is still the
+    /// last change, or the sheet would have stepped aside -- so Voice can
+    /// record it over.
+    func revertAttachedSound() {
+        guard let attachedSound, attachedSound.changeCount == editor.changeCount else { return }
+        self.attachedSound = nil
+        editor.undo()
     }
 
     // MARK: Pending tool from other scenes

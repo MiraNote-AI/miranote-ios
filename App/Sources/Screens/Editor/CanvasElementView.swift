@@ -130,41 +130,58 @@ struct CanvasElementView: View {
         }
     }
 
+    /// The marker's 42 pt pulse ring; the 30 pt tap circle sits inside it.
+    static let soundRing: CGFloat = 42
+
+    /// Handoff screen 09: the forest tap circle in its faint ring, then a
+    /// frosted "tap to play" pill. Selected, the pill gives way to the note
+    /// (or "Add a note") and the take's length.
     private func soundView(_ clip: SoundClip) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: -1) {
             Button(action: onTogglePlay) {
-                Image(systemName: isPlaying ? "stop.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Palette.onInk)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(Palette.forest))
-                    .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                SoundMarkerGlyph(playing: isPlaying)
+                    .frame(width: Self.soundRing, height: Self.soundRing)
+                    .background(Circle().strokeBorder(Palette.forest.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .allowsHitTesting(isSelected)
+            .accessibilityLabel(isPlaying ? "Stop" : "Play")
             .accessibilityIdentifier("sound.play")
 
-            Button(action: onEditNote) {
-                HStack(spacing: 6) {
-                    Text(clip.note.isEmpty ? "Add a note" : clip.note)
-                        .font(Sans.font(size: 11, weight: 500))
-                        .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
-                        .lineLimit(1)
-                    Text(Self.timestamp(clip.duration))
-                        .font(Sans.font(size: 11, weight: 400))
-                        .foregroundStyle(Palette.textSecondary)
+            if isSelected {
+                Button(action: onEditNote) {
+                    HStack(spacing: 6) {
+                        Text(clip.note.isEmpty ? "Add a note" : clip.note)
+                            .font(Sans.font(size: 11, weight: 500))
+                            .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
+                            .lineLimit(1)
+                        Text(Self.timestamp(clip.duration))
+                            .font(Sans.font(size: 11, weight: 400))
+                            .foregroundStyle(Palette.textSecondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(
+                        Capsule()
+                            .fill(Palette.onInk.opacity(0.9))
+                            .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                    )
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(Palette.onInk.opacity(0.9))
-                        .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-                )
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sound.note")
+            } else {
+                Text("tap to play")
+                    .font(Sans.font(size: 10, weight: 700))
+                    .foregroundStyle(Palette.forest)
+                    .frame(width: 74, height: 24)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Capsule().fill(Color.white.opacity(0.58)))
+                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1))
+                    )
+                    .accessibilityIdentifier("sound.tapToPlay")
             }
-            .buttonStyle(.plain)
-            .allowsHitTesting(isSelected)
-            .accessibilityIdentifier("sound.note")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -174,11 +174,12 @@ struct HomeFlow: View {
         return base
     }
 
-    /// UI tests record with a canned in-memory recorder (no mic permission).
+    /// UI tests record with a canned in-memory recorder (no mic permission),
+    /// at full level so the live bars draw the handoff's pattern.
     @MainActor private static func makeRecorder() -> AudioRecording {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            return MockAudioRecorder()
+            return MockAudioRecorder(recordingLevel: 1)
         }
         #endif
         return AudioRecorder()

@@ -10,7 +10,14 @@ enum RecorderState {
     /// starts only when the user presses Record.
     case armed
     case recording(start: Date)
-    case review(data: Data, duration: TimeInterval)
+}
+
+/// A take Stop just put on the page (handoff screen 09): the result sheet
+/// offers Revert / Keep while the add is still the page's last change.
+struct AttachedSound: Equatable {
+    let itemID: CanvasItem.ID
+    /// `CanvasViewModel.changeCount` right after the add.
+    let changeCount: Int
 }
 
 /// One photo editing session (handoff screens 27-28): the photo, how it

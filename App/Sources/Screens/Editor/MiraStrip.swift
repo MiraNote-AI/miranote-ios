@@ -254,7 +254,8 @@ struct MiraBar: View {
     @Bindable var editor: CanvasViewModel
     @Binding var prompt: String
     /// "Ask Mira anything"; "Ask Mira to refine..." while a result waits
-    /// for Keep or Revert (screen 07).
+    /// for Keep or Revert (screen 07) or an element is selected (21); "Ask
+    /// Mira to adjust sound..." beside a new take (09).
     var placeholder = "Ask Mira anything"
     var onOpenChat: () -> Void
 

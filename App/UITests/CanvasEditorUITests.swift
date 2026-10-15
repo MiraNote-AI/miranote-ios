@@ -35,8 +35,8 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["warm broth, golden light"].waitForExistence(timeout: 5))
     }
 
-    // The Voice tool records in place: stop -> review -> Keep places a
-    // sound marker with its note pill on the canvas.
+    // The Voice tool records in place: Stop attaches the take as a marker
+    // ("tap to play") and Keep closes the result sheet with it on the page.
     func testSoundToolRecordsAndKeepPlacesMarker() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.voice"].waitForExistence(timeout: 5))
@@ -55,7 +55,14 @@ final class CanvasEditorUITests: XCTestCase {
 
         let keep = app.buttons["recorder.keep"]
         XCTAssertTrue(keep.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["tap to play"].exists, "attached before Keep (screen 09)")
         keep.tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keep)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed)
+        XCTAssertTrue(app.staticTexts["tap to play"].exists, "Keep leaves the marker on the page")
+
+        // Selected, the marker offers its note.
+        app.staticTexts["tap to play"].tap()
         XCTAssertTrue(app.staticTexts["Add a note"].waitForExistence(timeout: 5))
 
         // A title is a suggestion about words: keeping a sound on a
