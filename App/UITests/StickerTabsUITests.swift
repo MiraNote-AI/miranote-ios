@@ -45,7 +45,8 @@ final class StickerTabsUITests: XCTestCase {
         prompt.typeText("a coffee cup")
         app.buttons["sticker.generate.run"].tap()
 
-        XCTAssertTrue(app.buttons["sticker.result.0"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
+            .waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["sticker.tab.make"].isSelected, "results show where they are made")
     }
 }
