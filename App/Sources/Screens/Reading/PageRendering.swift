@@ -13,10 +13,14 @@ struct StaticPageView: View {
     var soundStore = SoundFileStore()
     var player: SoundPlayer?
 
-    private var contentHeight: CGFloat {
+    /// The page's drawn height: its lowest element plus a margin, at least
+    /// one screenful.
+    static func contentHeight(of memory: Memory) -> CGFloat {
         let bottom = memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
         return max(620, bottom + 120)
     }
+
+    private var contentHeight: CGFloat { Self.contentHeight(of: memory) }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
