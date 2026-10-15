@@ -278,8 +278,8 @@ struct CanvasBoardView: View {
     private func lift(_ item: CanvasItem, frame: CGRect, rotation: Double) {
         // The drop's own frame change can land after the move ended: never
         // bring the copy back then.
-        guard activeMove?.itemID == item.id else { return }
-        lifted.wrappedValue = LiftedElement(item: item, frame: frame, rotation: rotation)
+        guard let activeMove, activeMove.itemID == item.id else { return }
+        lifted.wrappedValue = LiftedElement(item: item, frame: frame, rotation: rotation, finger: activeMove.location)
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.

@@ -78,6 +78,8 @@ struct CanvasScene: View {
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
     @State private var lifted: LiftedElement?
+    /// The delete zone's top edge (global) while it shows.
+    @State private var deleteZoneTop: CGFloat?
     #if DEBUG
     /// -UITEST only: the drop-zone phases one drag went through. XCUITest
     /// cannot look mid-drag, so the trail is left for it to read.
@@ -241,6 +243,9 @@ struct CanvasScene: View {
                 .overlay(alignment: .bottom) {
                     if dropToDelete != nil {
                         DeleteDropZone()
+                            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: {
+                                deleteZoneTop = $0
+                            }
                             .transition(.opacity)
                     }
                 }
@@ -258,7 +263,12 @@ struct CanvasScene: View {
         }
         .overlay {
             if let lifted, dropToDelete != nil {
-                LiftedElementLayer(lifted: lifted, armed: dropToDelete == .armed, textFocus: $textFocus)
+                LiftedElementLayer(
+                    lifted: lifted,
+                    armed: dropToDelete == .armed,
+                    zoneTop: deleteZoneTop,
+                    textFocus: $textFocus
+                )
             }
         }
         .overlay {
