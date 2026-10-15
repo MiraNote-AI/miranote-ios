@@ -358,8 +358,10 @@ struct ExportSheet: View {
             .foregroundStyle(Palette.ink)
             .frame(width: 32, height: 32)
             .background(Circle().fill(Color.white.opacity(0.7)))
-            // 44 pt to the finger, 32 as drawn.
-            .minimumHitTarget()
+            // 44 x 44 to the finger, 32 as drawn.
+            .padding(6)
+            .contentShape(Rectangle())
+            .padding(-6)
         if let rendered, let shareURL, tile != .print {
             ShareLink(item: shareURL, preview: SharePreview(memory.title, image: Image(uiImage: rendered))) {
                 glyph

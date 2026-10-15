@@ -66,8 +66,10 @@ extension CanvasScene {
             TimelineView(.periodic(from: start, by: 1)) { context in
                 // Right-aligned, so a narrower digit never shifts the clock
                 // away from the stop button.
+                // The system face: Josefin has no tabular digits, so its
+                // clock jittered every second.
                 Text(CanvasScene.timestamp(context.date.timeIntervalSince(start)))
-                    .font(Sans.font(size: 13, weight: 700))
+                    .font(.system(size: 13, weight: .bold).monospacedDigit())
                     .foregroundStyle(Palette.warmWhite)
                     .frame(width: 44, alignment: .trailing)
             }
@@ -124,7 +126,7 @@ struct RecorderBar<Content: View>: View {
 }
 
 /// The recorder bar's 34 pt #F6F4E8 circle holding a glyph, hit-testing
-/// at 44.
+/// at 44 x 44 while it lays out at 34 wide.
 struct RecorderCircle<Glyph: View>: View {
     @ViewBuilder var glyph: () -> Glyph
 
@@ -133,7 +135,9 @@ struct RecorderCircle<Glyph: View>: View {
             .frame(width: 34, height: 34)
             .background(Circle().fill(Palette.onInk))
             .frame(width: 34, height: 44)
+            .padding(.horizontal, 5)
             .contentShape(Rectangle())
+            .padding(.horizontal, -5)
     }
 }
 

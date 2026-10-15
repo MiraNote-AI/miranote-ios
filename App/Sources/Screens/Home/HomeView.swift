@@ -50,7 +50,9 @@ struct HomeView: View {
                             Text("Recently deleted (\(viewModel.trash.count))")
                                 .font(Sans.font(size: 12, weight: 600))
                         }
-                        .foregroundStyle(Self.dateColor)
+                        // Not drawn by the design: textSecondary (6.1:1 on
+                        // the paper), not the 3.3:1 date color.
+                        .foregroundStyle(Palette.textSecondary)
                         .frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)

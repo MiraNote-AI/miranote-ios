@@ -25,6 +25,11 @@ final class RecorderAndDeleteUITests: XCTestCase {
         let discard = app.buttons["recorder.discard"]
         XCTAssertTrue(discard.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["recorder.stop"].exists)
+        // Stop is the only way to end a live take: 44 x 44 to the finger.
+        for control in [discard, app.buttons["recorder.stop"]] {
+            XCTAssertGreaterThanOrEqual(control.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(control.frame.height, 44)
+        }
 
         discard.tap()
         let stop = app.buttons["recorder.stop"]

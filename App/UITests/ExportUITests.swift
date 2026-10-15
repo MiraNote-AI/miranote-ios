@@ -47,6 +47,8 @@ final class ExportUITests: XCTestCase {
         // of VoiceOver's reach while the sheet is up, so its frame is not
         // queried here).
         XCTAssertGreaterThan(sheet.frame.minY - window.minY, 200, "the sheet leaves the page's header clear")
+        let share = app.buttons["export.share"].frame
+        XCTAssertGreaterThanOrEqual(min(share.width, share.height), 44, "Share is 44 pt to the finger")
     }
 
     // Choose JPG at Original, save to Photos: the sheet closes and the

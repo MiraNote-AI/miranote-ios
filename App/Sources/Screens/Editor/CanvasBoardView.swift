@@ -117,6 +117,12 @@ struct CanvasBoardView: View {
             dropToDelete = phase
             if phase == nil { lifted.wrappedValue = nil }
         }
+        // A take that leaves the page (Revert, undo, delete) stops playing.
+        .onChange(of: editor.changeCount) {
+            guard let playing = player.playingID,
+                  !editor.items.contains(where: { clipID(of: $0) == playing }) else { return }
+            player.stop()
+        }
         .overlay(alignment: .bottom) {
             if let toast {
                 toastView(toast)
