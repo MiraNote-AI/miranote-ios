@@ -74,6 +74,20 @@ Acceptance (per stream):
 | Sticker Add (P4a) | Add hands the showing result to the canvas, which asks where it goes (tap to place) | keeps the existing placement flow |
 | Sticker presets (P4a) | Food set only (30 handoff PNGs, flat ground made transparent at bundling); tap places at centre | the heart/croissant/cat tabs have no sets yet |
 | Sticker sheet while typing (P4a) | folds to the collapsed 147; Generate drops the keyboard | 430 does not fit above the keyboard |
+| Josefin weights (P4b) | follow the tsx (Bold where it says Bold) | the 01 and 37 screen.png exports render Josefin at Regular although the tsx says Bold; 03/08/09 render Bold |
+| Home cards (P4b) | design colors and #D9CDBA titles as drawn (contrast fix dropped); titles wrap naturally, so "Daily Log" sits on one line | "Home = design visuals"; the design hand-breaks its sample titles |
+| Home prompt copy (P4b) | keeps "When was my Paris trip?" (Bold 14, ink@0.5) | "what i eat...." is mock content; the bar retrieves |
+| Home hero (P4b) | centred; Fraunces stand-in with lines pulled 7 pt closer | design hero sits 8 pt left of centre; 1769_W05 unlicensed |
+| Onboarding (P4b) | Back = blank canvas; Next and Go = Background; a row or strip icon opens that tool; undo drawn dimmed; strip tiles centred at the 56 pt pitch | FLOW Onboarding -> Background; nothing to undo |
+| Voice armed state (P4b) | kept (no live mic without a press), restyled to the 54 pt ink recorder geometry | privacy |
+| Recorder discard circle (P4b) | keeps an xmark | design circle is empty |
+| Pending voice marker (P4b) | pulses where the take will land (blank page: 09's marker spot), not 08's canvas centre | the marker should appear where the sound goes |
+| Voice result (P4b) | attach first, Revert / Keep sheet, no auto-keep; any other edit or tool tap keeps; re-record = Revert + Voice; note editing moves to the selected marker | screen 09 |
+| "tap to play" (P4b) | the tap that selects an unselected marker also plays it | the label must be true |
+| Export entry (P4b) | stays in Reading (share button opens the in-scene sheet); Share as a header glyph in the sheet | decisions row "Header trailing label" |
+| Export tiles (P4b) | fill the row (design 66x54 on 374); PDF hides Save to Photos and Files takes the ink; Print tile swaps the actions for one Print button; PDF adds a page-cut row | flexible widths on wider phones; Photos takes images only |
+| Export quality (P4b) | default High; Original = 4x within a 24 MP budget, never below 3x | memory on long pages |
+| Save toast (P4b) | success closes the sheet; failure (#8C4A3A) keeps it, toast above; 2 s; no Open/Share bar | screen 38's Files UI is system UI |
 | Idle suggestion chips (P0) | removed from the canvas; follow-up chips stay on Mira reply cards; quick actions return in the screen-06 overlay (P2) | design draws nothing between tool bar and composer |
 | Screen 10 (P1) | reading (a): tapping Text shows the Text tool active, the editing header and "Type or polish your memory" for a 250 ms beat, then the block and keyboard appear | the minimal reading; the composer-as-entry reading changes the flow |
 | Page while writing (P1) | the card keeps its full height; the keyboard and text chrome ride over it under the scrim; a new block lands a third of the way down (top 110) and the edited block scrolls to 30% | as drawn; the real keyboard is ~165 pt taller than the mock's, so the drawn mid-card text position would sit under the chrome |
@@ -146,3 +160,7 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    compare), Sticker sheet (tabs, Food set, spinner, preview, styles with
    undo/redo), kit `redo()` / `remove(itemIDs:)`. Kit 408, app unit 34, UI
    81 (3 skipped) green; Release builds -- P4a 1/1, owner to judge fidelity.
+6. P4b landed (01 Home, 03 onboarding, 08/09 voice, 37 export, 38 toast):
+   iPhone 17 side-by-sides within ~2 pt of the frames (bottom chrome
+   anchored to the bottom on the taller phone); kit metering + Original
+   quality + export toast tested -- P4b 6/6 screens.
