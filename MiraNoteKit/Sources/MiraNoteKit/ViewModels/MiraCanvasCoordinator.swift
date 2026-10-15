@@ -107,6 +107,12 @@ public final class MiraCanvasCoordinator {
     /// The editor's changeCount when the current receipt was shown; Revert
     /// only undoes if nothing else mutated the canvas since.
     private var receiptChangeCount: Int?
+    /// The page's words as the receipt found them, and its editor: typing
+    /// records no undo step (and so no count), and a change made where the
+    /// canvas view is not mounted never reaches `canvasDidChange`, so Revert
+    /// compares both the count and the words.
+    private var receiptWords: [CanvasItem.ID: String]?
+    private weak var receiptEditor: CanvasViewModel?
 
     public init(
         text: TextTransformService,
@@ -216,20 +222,36 @@ public final class MiraCanvasCoordinator {
     /// Whether the showing receipt's Revert would undo anything; a receipt
     /// for a turn that changed nothing offers no Revert.
     public var receiptCanRevert: Bool {
-        if case .receipt = phase { return receiptChangeCount != nil }
-        return false
+        guard case .receipt = phase, let editor = receiptEditor else { return false }
+        return receiptStillLatest(on: editor)
+    }
+
+    /// Mira's change is still the page's last one: no step recorded since,
+    /// and nothing typed.
+    private func receiptStillLatest(on editor: CanvasViewModel) -> Bool {
+        guard let expected = receiptChangeCount, let words = receiptWords else { return false }
+        return editor.changeCount == expected && Self.words(on: editor) == words
+    }
+
+    /// Every text block's words. Typing is the one user edit that records
+    /// no step; re-measured heights and photo descriptions are not edits.
+    private static func words(on editor: CanvasViewModel) -> [CanvasItem.ID: String] {
+        var words: [CanvasItem.ID: String] = [:]
+        for item in editor.items {
+            if case .text(let block) = item.content { words[item.id] = block.text }
+        }
+        return words
     }
 
     /// One-tap revert of the last applied change (the receipt's escape
     /// hatch). If anything else touched the canvas since the receipt was
-    /// shown, revert declines to undo (it would eat the user's edit, not
-    /// Mira's) and just dismisses.
+    /// shown -- an edit, or words typed -- revert declines to undo (it would
+    /// eat the user's edit, not Mira's) and just dismisses.
     public func revert(editor: CanvasViewModel) {
-        if let expected = receiptChangeCount, editor.changeCount == expected {
+        if receiptStillLatest(on: editor) {
             editor.undo()
         }
-        receiptChangeCount = nil
-        phase = .idle
+        dismiss()
     }
 
     /// The view calls this when the canvas mutates. A showing receipt is
@@ -241,7 +263,7 @@ public final class MiraCanvasCoordinator {
         case .receipt:
             // A non-revertible receipt has no count to compare; any edit
             // means the user has moved on.
-            if let expected = receiptChangeCount, editor.changeCount == expected { return }
+            if receiptStillLatest(on: editor) { return }
             dismiss()
         case .reply:
             dismiss()
@@ -254,6 +276,8 @@ public final class MiraCanvasCoordinator {
     /// (screen 07 waits for the choice); an edit or a new ask moves on.
     public func dismiss() {
         receiptChangeCount = nil
+        receiptWords = nil
+        receiptEditor = nil
         phase = .idle
     }
 
@@ -402,6 +426,8 @@ public final class MiraCanvasCoordinator {
     /// only dismisses, since an undo would take back an older step.
     func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel, revertible: Bool = true) {
         receiptChangeCount = revertible ? editor.changeCount : nil
+        receiptWords = revertible ? Self.words(on: editor) : nil
+        receiptEditor = editor
         phase = .receipt(receipt)
     }
 

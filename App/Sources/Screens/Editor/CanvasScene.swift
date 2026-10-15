@@ -116,6 +116,9 @@ struct CanvasScene: View {
                 showsToolsOnboarding = true
             }
             remeasureTextBlocks()
+            // A change made in another scene (a Sticker preset) moved on
+            // from a waiting result without this scene seeing it.
+            mira.canvasDidChange(editor)
             mira.prepareTurn = { await lookAtUnseenPhotos() }
             mira.renderPage = {
                 CanvasSnapshot.jpeg(
