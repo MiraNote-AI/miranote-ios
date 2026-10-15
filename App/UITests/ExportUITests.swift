@@ -43,7 +43,10 @@ final class ExportUITests: XCTestCase {
         let photos = app.buttons["export.photos"].frame
         XCTAssertEqual(photos.minX - window.minX, 16 + 21, accuracy: 1)
         XCTAssertEqual(window.maxY - photos.maxY, 42 + 11, accuracy: 2)
-        XCTAssertTrue(app.buttons["reading.back"].isHittable, "the page's own header stays")
+        // The page's own header stays on screen above the sheet (it is out
+        // of VoiceOver's reach while the sheet is up, so its frame is not
+        // queried here).
+        XCTAssertGreaterThan(sheet.frame.minY - window.minY, 200, "the sheet leaves the page's header clear")
     }
 
     // Choose JPG at Original, save to Photos: the sheet closes and the
@@ -81,13 +84,37 @@ final class ExportUITests: XCTestCase {
         photos.tap()
 
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
-        XCTAssertEqual(toast.label, "Couldn't save -- try again")
+        XCTAssertEqual(toast.label, "Couldn't save -- allow Photos access in Settings.", "the toast names the remedy")
         XCTAssertTrue(sheet.exists, "the sheet stays to try again")
         XCTAssertLessThan(toast.frame.maxY, sheet.frame.minY, "the toast sits above the sheet")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "failed toast"
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    // The in-scene sheet is modal for VoiceOver, as the system sheet it
+    // replaced was (the modal trait reads as an alert-like container), and
+    // the page behind it leaves the accessibility tree until it closes.
+    func testTheSheetIsModalForAssistiveTechnologies() {
+        openExport()
+        XCTAssertTrue(app.alerts["export.sheet"].exists, "the sheet carries the modal trait")
+        XCTAssertFalse(app.staticTexts["June 21 - calm afternoon"].exists, "the page behind is out of reach")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        waitUntil(sheet, "exists == false")
+        XCTAssertTrue(app.staticTexts["June 21 - calm afternoon"].waitForExistence(timeout: 5), "and back once it closes")
+    }
+
+    // Print sends the A4 pages built off the main actor with the other
+    // formats; the button waits for them.
+    func testPrintWaitsForItsPagesThenOpensThePrinter() {
+        openExport()
+        app.buttons["export.format.print"].tap()
+        let print = app.buttons["export.print"]
+        XCTAssertTrue(print.waitForExistence(timeout: 5))
+        waitUntil(print, "isEnabled == true")
+        print.tap()
+        XCTAssertTrue(app.navigationBars["Options"].waitForExistence(timeout: 8), "the system print sheet")
     }
 
     // A tap on the page around the sheet closes it, as does Share again.

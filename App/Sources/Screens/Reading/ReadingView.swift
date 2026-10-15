@@ -44,6 +44,9 @@ struct ReadingView: View {
             .padding(.vertical, 8)
             .background(Palette.paper.opacity(0.94))
         }
+        // The export sheet is modal: VoiceOver cannot wander onto the page
+        // or its header behind it.
+        .accessibilityHidden(showsExport)
         .overlay {
             // Screen 37 draws the sheet over the live page, no scrim: a tap
             // on the page around it closes it.
@@ -87,7 +90,7 @@ struct ReadingView: View {
     /// Screen 38: a saved page closes the sheet and says where it went; a
     /// failed one keeps the sheet up to try again (or the other way).
     private func saved(_ message: SaveToast.Message) {
-        if message != .failed { setExport(open: false) }
+        if !message.isFailure { setExport(open: false) }
         toastDismiss?.cancel()
         withAnimation(.spring(duration: 0.3)) { toast = message }
         toastDismiss = Task {
@@ -177,8 +180,8 @@ struct ExportSheet: View {
     /// Bumps per option change; a slower earlier encode must not land last.
     @State private var exportGeneration = 0
 
-    /// The file format the bytes are in; Print reuses the PNG render.
-    private var format: ExportFormat { tile.format ?? .png }
+    /// The file format the bytes are in; Print sends A4 PDF pages.
+    private var format: ExportFormat { tile.format ?? .pdf }
     private var fileName: String { PageExporter.fileName(title: memory.title, format: format) }
 
     private var hasSound: Bool {
@@ -227,6 +230,9 @@ struct ExportSheet: View {
             }
         }
         .accessibilityElement(children: .contain)
+        // Modal like the system sheet it replaced: VoiceOver stays in it
+        // until it closes (the escape scrub closes it).
+        .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("export.sheet")
         .accessibilityAction(.escape, onClose)
         .task { render() }
@@ -316,8 +322,9 @@ struct ExportSheet: View {
     @ViewBuilder private var actions: some View {
         HStack(spacing: 10) {
             if tile == .print {
+                // Ready once the A4 pages are built (off the main actor).
                 action("Print", filled: true, id: "export.print", action: printPage)
-                    .disabled(rendered == nil)
+                    .disabled(exportData == nil)
             } else {
                 if format.savesToPhotos {
                     action("Save to Photos", filled: true, id: "export.photos", action: saveToPhotos)
@@ -351,6 +358,8 @@ struct ExportSheet: View {
             .foregroundStyle(Palette.ink)
             .frame(width: 32, height: 32)
             .background(Circle().fill(Color.white.opacity(0.7)))
+            // 44 pt to the finger, 32 as drawn.
+            .minimumHitTarget()
         if let rendered, let shareURL, tile != .print {
             ShareLink(item: shareURL, preview: SharePreview(memory.title, image: Image(uiImage: rendered))) {
                 glyph
@@ -377,24 +386,29 @@ struct ExportSheet: View {
     }
 
     /// Re-encodes the render for the chosen format and writes it to a temp
-    /// file named after the page, which is what Share hands to receivers.
-    /// Off the main actor: a long page at High is tens of megabytes, and the
-    /// tapped tile should highlight at once. The destinations stay disabled
-    /// until the bytes are ready.
+    /// file named after the page, which is what Share hands to receivers;
+    /// for Print, the A4 PDF pages the printer takes (no file). Off the main
+    /// actor: a long page at High is tens of megabytes, and the tapped tile
+    /// should highlight at once. The destinations stay disabled until the
+    /// bytes are ready.
     private func refreshExport() {
         exportGeneration += 1
         let generation = exportGeneration
         exportData = nil
         shareURL = nil
-        guard let rendered, tile != .print else { return }
-        let format = format, layout = pdfLayout
+        guard let rendered else { return }
+        let format = format
+        // Printing always goes out as A4 pages: a printer cannot take one
+        // 4,000 pt sheet.
+        let layout = tile == .print ? PDFLayout.a4Pages : pdfLayout
         // A folder per encode: an older encode finishing last must not
         // overwrite the file Share hands out.
-        let url = folderURL.appendingPathComponent("\(generation)", isDirectory: true)
+        let url: URL? = tile == .print ? nil : folderURL.appendingPathComponent("\(generation)", isDirectory: true)
             .appendingPathComponent(fileName)
         Task {
             let encoded = await Task.detached(priority: .userInitiated) { () -> (Data, URL?)? in
                 guard let data = PageExporter.data(from: rendered, format: format, pdfLayout: layout) else { return nil }
+                guard let url else { return (data, nil) }
                 try? FileManager.default.createDirectory(
                     at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 return (data, (try? data.write(to: url, options: .atomic)) == nil ? nil : url)
@@ -409,15 +423,13 @@ struct ExportSheet: View {
         guard let exportData else { return }
         Task {
             let saved = await photoSaver.save(exportData)
-            onSaved(saved ? .savedToPhotos : .failed)
+            onSaved(saved ? .savedToPhotos : .photosFailed)
         }
     }
 
-    /// Printing always goes out as A4 pages: a printer cannot take one
-    /// 4,000 pt sheet.
+    /// Sends the A4 pages `refreshExport` built for the Print tile.
     private func printPage() {
-        guard let rendered,
-              let pages = PageExporter.data(from: rendered, format: .pdf, pdfLayout: .a4Pages) else { return }
+        guard tile == .print, let pages = exportData else { return }
         let info = UIPrintInfo(dictionary: nil)
         info.jobName = memory.title.isEmpty ? "MiraNote page" : memory.title
         info.outputType = .general

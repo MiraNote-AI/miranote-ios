@@ -5,15 +5,20 @@ import SwiftUI
 /// takes the same capsule in #8C4A3A.
 struct SaveToast: View {
     enum Message: Equatable {
-        case savedToFiles, savedToPhotos, failed
+        /// `photosFailed`: denied Photos access is the usual cause, so the
+        /// toast names the remedy.
+        case savedToFiles, savedToPhotos, failed, photosFailed
 
         var text: String {
             switch self {
             case .savedToFiles: return "Saved to Files"
             case .savedToPhotos: return "Saved to Photos"
             case .failed: return "Couldn't save -- try again"
+            case .photosFailed: return "Couldn't save -- allow Photos access in Settings."
             }
         }
+
+        var isFailure: Bool { self == .failed || self == .photosFailed }
     }
 
     let message: Message
@@ -26,7 +31,7 @@ struct SaveToast: View {
             .padding(.horizontal, 44)
             .frame(minWidth: 222, minHeight: 38)
             .overlay(alignment: .leading) {
-                Image(systemName: message == .failed ? "exclamationmark" : "checkmark")
+                Image(systemName: message.isFailure ? "exclamationmark" : "checkmark")
                     .font(.system(size: 14, weight: .bold))
                     .padding(.leading, 22)
                     .accessibilityHidden(true)
@@ -34,7 +39,7 @@ struct SaveToast: View {
             .foregroundStyle(Color.white)
             .background(
                 Capsule()
-                    .fill(message == .failed ? Color(hex: 0x8C4A3A) : Color(hex: 0x211F1A))
+                    .fill(message.isFailure ? Color(hex: 0x8C4A3A) : Color(hex: 0x211F1A))
                     .shadow(color: Color(hex: 0x1F1A14).opacity(0.16), radius: 11, y: 8)
             )
             .accessibilityElement(children: .combine)
