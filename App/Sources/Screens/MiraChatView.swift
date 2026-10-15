@@ -77,7 +77,8 @@ struct MiraChatView: View {
                 .accessibilityIdentifier("chat.canvas")
         }
         .padding(.horizontal, ChatMetrics.inset)
-        .padding(.top, 2)
+        // Pills at the design's y50 below the status bar.
+        .padding(.top, 4)
     }
 
     private var transcript: some View {
@@ -324,13 +325,14 @@ private struct MiraBubbleRow: View {
                 if let secondary {
                     Text(secondary)
                         .font(Sans.font(size: 11, weight: 400))
+                        .lineSpacing(2)
                         .foregroundStyle(ChatMetrics.muted)
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 19)
             .padding(.top, 17)
-            .padding(.bottom, 16)
+            .padding(.bottom, secondary == nil ? 16 : 19)
             .background(ChatBubbleShape.mira)
             .frame(maxWidth: ChatMetrics.miraBubbleMaxWidth, alignment: .leading)
             Spacer(minLength: 0)
