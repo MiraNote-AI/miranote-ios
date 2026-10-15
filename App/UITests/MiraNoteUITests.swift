@@ -118,13 +118,23 @@ final class MiraNoteUITests: XCTestCase {
         share.tap()
 
         XCTAssertTrue(app.buttons["export.photos"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Share this page"].exists)
+        XCTAssertTrue(app.staticTexts["Export & Save"].exists)
         XCTAssertTrue(app.buttons["export.files"].exists)
-        XCTAssertTrue(app.buttons["export.print"].exists)
+        XCTAssertTrue(app.buttons["export.format.print"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["export.share"].exists, "Share stays reachable")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "export sheet"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        // Print is a tile: chosen, the actions become one Print button.
+        app.buttons["export.format.print"].tap()
+        XCTAssertTrue(app.buttons["export.print"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["export.photos"].exists)
     }
 
-    // Advanced picks the format: a PDF cannot go to Photos, so Save to Files
-    // takes its place, and PDF alone offers the A4 page cut.
+    // The format tiles: a PDF cannot go to Photos, so Save to Files takes
+    // its place, and PDF alone offers the A4 page cut.
     func testExportFormatsAndPDFPages() {
         app.buttons["collection.Daily Log"].tap()
         let cover = app.buttons["note.Lunch by the river"]
@@ -132,9 +142,9 @@ final class MiraNoteUITests: XCTestCase {
         cover.tap()
         app.buttons["reading.share"].tap()
 
-        XCTAssertTrue(app.buttons["export.advanced"].waitForExistence(timeout: 5))
-        app.buttons["export.advanced"].tap()
+        XCTAssertTrue(app.buttons["export.format.png"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["export.format.png"].isSelected, "long PNG is the default")
+        XCTAssertTrue(app.buttons["export.quality.high"].isSelected, "High is the default (screen 37)")
         XCTAssertFalse(app.buttons["export.pdf.a4Pages"].exists, "page cut is a PDF option only")
 
         app.buttons["export.format.pdf"].tap()
@@ -145,12 +155,11 @@ final class MiraNoteUITests: XCTestCase {
         app.buttons["export.pdf.longPage"].tap()
         XCTAssertTrue(app.buttons["export.pdf.longPage"].isSelected)
 
-        app.buttons["export.quality.high"].tap()
-        XCTAssertTrue(app.buttons["export.quality.high"].isSelected)
-        XCTAssertTrue(
-            app.buttons["export.advanced"].label.contains("One long page \u{00B7} PDF \u{00B7} High"),
-            "the summary reflects every choice"
-        )
+        app.buttons["export.quality.original"].tap()
+        XCTAssertTrue(app.buttons["export.quality.original"].isSelected)
+        XCTAssertFalse(app.buttons["export.quality.high"].isSelected)
+        XCTAssertTrue(app.buttons["export.format.pdf"].isSelected, "every choice holds")
+        XCTAssertTrue(app.buttons["export.pdf.longPage"].isSelected)
 
         let sheet = XCTAttachment(screenshot: app.screenshot())
         sheet.name = "export sheet PDF"

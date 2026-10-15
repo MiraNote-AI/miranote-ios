@@ -185,6 +185,19 @@ struct HomeFlow: View {
         return AudioRecorder()
     }
 
+    /// UI tests save to a stub Photos library (no permission prompt) that
+    /// succeeds, or refuses under `-PHOTOS-DENIED`.
+    private static func makePhotoSaver() -> PhotoSaver {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") {
+            let denied = arguments.contains("-PHOTOS-DENIED")
+            return PhotoSaver { _ in !denied }
+        }
+        #endif
+        return .library
+    }
+
     private enum Route: Identifiable {
         case editor
         case editMemory(Memory)
@@ -229,7 +242,8 @@ struct HomeFlow: View {
                     ReadingView(
                         memory: memory,
                         onBack: { path.removeLast() },
-                        onEdit: { route = .editMemory(memory) }
+                        onEdit: { route = .editMemory(memory) },
+                        photoSaver: Self.makePhotoSaver()
                     )
                     .navigationBarHidden(true)
                 }

@@ -25,6 +25,8 @@ struct GlassSheet<Content: View>: View {
     /// White@0.46 on most sheets; Photo Editing and Sticker draw #EEEEE9.
     var border: Color = Color.white.opacity(0.46)
     var elevation: Elevation = .standard
+    /// 21 on most sheets; Export closes 11 under its actions.
+    var bottomPadding: CGFloat = 21
     @ViewBuilder var content: () -> Content
 
     private static var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 30) }
@@ -49,7 +51,7 @@ struct GlassSheet<Content: View>: View {
         }
         .padding(.horizontal, 21)
         .padding(.top, titleSize > 18 ? 19 : 17)
-        .padding(.bottom, 21)
+        .padding(.bottom, bottomPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(background)
     }
