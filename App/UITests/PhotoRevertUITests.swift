@@ -102,11 +102,7 @@ final class PhotoRevertUITests: XCTestCase {
         app.buttons["photo.done"].tap()
 
         photo.tap()
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("make the photo black and white")
-        app.buttons["mira.go"].tap()
+        app.askMira("make the photo black and white")
         XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 5))
 
         openEditor(photo)

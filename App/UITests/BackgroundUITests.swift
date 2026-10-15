@@ -1,6 +1,7 @@
 import XCTest
 
-/// Page background asks (deterministic under -UITEST).
+/// Page background asks and the Background tool (handoff screen 05),
+/// deterministic under -UITEST.
 final class BackgroundUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -22,12 +23,15 @@ final class BackgroundUITests: XCTestCase {
     }
 
     private func ask(_ words: String) {
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText(words)
-        app.buttons["mira.go"].tap()
+        app.askMira(words)
     }
+
+    private func openTool() {
+        app.buttons["mode.background"].tap()
+        XCTAssertTrue(app.staticTexts["background.title"].waitForExistence(timeout: 5), "the sheet is up")
+    }
+
+    private var previewColor: String { app.staticTexts["background.preview.color"].label }
 
     func testBackgroundAskPlacesViaChoices() {
         startMemory()
@@ -45,9 +49,10 @@ final class BackgroundUITests: XCTestCase {
         ask("remove the background")
         XCTAssertTrue(
             app.staticTexts["Already on the default background."].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["mira.revert"].exists, "nothing changed, nothing to revert")
 
-        app.buttons["mode.background"].tap()
-        let lilac = app.buttons["background.color.#E5D9F0"]
+        openTool()
+        let lilac = app.buttons["background.color.#E6D9F0"]
         XCTAssertTrue(lilac.waitForExistence(timeout: 5))
         lilac.tap()
         app.buttons["mode.background"].tap()
@@ -56,17 +61,22 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Cleared the background."].waitForExistence(timeout: 8))
     }
 
-    // The Background tool's moods are Mira background asks: one tap runs the
-    // same turn as typing it, candidates and all.
-    func testBackgroundToolMoodRunsMiraAsk() {
+    // The tool's composer is "Apply to this page": the typed words ask Mira
+    // to paint a backdrop -- candidates and all -- and the sheet steps
+    // aside for the turn.
+    func testApplyToThisPageAsksMiraForABackdrop() {
         startMemory()
-        app.buttons["mode.background"].tap()
-        XCTAssertTrue(app.buttons["background.default"].waitForExistence(timeout: 5))
-        app.buttons["background.mood.Sunset glow"].tap()
+        openTool()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["background.apply"].isEnabled, "nothing to apply yet")
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
 
-        XCTAssertFalse(app.buttons["background.default"].exists, "the panel closes for the turn")
         let first = app.buttons["mira.imageChoice.0"]
-        XCTAssertTrue(first.waitForExistence(timeout: 8), "the mood came back as background candidates")
+        XCTAssertTrue(first.waitForExistence(timeout: 8), "the words came back as background candidates")
+        XCTAssertFalse(app.staticTexts["background.title"].exists, "the sheet steps aside for the turn")
         first.tap()
         XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
     }
@@ -95,48 +105,74 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertEqual(composerTop - toolBarBottom, 16, accuracy: 1)
     }
 
-    // Paper and page color apply in place; Default returns to the gradient
-    // but keeps the paper.
-    func testPaperAndPageColorApplyAndDefaultResetsColor() {
+    // Paper tiles and color dots apply in place, each one undo step; the
+    // chosen dot tapped again gives the page back its default backdrop but
+    // keeps the paper.
+    func testPaperTileAndSwatchApplyAndTheChosenDotResets() {
         startMemory()
-        app.buttons["mode.background"].tap()
+        openTool()
         let grid = app.buttons["background.paper.grid"]
         XCTAssertTrue(grid.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["background.paper.blank"].isSelected, "new pages start blank")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  DEFAULT")
         grid.tap()
         XCTAssertTrue(grid.isSelected)
-        let gridShot = XCTAttachment(screenshot: app.screenshot())
-        gridShot.name = "grid paper"
-        gridShot.lifetime = .keepAlways
-        add(gridShot)
 
-        let lilac = app.buttons["background.color.#E5D9F0"]
+        let lilac = app.buttons["background.color.#E6D9F0"]
         lilac.tap()
         XCTAssertTrue(lilac.isSelected)
-        XCTAssertFalse(app.buttons["background.default"].isSelected)
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  #E6D9F0", "the preview wears the page color")
 
-        app.buttons["background.default"].tap()
-        XCTAssertTrue(app.buttons["background.default"].isSelected)
-        XCTAssertFalse(lilac.isSelected)
-        XCTAssertTrue(grid.isSelected, "Default resets the color, not the paper")
+        app.buttons["Undo"].tap()
+        XCTAssertFalse(lilac.isSelected, "one undo takes the color off")
+        XCTAssertTrue(grid.isSelected, "and leaves the paper")
+
+        lilac.tap()
+        lilac.tap()
+        XCTAssertFalse(lilac.isSelected, "the chosen dot, tapped again, resets")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  DEFAULT")
+        XCTAssertTrue(grid.isSelected, "resetting the color keeps the paper")
     }
 
-    // Default restores the built-in backdrop after a painted one.
-    func testBackgroundToolDefaultClearsPaintedBackdrop() {
+    // The hex field takes any #RRGGBB; a swatch's hex selects that swatch,
+    // and nonsense leaves the page as it was.
+    func testHexEntrySetsThePageColor() {
+        startMemory()
+        openTool()
+        let hex = app.textFields["background.hex"]
+        XCTAssertTrue(hex.waitForExistence(timeout: 5))
+        hex.tap()
+        hex.typeText("d1e0f0\n")
+        XCTAssertTrue(app.buttons["background.color.#D1E0F0"].isSelected, "Sky, typed by hand")
+        XCTAssertEqual(hex.value as? String, "#D1E0F0", "the field shows the page's hex")
+
+        // Return lowered the keyboard; focus again once it is gone.
+        let keyboardGone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "count == 0"), object: app.keyboards)
+        XCTAssertEqual(XCTWaiter().wait(for: [keyboardGone], timeout: 5), .completed)
+        hex.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        hex.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 7) + "not a color\n")
+        XCTAssertTrue(app.buttons["background.color.#D1E0F0"].isSelected, "nonsense changes nothing")
+        XCTAssertEqual(hex.value as? String, "#D1E0F0")
+    }
+
+    // A painted backdrop is nobody's swatch; any dot replaces it.
+    func testASwatchReplacesAPaintedBackdrop() {
         startMemory()
         ask("give this page a sunset background")
         let first = app.buttons["mira.imageChoice.0"]
         XCTAssertTrue(first.waitForExistence(timeout: 8))
         first.tap()
         XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
+        app.buttons["mira.keep"].tap()
 
-        app.buttons["mode.background"].tap()
-        let defaultChip = app.buttons["background.default"]
-        XCTAssertTrue(defaultChip.waitForExistence(timeout: 5))
-        XCTAssertFalse(defaultChip.isSelected, "a painted page is not on the default")
-        defaultChip.tap()
-
-        // The panel stays open (paper and color sit beside Default).
-        XCTAssertTrue(defaultChip.isSelected, "back on the default backdrop")
+        openTool()
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  PAINTED")
+        let paper = app.buttons["background.color.#F6F4E8"]
+        XCTAssertFalse(paper.isSelected, "a painted page wears no swatch")
+        paper.tap()
+        XCTAssertTrue(paper.isSelected, "the dot replaced the painting")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  #F6F4E8")
     }
 }

@@ -18,17 +18,15 @@ final class CanvasVisionUITests: XCTestCase {
     func testAskingMiraToMoveSomethingLandsAReceiptAndReverts() {
         let app = launchCanvas()
 
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 10), "the canvas ask bar is there")
-        input.tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 10), "the canvas ask bar is there")
         // Return submits (the field's submitLabel is .go). Tapping a
         // button named "Go" is ambiguous -- the keyboard has one too.
-        input.typeText("move the title to the top\n")
+        app.askMira("move the title to the top")
 
         let receipt = app.staticTexts["mira.receipt"]
         XCTAssertTrue(
             receipt.waitForExistence(timeout: 10),
-            "a canvas edit shows the Keep-pattern receipt"
+            "a canvas edit shows the result sheet"
         )
         XCTAssertEqual(receipt.label, "Moved the title.")
 
@@ -60,14 +58,12 @@ final class CanvasVisionUITests: XCTestCase {
         app.launchArguments += ["-MIRANOTE_CHAT_LIVE", "YES"]
         app.launch()
 
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 10))
-        input.tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 10))
         // Deliberately outside MockChatService's vocabulary (it only
         // answers move/tidy/arrange/bigger/smaller). If this lands an
         // edit, a real model read the page map and chose the element --
         // the mock could not have produced it.
-        input.typeText("put the photo behind everything else\n")
+        app.askMira("put the photo behind everything else")
 
         let receipt = app.staticTexts["mira.receipt"]
         if !receipt.waitForExistence(timeout: 70) {
