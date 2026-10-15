@@ -62,6 +62,8 @@ struct CanvasScene: View {
     @State private var recentPhotos = RecentPhotos()
     @State private var libraryPicks: [LibraryPhoto] = []
     @State private var importingPicks = false
+    /// Bumped when a visit or a pick is left; a slower import checks it.
+    @State private var importGeneration = 0
     /// The photos this Image visit placed: its Cancel takes them back.
     @State private var placedThisVisit: [CanvasItem.ID] = []
     @State private var imageNotice: String?
@@ -688,6 +690,7 @@ struct CanvasScene: View {
         case .library:
             return Header(leading: "Cancel", trailing: "Add", onLeading: {
                 libraryPicks = []
+                cancelImport()
                 imagePhase = placedThisVisit.isEmpty ? .choose : .placed
             }, onTrailing: addPicks)
         case .placed:
@@ -707,6 +710,7 @@ struct CanvasScene: View {
         imageNotice = nil
         libraryPicks = []
         placedThisVisit = []
+        cancelImport()
         imagePhase = .choose
     }
 
@@ -716,6 +720,14 @@ struct CanvasScene: View {
         libraryPicks = []
         placedThisVisit = []
         imageNotice = nil
+        cancelImport()
+    }
+
+    /// A slow import (iCloud originals) still loading belongs to a visit,
+    /// or a pick, the user has left: it must not land afterwards.
+    private func cancelImport() {
+        importGeneration += 1
+        importingPicks = false
     }
 
     /// Cancel after placing: this visit's photos come off as one step.
@@ -755,7 +767,7 @@ struct CanvasScene: View {
                     selection: $libraryPicks,
                     onEditing: editPick,
                     onSystemPicks: { items in
-                        importPicks(load: { await placer.place(items) }) { _ in imagePhase = .placed }
+                        importPicks(load: { await PhotoPlacer.data(for: items) }) { _ in imagePhase = .placed }
                     }
                 )
                 .transition(.opacity)
@@ -806,22 +818,26 @@ struct CanvasScene: View {
         }
     }
 
-    /// Places the grid's picks; nothing when none are picked.
-    private var libraryLoad: () async -> [CanvasItem.ID] {
+    /// Loads the grid's picks; nothing when none are picked.
+    private var libraryLoad: () async -> [Data] {
         let picks = libraryPicks
         let library = recentPhotos
-        let placer = self.placer
-        return { placer.place(await library.data(for: picks)) }
+        return { await library.data(for: picks) }
     }
 
+    /// Loads the picks, then places them -- only if the user is still on
+    /// the same pick of the same Image visit.
     private func importPicks(
-        load: @escaping () async -> [CanvasItem.ID],
+        load: @escaping () async -> [Data],
         then: @escaping ([CanvasItem.ID]) -> Void
     ) {
         guard !importingPicks else { return }
         importingPicks = true
+        let generation = importGeneration
         Task {
-            let ids = await load()
+            let photos = await load()
+            guard generation == importGeneration else { return }
+            let ids = placer.place(photos)
             importingPicks = false
             libraryPicks = []
             guard !ids.isEmpty else {

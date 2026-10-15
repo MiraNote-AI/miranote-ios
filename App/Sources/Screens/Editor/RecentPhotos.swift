@@ -16,7 +16,8 @@ struct LibraryPhoto: Identifiable, Hashable {
 @Observable
 final class RecentPhotos {
     enum Access: Equatable {
-        case unknown, granted, denied
+        /// `limited`: only the photos the user chose to share.
+        case unknown, granted, limited, denied
     }
 
     private(set) var access: Access = .unknown
@@ -26,6 +27,10 @@ final class RecentPhotos {
     private let imageManager = PHCachingImageManager()
     private var assets: [String: PHAsset] = [:]
     private var thumbnails: [String: UIImage] = [:]
+    /// Refetches when the library changes -- photos shared through the
+    /// limited picker show without reopening the tool.
+    /// Set once on the main actor; read again only by deinit.
+    @ObservationIgnored nonisolated(unsafe) private var observer: LibraryObserver?
 
     init() {
         #if DEBUG
@@ -36,11 +41,19 @@ final class RecentPhotos {
         #endif
     }
 
-    /// Asks once (limited access counts as granted) and fetches the newest 60.
+    deinit {
+        if let observer { PHPhotoLibrary.shared().unregisterChangeObserver(observer) }
+    }
+
+    /// Asks once and fetches the newest 60, then follows library changes.
     func load() async {
         if usesSamples {
             photos = Self.sampleColors.indices.map { LibraryPhoto(id: "sample-\($0)") }
             access = .granted
+            #if DEBUG
+            // -UITEST: the limited-access sheet, on the same samples.
+            if ProcessInfo.processInfo.arguments.contains("-PHOTOS-LIMITED") { access = .limited }
+            #endif
             return
         }
         var status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -51,6 +64,27 @@ final class RecentPhotos {
             access = .denied
             return
         }
+        fetch()
+        access = status == .limited ? .limited : .granted
+        if observer == nil {
+            let observer = LibraryObserver { [weak self] in
+                Task { @MainActor in self?.fetch() }
+            }
+            PHPhotoLibrary.shared().register(observer)
+            self.observer = observer
+        }
+    }
+
+    /// Limited access: the system sheet that shares more photos with the
+    /// app; the change observer brings them into the grid.
+    func shareMorePhotos() {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard var top = scene?.keyWindow?.rootViewController else { return }
+        while let presented = top.presentedViewController { top = presented }
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: top)
+    }
+
+    private func fetch() {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.fetchLimit = 60
@@ -61,7 +95,6 @@ final class RecentPhotos {
             fetched.append(LibraryPhoto(id: asset.localIdentifier))
         }
         photos = fetched
-        access = .granted
     }
 
     func thumbnail(_ photo: LibraryPhoto, side: CGFloat) async -> UIImage? {
@@ -110,6 +143,19 @@ final class RecentPhotos {
             if let raw, let scaled = UIImage(data: raw)?.downscaled() { result.append(scaled) }
         }
         return result
+    }
+
+    /// PhotoKit calls back on its own queue; the owner hops to the main actor.
+    private final class LibraryObserver: NSObject, PHPhotoLibraryChangeObserver {
+        let onChange: @Sendable () -> Void
+
+        init(onChange: @escaping @Sendable () -> Void) {
+            self.onChange = onChange
+        }
+
+        func photoLibraryDidChange(_ changeInstance: PHChange) {
+            onChange()
+        }
     }
 
     // MARK: -UITEST samples

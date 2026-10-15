@@ -83,6 +83,23 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(photos.count, 2, "one undo returns them")
     }
 
+    // Limited library access: the grid shows the photos the user shared,
+    // and the sheet offers more -- the system's limited picker, or the
+    // system photo picker for a one-off pick.
+    func testLimitedAccessOffersTheOtherPhotos() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-PHOTOS-LIMITED"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        openRecents()
+
+        XCTAssertTrue(app.buttons["image.library.more"].exists, "share more photos with MiraNote")
+        XCTAssertTrue(app.buttons["image.library.system"].exists, "or pick any photo once")
+        XCTAssertTrue(any("image.library.photo.0").isHittable, "the shared photos are still the grid")
+    }
+
     func testOnePickOffersEditingAndLiftsIt() {
         openRecents()
         any("image.library.photo.3").tap()

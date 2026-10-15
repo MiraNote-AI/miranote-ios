@@ -70,16 +70,16 @@ struct PhotoPlacer {
         photos.compactMap { place($0, name: "Library photo") }
     }
 
-    /// The system picker's picks (no library access), in pick order.
-    func place(_ items: [PhotosPickerItem]) async -> [CanvasItem.ID] {
-        var placed: [CanvasItem.ID] = []
+    /// The system picker's picks' bytes, downscaled for the canvas, in pick
+    /// order (those that load).
+    static func data(for items: [PhotosPickerItem]) async -> [Data] {
+        var loaded: [Data] = []
         for item in items {
             guard let data = try? await item.loadTransferable(type: Data.self),
-                  let scaled = UIImage(data: data)?.downscaled(),
-                  let id = place(scaled, name: "Library photo") else { continue }
-            placed.append(id)
+                  let scaled = UIImage(data: data)?.downscaled() else { continue }
+            loaded.append(scaled)
         }
-        return placed
+        return loaded
     }
 
     /// Vision looks at the photo once, off the main path; the sentence
@@ -226,6 +226,11 @@ struct RecentsSheet: View {
                         .frame(height: 284, alignment: .top)
                 case .granted:
                     grid
+                case .limited:
+                    VStack(alignment: .leading, spacing: 12) {
+                        limitedBar
+                        grid
+                    }
                 }
             }
             .padding(.bottom, 24)
@@ -271,17 +276,40 @@ struct RecentsSheet: View {
                     }
                 }
                 .buttonStyle(NavPill(prominent: true))
-                PhotosPicker(
-                    selection: $systemPicks,
-                    maxSelectionCount: MiraNoteConfig.maxImagesPerAdd,
-                    matching: .images
-                ) {
-                    Text("Pick photos")
-                }
-                .buttonStyle(NavPill(prominent: false))
-                .accessibilityIdentifier("image.library.system")
+                systemPicker
             }
         }
+    }
+
+    /// Limited access: the grid holds only the photos the user shared, so
+    /// the sheet offers the others -- share more (the system's limited
+    /// picker; the grid follows), or pick a few once.
+    private var limitedBar: some View {
+        HStack(spacing: 8) {
+            Text("Only the photos you shared show here.")
+                .font(.miraComposer)
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button("Share more", action: library.shareMorePhotos)
+                .buttonStyle(NavPill(prominent: true))
+                .accessibilityIdentifier("image.library.more")
+            systemPicker
+        }
+    }
+
+    /// The system photo picker: any photo, without library access.
+    private var systemPicker: some View {
+        PhotosPicker(
+            selection: $systemPicks,
+            maxSelectionCount: MiraNoteConfig.maxImagesPerAdd,
+            matching: .images
+        ) {
+            Text("Pick photos")
+        }
+        .buttonStyle(NavPill(prominent: false))
+        .accessibilityIdentifier("image.library.system")
     }
 
     private func order(of photo: LibraryPhoto) -> Int? {
