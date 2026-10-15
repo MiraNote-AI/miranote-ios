@@ -65,6 +65,9 @@ public final class CanvasViewModel {
         }
     }
     private var history: [UndoSnapshot] = []
+    /// Steps undone since the last change, newest last; any new change
+    /// drops them (a redo after an edit would rewrite the edit away).
+    private var future: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
         UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
                      backgroundSummary: memory.backgroundSummary,
@@ -101,9 +104,32 @@ public final class CanvasViewModel {
 
     public var canUndo: Bool { !history.isEmpty }
 
+    public var canRedo: Bool { !future.isEmpty }
+
     public func beginChange() {
         changeCount += 1
-        history.append(currentSnapshot)
+        future.removeAll()
+        pushHistory(currentSnapshot)
+    }
+
+    public func undo() {
+        guard let snapshot = history.popLast() else { return }
+        if let steps = sessionSteps {
+            sessionSteps = steps > 0 ? steps - 1 : nil
+        }
+        future.append(currentSnapshot)
+        restore(snapshot)
+    }
+
+    /// Re-applies the step the last undo took back (handoff screens 32-34).
+    public func redo() {
+        guard let snapshot = future.popLast() else { return }
+        pushHistory(currentSnapshot)
+        restore(snapshot)
+    }
+
+    private func pushHistory(_ snapshot: UndoSnapshot) {
+        history.append(snapshot)
         if history.count > Self.historyCap {
             history.removeFirst()
         }
@@ -112,11 +138,7 @@ public final class CanvasViewModel {
         }
     }
 
-    public func undo() {
-        guard let snapshot = history.popLast() else { return }
-        if let steps = sessionSteps {
-            sessionSteps = steps > 0 ? steps - 1 : nil
-        }
+    private func restore(_ snapshot: UndoSnapshot) {
         changeCount += 1
         memory.items = snapshot.items
         memory.backgroundFileName = snapshot.backgroundFileName
@@ -164,6 +186,8 @@ public final class CanvasViewModel {
         if let steps = sessionSteps, steps < history.count {
             history.removeLast(steps)
             undo()
+            // Nothing of a cancelled session comes back by redo.
+            future.removeAll()
         }
         editingTextItemID = nil
     }
@@ -418,6 +442,9 @@ extension CanvasViewModel {
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
+        // Undone steps were taken with the husk on the page: redoing one
+        // would bring it back.
+        future.removeAll()
         var next = currentSnapshot
         var kept: [UndoSnapshot] = []
         while let last = history.last, last.items.contains(where: { $0.id == itemID && $0.isEmptyText }) {
