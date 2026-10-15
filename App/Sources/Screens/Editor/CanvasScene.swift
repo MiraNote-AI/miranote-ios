@@ -976,10 +976,11 @@ struct CanvasScene: View {
 
     /// Opening a page re-measures every text block against its real font
     /// metrics -- drafted and legacy pages arrive with estimated heights.
+    /// A block that grows pushes what is below it down (no undo step).
     private func remeasureTextBlocks() {
-        for item in editor.items {
-            guard case .text(let block) = item.content else { continue }
-            editor.autosizeTextHeight(itemID: item.id, to: TextMeasure.blockHeight(
+        editor.fitTextHeights { item in
+            guard case .text(let block) = item.content else { return nil }
+            return max(36, TextMeasure.blockHeight(
                 text: block.text,
                 pointSize: block.pointSize,
                 fontName: block.fontName,

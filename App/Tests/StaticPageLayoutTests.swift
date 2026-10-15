@@ -1,4 +1,5 @@
 import MiraNoteKit
+import UIKit
 import XCTest
 @testable import MiraNote
 
@@ -50,6 +51,38 @@ final class StaticPageLayoutTests: XCTestCase {
         let drawn = try XCTUnwrap(StaticPageView.laidOut(Memory(items: [short])).first)
         XCTAssertEqual(drawn.size.height, needed, accuracy: 0.5)
         XCTAssertEqual(drawn.position.y - drawn.size.height / 2, 80, accuracy: 0.5, "the top stays put")
+    }
+
+    /// A legacy page laid out by Tidy (24 pt gaps): a paragraph saved at its
+    /// old height, then a photo added later. The grown paragraph must not
+    /// run under the photo in Reading, covers or exports.
+    func testAGrownLegacyBlockDoesNotRunUnderTheElementBelow() throws {
+        let text = "Sunny afternoon, tiny noodle shop by the bridge. We sat by the window and watched "
+            + "the boats go by while the broth cooled, and then walked home along the river."
+        // The height TextMeasure gave before #105 (6 pt padding, no line spacing).
+        let font = TextFace.uiFont(name: "", size: 15)
+        let bounds = (text as NSString).boundingRect(
+            with: CGSize(width: CGFloat(288 - 12), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: font], context: nil
+        )
+        let height: CGFloat = max(36, ceil(bounds.height) + 20)
+        let paragraph = CanvasItem(
+            content: .text(TextBlock(text: text, pointSize: 15)),
+            position: CGPoint(x: 195, y: 28 + height / 2), size: CGSize(width: 288, height: height), zIndex: 1
+        )
+        let photoTop = 28 + height + 24
+        let photo = CanvasItem(
+            content: .image(ImageRef(displayName: "photo")),
+            position: CGPoint(x: 195, y: photoTop + 105), size: CGSize(width: 328, height: 210), zIndex: 2
+        )
+        let drawn = StaticPageView.laidOut(Memory(items: [paragraph, photo]))
+        let grown = try XCTUnwrap(drawn.first { $0.id == paragraph.id })
+        let moved = try XCTUnwrap(drawn.first { $0.id == photo.id })
+        XCTAssertGreaterThan(grown.size.height, height, "the legacy box does grow")
+        XCTAssertLessThanOrEqual(grown.position.y + grown.size.height / 2, moved.position.y - moved.size.height / 2,
+                                 "grew \(grown.size.height - height) pt into the photo")
+        XCTAssertEqual(moved.position.y - photo.position.y, grown.size.height - height, accuracy: 0.5,
+                       "the photo moves down by the growth, keeping the 24 pt gap")
     }
 
     func testATallSavedBoxKeepsItsHeight() throws {

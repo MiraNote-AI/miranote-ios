@@ -23,18 +23,15 @@ struct StaticPageView: View {
     /// The page's elements as drawn: a text box saved shorter than its text
     /// now measures (pages saved under the old 6 pt padding, which only the
     /// editor re-measures) grows down to fit, top fixed, as the editor
-    /// would grow it. Taller boxes keep their height.
+    /// would grow it, and pushes the elements below it down by as much.
+    /// Taller boxes keep their height.
     static func laidOut(_ memory: Memory) -> [CanvasItem] {
-        memory.items.map { item in
-            guard case .text(let block) = item.content else { return item }
+        TextFit.apply(to: memory.items) { item in
+            guard case .text(let block) = item.content else { return nil }
             let needed = TextMeasure.blockHeight(
                 text: block.text, pointSize: block.pointSize, fontName: block.fontName, width: item.size.width
             )
-            guard needed > item.size.height + 0.5 else { return item }
-            var grown = item
-            grown.position.y += (needed - item.size.height) / 2
-            grown.size.height = needed
-            return grown
+            return needed > item.size.height + 0.5 ? needed : nil
         }
     }
 
