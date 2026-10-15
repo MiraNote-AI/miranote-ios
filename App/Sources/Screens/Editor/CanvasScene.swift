@@ -200,8 +200,8 @@ struct CanvasScene: View {
             trailing: header.trailing,
             onLeading: header.onLeading,
             onTrailing: header.onTrailing,
-            onUndo: writing ? undoFromHeader : editor.undo,
-            undoEnabled: editor.canUndo,
+            onUndo: headerUndo,
+            undoEnabled: headerUndoEnabled,
             leadingMuted: !writing,
             leadingID: writing ? "text.cancel" : nil,
             trailingID: writing ? "keyboard.done" : nil,
@@ -353,7 +353,9 @@ struct CanvasScene: View {
             // The panel let go of a photo: its session picks up from here,
             // unless something else changes the photo first (#102).
             if let left { notePhotoSeen(left) }
-            if now == nil { photoEdit = nil }
+            // An edit kept with Done runs on: its controller waits for the
+            // photo to be opened again.
+            if now == nil, photoEdit?.working != true { photoEdit = nil }
         }
         .sheet(isPresented: $showsCamera) {
             CameraCapture { image in
@@ -702,6 +704,18 @@ struct CanvasScene: View {
         }
     }
 
+    /// The header's undo: while a photo is lifted, only that visit's own
+    /// steps, like the floating Undo -- never a change under the scrim.
+    private var headerUndo: () -> Void {
+        if writing { return undoFromHeader }
+        if editingImageItem != nil { return { photoEdit?.undo() } }
+        return editor.undo
+    }
+
+    private var headerUndoEnabled: Bool {
+        editingImageItem != nil && !writing ? photoEdit?.canUndo == true : editor.canUndo
+    }
+
     // MARK: Image tool (handoff screens 23-26, 29)
 
     private var placer: PhotoPlacer { PhotoPlacer(editor: editor, studio: imageStudio) }
@@ -870,25 +884,29 @@ struct CanvasScene: View {
         if photoSession?.continues(id, showing: ref) != true {
             photoSession = PhotoSession(itemID: id, original: ref)
         }
-        photoEdit = PhotoEditController(
-            itemID: id,
-            editor: editor,
-            studio: imageStudio,
-            // Only this photo's session: a slow AI edit for A that lands
-            // after B was opened must not mark B as edited. One that lands
-            // after A's editor closed is still A's.
-            onEdited: {
-                guard photoSession?.itemID == id else { return }
-                photoSession?.edited = true
-                notePhotoSeen(id)
-            },
-            onClose: {
-                // A slow edit for photo A finishing while B is open must
-                // not close B's editor.
-                guard editingImageItem == id else { return }
-                closePhotoEditor()
-            }
-        )
+        // Done during an AI edit left it running: the same photo reopens on
+        // that controller, never a second one beside it.
+        photoEdit = PhotoEditController.opening(id, current: photoEdit) {
+            PhotoEditController(
+                itemID: id,
+                editor: editor,
+                studio: imageStudio,
+                // Only this photo's session: a slow AI edit for A that lands
+                // after B was opened must not mark B as edited. One that lands
+                // after A's editor closed is still A's.
+                onEdited: {
+                    guard photoSession?.itemID == id else { return }
+                    photoSession?.edited = true
+                    notePhotoSeen(id)
+                },
+                onClose: {
+                    // A slow edit for photo A finishing while B is open must
+                    // not close B's editor.
+                    guard editingImageItem == id else { return }
+                    closePhotoEditor()
+                }
+            )
+        }
         editingImageItem = id
     }
 
@@ -898,13 +916,12 @@ struct CanvasScene: View {
         editingImageItem = nil
     }
 
-    /// Cancel discards this visit: a running AI edit or cutout stops, and
+    /// Cancel discards this visit: its running AI edit or cutout stops, and
     /// the photo goes back to how this visit opened it -- one undoable step,
     /// none if unchanged. Edits kept with Done on an earlier visit stay.
     private func cancelPhotoEdit() {
         if let id = editingImageItem, let photoEdit, photoEdit.itemID == id {
-            photoEdit.cancelWork()
-            if let start = photoEdit.visitStart { editor.restoreImage(itemID: id, to: start) }
+            photoEdit.cancelVisit()
         }
         closePhotoEditor()
     }

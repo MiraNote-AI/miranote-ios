@@ -97,4 +97,83 @@ final class PhotoEditVisitTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(1_200))
         guard case .image = editor.item(id)?.content else { return XCTFail("the photo became a sticker") }
     }
+
+    // MARK: Done during an AI edit, then the same photo again
+
+    private func filterName(_ editor: CanvasViewModel, _ id: CanvasItem.ID) -> String? {
+        guard case .image(let ref) = editor.item(id)?.content else { return nil }
+        return ref.filterName
+    }
+
+    private struct RunningEdit {
+        let editor: CanvasViewModel
+        let id: CanvasItem.ID
+        let first: PhotoEditController
+    }
+
+    /// Visit 1 runs an AI edit and is closed with Done while it spins.
+    private func doneDuringAnAIEdit() throws -> RunningEdit {
+        let (editor, id) = try makePhoto()
+        let first = controller(editor, id, studio: SlowStudio())
+        first.tap(.ai)
+        first.prompt = "make it autumn"
+        first.runComposer()
+        XCTAssertTrue(first.working)
+        return RunningEdit(editor: editor, id: id, first: first)
+    }
+
+    func testReopeningAPhotoWhileItsEditRunsIsTheSameVisitShowingTheWork() throws {
+        let run = try doneDuringAnAIEdit()
+        let (editor, id, first) = (run.editor, run.id, run.first)
+        let reopened = PhotoEditController.opening(id, current: first) { controller(editor, id, studio: SlowStudio()) }
+        XCTAssertTrue(reopened === first, "never two controllers for one photo")
+        XCTAssertTrue(reopened.working, "the reopened editor shows the edit still on its way")
+    }
+
+    func testAFilterChosenAfterReopeningSurvivesTheEarlierEditAndCanBeUndone() async throws {
+        let run = try doneDuringAnAIEdit()
+        let (editor, id, first) = (run.editor, run.id, run.first)
+        let original = try XCTUnwrap(fileName(editor, id))
+        let reopened = PhotoEditController.opening(id, current: first) { controller(editor, id, studio: SlowStudio()) }
+        // B&W while the earlier edit still runs: it waits, or it lasts --
+        // never applied and then wiped by the late result.
+        reopened.tap(.bw)
+        let tookAtOnce = filterName(editor, id) == "bw"
+        try await Task.sleep(for: .milliseconds(1_200))
+        if tookAtOnce {
+            XCTAssertEqual(filterName(editor, id), "bw", "the late result wiped this visit's B&W")
+            XCTAssertTrue(reopened.canUndo, "and took its Undo with it")
+            return
+        }
+        reopened.tap(.bw)
+        XCTAssertEqual(filterName(editor, id), "bw")
+        XCTAssertTrue(reopened.canUndo, "this visit's B&W can be undone from its own Undo")
+        reopened.undo()
+        XCTAssertEqual(filterName(editor, id), "")
+        XCTAssertNotEqual(fileName(editor, id), original, "the edit kept with Done is not this visit's to undo")
+        XCTAssertFalse(reopened.canUndo)
+    }
+
+    func testCancellingTheReopenedVisitKeepsTheEditKeptWithDone() async throws {
+        let run = try doneDuringAnAIEdit()
+        let (editor, id, first) = (run.editor, run.id, run.first)
+        let original = try XCTUnwrap(fileName(editor, id))
+        let reopened = PhotoEditController.opening(id, current: first) { controller(editor, id, studio: SlowStudio()) }
+        try await Task.sleep(for: .milliseconds(1_200))
+        let edited = try XCTUnwrap(fileName(editor, id))
+        XCTAssertNotEqual(edited, original, "the AI edit kept with Done landed")
+
+        reopened.cancelVisit()
+        XCTAssertEqual(fileName(editor, id), edited, "Cancel on a visit that changed nothing keeps it")
+    }
+
+    func testCancellingTheReopenedVisitWhileTheEditRunsLetsItLand() async throws {
+        let run = try doneDuringAnAIEdit()
+        let (editor, id, first) = (run.editor, run.id, run.first)
+        let original = try XCTUnwrap(fileName(editor, id))
+        let reopened = PhotoEditController.opening(id, current: first) { controller(editor, id, studio: SlowStudio()) }
+        reopened.cancelVisit()
+        try await Task.sleep(for: .milliseconds(1_200))
+        XCTAssertNotEqual(fileName(editor, id), original, "the edit was kept with Done; this Cancel is not its")
+    }
 }

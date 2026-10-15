@@ -52,7 +52,10 @@ final class PhotoEditController {
     private(set) var isFavorite: Bool
     /// The photo as this visit opened it: Cancel puts it back. Edits kept
     /// with Done on an earlier visit are not this visit's to discard.
-    let visitStart: ImageRef?
+    private(set) var visitStart: ImageRef?
+    /// The running edit belongs to an earlier visit, closed with Done while
+    /// it ran (which keeps it): this visit starts where it lands.
+    private var workKeptByDone = false
 
     /// This visit's own undo steps on top of the page's history, and the
     /// page's change count right after the last of them. Any other change
@@ -92,6 +95,49 @@ final class PhotoEditController {
     }
 
     var comparing: Bool { pinnedCompare || holdingCompare }
+
+    /// The controller for a photo being opened. Done during an AI edit
+    /// keeps the edit running; opening the same photo again is that photo's
+    /// editor again, showing the work -- never a second controller whose
+    /// edits the late result would overwrite.
+    static func opening(
+        _ itemID: CanvasItem.ID,
+        current: PhotoEditController?,
+        make: () -> PhotoEditController
+    ) -> PhotoEditController {
+        guard let current, current.itemID == itemID, current.working else { return make() }
+        current.reopen()
+        return current
+    }
+
+    /// A new visit on a running edit kept with Done: none of the steps so
+    /// far are this visit's, and it starts from the edit's result.
+    private func reopen() {
+        workKeptByDone = true
+        ownSteps = 0
+        ownCount = nil
+        pinnedCompare = false
+        notice = nil
+    }
+
+    /// The header's Cancel: this visit's edits go, the photo back to how
+    /// the visit opened it (one step, none if unchanged). An edit kept with
+    /// Done on an earlier visit, running or landed, stays.
+    func cancelVisit() {
+        if workKeptByDone, working { return }
+        cancelWork()
+        if let visitStart { editor.restoreImage(itemID: itemID, to: visitStart) }
+    }
+
+    /// A result has landed: if it was an earlier visit's, kept with Done,
+    /// this visit begins after it.
+    private func landed() {
+        guard workKeptByDone else { return }
+        workKeptByDone = false
+        visitStart = currentRef
+        ownSteps = 0
+        ownCount = nil
+    }
 
     // MARK: This visit's steps
 
@@ -277,7 +323,10 @@ final class PhotoEditController {
         notice = nil
         self.work = Task {
             defer {
-                if !cancelled { working = false }
+                if !cancelled {
+                    working = false
+                    landed()
+                }
             }
             do {
                 try await work()
