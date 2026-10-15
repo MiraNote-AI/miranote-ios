@@ -13,10 +13,14 @@ struct StaticPageView: View {
     var soundStore = SoundFileStore()
     var player: SoundPlayer?
 
-    private var contentHeight: CGFloat {
+    /// The page's drawn height: its lowest element plus a margin, at least
+    /// one screenful.
+    static func contentHeight(of memory: Memory) -> CGFloat {
         let bottom = memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
         return max(620, bottom + 120)
     }
+
+    private var contentHeight: CGFloat { Self.contentHeight(of: memory) }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -78,10 +82,11 @@ struct StaticElementView: View {
         case .text(let block):
             Text(block.text)
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(Palette.color(named: block.colorName))
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
-                .padding(6)
+                .padding(TextFace.inset)
                 .textBlockBackground(block)
         case .image(let ref):
             if let image = CanvasImageCache.image(

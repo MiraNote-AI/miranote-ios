@@ -11,15 +11,13 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         text: TextTransformService = ScriptedText(),
         chat: ChatService = ScriptedChat(),
         workingDelay: Duration = .milliseconds(1),
-        timeout: Duration = .seconds(5),
-        receiptDismiss: Duration = .seconds(60)
+        timeout: Duration = .seconds(5)
     ) -> MiraCanvasCoordinator {
         MiraCanvasCoordinator(
             text: text,
             chat: chat,
             workingDelay: workingDelay,
-            timeout: timeout,
-            receiptDismiss: receiptDismiss
+            timeout: timeout
         )
     }
 
@@ -259,13 +257,40 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(untouched.materializedForEditing().items, untouched.items)
     }
 
-    func testReceiptKeepsByItselfAfterItsWindow() async {
+    // Screen 06's word chips run the turns their words always ran.
+    func testWordQuickActionsRunTheirTurns() async {
         let editor = makeEditor()
-        let coordinator = makeCoordinator(receiptDismiss: .milliseconds(120))
+        let coordinator = makeCoordinator()
+        coordinator.askQuickAction("Make text warmer", editor: editor)
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+        guard case .receipt(let receipt) = coordinator.phase else {
+            return XCTFail("warmer polishes the text, got \(coordinator.phase)")
+        }
+        XCTAssertTrue(coordinator.receiptCanRevert, "\(receipt.changed) is a real change")
+        coordinator.dismiss()
+
+        let blank = CanvasViewModel(memory: Memory())
+        coordinator.askQuickAction("Re-layout photos", editor: blank)
+        await waitUntil { if case .failure = coordinator.phase { return true } else { return false } }
+        guard case .failure(let failure) = coordinator.phase else {
+            return XCTFail("an empty page has nothing to lay out, got \(coordinator.phase)")
+        }
+        XCTAssertEqual(failure.kind, .clarify)
+    }
+
+    // Screen 07: the result sheet waits for Keep or Revert -- it never
+    // keeps by itself.
+    func testReceiptWaitsForKeepOrRevert() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator()
         coordinator.ask("polish the text", editor: editor)
         await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
-        await waitUntil(.seconds(2)) { if case .idle = coordinator.phase { return true } else { return false } }
-        guard case .idle = coordinator.phase else { return XCTFail("receipt must keep by itself") }
+        try? await Task.sleep(for: .milliseconds(500))
+        guard case .receipt = coordinator.phase else { return XCTFail("the receipt must wait for a choice") }
+        XCTAssertTrue(coordinator.receiptCanRevert)
+
+        coordinator.dismiss()
+        XCTAssertEqual(coordinator.phase, .idle, "Keep closes it and keeps the change")
     }
 
     func testSuggestionsAreContextAware() {

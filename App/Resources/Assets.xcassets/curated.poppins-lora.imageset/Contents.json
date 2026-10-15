@@ -1,0 +1,13 @@
+{
+  "images": [
+    {
+      "filename": "curated.poppins-lora.jpg",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

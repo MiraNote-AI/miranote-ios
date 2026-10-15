@@ -24,6 +24,8 @@ final class OnboardingAndHomeUITests: XCTestCase {
         XCTAssertTrue(search.exists)
         XCTAssertLessThan(start.frame.maxY, search.frame.minY, "Start sits above the search pill")
         XCTAssertGreaterThanOrEqual(start.frame.height, 90, "the handoff's large Start button")
+        XCTAssertEqual(app.buttons["collection.Daily Log"].label, "Daily Log",
+                       "cards carry their title only, no note count (screen 01)")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "home"
         shot.lifetime = .keepAlways
@@ -35,6 +37,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(intro.waitForExistence(timeout: 5), "a first blank page introduces the tools")
         XCTAssertTrue(app.staticTexts["Create your way"].exists)
+        XCTAssertTrue(app.staticTexts["Tap an icon to switch tools"].exists)
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "tools onboarding"
         shot.lifetime = .keepAlways
@@ -42,34 +45,53 @@ final class OnboardingAndHomeUITests: XCTestCase {
 
         app.buttons["onboarding.background"].tap()
         waitUntilGone(intro)
-        XCTAssertTrue(app.buttons["background.default"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.staticTexts["background.title"].waitForExistence(timeout: 5),
                       "the handoff flow goes on to the Background tool")
     }
 
-    func testSkipJustCloses() {
-        launch(["-HINT", "editor-tools"])
-        app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["onboarding.skip"].waitForExistence(timeout: 5))
-        app.buttons["onboarding.skip"].tap()
-        waitUntilGone(intro)
-        XCTAssertFalse(app.buttons["background.default"].exists)
-        XCTAssertTrue(app.buttons["mode.text"].exists)
-    }
-
-    // The tools behind the card do not act while it is up: a tap there
-    // lands on the scrim, which skips.
-    func testATapBesideTheCardSkipsWithoutActing() {
+    func testNextAlsoGoesOnToBackground() {
         launch(["-HINT", "editor-tools"])
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(intro.waitForExistence(timeout: 5))
-        // A modal card reaches accessibility as an alert: VoiceOver stays
-        // on it. (Snapshots still list the covered tools, so tap by place.)
-        XCTAssertEqual(intro.elementType, .alert, "the card is modal for VoiceOver")
-        let toolBar = CGVector(dx: intro.frame.midX, dy: intro.frame.maxY + 50)
-        app.coordinate(withNormalizedOffset: .zero).withOffset(toolBar).tap()
+        app.buttons["Next"].tap()
         waitUntilGone(intro)
-        XCTAssertFalse(app.descendants(matching: .any)["canvas.textEditor"].exists,
-                       "the Text tool behind the scrim did not fire")
+        XCTAssertTrue(app.staticTexts["background.title"].waitForExistence(timeout: 5))
+    }
+
+    func testBackJustCloses() {
+        launch(["-HINT", "editor-tools"])
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(intro.waitForExistence(timeout: 5))
+        app.buttons["Back"].tap()
+        waitUntilGone(intro)
+        XCTAssertFalse(app.staticTexts["background.title"].exists)
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5), "on the blank canvas")
+    }
+
+    // The introduction is a screen of its own: no tool bar acts while it is
+    // up, and a tap where the tool bar will be does nothing.
+    func testNoToolActsWhileTheIntroIsUp() {
+        launch(["-HINT", "editor-tools"])
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(intro.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["mode.text"].exists, "no tool bar under the introduction")
+        let toolBar = CGVector(dx: intro.frame.midX, dy: intro.frame.maxY + 40)
+        app.coordinate(withNormalizedOffset: .zero).withOffset(toolBar).tap()
+        sleep(1)
+        XCTAssertTrue(intro.exists, "the introduction stays until it is answered")
+        XCTAssertFalse(app.descendants(matching: .any)["canvas.textEditor"].exists)
+    }
+
+    // Tapping a tool's row (or its icon) graduates the introduction and
+    // opens that tool -- the Text row drops a block to type into.
+    func testTappingAToolRowOpensThatTool() {
+        launch(["-HINT", "editor-tools"])
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(intro.waitForExistence(timeout: 5))
+        app.buttons["onboarding.tool.text"].tap()
+        waitUntilGone(intro)
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.textEditor"].waitForExistence(timeout: 5),
+                      "the Text tool opened")
     }
 
     /// The card by id, whatever element type its modal trait gives it.

@@ -35,8 +35,8 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["warm broth, golden light"].waitForExistence(timeout: 5))
     }
 
-    // The Voice tool records in place: stop -> review -> Keep places a
-    // sound marker with its note pill on the canvas.
+    // The Voice tool records in place: Stop attaches the take as a marker
+    // ("tap to play") and Keep closes the result sheet with it on the page.
     func testSoundToolRecordsAndKeepPlacesMarker() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.voice"].waitForExistence(timeout: 5))
@@ -55,7 +55,14 @@ final class CanvasEditorUITests: XCTestCase {
 
         let keep = app.buttons["recorder.keep"]
         XCTAssertTrue(keep.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["tap to play"].exists, "attached before Keep (screen 09)")
         keep.tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keep)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed)
+        XCTAssertTrue(app.staticTexts["tap to play"].exists, "Keep leaves the marker on the page")
+
+        // Selected, the marker offers its note.
+        app.staticTexts["tap to play"].tap()
         XCTAssertTrue(app.staticTexts["Add a note"].waitForExistence(timeout: 5))
 
         // A title is a suggestion about words: keeping a sound on a
@@ -63,17 +70,18 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertFalse(app.buttons["mira.suggestion.Add a soft title"].exists)
     }
 
-    // The Image tool still opens its panel (contents are Phase D work).
+    // The Image tool opens its "Choose photos" sheet over the live canvas
+    // (screen 23).
     func testImageToolOpensPanel() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         addTextBlock("panel shows my page")
 
         app.buttons["mode.image"].tap()
-        XCTAssertTrue(app.staticTexts["Add an image"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Choose photos"].waitForExistence(timeout: 5))
 
-        // The page preview above the panel is the USER's live page --
-        // their words appear, the old catalog demo page does not.
+        // The page behind the sheet is the USER's live page -- their words
+        // appear, the old catalog demo page does not.
         XCTAssertTrue(
             app.staticTexts["panel shows my page"].waitForExistence(timeout: 3),
             "image panel renders the live canvas"
@@ -116,17 +124,23 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
 
-        // Back on the blank canvas: the two stored sample photos.
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        // On the live canvas: the two stored sample photos, the Image tool
+        // still open (screen 25) until its header Add keeps them.
         let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(
             app.descendants(matching: .any).matching(identifier: "element.image").count, 2
         )
+        let add = app.buttons["nav.trailing"]
+        XCTAssertEqual(add.label, "Add")
+        add.tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "element.image").count, 2)
     }
 
-    // The bar carries the handoff's five tools, and the Image panel no
-    // longer offers a sticker style -- stickers have their own tool.
+    // The bar carries the handoff's five tools; the Image sheet offers
+    // Photo Library / Camera / AI Sticker (screen 23) and no generate
+    // styles -- AI Sticker goes to the Sticker tool.
     func testFiveToolsAndImageHasNoStickerStyle() {
         app.buttons["Start a memory"].tap()
         for tool in ["background", "voice", "text", "image", "sticker"] {
@@ -135,14 +149,18 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertFalse(app.buttons["mode.library"].exists, "Saved became Sticker")
 
         app.buttons["mode.image"].tap()
-        app.buttons["image.source.generate"].tap()
-        XCTAssertTrue(app.buttons["image.style.photo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["image.library.open"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["image.camera.open"].exists)
+        XCTAssertFalse(app.buttons["image.style.photo"].exists)
         XCTAssertFalse(app.buttons["image.style.sticker"].exists)
+
+        app.buttons["image.source.sticker"].tap()
+        XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5), "AI Sticker opens the Sticker tool")
     }
 
-    // Stickers are made in the Sticker tool. Picking a result does not place
-    // it and does not file it in Favorites: the canvas asks where it goes,
-    // and the next tap on the paper lands it there.
+    // Stickers are made in the Sticker tool. Add does not place the showing
+    // result and does not file it in Favorites: the canvas asks where it
+    // goes, and the next tap on the paper lands it there.
     func testGenerateStickerPlacesElement() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
@@ -154,11 +172,13 @@ final class CanvasEditorUITests: XCTestCase {
         prompt.typeText("a coffee cup")
         app.buttons["sticker.generate.run"].tap()
 
-        let firstResult = app.buttons["sticker.result.0"]
+        let firstResult = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
-        firstResult.tap()
+        let add = app.buttons["nav.trailing"]
+        XCTAssertEqual(add.label, "Add")
+        add.tap()
 
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         let hint = app.staticTexts["canvas.place.hint"]
         XCTAssertTrue(hint.waitForExistence(timeout: 5), "the canvas asks where it should go")
 
@@ -170,34 +190,35 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the tap placed the sticker on the canvas")
     }
 
-    // Done round-trip (the save-does-not-wipe regression under autosave
-    // semantics): Done composes the memory -- its title taken from the most
-    // prominent text on the canvas -- files it into Daily Log, and returns
-    // Home.
-    func testDoneFilesMemoryAndReturnsHome() {
+    // Save round-trip (the save-does-not-wipe regression under autosave
+    // semantics): Save -- the handoff's label for the canvas's trailing
+    // pill -- composes the memory, its title taken from the most prominent
+    // text on the canvas, files it into Daily Log, and returns Home.
+    func testSaveFilesMemoryAndReturnsHome() {
         app.buttons["Start a memory"].tap()
         addTextBlock("golden broth by the window")
-        let done = app.buttons["Done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["Save"].exists)
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Done"].exists, "the canvas header says Save, as drawn")
 
-        done.tap()
+        save.tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
-        XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
+        // (Home cards no longer print a count -- screen 01 -- so count the
+        // collection's covers.)
+        app.buttons["collection.Daily Log"].tap()
+        let covers = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note.' AND identifier != 'note.add'"))
+        XCTAssertTrue(covers.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(covers.count, 3)
     }
 
-    // Mira applies a change atomically and shows the Keep-pattern receipt;
-    // Revert is one tap and restores the original.
+    // Mira applies a change atomically and shows the result sheet (screen
+    // 07); Revert is one tap and restores the original.
     func testMiraPolishShowsReceiptAndRevertRestores() {
         app.buttons["Start a memory"].tap()
         addTextBlock("sunny afternoon by the bridge")
 
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("polish the text")
-        app.buttons["mira.go"].tap()
+        app.askMira("polish the text")
 
         XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8))
         let polished = "(polished -- mock) sunny afternoon by the bridge"
@@ -222,19 +243,13 @@ final class CanvasEditorUITests: XCTestCase {
     func testPlaceReplyPutsOnlyTheLastReplyOnThePage() {
         app.buttons["Start a memory"].tap()
 
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("just chatting with you")
-        app.buttons["mira.go"].tap()
+        app.askMira("just chatting with you")
 
         let chip = app.buttons["Put this on the page"]
         XCTAssertTrue(chip.waitForExistence(timeout: 8), "reply card shows the place chip")
 
         // Second turn: the card now shows a multi-message transcript.
-        input.tap()
-        input.typeText("still just chatting")
-        app.buttons["mira.go"].tap()
+        app.askMira("still just chatting")
         XCTAssertTrue(chip.waitForExistence(timeout: 8))
 
         chip.tap()
@@ -259,18 +274,15 @@ final class CanvasEditorUITests: XCTestCase {
     // applies nothing and gives the words back.
     func testMiraStopRefillsPromptAndAppliesNothing() {
         app.buttons["Start a memory"].tap()
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("think about this slowly")
-        app.buttons["mira.go"].tap()
+        app.askMira("think about this slowly")
 
         let stop = app.buttons["mira.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5), "working bar appears with Stop")
         stop.tap()
 
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        XCTAssertEqual(input.value as? String, "think about this slowly", "prompt refilled")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.miraComposer.label, "think about this slowly", "prompt refilled")
+        XCTAssertTrue(app.buttons["mira.go"].isEnabled, "the words wait, ready to send again")
     }
 
     // Failure is a calm card with a retry chip; the prompt is refilled and
@@ -278,21 +290,17 @@ final class CanvasEditorUITests: XCTestCase {
     func testMiraFailureShowsRetryAndRefills() {
         app.buttons["Start a memory"].tap()
         addTextBlock("still here untouched")
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText("please fail now")
-        app.buttons["mira.go"].tap()
+        app.askMira("please fail now")
 
         XCTAssertTrue(app.staticTexts["mira.failure"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["mira.retry"].exists)
-        XCTAssertEqual(input.value as? String, "please fail now", "prompt refilled on failure")
+        XCTAssertEqual(app.miraComposer.label, "please fail now", "prompt refilled on failure")
         XCTAssertTrue(app.staticTexts["still here untouched"].exists, "canvas untouched")
     }
 
-    // Long-press Edit photo opens the treatment panel; Make sticker runs
-    // cutout + outline and replaces the photo with a sticker in place.
-    // Ask AI in the photo panel: one instruction, new pixels in place.
+    // Long-press Edit photo lifts the photo into the editor; Cutout lifts
+    // the subject and the photo becomes a sticker in place. AI Editing: one
+    // instruction, new pixels in place, the editor stays on the result.
     func testPhotoAIEditRunsAndConfirms() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
@@ -308,17 +316,22 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))
         app.buttons["Edit photo"].tap()
 
-        app.buttons["photo.section.ai"].tap()
-        let field = app.textFields["photo.ai.instruction"]
+        app.buttons["photo.tile.ai"].tap()
+        let field = app.textFields["photo.prompt"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("make it autumn")
-        app.buttons["photo.ai.run"].tap()
+        app.buttons["photo.composer.action"].tap()
 
         let closed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: field)
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 8), .completed,
-                       "the AI edit lands and the panel closes itself")
+                       "the AI edit lands and the composer turns to Done")
+        XCTAssertTrue(app.buttons["photo.undo"].isEnabled, "the edit is on the lifted photo")
+        app.buttons["photo.composer.action"].tap()
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: app.buttons["photo.undo"])
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 5), .completed, "Done closes the editor")
         let edited = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(edited.waitForExistence(timeout: 5), "the photo is still on the page")
@@ -359,8 +372,9 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         edit.tap()
 
-        app.buttons["photo.section.sticker"].tap()
-        app.buttons["photo.makeSticker"].tap()
+        app.buttons["photo.tile.cutout"].tap()
+        XCTAssertEqual(app.buttons["photo.composer.action"].label, "Edit")
+        app.buttons["photo.composer.action"].tap()
 
         let sticker = app.descendants(matching: .any)
             .matching(identifier: "element.sticker").firstMatch
