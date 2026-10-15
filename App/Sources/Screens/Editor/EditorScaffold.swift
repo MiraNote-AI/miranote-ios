@@ -22,6 +22,12 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
     var onTrailing: () -> Void = {}
     var onUndo: (() -> Void)?
     var undoEnabled = true
+    var leadingMuted = true
+    var leadingID: String?
+    var trailingID: String?
+    /// The text editing scrim (screens 11-20) over the margins around the
+    /// page; the header and the bottom cluster stay above it.
+    var dimmed = false
     @ViewBuilder var page: () -> Page
     @ViewBuilder var bottom: () -> Bottom
 
@@ -35,7 +41,10 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
                 onLeading: onLeading,
                 onTrailing: onTrailing,
                 onUndo: onUndo,
-                undoEnabled: undoEnabled
+                undoEnabled: undoEnabled,
+                leadingMuted: leadingMuted,
+                leadingID: leadingID,
+                trailingID: trailingID
             )
             page()
             // Handoff rhythm: canvas card, 20, tool bar, 16, composer, and
@@ -47,6 +56,14 @@ struct EditorScaffold<Page: View, Bottom: View>: View {
             }
             .padding(.bottom, 2)
         }
+        .background {
+            if dimmed {
+                Palette.editingScrim
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: dimmed)
         .screenBackground()
     }
 }

@@ -285,6 +285,9 @@ struct MiraBar: View {
     @Bindable var editor: CanvasViewModel
     @Binding var prompt: String
     var promptFocus: FocusState<Bool>.Binding
+    /// "Type or polish your memory" in Text mode (screens 10, 14, 20),
+    /// "Ask Mira to refine..." with an element selected (screen 21).
+    var placeholder = "Ask Mira anything"
 
     var body: some View {
         Group {
@@ -307,9 +310,9 @@ struct MiraBar: View {
         // pill 9 from the capsule's trailing edge, 54 tall.
         HStack(spacing: 8) {
             TextField(
-                "Ask Mira anything",
+                placeholder,
                 text: $prompt,
-                prompt: Text("Ask Mira anything").foregroundStyle(Palette.muted)
+                prompt: Text(placeholder).foregroundStyle(Palette.muted)
             )
                 .font(.miraComposer)
                 .foregroundStyle(Palette.ink)

@@ -16,6 +16,11 @@ struct TopBar: View {
     var onUndo: (() -> Void)?
     /// Dims and disables the undo icon when there is nothing to undo.
     var undoEnabled = true
+    /// The way-back label is muted on editor scenes; text editing's
+    /// "Cancel" is drawn in ink (screens 10-20).
+    var leadingMuted = true
+    var leadingID: String?
+    var trailingID: String?
 
     var body: some View {
         ZStack {
@@ -56,7 +61,8 @@ struct TopBar: View {
                             Text(leading)
                         }
                     }
-                    .buttonStyle(NavPill(prominent: false, muted: true, width: NavPill.leadingWidth))
+                    .buttonStyle(NavPill(prominent: false, muted: leadingMuted, width: NavPill.leadingWidth))
+                    .optionalIdentifier(leadingID)
                 }
 
                 Spacer()
@@ -64,12 +70,23 @@ struct TopBar: View {
                 if let trailing {
                     Button(trailing, action: onTrailing)
                         .buttonStyle(NavPill(prominent: true, width: NavPill.trailingWidth))
+                        .optionalIdentifier(trailingID)
                 }
             }
         }
         .padding(.horizontal, Metrics.chromeInset)
         .padding(.top, 2)
         .padding(.bottom, Metrics.navToCanvas)
+    }
+}
+
+private extension View {
+    @ViewBuilder func optionalIdentifier(_ identifier: String?) -> some View {
+        if let identifier {
+            accessibilityIdentifier(identifier)
+        } else {
+            self
+        }
     }
 }
 

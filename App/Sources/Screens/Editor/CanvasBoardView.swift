@@ -70,7 +70,12 @@ struct CanvasBoardView: View {
             }
             // The card holds still; the page scrolls inside it.
             .canvasCard()
-            .onChange(of: editor.editingTextItemID) { _, id in bring(id, into: proxy) }
+            // The page keeps its full height under the keyboard while
+            // writing: the block rides in the upper third, clear of the
+            // keyboard and the text chrome over the page's lower part.
+            .onChange(of: editor.editingTextItemID) { _, id in
+                bring(id, into: proxy, anchor: UnitPoint(x: 0.5, y: 0.3))
+            }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
             .onChange(of: revealItem.wrappedValue) { _, id in
                 guard let id, let item = editor.item(id) else { return }
@@ -126,9 +131,25 @@ struct CanvasBoardView: View {
         }
     }
 
+    /// While words are written the page goes under the dim glass scrim
+    /// (screens 11-20): everything but the edited block blurs and dims.
+    private var writing: Bool { editor.editingTextItemID != nil }
+
     private var board: some View {
         ZStack(alignment: .topLeading) {
             paper
+                .blur(radius: writing ? 4 : 0)
+            if writing {
+                // Taps fall through to the paper, which ends editing.
+                Rectangle()
+                    .fill(Palette.editingScrim)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .accessibilityElement()
+                    .accessibilityLabel("Writing")
+                    .accessibilityIdentifier("text.scrim")
+            }
             if editor.items.isEmpty {
                 // On a soft paper chip: the grey was tuned for cream paper
                 // and vanishes mid-gradient (Meng, 2026-07-11); the chip
@@ -148,7 +169,10 @@ struct CanvasBoardView: View {
                     .allowsHitTesting(false)
             }
             ForEach(editor.orderedItems) { item in
+                let edited = editor.editingTextItemID == item.id
                 element(item)
+                    .blur(radius: writing && !edited ? 4 : 0)
+                    .zIndex(edited ? 2 : 0)
             }
             if let revealFrame {
                 // Elements are placed with .position, which stretches their
@@ -163,6 +187,7 @@ struct CanvasBoardView: View {
                     .id(Self.revealAnchorID)
             }
         }
+        .animation(.easeOut(duration: 0.2), value: writing)
         .frame(width: MiraNoteConfig.pageWidth, height: boardHeight)
         // No identifier on the container: SwiftUI cascades a parent
         // accessibilityIdentifier onto contained elements, masking child
@@ -183,9 +208,9 @@ struct CanvasBoardView: View {
         max(minBoardHeight, visibleFrame.height, editor.contentBottom + 240)
     }
 
-    private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy) {
+    private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy, anchor: UnitPoint = .center) {
         guard let id else { return }
-        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .center) }
+        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: anchor) }
     }
 
     /// The page itself -- its backdrop stretches with the content, so the
@@ -361,25 +386,29 @@ extension CanvasBoardView {
             }
     }
 
-    /// Dashed selection frame with four corner dots. Corner drags resize
-    /// around the opposite corner; deltas are applied in unrotated space (a
-    /// deliberate simplification -- scrapbook tilts stay small).
+    /// The arrange-state frame (handoff screen 21): a 1 pt dashed #263521
+    /// r16 frame 6 outside the element, with 10 pt corner handles that hit-
+    /// test at 44. Corner drags resize around the opposite corner; deltas
+    /// are applied in unrotated space (a deliberate simplification --
+    /// scrapbook tilts stay small).
     private func handles(for item: CanvasItem, size: CGSize) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(
-                    Palette.ink.opacity(0.55),
-                    style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])
-                )
+        let line = Color(hex: 0x263521)
+        let outset: CGFloat = 6
+        return ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(line, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .padding(-outset)
+                .allowsHitTesting(false)
             ForEach(HandleCorner.allCases, id: \.self) { corner in
                 Circle()
-                    .fill(Palette.onInk)
-                    .overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1.4))
-                    .frame(width: 14, height: 14)
-                    .contentShape(Circle().inset(by: -10))
+                    .fill(Palette.warmWhite)
+                    .overlay(Circle().strokeBorder(line, lineWidth: 1))
+                    .frame(width: 10, height: 10)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
                     .offset(
-                        x: corner.sign.x * size.width / 2,
-                        y: corner.sign.y * size.height / 2
+                        x: corner.sign.x * (size.width / 2 + outset),
+                        y: corner.sign.y * (size.height / 2 + outset)
                     )
                     .gesture(resizeGesture(item, corner: corner))
             }
