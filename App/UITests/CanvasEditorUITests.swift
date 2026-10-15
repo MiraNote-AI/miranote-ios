@@ -204,7 +204,12 @@ final class CanvasEditorUITests: XCTestCase {
         save.tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
         // Daily Log seeds 2 notes; filing the finished memory makes it 3.
-        XCTAssertTrue(app.staticTexts["3 notes"].waitForExistence(timeout: 5))
+        // (Home cards no longer print a count -- screen 01 -- so count the
+        // collection's covers.)
+        app.buttons["collection.Daily Log"].tap()
+        let covers = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note.' AND identifier != 'note.add'"))
+        XCTAssertTrue(covers.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(covers.count, 3)
     }
 
     // Mira applies a change atomically and shows the result sheet (screen
