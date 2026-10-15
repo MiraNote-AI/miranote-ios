@@ -21,4 +21,13 @@ enum Metrics {
     static let sheetCorner: CGFloat = 26
     static let chipCorner: CGFloat = 13
     static let hairline: CGFloat = 1
+
+    /// The gap under the editor's bottom cluster, inside the safe area: 2
+    /// above the home indicator as drawn (36 above the screen edge), 10
+    /// above a keyboard, 16 above the edge of a phone without a home
+    /// indicator (iPhone SE).
+    static func bottomGap(safeAreaBottom inset: CGFloat) -> CGFloat {
+        if inset > 100 { return 10 }
+        return max(2, 16 - inset)
+    }
 }

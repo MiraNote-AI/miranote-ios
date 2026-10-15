@@ -41,6 +41,7 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
     @ViewBuilder var page: () -> Page
     @ViewBuilder var sheet: () -> Sheet
     @ViewBuilder var bottom: () -> Bottom
+    @State private var bottomInset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -81,8 +82,9 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
             VStack(spacing: 16) {
                 bottom()
             }
-            .padding(.bottom, 2)
+            .padding(.bottom, Metrics.bottomGap(safeAreaBottom: bottomInset))
         }
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { bottomInset = $0 }
         // Beside and around the card the scrim tints the paper; the card
         // carries its own (blurred) layer above.
         .background {
