@@ -1,8 +1,8 @@
 import XCTest
 
 /// Handoff screen 02 with the owner's WeChat-style composer: voice toggle on
-/// the left, "+" on the right that becomes the Send pill once there is
-/// something to send. Leaves by the Home pill.
+/// the left, "+" on the right that stays, and the Send pill beside it once
+/// there is something to send. Return sends. Leaves by the Home pill.
 final class MiraChatStyleUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -46,11 +46,13 @@ final class MiraChatStyleUITests: XCTestCase {
         let send = app.buttons["chat.send"]
         XCTAssertTrue(send.waitForExistence(timeout: 5))
         XCTAssertEqual(send.label, "Send")
-        XCTAssertFalse(app.buttons["chat.plus"].exists, "+ became Send")
+        // Owner decision: "+" stays beside Send, so photos can follow words
+        // (this used to assert that "+" became Send).
+        XCTAssertTrue(app.buttons["chat.plus"].exists, "+ stays beside Send")
         attach("chat-typing")
         send.tap()
         XCTAssertTrue(app.staticTexts["one more thing"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["chat.plus"].waitForExistence(timeout: 5), "Send went back to +")
+        XCTAssertTrue(send.waitForNonExistence(timeout: 5), "nothing left to send")
 
         app.buttons["chat.home"].tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
@@ -140,6 +142,28 @@ final class MiraChatStyleUITests: XCTestCase {
         app.buttons["chat.staged.0.remove"].tap()
 
         XCTAssertFalse(app.descendants(matching: .any)["chat.staged.0"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["chat.plus"].waitForExistence(timeout: 3), "nothing to send: Send went back to +")
+        XCTAssertTrue(app.buttons["chat.send"].waitForNonExistence(timeout: 3), "nothing to send: Send goes")
+        XCTAssertTrue(app.buttons["chat.plus"].exists)
+    }
+
+    // The keyboard's Return sends (the field is multi-line, so onSubmit
+    // never fires); the review's probe.
+    func testReturnSendsTheDraft() {
+        openChat()
+        field.tap()
+        field.typeText("hello from return\n")
+        XCTAssertTrue(app.staticTexts["hello from return"].waitForExistence(timeout: 5), "sent as a bubble")
+        XCTAssertTrue(app.staticTexts["Ask Mira anything..."].waitForExistence(timeout: 5), "and the field is empty")
+    }
+
+    // A photo can be added after typing: "+" is still there.
+    func testAPhotoCanFollowTheWords() {
+        openChat()
+        field.tap()
+        field.typeText("look at this")
+        app.buttons["chat.plus"].tap()
+        app.buttons["chat.tray.camera"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["chat.staged.0"].waitForExistence(timeout: 5))
+        XCTAssertEqual(field.value as? String, "look at this", "the words wait with the photo")
     }
 }

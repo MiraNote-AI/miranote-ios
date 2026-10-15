@@ -92,7 +92,7 @@ struct MiraChatOverlay: View {
             // sends, as the keyboard's Go key says. Only a trailing new
             // line is Return: pasted lines stay in the field.
             .onChange(of: prompt) { _, words in
-                guard let typed = Self.returnPressed(in: words) else { return }
+                guard let typed = ReturnKey.pressed(in: words) else { return }
                 prompt = typed
                 onSend()
             }
@@ -182,13 +182,6 @@ struct MiraChatOverlay: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("mira.action.\(action)")
-    }
-
-    /// The words without the Return just typed after them; nil when the
-    /// field's text does not end in a new line (none, or lines pasted in).
-    static func returnPressed(in words: String) -> String? {
-        guard words.hasSuffix("\n") else { return nil }
-        return String(words.dropLast())
     }
 
     /// The handoff's warm grey for the panel's body line.

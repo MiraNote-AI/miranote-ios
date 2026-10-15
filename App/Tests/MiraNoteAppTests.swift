@@ -9,12 +9,12 @@ final class MiraNoteAppTests: XCTestCase {
         XCTAssertNotNil(MiraNoteApp.self)
     }
 
-    // In the Mira canvas chat only a trailing new line is Return: pasted
-    // lines (or a transcript with a line break) are never sent by themselves.
+    // In the Mira fields only a trailing new line is Return: pasted lines
+    // (or a transcript with a line break) are never sent by themselves.
     func testOnlyATrailingNewLineSendsTheMiraQuestion() {
-        XCTAssertEqual(MiraChatOverlay.returnPressed(in: "polish this\n"), "polish this")
-        XCTAssertNil(MiraChatOverlay.returnPressed(in: "line one\nline two"))
-        XCTAssertNil(MiraChatOverlay.returnPressed(in: "no return"))
+        XCTAssertEqual(ReturnKey.pressed(in: "polish this\n"), "polish this")
+        XCTAssertNil(ReturnKey.pressed(in: "line one\nline two"))
+        XCTAssertNil(ReturnKey.pressed(in: "no return"))
     }
 
     // The composer's bottom follows the safe area: 36 above the edge with a

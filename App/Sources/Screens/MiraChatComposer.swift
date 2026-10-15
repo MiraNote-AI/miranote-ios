@@ -23,9 +23,16 @@ struct MiraChatComposer: View {
     @State private var pickerItems: [PhotosPickerItem] = []
     /// A finger is down on "Hold to talk".
     @State private var holding = false
+    /// The hold as the gesture system sees it: it lets go even when the
+    /// system takes the touch (the first-use mic alert, a call) and the
+    /// gesture's onEnded never comes.
+    @GestureState private var touching = false
     /// The finger slid far enough up that letting go cancels.
     @State private var releaseCancels = false
+    /// Staged photos' thumbnails, decoded once per photo.
+    @State private var thumbnails: [StagedPhoto.ID: UIImage] = [:]
     @FocusState private var fieldFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Upward travel past which a release cancels the clip.
     private static let cancelTravel: CGFloat = 60
@@ -51,15 +58,38 @@ struct MiraChatComposer: View {
         .padding(.bottom, 8)
         .animation(.easeOut(duration: 0.2), value: trayOpen)
         .animation(.easeOut(duration: 0.15), value: showsSend)
-        .animation(.easeOut(duration: 0.15), value: viewModel.stagedImages.count)
+        .animation(.easeOut(duration: 0.15), value: viewModel.staged.count)
         .onChange(of: fieldFocused) { _, focused in
             if focused { trayOpen = false }
         }
-        .onChange(of: viewModel.draft) { viewModel.hint = nil }
+        .onChange(of: viewModel.draft) { _, words in
+            viewModel.hint = nil
+            // Return sends (the field is multi-line, so onSubmit never
+            // fires), through sendDraft so its guards apply.
+            guard let typed = ReturnKey.pressed(in: words) else { return }
+            viewModel.draft = typed
+            Task { await viewModel.sendDraft() }
+        }
+        // A hold the system cancelled never reaches onEnded: the mic stops
+        // with it. Leaving the chat or the app stops it too.
+        .onChange(of: touching) { _, down in
+            guard !down else { return }
+            Task { @MainActor in
+                // onEnded, when it comes, has run by now.
+                guard holding else { return }
+                holding = false
+                releaseCancels = false
+                viewModel.cancelVoice()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { stopListening() }
+        }
+        .onDisappear { stopListening() }
         .photosPicker(
             isPresented: $showPicker,
             selection: $pickerItems,
-            maxSelectionCount: max(1, ChatViewModel.maxStagedImages - viewModel.stagedImages.count),
+            maxSelectionCount: max(1, ChatViewModel.maxStagedImages - viewModel.staged.count - viewModel.loadingImages),
             matching: .images
         )
         .onChange(of: pickerItems) { _, items in stagePicked(items) }
@@ -75,7 +105,7 @@ struct MiraChatComposer: View {
 
     private var surface: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !viewModel.stagedImages.isEmpty {
+            if !viewModel.staged.isEmpty || viewModel.loadingImages > 0 {
                 stagedStrip
             }
             HStack(alignment: .bottom, spacing: 8) {
@@ -149,7 +179,6 @@ struct MiraChatComposer: View {
             .foregroundStyle(Palette.ink)
             .tint(Palette.forest)
             .submitLabel(.send)
-            .onSubmit { Task { await viewModel.sendDraft() } }
             .focused($fieldFocused)
             .accessibilityLabel("Message Mira")
             .accessibilityIdentifier("chat.field")
@@ -181,6 +210,7 @@ struct MiraChatComposer: View {
             .contentShape(Capsule())
             .gesture(
                 DragGesture(minimumDistance: 0)
+                    .updating($touching) { _, state, _ in state = true }
                     .onChanged { value in
                         if !holding {
                             holding = true
@@ -210,30 +240,31 @@ struct MiraChatComposer: View {
             .accessibilityIdentifier("chat.voice.hold")
     }
 
-    @ViewBuilder
+    /// "+" stays, so photos can be added after typing (owner decision);
+    /// Send joins it once there is something to send.
     private var rightSlot: some View {
-        if showsSend {
-            Button {
-                Task { await viewModel.sendDraft() }
-            } label: {
-                Text("Send")
-                    .font(Sans.font(size: 12, weight: 700))
-                    .foregroundStyle(Palette.onInk)
-                    .frame(width: 54, height: 34)
-                    .background(Capsule().fill(Palette.ink))
-                    .minimumHitTarget()
-            }
-            .buttonStyle(.plain)
-            .disabled(!viewModel.canSend)
-            .opacity(viewModel.canSend ? 1 : 0.45)
-            .accessibilityIdentifier("chat.send")
-            .transition(.opacity)
-        } else {
+        HStack(spacing: 8) {
             circleButton(symbol: "plus", label: "Add photos", id: "chat.plus") {
                 fieldFocused = false
                 trayOpen.toggle()
             }
-            .transition(.opacity)
+            if showsSend {
+                Button {
+                    Task { await viewModel.sendDraft() }
+                } label: {
+                    Text("Send")
+                        .font(Sans.font(size: 12, weight: 700))
+                        .foregroundStyle(Palette.onInk)
+                        .frame(width: 54, height: 34)
+                        .background(Capsule().fill(Palette.ink))
+                        .minimumHitTarget()
+                }
+                .buttonStyle(.plain)
+                .disabled(!viewModel.canSend)
+                .opacity(viewModel.canSend ? 1 : 0.45)
+                .accessibilityIdentifier("chat.send")
+                .transition(.opacity)
+            }
         }
     }
 
@@ -246,7 +277,15 @@ struct MiraChatComposer: View {
 
     private var showsSend: Bool {
         !viewModel.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !viewModel.stagedImages.isEmpty
+            || !viewModel.staged.isEmpty || viewModel.loadingImages > 0
+    }
+
+    /// The chat closed or the app left the foreground mid-take: the mic
+    /// stops and nothing is kept.
+    private func stopListening() {
+        holding = false
+        releaseCancels = false
+        viewModel.cancelVoice()
     }
 
     private var statusCaption: String? {
@@ -366,16 +405,19 @@ struct MiraChatComposer: View {
 
     private var stagedStrip: some View {
         HStack(spacing: 8) {
-            ForEach(Array(viewModel.stagedImages.enumerated()), id: \.offset) { index, data in
+            ForEach(Array(viewModel.staged.enumerated()), id: \.element.id) { index, photo in
                 ZStack(alignment: .topTrailing) {
                     Group {
-                        if let image = UIImage(data: data) {
+                        if let image = thumbnails[photo.id] {
                             Image(uiImage: image).resizable().scaledToFill()
                         } else {
                             Palette.cardFill
                         }
                     }
                     .frame(width: 56, height: 56)
+                    .task(id: photo.id) {
+                        if thumbnails[photo.id] == nil { thumbnails[photo.id] = UIImage(data: photo.data) }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .accessibilityElement()
                     .accessibilityLabel("Photo \(index + 1) to send")
@@ -399,20 +441,34 @@ struct MiraChatComposer: View {
                     .accessibilityIdentifier("chat.staged.\(index).remove")
                 }
             }
+            // Picks still loading hold their place (and Send).
+            ForEach(0..<viewModel.loadingImages, id: \.self) { _ in
+                ProgressView()
+                    .frame(width: 56, height: 56)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Palette.cardFill))
+                    .accessibilityLabel("Photo loading")
+                    .accessibilityIdentifier("chat.staged.loading")
+            }
         }
         .padding(.top, 4)
+        .onChange(of: viewModel.staged) { _, staged in
+            let ids = Set(staged.map(\.id))
+            thumbnails = thumbnails.filter { ids.contains($0.key) }
+        }
     }
 
+    /// Picks load in order, counted toward the four; Send waits for them,
+    /// and one that cannot load says so.
     private func stagePicked(_ items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
         pickerItems = []
-        Task {
-            for item in items {
-                guard let data = try? await item.loadTransferable(type: Data.self),
-                      let scaled = UIImage(data: data)?.downscaled() else { continue }
-                viewModel.stageImage(scaled)
+        let loaders: [@Sendable () async -> Data?] = items.map { item in
+            {
+                guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+                return UIImage(data: data)?.downscaled()
             }
         }
+        Task { await viewModel.stagePhotos(loaders) }
     }
 
     private func openCamera() {
