@@ -24,8 +24,7 @@ final class MiraCanvasTurnTests: XCTestCase {
     private func coordinator(_ chat: ScriptedChat) -> MiraCanvasCoordinator {
         MiraCanvasCoordinator(
             text: ScriptedText(), chat: chat,
-            workingDelay: .milliseconds(1), timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            workingDelay: .milliseconds(1), timeout: .seconds(5)
         )
     }
 
@@ -448,7 +447,6 @@ final class MiraCanvasTurnTests: XCTestCase {
         let mira = MiraCanvasCoordinator(
             text: ScriptedText(), chat: chat,
             workingDelay: .milliseconds(1), timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
             imageStudio: MockImageStudioService(), imageStore: store
         )
 
@@ -471,7 +469,6 @@ final class MiraCanvasTurnTests: XCTestCase {
         let mira = MiraCanvasCoordinator(
             text: ScriptedText(), chat: chat,
             workingDelay: .milliseconds(1), timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
             imageStudio: MockImageStudioService(), imageStore: store
         )
 

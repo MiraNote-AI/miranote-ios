@@ -42,7 +42,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
 
         app.buttons["onboarding.background"].tap()
         waitUntilGone(intro)
-        XCTAssertTrue(app.buttons["background.default"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.staticTexts["background.title"].waitForExistence(timeout: 5),
                       "the handoff flow goes on to the Background tool")
     }
 
@@ -52,7 +52,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         XCTAssertTrue(app.buttons["onboarding.skip"].waitForExistence(timeout: 5))
         app.buttons["onboarding.skip"].tap()
         waitUntilGone(intro)
-        XCTAssertFalse(app.buttons["background.default"].exists)
+        XCTAssertFalse(app.staticTexts["background.title"].exists)
         XCTAssertTrue(app.buttons["mode.text"].exists)
     }
 

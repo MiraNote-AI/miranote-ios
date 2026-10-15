@@ -7,7 +7,8 @@ public enum MiraTurnPhase: Equatable {
     case idle
     /// Shown only after `workingDelay` (400 ms): verb-specific copy + Stop.
     case working(verb: String)
-    /// A canvas edit landed: the Keep-pattern receipt (auto-keeps).
+    /// A canvas edit landed: the result sheet, waiting for Keep or Revert
+    /// (or for the user to move on with an edit or a new ask).
     case receipt(MiraReceipt)
     /// The turn failed; canvas untouched, prompt refilled.
     case failure(MiraFailure)
@@ -83,11 +84,6 @@ public final class MiraCanvasCoordinator {
     let imageTimeout: Duration
     let imageStore: ImageFileStore
     let stickerFavorites: StickerFavoritesStore
-    /// How long a receipt (and its Revert) stays before keeping by
-    /// itself. One line plus an inline Revert reads in a few seconds,
-    /// and the header undo still covers regrets after auto-keep -- so
-    /// short wins (Meng tuned this twice: 20s and 10s both felt long).
-    public nonisolated static let defaultReceiptDismiss: Duration = .seconds(6)
 
     /// The middle rung of the timeout ladder. Inside it, a look_at_page
     /// hop gets 25s and failing costs only the look. Outside it,
@@ -98,10 +94,8 @@ public final class MiraCanvasCoordinator {
 
     private let workingDelay: Duration
     private let timeout: Duration
-    private let receiptDismiss: Duration
 
     private var turnTask: Task<Void, Never>?
-    private var dismissTask: Task<Void, Never>?
     private var sessionID: String?
     private var lastPrompt = ""
     /// The intent the last ask was given rather than read from its words.
@@ -119,7 +113,6 @@ public final class MiraCanvasCoordinator {
         chat: ChatService,
         workingDelay: Duration = .milliseconds(400),
         timeout: Duration = MiraCanvasCoordinator.defaultTurnTimeout,
-        receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss,
         imageStudio: ImageStudioService = MockImageStudioService(),
         imageTimeout: Duration = .seconds(120),
         imageStore: ImageFileStore = ImageFileStore(),
@@ -129,7 +122,6 @@ public final class MiraCanvasCoordinator {
         self.chat = chat
         self.workingDelay = workingDelay
         self.timeout = timeout
-        self.receiptDismiss = receiptDismiss
         self.imageStudio = imageStudio
         self.imageTimeout = imageTimeout
         self.imageStore = imageStore
@@ -142,6 +134,13 @@ public final class MiraCanvasCoordinator {
     public var isWorking: Bool {
         if case .working = phase { return true }
         return turnTask != nil
+    }
+
+    /// The text accessory's in-place rewrite (handoff screen 15): words in,
+    /// words out, no Mira turn -- the block previews the result while the
+    /// keyboard stays up, and the editor commits it.
+    public func rewriteText(_ text: String, mode: TextTransformMode) async throws -> String {
+        try await self.text.transform(text, mode: mode)
     }
 
     // MARK: Turn lifecycle
@@ -230,7 +229,6 @@ public final class MiraCanvasCoordinator {
             editor.undo()
         }
         receiptChangeCount = nil
-        dismissTask?.cancel()
         phase = .idle
     }
 
@@ -252,10 +250,10 @@ public final class MiraCanvasCoordinator {
         }
     }
 
-    /// Auto-keep is the default: dismissing keeps the change.
+    /// Keep: dismissing keeps the change. A receipt never keeps by itself
+    /// (screen 07 waits for the choice); an edit or a new ask moves on.
     public func dismiss() {
         receiptChangeCount = nil
-        dismissTask?.cancel()
         phase = .idle
     }
 
@@ -263,7 +261,6 @@ public final class MiraCanvasCoordinator {
         turnGeneration += 1
         turnTask?.cancel()
         turnTask = nil
-        dismissTask?.cancel()
         workingItemIDs = []
     }
 
@@ -406,12 +403,6 @@ public final class MiraCanvasCoordinator {
     func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel, revertible: Bool = true) {
         receiptChangeCount = revertible ? editor.changeCount : nil
         phase = .receipt(receipt)
-        dismissTask?.cancel()
-        dismissTask = Task { [receiptDismiss] in
-            try? await Task.sleep(for: receiptDismiss)
-            guard !Task.isCancelled else { return }
-            if case .receipt = phase { phase = .idle }
-        }
     }
 
     /// Start a NEW turn for slow image work Mira asked for.

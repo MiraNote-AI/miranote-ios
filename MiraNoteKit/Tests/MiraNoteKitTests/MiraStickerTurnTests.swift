@@ -30,7 +30,6 @@ final class MiraStickerTurnTests: XCTestCase {
             chat: ScriptedChat(),
             workingDelay: .milliseconds(1),
             timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
             imageStudio: studio,
             imageTimeout: .seconds(5),
             imageStore: ImageFileStore(directory: tempDir),

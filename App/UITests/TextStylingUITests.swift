@@ -1,7 +1,8 @@
 import XCTest
 
-/// Text styling while editing (redesign phase B1): font, alignment, color and
-/// text background from the keyboard accessory, each one undo step.
+/// Text styling while editing (redesign phase B1, handoff screens 11-18):
+/// font, alignment, color and text background from the text tool bar, each
+/// one undo step.
 final class TextStylingUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -28,12 +29,12 @@ final class TextStylingUITests: XCTestCase {
     func testStylingRowsApplyAndShowTheCurrentStyle() {
         startEditingText("sunny afternoon")
 
-        // Font row: picking a face marks nothing broken and returns cleanly.
-        app.buttons["style.sizes"].tap()
+        // Font row: open from the start (screen 11); the picked face reads
+        // as selected.
         let futura = app.buttons["style.font.Futura"]
         XCTAssertTrue(futura.waitForExistence(timeout: 5))
         futura.tap()
-        app.buttons["Back"].tap()
+        XCTAssertTrue(futura.isSelected)
 
         // Alignment steps leading -> center -> trailing.
         let align = app.buttons["style.align"]
@@ -47,17 +48,15 @@ final class TextStylingUITests: XCTestCase {
         XCTAssertTrue(green.waitForExistence(timeout: 5))
         green.tap()
         XCTAssertTrue(green.isSelected)
-        app.buttons["Back"].tap()
 
         // Text background: on, then off again.
         app.buttons["style.highlight"].tap()
-        let cream = app.buttons["style.highlight.#FFFDF8"]
-        XCTAssertTrue(cream.waitForExistence(timeout: 5))
-        cream.tap()
-        XCTAssertTrue(cream.isSelected)
+        let highlight = app.buttons["style.highlight.#B4826D"]
+        XCTAssertTrue(highlight.waitForExistence(timeout: 5))
+        highlight.tap()
+        XCTAssertTrue(highlight.isSelected)
         app.buttons["style.highlight.none"].tap()
-        XCTAssertFalse(cream.isSelected)
-        app.buttons["Back"].tap()
+        XCTAssertFalse(highlight.isSelected)
 
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.staticTexts["sunny afternoon"].waitForExistence(timeout: 5))

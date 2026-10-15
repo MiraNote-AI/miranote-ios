@@ -16,7 +16,14 @@ public final class CanvasViewModel {
     public var selectedItemID: CanvasItem.ID?
 
     /// The text element currently being edited in place, if any.
-    public var editingTextItemID: CanvasItem.ID?
+    public var editingTextItemID: CanvasItem.ID? {
+        didSet { if editingTextItemID == nil { sessionSteps = nil } }
+    }
+
+    /// Undo steps recorded since the open text editing session began, so
+    /// Cancel can take the whole session back. Nil when no session is open,
+    /// or when its starting point was undone or fell off the history cap.
+    private var sessionSteps: Int?
 
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
@@ -58,6 +65,9 @@ public final class CanvasViewModel {
         }
     }
     private var history: [UndoSnapshot] = []
+    /// Steps undone since the last change, newest last; any new change
+    /// drops them (a redo after an edit would rewrite the edit away).
+    private var future: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
         UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
                      backgroundSummary: memory.backgroundSummary,
@@ -94,16 +104,41 @@ public final class CanvasViewModel {
 
     public var canUndo: Bool { !history.isEmpty }
 
+    public var canRedo: Bool { !future.isEmpty }
+
     public func beginChange() {
         changeCount += 1
-        history.append(currentSnapshot)
-        if history.count > Self.historyCap {
-            history.removeFirst()
-        }
+        future.removeAll()
+        pushHistory(currentSnapshot)
     }
 
     public func undo() {
         guard let snapshot = history.popLast() else { return }
+        if let steps = sessionSteps {
+            sessionSteps = steps > 0 ? steps - 1 : nil
+        }
+        future.append(currentSnapshot)
+        restore(snapshot)
+    }
+
+    /// Re-applies the step the last undo took back (handoff screens 32-34).
+    public func redo() {
+        guard let snapshot = future.popLast() else { return }
+        pushHistory(currentSnapshot)
+        restore(snapshot)
+    }
+
+    private func pushHistory(_ snapshot: UndoSnapshot) {
+        history.append(snapshot)
+        if history.count > Self.historyCap {
+            history.removeFirst()
+        }
+        if let steps = sessionSteps {
+            sessionSteps = steps + 1 < history.count ? steps + 1 : nil
+        }
+    }
+
+    private func restore(_ snapshot: UndoSnapshot) {
         changeCount += 1
         memory.items = snapshot.items
         memory.backgroundFileName = snapshot.backgroundFileName
@@ -134,10 +169,44 @@ public final class CanvasViewModel {
         if recordingUndo { beginChange() }
         selectedItemID = id
         editingTextItemID = id
+        // The undo point on top of the history (this call's, or the one the
+        // caller made) is the page as it was before the session.
+        sessionSteps = history.isEmpty ? nil : 0
     }
 
     public func endEditingText() {
         editingTextItemID = nil
+    }
+
+    /// The header's Cancel: ends the session and takes the page back to how
+    /// it was when the session began -- words, style and, for a new block,
+    /// the block itself. The session's undo steps go with it.
+    public func cancelEditingText() {
+        guard editingTextItemID != nil else { return }
+        if let steps = sessionSteps, steps < history.count {
+            history.removeLast(steps)
+            undo()
+            // Nothing of a cancelled session comes back by redo.
+            future.removeAll()
+        }
+        editingTextItemID = nil
+    }
+
+    /// Changes previewed live without undo steps (an AI rewrite, a custom
+    /// color being dragged) become one undo step back to `original`; none
+    /// when the item ends up unchanged.
+    public func commitPreview(of original: CanvasItem) {
+        guard let index = index(of: original.id), memory.items[index] != original else { return }
+        let previewed = memory.items[index]
+        memory.items[index] = original
+        beginChange()
+        memory.items[index] = previewed
+    }
+
+    /// Drops a live preview: the item as it was, no undo step.
+    public func discardPreview(of original: CanvasItem) {
+        guard let index = index(of: original.id) else { return }
+        memory.items[index] = original
     }
 
     // MARK: Insertion
@@ -147,11 +216,13 @@ public final class CanvasViewModel {
         _ text: String,
         at position: CGPoint,
         pointSize: CGFloat = 17,
-        size: CGSize = CGSize(width: 220, height: 84)
+        size: CGSize = CGSize(width: 220, height: 84),
+        fontName: String = "",
+        colorName: String = "ink"
     ) -> CanvasItem.ID {
         beginChange()
         let item = CanvasItem(
-            content: .text(TextBlock(text: text, pointSize: pointSize)),
+            content: .text(TextBlock(text: text, pointSize: pointSize, colorName: colorName, fontName: fontName)),
             position: position,
             size: size,
             zIndex: topZ + 1
@@ -357,6 +428,18 @@ extension CanvasViewModel {
         if editingTextItemID == itemID { editingTextItemID = nil }
     }
 
+    /// Takes several elements off the page as ONE undo step (the Image
+    /// tool's Cancel takes back the photos it placed); ids no longer on the
+    /// page are ignored, and nothing is recorded when none are.
+    public func remove(itemIDs: [CanvasItem.ID]) {
+        let ids = Set(itemIDs)
+        guard memory.items.contains(where: { ids.contains($0.id) }) else { return }
+        beginChange()
+        memory.items.removeAll { ids.contains($0.id) }
+        if let selected = selectedItemID, ids.contains(selected) { selectedItemID = nil }
+        if let editing = editingTextItemID, ids.contains(editing) { editingTextItemID = nil }
+    }
+
     /// Removes an abandoned husk (e.g. an empty text block) without
     /// recording an undo step, and takes it out of the trailing history
     /// snapshots taken while it was empty, so undo never "restores" a husk.
@@ -371,6 +454,9 @@ extension CanvasViewModel {
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
+        // Undone steps were taken with the husk on the page: redoing one
+        // would bring it back.
+        future.removeAll()
         var next = currentSnapshot
         var kept: [UndoSnapshot] = []
         while let last = history.last, last.items.contains(where: { $0.id == itemID && $0.isEmptyText }) {

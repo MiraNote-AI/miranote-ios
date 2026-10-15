@@ -91,22 +91,33 @@ struct CanvasElementView: View {
 
     @ViewBuilder private func textView(_ block: TextBlock) -> some View {
         if isEditingText {
-            TextField("Say something...", text: text, axis: .vertical)
+            // Words straight on the editing scrim (screens 11-20): no chip
+            // behind them, only the block's own background if it has one.
+            // The dark keyboard is the closest system match to the
+            // handoff's forest keyboard.
+            TextField(
+                "Say something...",
+                text: text,
+                prompt: Text("Say something...").foregroundStyle(Palette.onInk.opacity(0.6)),
+                axis: .vertical
+            )
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(Palette.color(named: block.colorName))
+                .tint(Palette.color(named: block.colorName))
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .focused(textFocus, equals: item.id)
+                .onChange(of: textFocus.wrappedValue == item.id, initial: true) { _, focused in
+                    if focused { DarkKeyboard.apply() }
+                }
                 .accessibilityIdentifier("canvas.textEditor")
-                .padding(6)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(block.backgroundColorName.isEmpty
-                              ? Palette.paper.opacity(0.75)
-                              : Palette.color(named: block.backgroundColorName))
-                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
+                .padding(TextFace.inset)
+                .textBlockBackground(block)
         } else {
             Text(block.text.isEmpty ? "Say something..." : block.text)
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(
                     block.text.isEmpty
                         ? Palette.textSecondary
@@ -114,7 +125,7 @@ struct CanvasElementView: View {
                 )
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
-                .padding(6)
+                .padding(TextFace.inset)
                 .textBlockBackground(block)
         }
     }
@@ -167,6 +178,41 @@ struct CanvasElementView: View {
         let tints = [Palette.tan, Palette.sage, Palette.taupe]
         let index = abs(ref.displayName.hashValue) % tints.count
         return tints[index]
+    }
+}
+
+/// The canvas text's keyboard in the dark appearance -- the closest system
+/// match to the handoff's forest keyboard (screens 11-20). SwiftUI has no
+/// keyboard-appearance modifier, so the field that just took focus (the
+/// first responder) is set directly.
+enum DarkKeyboard {
+    @MainActor
+    static func apply() {
+        // After the focus change lands: the field is first responder then.
+        DispatchQueue.main.async {
+            guard let field = UIResponder.currentFirstResponder else { return }
+            if let textView = field as? UITextView, textView.keyboardAppearance != .dark {
+                textView.keyboardAppearance = .dark
+                textView.reloadInputViews()
+            } else if let textField = field as? UITextField, textField.keyboardAppearance != .dark {
+                textField.keyboardAppearance = .dark
+                textField.reloadInputViews()
+            }
+        }
+    }
+}
+
+private extension UIResponder {
+    private static weak var found: UIResponder?
+
+    static var currentFirstResponder: UIResponder? {
+        found = nil
+        UIApplication.shared.sendAction(#selector(captureFirstResponder), to: nil, from: nil, for: nil)
+        return found
+    }
+
+    @objc private func captureFirstResponder() {
+        UIResponder.found = self
     }
 }
 

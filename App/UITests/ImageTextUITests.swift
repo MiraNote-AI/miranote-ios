@@ -22,11 +22,7 @@ final class ImageTextUITests: XCTestCase {
     }
 
     private func ask(_ words: String) {
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText(words)
-        app.buttons["mira.go"].tap()
+        app.askMira(words)
     }
 
     private func addSamplePhoto() {
@@ -40,6 +36,9 @@ final class ImageTextUITests: XCTestCase {
         // deselect tap: on some phones every candidate point lands off the
         // canvas, on the dock.
         XCTAssertTrue(second.waitForExistence(timeout: 5))
+        // The Image tool stays open after placing (screen 25); its header
+        // Add keeps the photos and returns to the canvas and Mira's bar.
+        app.buttons["nav.trailing"].tap()
     }
 
     func testDescribeAskAddsWordsNotARestyle() {

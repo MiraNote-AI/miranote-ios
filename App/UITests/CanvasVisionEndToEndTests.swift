@@ -30,13 +30,11 @@ final class CanvasVisionEndToEndTests: XCTestCase {
     /// Type into the canvas ask bar and wait for the turn to settle.
     @discardableResult
     private func ask(_ words: String, expectReceipt: Bool = true) -> String? {
-        let input = app.textFields["mira.input"]
-        guard input.waitForExistence(timeout: 10) else {
+        guard app.miraComposer.waitForExistence(timeout: 10) else {
             XCTFail("the ask bar is missing")
             return nil
         }
-        input.tap()
-        input.typeText(words + "\n")
+        app.askMira(words)
 
         let receipt = app.staticTexts["mira.receipt"]
         if receipt.waitForExistence(timeout: turnWait) {

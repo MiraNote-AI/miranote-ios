@@ -80,9 +80,16 @@ enum Sans {
 
 /// Semantic type scale. Josefin Sans carries the UI and titles; Fraunces stays
 /// only on the home display lines (hero, date), where the design uses a
-/// high-contrast serif. No role goes below 11 pt -- the design's 8-10 px
-/// labels are not legible on a phone.
+/// high-contrast serif. No role goes below 10 pt (design fidelity decision,
+/// 2026-10-15): the design's 8-9 px labels render at 10.
 extension Font {
+    /// Nav pills (2026-10-07 handoff): Josefin SemiBold 12.
+    static let miraNav = Sans.font(size: 12, weight: 600)
+    /// The Mira composer's field and placeholder: Medium 12.
+    static let miraComposer = Sans.font(size: 12, weight: 500)
+    /// The composer's action pill (Go, Apply): Bold 12.
+    static let miraComposerAction = Sans.font(size: 12, weight: 700)
+
     static let miraHero = Serif.font(size: 39, weight: 410, optical: 144)
     static let miraDate = Serif.font(size: 22, weight: 480, optical: 40)
     static let miraPageTitle = Sans.font(size: 22, weight: 700)

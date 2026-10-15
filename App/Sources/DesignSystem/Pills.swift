@@ -41,14 +41,31 @@ struct SoftPill: ButtonStyle {
 }
 
 /// The handoff's frosted composer surface: blurred paper at 60 %, a soft
-/// white rim and a low shadow.
+/// white rim, the 1 pt inner top highlight and a low shadow.
 struct GlassCapsule: View {
     var body: some View {
         Capsule()
             .fill(.ultraThinMaterial)
             .overlay(Capsule().fill(Palette.paper.opacity(0.6)))
+            .overlay(InnerTopHighlight(shape: Capsule()))
             .overlay(Capsule().strokeBorder(Color.white.opacity(0.46), lineWidth: 1))
             .shadow(color: Palette.ink.opacity(0.1), radius: 13, y: 12)
+    }
+}
+
+/// The handoff's glass highlight, CSS `inset 0 1px 1px white@0.48`: the
+/// ring just outside the shape, dropped 1 pt and softened, seen only where
+/// it falls inside -- a hairline of light along the top inner edge.
+struct InnerTopHighlight<S: InsettableShape>: View {
+    let shape: S
+
+    var body: some View {
+        shape.inset(by: -1)
+            .stroke(Color.white.opacity(0.48), lineWidth: 2)
+            .offset(y: 1)
+            .blur(radius: 0.5)
+            .mask(shape)
+            .allowsHitTesting(false)
     }
 }
 

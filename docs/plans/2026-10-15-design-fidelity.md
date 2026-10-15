@@ -1,0 +1,148 @@
+# Design fidelity pass -- rebuild every screen to the 2026-10-07 handoff
+
+Refs: owner feedback 2026-10-15 (`mira-dev-feedbacks/oct 15`), design handoff
+`resources/design-2026-10-07/` (38 screens, `layout-reference.tsx` per screen).
+
+## Goal
+
+Every screen in the handoff is matched in the app: positions, sizes, type,
+color, glass, blur and the drawn interactions. Each PR shows simulator
+screenshots side by side with the design screen it implements. Where the
+design does not draw something the product obviously needs (Mira chat voice
+and photos, error states), it is added in the same visual language.
+
+Acceptance (per stream):
+- Side-by-side screenshot for every design screen in the stream (HUMAN: owner
+  judges fidelity; engineer self-checks frame values against the tsx).
+- `xcodebuild test` app unit + UI suites green; `swift test` for MiraNoteKit.
+- Release build compiles; no CJK/emoji in committed text.
+
+## Owner feedback (2026-10-15) -- must all land
+
+1. Mira chat: voice-to-text is missing; photos cannot be sent. WeChat-style
+   composer in the app's art style: voice toggle far left, field, "+" for
+   photos; no emoji button.
+2. Background tool: rebuild per screen 05.
+3. Text editing UI from screen 04.3 on: typing-time blur scrim, the 3-layer
+   accessory (secondary row / toolbar / dictation strip), sizes and layout;
+   custom text color sheet per screen 14.
+4. Drag-to-delete: behavior kept, UI per screen 22 (the composer becomes the
+   red drop zone).
+5. Everything else: go through all 38 screens.
+
+## Decisions taken without the owner (he asked not to be blocked; revisit Saturday)
+
+| Topic | Decision | Why |
+|---|---|---|
+| Layout insets | 16 for chrome (nav, composer, sheets), 20 canvas, 19 tool bar | design system is 16-based |
+| Type floor | design sizes, but never below 10 pt (9/8 pt labels become 10) | design fidelity vs legibility |
+| Text editing default tool | Aa (font row) active when editing starts | screen 11 is the first editing state |
+| Font size S/M/L | kept, as trailing chips in the font row | not drawn; removing a feature silently is worse |
+| Cancel while editing text | reverts the editing session | implied by the header |
+| New text default | Josefin Medium 21, ink #293322 | every text screen draws it |
+| Text background "none" | first chip, outlined | design ambiguous |
+| AI rewrite | in place: Original / Clean up / Expand, keyboard stays | screen 15 |
+| Background controls | apply live, each an undo step; the bottom bar "Apply to this page" asks Mira for a generated background (replaces the mood chips) | screen 05 |
+| Curated sets | apply display font + body font + text color + page backdrop together | screen 05 cards pair two fonts with a color band |
+| Custom color + eyedropper | one shared `CustomColorSheet` (text color, text background, page color) | screens 14, 20, 05 |
+| Mira result | glass sheet with Revert / Keep, no auto-keep timer | screen 07 |
+| Header trailing label | "Save" on the canvas (still files the page); export stays reachable from Reading | design label; export-from-canvas is a flow change for Saturday |
+| Blank canvas fill | keep the dawn-to-dusk gradient | most editor screens draw it; white only on 04 |
+| Home | design visuals; drop "N notes"; no bell (no feature behind it); Start still opens the editor | bell and the Mira-first flow are product calls |
+| Chat voice | hold to talk, transcript fills the field for editing (not auto-send) | owner said "voice-to-text" |
+| Chat photos | "+" tray (Photos / Camera); staged thumbnails; the photo is described by the image service and the description rides with the message (no backend change) | chat model is text-only |
+| Image sheet third pill | "AI Sticker", routes to the Sticker tool | design label |
+| Placed photo size | aspect-true (as today), r18 corners | design crops are mock content |
+| Photo compare | hold = split Before / Current | both labels drawn at once |
+| Photo edit extra tiles | keep Match page / Warm / Film / Frames after the design's four | existing features |
+| Sticker "Jeans" style tile | omitted until the designer defines it | undefined |
+| Keyboard | system keyboard, `.keyboardAppearance(.dark)` | custom keyboards out of scope |
+| Canvas leading pill (P0) | "Home" on the bare canvas (way home); "Canvas" while a tool is open in place (Background, photo or sticker edit) and it folds that tool | the design's "Canvas" on the bare canvas has nowhere to go |
+| Canvas card width (P0) | the page keeps its fixed 360 pt width, so the card sits 21 in on a 402 pt phone (design: 20 on 374) | widening the page would move every saved element and the export |
+| Composer Go at rest (P0) | full ink as drawn, still disabled with an empty field | design draws it ink; the greyed pill read as broken |
+| Muted text (P0) | #878476 as drawn for the leading nav label, composer placeholder and sheet subtitle (not the darkened #5E5C52) | fidelity bar; ~3.4:1, owner to confirm Saturday |
+| Image tool placement (P4a) | opens in place over the live canvas (no separate scene): Choose photos sheet -> Recents -> placed, nav Canvas/Save, then Cancel/Add | 23-29 keep the live page visible; placed photos stay editable and selectable there |
+| Multi-select grid (P4a) | option B, a custom PhotoKit grid (r18 cells, ink ring, order badges, "N selected"/"Editing"); denied access offers Settings or the system picker; -UITEST reads 9 painted samples | option A (inline system picker) could not draw the design's cells and its privacy notice could not be dismissed or driven by XCUITest |
+| Image tool Cancel / Add after placing (P4a) | Cancel removes this visit's photos in one undo step (`CanvasViewModel.remove(itemIDs:)`); header Add keeps them and closes; composer Add reopens Recents | 25/29 draw Cancel/Add after placing |
+| Photo edit tiles (P4a) | Outline = studio outline on the current pixels, in place; Cutout = composer target, the photo becomes a sticker in place; AI Editing = composer words, stays open on the result; filters/frames toggle | spec 6c; design 27 lights Outline while the composer speaks for Cutout, the app lights the tile the composer serves |
+| Photo edit initial composer (P4a) | "Undo last edit or hold compare" / Done until AI Editing or Cutout is picked | no tile is chosen on open |
+| Photo compare (P4a) | hold shows the split; a short tap pins it (also the VoiceOver action) | testable and accessible; hold still works as drawn |
+| Before/Current labels (P4a) | on white@.72 capsules | plain muted text vanished on dark photos |
+| Lifted photo (P4a) | aspect-true inside the 342x323 box, corner min(66, 20% of the short side) | placed photos stay aspect-true |
+| Photo edit Cancel (P4a) | reverts to the session original (one undo step) and closes; scrim tap = Done | replaces the old in-card Revert |
+| Selected photo (P4a) | 3 pt ink border on r18; corner resize dots kept | removing resize silently is worse |
+| Sticker Add (P4a) | Add hands the showing result to the canvas, which asks where it goes (tap to place) | keeps the existing placement flow |
+| Sticker presets (P4a) | Food set only (30 handoff PNGs, flat ground made transparent at bundling); tap places at centre | the heart/croissant/cat tabs have no sets yet |
+| Sticker sheet while typing (P4a) | folds to the collapsed 147; Generate drops the keyboard | 430 does not fit above the keyboard |
+| Idle suggestion chips (P0) | removed from the canvas; follow-up chips stay on Mira reply cards; quick actions return in the screen-06 overlay (P2) | design draws nothing between tool bar and composer |
+| Screen 10 (P1) | reading (a): tapping Text shows the Text tool active, the editing header and "Type or polish your memory" for a 250 ms beat, then the block and keyboard appear | the minimal reading; the composer-as-entry reading changes the flow |
+| Page while writing (P1) | the card keeps its full height; the keyboard and text chrome ride over it under the scrim; a new block lands a third of the way down (top 110) and the edited block scrolls to 30% | as drawn; the real keyboard is ~165 pt taller than the mock's, so the drawn mid-card text position would sit under the chrome |
+| Text insets and line height (P1) | every block (old ones too) draws at 12/14 insets on a 30-on-21 line; background r24 in both states plus the screen-21 shadow | one geometry for editing, display, export and TextMeasure; old pages rewrap slightly |
+| Josefin weight (P1) | the Josefin face renders Medium (500) as drawn | every text screen draws Medium |
+| Font row (P1) | Futura, Josefin, Optima, Helvetica, Raleway, Didot, Classic (the old "" default); chip labels in their own face; S/M/L = 15/21/30 | design order; legacy blocks can return to their face |
+| Swatch check / custom slot (P1) | checkmark symbol (forest on light, white on dark); an applied custom color fills the custom slot, which still opens the sheet | glyph contrast; one place to see and change a custom color |
+| Align tool (P1) | every tap activates align and steps the alignment | existing tests and muscle memory; no dead first tap |
+| AI rewrite commit (P1) | previews are free; leaving the row, Done, or header undo commits once (one undo step); typing makes the typed words the new Original; failures go in the dictation subtitle | screen 15 plus the implied states |
+| Custom color model (P1) | the drawn curated spectrum; the hue rail turns it around the wheel (rail rests at 0.38, screen 14's handle); HEX and Pick color set the color exactly and move the target to the nearest spot | design spectrum identical on 14 and 20, so the rail cannot just pick from it; HSV would not look like the design |
+| Custom sheet dock (P1) | the composer shows under the sheet ("Type or polish your memory") but is inert: a tap there, or on the page, cancels the sheet; swipe down on the sheet top cancels | screens 14/20 draw it; typing a Mira ask mid-color-pick has no meaning |
+| Eyedropper (P1) | full-screen page snapshot with a 64 pt loupe; lift to take the color; Cancel keeps the sheet's color | "sample it from your memory": the page only, true colors (not the dimmed screen) |
+| Dictation (P1) | hold to talk; a quick tap starts and a second tap stops (VoiceOver and tests use the tap) | hold as drawn, tap kept for accessibility |
+| Cancel after Done (P1) | Done ends the session; the block stays selected (arrange state, screen 21) | screen 21 follows 20 |
+| Background sheet size (P2) | the canvas card's width (360) and its height + 7; content scrolls on short phones, One-tap layout pinned 10 above the sheet bottom | screen 05 frames the sheet on the card |
+| Background "Default" (P2) | no Default chip (not drawn): the chosen color dot tapped again returns the page to the gradient; the preview eyebrow reads DEFAULT / PAINTED / #RRGGBB | keeps the gradient reachable without an undrawn control |
+| Swatch hexes (P2) | the design's five (#F6F4E8, #F4E0D1, #D6E3D4, #D1E0F0, #E6D9F0); old pages keep their stored hexes, unselected | screen 05 |
+| Curated set page colors (P2) | 01 #D03A02, 02 #FCD766, 03 #879064, 04 #FBFBFC, 05 #236FB3, 06 #415A58, 07 #24382D, 08 #F59081 (from each card's band where its label sits); text colors as the card labels | the design does not say which band color is the page |
+| Curated set card labels (P2) | "Poppins" (design typo "Poppin"); body-face names at 10 pt per the type floor; bands 01/02 sampled from screen.png (out-of-order Figma stops) | fidelity to what is rendered |
+| Bundled faces not in the font row (P2) | the curated faces are not added to `TextFace.choices`; the font row is P1's | avoids a P1 conflict |
+| Custom / Pick (P2, integration) | both open P1's `CustomColorSheet` over the dock (14 above the composer slot, riding the keyboard for HEX); the page previews live, Apply is one undo step, a tap outside cancels; Pick opens straight into the eyedropper | GAPS #2; one sheet for text, text background and page |
+| Mira chat composer (P2) | the dark capsule IS the live composer (Figma "Canvas question composer"); Return sends; the bottom composer is a button that opens the chat and shows a waiting draft with Go; Canvas, Done and a scrim tap close the chat | design draws no other field; draft never lost |
+| Mira chat quick actions (P2) | the four as drawn, always; "Make text warmer" polishes the target text | design labels |
+| Mira dictation (P2) | hold the strip to talk, release to transcribe into the question; never auto-sent; the system keyboard is set dark; one `DictationStrip` component with the text accessory (only the glass differs: screen 06 vs 11) | owner: voice-to-text |
+| Result sheet (P2) | Keep = accept, Revert only when the turn changed something; an edit or a new ask moves on; the receipt timer is removed from the coordinator | screen 07 + decision above |
+| Delete zone copy and color (P2) | one copy in both phases ("Drop here to delete / Release outside the canvas"), #D86C5D as drawn (2.3:1, owner asked for the design); arming shows on the lifted element's red frame; the design's microphone glyph is a copy-paste slip, a bin is drawn | screen 22 |
+| Blank page empty state (P2) | no hint on the page | screen 04 |
+
+## Streams (one branch / PR each, stacked on P0)
+
+- **P0 chrome** -- insets, NavPill, undo asset, composer type and highlight,
+  `GlassSheet`, tool bar, canvas card r30 + shadow, header labels.
+- **P1 text editor** -- screens 10-21.
+- **P2 canvas** -- screens 04, 05 (Background rebuild), 06 (Mira canvas chat
+  overlay), 07 (result sheet), 22 (drag-to-delete).
+- **P3 Mira chat** -- screen 02 plus the WeChat composer, voice, photos.
+- **P4 media** -- screens 08-09 (voice), 23-29/34-36 (image, photo edit),
+  30-33/35 (sticker), 37-38 (export sheet, toast), 01 (Home), 03 (onboarding).
+
+Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
+`gap-media.md` (session scratchpad; key values are copied into each PR).
+
+## Iterations
+
+1. Audits of all 38 screens done (3 parallel read-only agents); plan and
+   decisions recorded -- criteria 0/5 passing, no code yet.
+2. P0 chrome landed: 16/20/19 insets, NavPill 70/60 x34 SemiBold 12 + undo
+   asset, composer type/highlight, `GlassSheet` (ContextCard now draws it),
+   tool bar shadow, canvas card r30 + rim + shadow, Save label, idle chips
+   gone. iPhone 17 Pro frames within 1 pt of 04's rhythm (nav 64-98, card
+   117-708, tool bar 728-768, composer 784-838) -- P0 1/1.
+3. P1 text editor landed: scrim + blur, three-layer accessory (rows /
+   five-icon glass tool bar / hold-to-talk strip), header Cancel reverts the
+   session, in-place AI rewrite, reusable `CustomColorSheet` with
+   eyedropper, r24 text background, screen-21 frame; side-by-sides for
+   10-21 match within ~2 pt except the system keyboard and the edited
+   text's height on the page -- P1 1/1.
+4. P2 canvas landed: Background rebuilt as the screen-05 glass sheet (preview,
+   drawn page-type tiles, 5 swatches + Custom/Pick seam + hex, 8 curated sets
+   with bundled OFL faces, Apply-to-page = Mira backdrop); Mira canvas chat
+   (06) with hold-to-talk dictation; result sheet (07) with Keep/Revert and no
+   timer; drag-delete zone in the composer slot with a lifted element (22);
+   blank page empty (04); composer pill 19 from its trailing edge. iPhone 17
+   Pro Max frames on the 05 sheet land on the spec to the point (tile 205,
+   swatch 302, hex 351, sets 409, layout 518 from the card top); 06 within
+   ~1 pt after half-leading fixes -- P2 1/1, composites in the PR.
+5. P4a image / photo edit / sticker (screens 23-36) landed on iPhone Air:
+   Image tool in place (Choose photos, PhotoKit Recents grid, placed state),
+   lifted-photo editor (scrim, Undo / Compare / Favorite, tiles, split
+   compare), Sticker sheet (tabs, Food set, spinner, preview, styles with
+   undo/redo), kit `redo()` / `remove(itemIDs:)`. Kit 408, app unit 34, UI
+   81 (3 skipped) green; Release builds -- P4a 1/1, owner to judge fidelity.
