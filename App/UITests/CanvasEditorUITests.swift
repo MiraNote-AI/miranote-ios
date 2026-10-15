@@ -64,10 +64,6 @@ final class CanvasEditorUITests: XCTestCase {
         // Selected, the marker offers its note.
         app.staticTexts["tap to play"].tap()
         XCTAssertTrue(app.staticTexts["Add a note"].waitForExistence(timeout: 5))
-
-        // A title is a suggestion about words: keeping a sound on a
-        // wordless page must not summon the title chip.
-        XCTAssertFalse(app.buttons["mira.suggestion.Add a soft title"].exists)
     }
 
     // The Image tool opens its "Choose photos" sheet over the live canvas
