@@ -7,6 +7,12 @@ import SwiftUI
 extension CanvasScene {
     /// Touch down on the strip: the mic goes live unless it already is.
     func pressDictation() {
+        // A live voice take owns the recorder slot: the strip never takes
+        // it over (or its release would transcribe the take into the block).
+        guard case .idle = recorderState else {
+            dictationHint = "Stop the voice recording first."
+            return
+        }
         dictationPress = (start: .now, wasLive: dictating || recorder != nil)
         if dictationPress?.wasLive == false { startDictation() }
     }
@@ -78,6 +84,9 @@ extension CanvasScene {
                 dictationHint = "I couldn't catch any words -- try again?"
                 return
             }
+            // Cancelled or ended while the words were on their way: they
+            // belong to no session any more (and would have no undo step).
+            guard editor.editingTextItemID == id else { return }
             if case .text(let block) = editor.item(id)?.content {
                 let joined = block.text.isEmpty ? words : block.text + " " + words
                 editor.setText(itemID: id, to: joined)
