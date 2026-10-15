@@ -52,38 +52,3 @@ struct PreviewWords {
         return Palette.color(named: name)
     }
 }
-
-/// The interim custom color sheet: the system picker (spectrum, sliders and
-/// its own eyedropper), reporting every change as it happens.
-struct SystemColorPickerSheet: UIViewControllerRepresentable {
-    let initial: Color
-    let onChange: (Color) -> Void
-    let onFinish: () -> Void
-
-    func makeUIViewController(context: Context) -> UIColorPickerViewController {
-        let picker = UIColorPickerViewController()
-        picker.selectedColor = UIColor(initial)
-        picker.supportsAlpha = false
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ picker: UIColorPickerViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UIColorPickerViewControllerDelegate {
-        private let parent: SystemColorPickerSheet
-        init(_ parent: SystemColorPickerSheet) { self.parent = parent }
-
-        func colorPickerViewController(
-            _ picker: UIColorPickerViewController, didSelect color: UIColor, continuously: Bool
-        ) {
-            parent.onChange(Color(color))
-        }
-
-        func colorPickerViewControllerDidFinish(_ picker: UIColorPickerViewController) {
-            parent.onFinish()
-        }
-    }
-}

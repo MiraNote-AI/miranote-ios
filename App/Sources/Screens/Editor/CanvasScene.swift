@@ -58,6 +58,8 @@ struct CanvasScene: View {
     /// The element an edit panel just closed on, scrolled into view.
     @State private var revealItem: CanvasItem.ID?
     @State var backgroundPanelOpen = false
+    /// The Background tool's custom page color sheet, while it is up.
+    @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
     @State private var lifted: LiftedElement?
@@ -96,6 +98,17 @@ struct CanvasScene: View {
                     textAccessory
                 }
             }
+            if pageColorEdit != nil {
+                // A tap anywhere outside the sheet cancels it.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture { closePageColorSheet(keeping: false) }
+                pageColorSheet.padding(.bottom, 54 + 14 + 2)
+            }
+        }
+        .onChange(of: backgroundPanelOpen) { _, open in
+            if !open { closePageColorSheet(keeping: false) }
         }
     }
 

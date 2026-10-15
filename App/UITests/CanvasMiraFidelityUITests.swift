@@ -97,6 +97,10 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         waitGone(receipt, "Keep closes the sheet")
         let polished = "(polished -- mock) sunny afternoon by the bridge"
         XCTAssertTrue(app.staticTexts[polished].exists, "and keeps the change")
+        // Done left the block selected (screen 21), which still offers to
+        // refine; with nothing selected the composer is back to asking.
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira to refine...")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
         XCTAssertEqual(app.miraComposer.label, "Ask Mira anything")
 
         app.askMira("polish the text")

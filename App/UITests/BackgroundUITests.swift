@@ -157,6 +157,56 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertEqual(hex.value as? String, "#D1E0F0")
     }
 
+    // Custom opens the shared custom color sheet (screens 14 and 20) on the
+    // page's color: a typed HEX previews on the page, Apply keeps it as one
+    // undo step, and a tap outside drops a change.
+    func testCustomSheetHexSetsThePageColor() {
+        startMemory()
+        openTool()
+        app.buttons["background.color.custom"].tap()
+        let hex = app.textFields["background.colorSheet.hex"]
+        let apply = app.buttons["background.colorSheet.apply"]
+        XCTAssertTrue(hex.waitForExistence(timeout: 5), "the custom color sheet is up")
+        XCTAssertEqual(hex.value as? String, "#F6F4E8", "a default page starts the sheet on paper")
+        replace(hex, with: "8B5962")
+        hex.typeText("\n")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  #8B5962", "the page previews the typed color")
+        apply.tap()
+        XCTAssertTrue(apply.waitForNonExistence(timeout: 5), "Apply closes the sheet")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  #8B5962", "and keeps the color")
+        app.buttons["Undo"].tap()
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  DEFAULT", "one undo step takes it off")
+
+        app.buttons["background.color.custom"].tap()
+        XCTAssertTrue(hex.waitForExistence(timeout: 5))
+        replace(hex, with: "112233")
+        hex.typeText("\n")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  #112233")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        XCTAssertTrue(apply.waitForNonExistence(timeout: 5), "a tap outside closes the sheet")
+        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  DEFAULT", "and drops the change")
+    }
+
+    // Pick goes straight to the eyedropper over the page; its Cancel leaves
+    // the sheet up on the page's color.
+    func testPickOpensTheEyedropper() {
+        startMemory()
+        openTool()
+        app.buttons["background.color.pick"].tap()
+        let page = app.descendants(matching: .any)["background.colorSheet.pick.page"]
+        XCTAssertTrue(page.waitForExistence(timeout: 5), "the page to sample from")
+        app.buttons["background.colorSheet.pick.cancel"].tap()
+        XCTAssertTrue(app.buttons["background.colorSheet.apply"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["background.colorSheet.hex"].value as? String, "#F6F4E8")
+    }
+
+    private func replace(_ textField: XCUIElement, with text: String) {
+        textField.tap()
+        let current = (textField.value as? String) ?? ""
+        textField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 1))
+        textField.typeText(text)
+    }
+
     // A painted backdrop is nobody's swatch; any dot replaces it.
     func testASwatchReplacesAPaintedBackdrop() {
         startMemory()

@@ -178,54 +178,6 @@ struct AlignGlyph: View {
     }
 }
 
-// MARK: - Dictation strip
-
-/// "Mira dictation strip": press and hold to talk. The subtitle reads
-/// "Listening..." while the mic is live and carries the last hint (why
-/// nothing landed, a failed rewrite) otherwise.
-struct DictationStrip: View {
-    let listening: Bool
-    let hint: String?
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Image("text.dictation.mic")
-                .renderingMode(.template)
-                .resizable()
-                .frame(width: 12, height: 12)
-                .foregroundStyle(Color(hex: 0xF7F4E9))
-                .frame(width: 18, height: 18)
-                .background(Circle().fill(Tokens.forest))
-                .scaleEffect(listening ? 1.15 : 1)
-                .animation(listening ? .easeInOut(duration: 0.6).repeatForever() : .default, value: listening)
-                .padding(.trailing, 8)
-            Text("Mira Dictation")
-                .font(Sans.font(size: 10, weight: 700))
-                .foregroundStyle(Palette.ink)
-                .frame(width: 104, alignment: .leading)
-                .padding(.trailing, 2)
-            Text(listening ? "Listening..." : (hint ?? "accurate voice-to-text"))
-                .font(Sans.font(size: 10, weight: 400))
-                .foregroundStyle(listening ? Tokens.forest : Color(hex: 0x8F7E76))
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            Text("Hold")
-                .font(Sans.font(size: 10, weight: 700))
-                .foregroundStyle(Tokens.forest)
-                .frame(width: 34)
-                .padding(.trailing, 13)
-        }
-        .padding(.leading, 9)
-        .frame(height: 30)
-        .background(
-            Capsule()
-                .fill(Color.white.opacity(0.54))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 1))
-                .shadow(color: Palette.ink.opacity(0.10), radius: 6, y: 12)
-        )
-    }
-}
-
 // MARK: - Font row
 
 /// "MiraNote font carousel": 65x35 chips, each name in its own face, the

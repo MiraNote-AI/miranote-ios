@@ -120,22 +120,22 @@ extension CanvasScene {
             }
             TextToolBar(active: textTool, alignment: editingBlock?.alignment ?? .leading, onSelect: selectTextTool)
                 .padding(.horizontal, Metrics.chromeInset)
-            DictationStrip(listening: dictating, hint: dictationHint)
-                .padding(.horizontal, Metrics.chromeInset)
-                .padding(.top, 4)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in if dictationPress == nil { pressDictation() } }
-                        .onEnded { _ in releaseDictation() }
-                )
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Mira Dictation")
-                .accessibilityValue(dictating ? "Listening..." : (dictationHint ?? ""))
-                .accessibilityHint(dictating ? "Ends the dictation." : "Hold to talk, or tap to start.")
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { dictating ? stopDictation() : startDictation() }
-                .accessibilityIdentifier("style.mic")
+            DictationStrip(
+                surface: .page,
+                listening: dictating,
+                detail: dictating ? "Listening..." : (dictationHint ?? "accurate voice-to-text"),
+                onPress: { if dictationPress == nil { pressDictation() } },
+                onRelease: releaseDictation
+            )
+            .padding(.horizontal, Metrics.chromeInset)
+            .padding(.top, 4)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mira Dictation")
+            .accessibilityValue(dictating ? "Listening..." : (dictationHint ?? ""))
+            .accessibilityHint(dictating ? "Ends the dictation." : "Hold to talk, or tap to start.")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { dictating ? stopDictation() : startDictation() }
+            .accessibilityIdentifier("style.mic")
         }
         // 4 above the keyboard.
         .padding(.bottom, 4)
@@ -345,7 +345,7 @@ extension CanvasScene {
                 },
                 onApply: { _ in closeColorSheet(keeping: true) },
                 onCancel: { closeColorSheet(keeping: false) },
-                snapshot: pageSnapshot
+                snapshot: editor.pageSnapshot
             )
             .padding(.horizontal, Metrics.chromeInset)
             .transition(.offset(y: 20).combined(with: .opacity))
@@ -372,15 +372,6 @@ extension CanvasScene {
             try? await Task.sleep(for: .milliseconds(100))
             if let id = editor.editingTextItemID { textFocus = id }
         }
-    }
-
-    /// The page as a picture, for the eyedropper.
-    private func pageSnapshot() -> UIImage? {
-        let renderer = ImageRenderer(content: StaticPageView(
-            memory: editor.memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false
-        ))
-        renderer.scale = 2
-        return renderer.uiImage
     }
 
     /// Size and face changes re-measure the block so the box fits the type.

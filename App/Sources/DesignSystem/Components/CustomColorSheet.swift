@@ -21,6 +21,8 @@ struct CustomColorSheet: View {
     var onCancel: () -> Void
     /// Renders the page for the eyedropper; nil hides "Pick color".
     var snapshot: (() -> UIImage?)?
+    /// Opens straight into the eyedropper (the Background tool's "Pick").
+    var picksOnAppear = false
 
     @State private var current: RGBColor
     @State private var spot: (x: Double, y: Double, rail: Double)
@@ -39,7 +41,8 @@ struct CustomColorSheet: View {
         onLiveChange: @escaping (RGBColor) -> Void,
         onApply: @escaping (RGBColor) -> Void,
         onCancel: @escaping () -> Void,
-        snapshot: (() -> UIImage?)? = nil
+        snapshot: (() -> UIImage?)? = nil,
+        picksOnAppear: Bool = false
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -48,6 +51,7 @@ struct CustomColorSheet: View {
         self.onApply = onApply
         self.onCancel = onCancel
         self.snapshot = snapshot
+        self.picksOnAppear = picksOnAppear
         _current = State(initialValue: initial)
         _spot = State(initialValue: ColorField.nearest(to: initial))
         _hexText = State(initialValue: initial.hex)
@@ -88,6 +92,9 @@ struct CustomColorSheet: View {
         .frame(height: Self.height)
         .background(background)
         .offset(y: dragDown)
+        .onAppear {
+            if picksOnAppear, let image = snapshot?() { picking = EyedropperSource(image: image) }
+        }
         .fullScreenCover(item: $picking) { source in
             EyedropperView(image: source.image, idPrefix: idPrefix) { picked in
                 picking = nil

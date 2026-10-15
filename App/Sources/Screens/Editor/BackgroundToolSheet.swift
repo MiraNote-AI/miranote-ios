@@ -14,14 +14,13 @@ struct BackgroundToolSheet: View {
     /// result sheet).
     var onAsk: (String) -> Void
     var onClose: () -> Void
+    /// Custom and Pick open the shared custom color sheet (screens 14/20),
+    /// which the scene lays over the dock so it can ride the keyboard.
+    var onCustomColor: (PageColorRequest) -> Void
 
-    @State private var pickerUndo = PickerUndoGate()
     @State private var hexDraft = ""
     @FocusState private var hexFocused: Bool
-    @State private var colorRequest: PageColorRequest?
     @State private var contentHeight: CGFloat?
-    /// The picker gate keys drags by item; the page is one fixed key.
-    private static let pageKey = UUID()
 
     /// The handoff's page colors (screen 05), stored as "#RRGGBB".
     static let pageSwatches: [(hex: String, name: String)] = [
@@ -55,7 +54,6 @@ struct BackgroundToolSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 30))
         .onAppear { hexDraft = shownHex }
         .onChange(of: editor.memory.pageColorName) { if !hexFocused { hexDraft = shownHex } }
-        .sheet(item: $colorRequest, onDismiss: { pickerUndo.reset() }, content: customColorSheet)
     }
 
     private var content: some View {
@@ -174,7 +172,6 @@ struct BackgroundToolSheet: View {
                     } else {
                         editor.setPageColor(swatch.hex)
                     }
-                    pickerUndo.reset()
                 } label: {
                     PageSwatch(color: Palette.color(named: swatch.hex), selected: chosen)
                 }
@@ -199,7 +196,8 @@ struct BackgroundToolSheet: View {
         _ title: String, request: PageColorRequest, @ViewBuilder dot: () -> Dot
     ) -> some View {
         Button {
-            colorRequest = request
+            hexFocused = false
+            onCustomColor(request)
         } label: {
             VStack(spacing: 3.5) {
                 dot()
@@ -244,7 +242,6 @@ struct BackgroundToolSheet: View {
     private func commitHex() {
         if let hex = Self.normalizedHex(hexDraft), hex != pageColor {
             editor.setPageColor(hex)
-            pickerUndo.reset()
         }
         hexDraft = shownHex
     }
@@ -255,28 +252,6 @@ struct BackgroundToolSheet: View {
         if digits.hasPrefix("#") { digits.removeFirst() }
         guard digits.count == 6, digits.allSatisfy(\.isHexDigit) else { return nil }
         return "#" + digits
-    }
-
-    // MARK: Custom color seam
-
-    /// INTEGRATION SEAM. Custom and Pick open the shared `CustomColorSheet`
-    /// (custom color + eyedropper, built by the text-editor stream). Until it
-    /// lands, the system color picker -- which has its own eyedropper --
-    /// stands in. Swapping is this one body; `applyPicked` keeps a drag to
-    /// one undo step.
-    private func customColorSheet(_ request: PageColorRequest) -> some View {
-        SystemColorPickerSheet(
-            initial: Palette.color(named: pageColor.isEmpty ? "#F6F4E8" : pageColor),
-            onChange: applyPicked,
-            onFinish: { colorRequest = nil }
-        )
-    }
-
-    private func applyPicked(_ color: Color) {
-        let hex = color.hexName
-        guard hex != pageColor else { return }
-        let record = pickerUndo.shouldRecord(item: Self.pageKey, field: "page")
-        editor.setPageColor(hex, recordingUndo: record)
     }
 }
 
@@ -305,7 +280,6 @@ extension BackgroundToolSheet {
                     let look = CuratedSetLook.look(for: set)
                     Button {
                         editor.applyCuratedSet(set)
-                        pickerUndo.reset()
                     } label: {
                         CuratedSetCard(set: set, worn: worn == set)
                     }

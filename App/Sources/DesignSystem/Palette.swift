@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Warm earthen palette. UI values follow DESIGN_TOKENS.md of the 2026-10-07
 /// design handoff; `taupe`, `tan` and `sage` are older Flow 7 values kept
@@ -86,13 +85,5 @@ extension Color {
         let green = Double((hex >> 8) & 0xFF) / 255
         let blue = Double(hex & 0xFF) / 255
         self.init(.sRGB, red: red, green: green, blue: blue, opacity: 1)
-    }
-
-    /// The "#RRGGBB" form TextBlock stores for a custom color (alpha dropped).
-    var hexName: String {
-        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-        UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        func byte(_ value: CGFloat) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }
-        return String(format: "#%02X%02X%02X", byte(red), byte(green), byte(blue))
     }
 }

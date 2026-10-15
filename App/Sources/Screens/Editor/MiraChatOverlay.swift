@@ -43,9 +43,21 @@ struct MiraChatOverlay: View {
                 miraPanel
                     .padding(.top, 25)
                 Spacer(minLength: 0)
-                DictationStrip(state: dictation, onHoldStart: onHoldStart, onHoldEnd: onHoldEnd)
-                    .padding(.horizontal, Metrics.chromeInset)
-                    .padding(.bottom, 8)
+                DictationStrip(
+                    surface: .keyboard,
+                    listening: dictation == .listening,
+                    detail: dictation.detail,
+                    action: dictation == .listening ? "Release" : "Hold",
+                    onPress: onHoldStart,
+                    onRelease: onHoldEnd
+                )
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Mira Dictation")
+                .accessibilityHint("Hold to talk; your words land in the question")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("mira.dictation")
+                .padding(.horizontal, Metrics.chromeInset)
+                .padding(.bottom, 8)
             }
         }
     }
@@ -184,89 +196,13 @@ enum DictationStripState: Equatable {
     case listening
     case transcribing
     case notice(String)
-}
 
-/// The "Mira Dictation" strip (screen 06): press and hold to talk; on
-/// release the words land in the question for editing, never sent by
-/// themselves.
-struct DictationStrip: View {
-    let state: DictationStripState
-    var onHoldStart: () -> Void
-    var onHoldEnd: () -> Void
-
-    @State private var holding = false
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Circle()
-                .fill(Palette.forest)
-                .frame(width: 18, height: 18)
-                .overlay(
-                    Image("mira.dictation.mic")
-                        .renderingMode(.template)
-                        .resizable()
-                        .foregroundStyle(Palette.onInk)
-                        .frame(width: 12, height: 12)
-                )
-                .scaleEffect(state == .listening ? 1.12 : 1)
-                .padding(.leading, 9)
-            Text("Mira Dictation")
-                .font(Sans.font(size: 10, weight: 700))
-                .foregroundStyle(Palette.ink)
-                .frame(width: 104, alignment: .leading)
-                .padding(.leading, 8)
-            Text(detail)
-                .font(Sans.font(size: 10, weight: 400))
-                .foregroundStyle(Self.detail)
-                .lineLimit(1)
-                .padding(.leading, 2)
-                .accessibilityIdentifier("mira.dictation.detail")
-            Spacer(minLength: 4)
-            Text(state == .listening ? "Release" : "Hold")
-                .font(Sans.font(size: 10, weight: 700))
-                .foregroundStyle(Palette.forest)
-                .padding(.trailing, 13)
-        }
-        .frame(height: 30)
-        .background(
-            GlassSurface(
-                shape: Capsule(),
-                tint: Palette.forest.opacity(0.06),
-                rim: Color.black.opacity(0.42),
-                highlight: false,
-                shadowOpacity: 0.1,
-                shadowRadius: 6,
-                shadowY: 12
-            )
-        )
-        .contentShape(Capsule())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard !holding else { return }
-                    holding = true
-                    onHoldStart()
-                }
-                .onEnded { _ in
-                    holding = false
-                    onHoldEnd()
-                }
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Mira Dictation")
-        .accessibilityHint("Hold to talk; your words land in the question")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("mira.dictation")
-    }
-
-    private var detail: String {
-        switch state {
+    var detail: String {
+        switch self {
         case .idle: return "accurate voice-to-text"
         case .listening: return "Listening..."
         case .transcribing: return "Writing it down..."
         case .notice(let message): return message
         }
     }
-
-    private static let detail = Color(hex: 0x8F7E76)
 }

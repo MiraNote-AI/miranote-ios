@@ -81,10 +81,10 @@ Acceptance (per stream):
 | Curated set page colors (P2) | 01 #D03A02, 02 #FCD766, 03 #879064, 04 #FBFBFC, 05 #236FB3, 06 #415A58, 07 #24382D, 08 #F59081 (from each card's band where its label sits); text colors as the card labels | the design does not say which band color is the page |
 | Curated set card labels (P2) | "Poppins" (design typo "Poppin"); body-face names at 10 pt per the type floor; bands 01/02 sampled from screen.png (out-of-order Figma stops) | fidelity to what is rendered |
 | Bundled faces not in the font row (P2) | the curated faces are not added to `TextFace.choices`; the font row is P1's | avoids a P1 conflict |
-| Custom / Pick (P2) | both open the system color picker (it has an eyedropper) through one seam, `BackgroundToolSheet.customColorSheet`, until the shared `CustomColorSheet` lands | GAPS #2, parallel stream |
+| Custom / Pick (P2, integration) | both open P1's `CustomColorSheet` over the dock (14 above the composer slot, riding the keyboard for HEX); the page previews live, Apply is one undo step, a tap outside cancels; Pick opens straight into the eyedropper | GAPS #2; one sheet for text, text background and page |
 | Mira chat composer (P2) | the dark capsule IS the live composer (Figma "Canvas question composer"); Return sends; the bottom composer is a button that opens the chat and shows a waiting draft with Go; Canvas, Done and a scrim tap close the chat | design draws no other field; draft never lost |
 | Mira chat quick actions (P2) | the four as drawn, always; "Make text warmer" polishes the target text | design labels |
-| Mira dictation (P2) | hold the strip to talk, release to transcribe into the question; never auto-sent; the system keyboard is set dark | owner: voice-to-text |
+| Mira dictation (P2) | hold the strip to talk, release to transcribe into the question; never auto-sent; the system keyboard is set dark; one `DictationStrip` component with the text accessory (only the glass differs: screen 06 vs 11) | owner: voice-to-text |
 | Result sheet (P2) | Keep = accept, Revert only when the turn changed something; an edit or a new ask moves on; the receipt timer is removed from the coordinator | screen 07 + decision above |
 | Delete zone copy and color (P2) | one copy in both phases ("Drop here to delete / Release outside the canvas"), #D86C5D as drawn (2.3:1, owner asked for the design); arming shows on the lifted element's red frame; the design's microphone glyph is a copy-paste slip, a bin is drawn | screen 22 |
 | Blank page empty state (P2) | no hint on the page | screen 04 |

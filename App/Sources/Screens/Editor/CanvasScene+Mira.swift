@@ -20,11 +20,58 @@ extension CanvasScene {
                 guard !mira.isWorking else { return }
                 mira.ask(words, editor: editor)
             },
-            onClose: { backgroundPanelOpen = false }
+            onClose: { backgroundPanelOpen = false },
+            onCustomColor: openPageColorSheet
         )
         .frame(width: MiraNoteConfig.pageWidth)
         .padding(.bottom, -7)
         .transition(.opacity)
+    }
+
+    // MARK: Custom page color (screen 05 through the sheet of 14 and 20)
+
+    /// Custom and Pick open the shared custom color sheet on the page's
+    /// color (the sheet's default when the page has none); Pick goes
+    /// straight to the eyedropper.
+    func openPageColorSheet(_ request: PageColorRequest) {
+        let name = editor.memory.backgroundFileName.isEmpty ? editor.memory.pageColorName : ""
+        pageColorEdit = PageColorEdit(
+            request: request,
+            original: editor.pageLook,
+            initial: RGBColor(Palette.color(named: name.isEmpty ? "#F6F4E8" : name))
+        )
+    }
+
+    /// Over the dock, 14 above the composer's slot as on 14 and 20; it rides
+    /// the keyboard while HEX is typed. Every change previews on the page.
+    @ViewBuilder var pageColorSheet: some View {
+        if let edit = pageColorEdit {
+            CustomColorSheet(
+                title: "Custom page color",
+                subtitle: "Choose a shade, or sample it from your memory.",
+                initial: edit.initial,
+                idPrefix: "background.colorSheet",
+                onLiveChange: { editor.setPageColor($0.hex, recordingUndo: false) },
+                onApply: { _ in closePageColorSheet(keeping: true) },
+                onCancel: { closePageColorSheet(keeping: false) },
+                snapshot: editor.pageSnapshot,
+                picksOnAppear: edit.request == .pick
+            )
+            .padding(.horizontal, Metrics.chromeInset)
+            .transition(.offset(y: 20).combined(with: .opacity))
+        }
+    }
+
+    /// Apply keeps the previewed color as one undo step; cancel (a swipe
+    /// down, a tap outside) puts the page back as it was.
+    func closePageColorSheet(keeping: Bool) {
+        guard let edit = pageColorEdit else { return }
+        if keeping {
+            editor.commitPagePreview(from: edit.original)
+        } else {
+            editor.discardPagePreview(from: edit.original)
+        }
+        withAnimation(.easeOut(duration: 0.2)) { pageColorEdit = nil }
     }
 
     var miraChat: some View {
@@ -137,4 +184,23 @@ extension CanvasScene {
         }
     }
     #endif
+}
+
+/// A custom page color being chosen: which entry opened it, the page as it
+/// was (for cancel) and the color the sheet starts on.
+struct PageColorEdit {
+    let request: PageColorRequest
+    let original: CanvasViewModel.PageLook
+    let initial: RGBColor
+}
+
+extension CanvasViewModel {
+    /// The page as a picture, for the custom color sheet's eyedropper.
+    func pageSnapshot() -> UIImage? {
+        let renderer = ImageRenderer(content: StaticPageView(
+            memory: memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false
+        ))
+        renderer.scale = 2
+        return renderer.uiImage
+    }
 }
