@@ -61,6 +61,19 @@ Acceptance (per stream):
 | Canvas card width (P0) | the page keeps its fixed 360 pt width, so the card sits 21 in on a 402 pt phone (design: 20 on 374) | widening the page would move every saved element and the export |
 | Composer Go at rest (P0) | full ink as drawn, still disabled with an empty field | design draws it ink; the greyed pill read as broken |
 | Muted text (P0) | #878476 as drawn for the leading nav label, composer placeholder and sheet subtitle (not the darkened #5E5C52) | fidelity bar; ~3.4:1, owner to confirm Saturday |
+| Image tool placement (P4a) | opens in place over the live canvas (no separate scene): Choose photos sheet -> Recents -> placed, nav Canvas/Save, then Cancel/Add | 23-29 keep the live page visible; placed photos stay editable and selectable there |
+| Multi-select grid (P4a) | option B, a custom PhotoKit grid (r18 cells, ink ring, order badges, "N selected"/"Editing"); denied access offers Settings or the system picker; -UITEST reads 9 painted samples | option A (inline system picker) could not draw the design's cells and its privacy notice could not be dismissed or driven by XCUITest |
+| Image tool Cancel / Add after placing (P4a) | Cancel removes this visit's photos in one undo step (`CanvasViewModel.remove(itemIDs:)`); header Add keeps them and closes; composer Add reopens Recents | 25/29 draw Cancel/Add after placing |
+| Photo edit tiles (P4a) | Outline = studio outline on the current pixels, in place; Cutout = composer target, the photo becomes a sticker in place; AI Editing = composer words, stays open on the result; filters/frames toggle | spec 6c; design 27 lights Outline while the composer speaks for Cutout, the app lights the tile the composer serves |
+| Photo edit initial composer (P4a) | "Undo last edit or hold compare" / Done until AI Editing or Cutout is picked | no tile is chosen on open |
+| Photo compare (P4a) | hold shows the split; a short tap pins it (also the VoiceOver action) | testable and accessible; hold still works as drawn |
+| Before/Current labels (P4a) | on white@.72 capsules | plain muted text vanished on dark photos |
+| Lifted photo (P4a) | aspect-true inside the 342x323 box, corner min(66, 20% of the short side) | placed photos stay aspect-true |
+| Photo edit Cancel (P4a) | reverts to the session original (one undo step) and closes; scrim tap = Done | replaces the old in-card Revert |
+| Selected photo (P4a) | 3 pt ink border on r18; corner resize dots kept | removing resize silently is worse |
+| Sticker Add (P4a) | Add hands the showing result to the canvas, which asks where it goes (tap to place) | keeps the existing placement flow |
+| Sticker presets (P4a) | Food set only (30 handoff PNGs, flat ground made transparent at bundling); tap places at centre | the heart/croissant/cat tabs have no sets yet |
+| Sticker sheet while typing (P4a) | folds to the collapsed 147; Generate drops the keyboard | 430 does not fit above the keyboard |
 | Idle suggestion chips (P0) | removed from the canvas; follow-up chips stay on Mira reply cards; quick actions return in the screen-06 overlay (P2) | design draws nothing between tool bar and composer |
 | Screen 10 (P1) | reading (a): tapping Text shows the Text tool active, the editing header and "Type or polish your memory" for a 250 ms beat, then the block and keyboard appear | the minimal reading; the composer-as-entry reading changes the flow |
 | Page while writing (P1) | the card keeps its full height; the keyboard and text chrome ride over it under the scrim; a new block lands a third of the way down (top 110) and the edited block scrolls to 30% | as drawn; the real keyboard is ~165 pt taller than the mock's, so the drawn mid-card text position would sit under the chrome |
@@ -127,3 +140,9 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    Pro Max frames on the 05 sheet land on the spec to the point (tile 205,
    swatch 302, hex 351, sets 409, layout 518 from the card top); 06 within
    ~1 pt after half-leading fixes -- P2 1/1, composites in the PR.
+5. P4a image / photo edit / sticker (screens 23-36) landed on iPhone Air:
+   Image tool in place (Choose photos, PhotoKit Recents grid, placed state),
+   lifted-photo editor (scrim, Undo / Compare / Favorite, tiles, split
+   compare), Sticker sheet (tabs, Food set, spinner, preview, styles with
+   undo/redo), kit `redo()` / `remove(itemIDs:)`. Kit 408, app unit 34, UI
+   81 (3 skipped) green; Release builds -- P4a 1/1, owner to judge fidelity.
