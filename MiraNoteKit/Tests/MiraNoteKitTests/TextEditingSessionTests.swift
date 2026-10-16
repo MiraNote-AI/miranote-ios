@@ -62,6 +62,22 @@ final class TextEditingSessionTests: XCTestCase {
         XCTAssertEqual(block(editor, other)?.text, "first, dictated")
     }
 
+    /// The app backgrounded while a new block waits for its dictated words:
+    /// the autosave files no page holding an empty block.
+    func testAnEmptyBlockStillBeingWrittenIsNotFiled() {
+        let editor = CanvasViewModel(memory: Memory())
+        let photo = editor.addImages([ImageRef(displayName: "p")], around: CGPoint(x: 100, y: 300))[0]
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id, recordingUndo: false)
+        XCTAssertEqual(editor.composedMemory().items.map(\.id), [photo])
+
+        editor.delete(itemID: photo)
+        XCTAssertTrue(editor.isBlankPage, "nothing made yet")
+        editor.setText(itemID: id, to: "Lunch")
+        XCTAssertFalse(editor.isBlankPage)
+        XCTAssertEqual(editor.composedMemory().items.map(\.id), [id])
+    }
+
     // MARK: Cancel
 
     func testCancelOnANewBlockRemovesIt() {

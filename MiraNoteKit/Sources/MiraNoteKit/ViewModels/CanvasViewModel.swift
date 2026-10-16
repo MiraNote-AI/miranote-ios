@@ -128,8 +128,15 @@ public final class CanvasViewModel {
     /// Nothing the user made or chose: no elements, no painting, no page
     /// color, plain paper. Only such a page is dropped on leaving.
     public var isBlankPage: Bool {
-        memory.items.isEmpty && memory.backgroundFileName.isEmpty
+        filedItems.isEmpty && memory.backgroundFileName.isEmpty
             && memory.pageColorName.isEmpty && memory.paper == .blank
+    }
+
+    /// The elements a filing keeps: not an empty block still being written
+    /// (one waiting for dictated words when the app is backgrounded) -- the
+    /// session's end removes it unless words land.
+    private var filedItems: [CanvasItem] {
+        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
     }
 
     public var contentBottom: CGFloat {
@@ -606,6 +613,7 @@ extension CanvasViewModel {
     /// title IS a text element"), body = remaining text in reading order.
     public func composedMemory(defaultTitle: String = "New memory") -> Memory {
         var composed = memory
+        composed.items = filedItems
         if let origin = pagePreviewOrigin {
             composed.pageColorName = origin.pageColorName
             composed.backgroundFileName = origin.backgroundFileName
