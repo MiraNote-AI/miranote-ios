@@ -27,6 +27,8 @@ struct MiraChatComposer: View {
     /// system takes the touch (the first-use mic alert, a call) and the
     /// gesture's onEnded never comes.
     @GestureState private var touching = false
+    /// Bumped to take a hold's touch away (-UITEST, `interruptHoldIfAsked`).
+    @State private var holdEpoch = 0
     /// The finger slid far enough up that letting go cancels.
     @State private var releaseCancels = false
     /// Staged photos' thumbnails, decoded once per photo.
@@ -226,6 +228,9 @@ struct MiraChatComposer: View {
                             holding = true
                             guard viewModel.voice == .idle else { return }
                             viewModel.startVoice()
+                            #if DEBUG
+                            interruptHoldIfAsked()
+                            #endif
                         }
                         releaseCancels = value.translation.height < -Self.cancelTravel
                     }
@@ -248,7 +253,23 @@ struct MiraChatComposer: View {
                 if isRecording { finishVoice() } else { viewModel.startVoice() }
             }
             .accessibilityIdentifier("chat.voice.hold")
+            .id(holdEpoch)
     }
+
+    #if DEBUG
+    /// -UITEST only: `-HOLD_INTERRUPT_AFTER <ms>` takes the hold's touch away
+    /// mid-hold, as the system does (the first-use mic alert, a call): the
+    /// bar is rebuilt, its gesture torn down, and onEnded never comes.
+    private func interruptHoldIfAsked() {
+        guard ProcessInfo.processInfo.arguments.contains("-UITEST") else { return }
+        let delay = UserDefaults.standard.integer(forKey: "HOLD_INTERRUPT_AFTER")
+        guard delay > 0 else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(delay))
+            holdEpoch += 1
+        }
+    }
+    #endif
 
     /// "+" stays, so photos can be added after typing (owner decision);
     /// Send joins it once there is something to send.

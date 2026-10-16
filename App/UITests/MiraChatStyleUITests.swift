@@ -58,6 +58,26 @@ final class MiraChatStyleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
     }
 
+    /// A hold the system takes away mid-hold (the first-use mic alert, a
+    /// call: here `-HOLD_INTERRUPT_AFTER`) never gets its release: the mic
+    /// stops anyway, nothing is kept, and the next hold talks again.
+    func testAnInterruptedHoldLeavesNoMicOn() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-HOLD_INTERRUPT_AFTER", "800"]
+        app.launch()
+        openChat()
+        app.buttons["chat.voice.toggle"].tap()
+        let hold = app.descendants(matching: .any)["chat.voice.hold"]
+        XCTAssertTrue(hold.waitForExistence(timeout: 5))
+        hold.press(forDuration: 2.5)
+        sleep(1)
+        XCTAssertFalse(app.descendants(matching: .any)["chat.voice.recording"].exists,
+                       "the mic stayed live with no finger down")
+        XCTAssertTrue(app.staticTexts["Hold to talk"].exists)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Transcribed'")).firstMatch.exists,
+                       "nothing of the interrupted take is kept")
+    }
+
     // Voice-to-text: the transcript fills the field for editing; nothing
     // is sent on release.
     func testHoldToTalkFillsTheField() {
