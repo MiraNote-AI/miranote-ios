@@ -198,6 +198,23 @@ final class PhotoEditVisitTests: XCTestCase {
         XCTAssertEqual(fileName(editor, id), edited, "Cancel on a visit that changed nothing keeps it")
     }
 
+    /// The photo is deleted while its edit, kept with Done, still runs: its
+    /// editor goes with it, and the edit lands nowhere -- not even when an
+    /// undo brings the photo back.
+    func testDeletingThePhotoDropsItsRunningEditor() async throws {
+        var run = try doneDuringAnAIEdit()
+        let (editor, id) = (run.editor, run.id)
+        let original = try XCTUnwrap(fileName(editor, id))
+        editor.delete(itemID: id)
+        run.editors.dropDeleted(on: editor)
+        XCTAssertNil(run.editors[id], "the deleted photo's editor stays")
+        XCTAssertFalse(run.first.working)
+
+        editor.undo()
+        try await Task.sleep(for: .milliseconds(1_200))
+        XCTAssertEqual(fileName(editor, id), original, "the dropped edit landed on the photo brought back")
+    }
+
     func testCancellingTheReopenedVisitWhileTheEditRunsLetsItLand() async throws {
         var run = try doneDuringAnAIEdit()
         let (editor, id) = (run.editor, run.id)

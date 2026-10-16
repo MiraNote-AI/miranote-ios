@@ -353,6 +353,16 @@ struct PhotoEditors {
     mutating func close(_ id: CanvasItem.ID) {
         if byPhoto[id]?.working != true { byPhoto[id] = nil }
     }
+
+    /// Editors whose photo left the page (deleted, undone away) go, and
+    /// their running edit stops: it has nowhere to land.
+    mutating func dropDeleted(on editor: CanvasViewModel) {
+        for (id, controller) in byPhoto {
+            if case .image = editor.item(id)?.content { continue }
+            controller.cancelWork()
+            byPhoto[id] = nil
+        }
+    }
 }
 
 // MARK: - Stage, sheet, composer

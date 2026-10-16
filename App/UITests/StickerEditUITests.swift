@@ -58,6 +58,23 @@ final class StickerEditUITests: XCTestCase {
         XCTAssertTrue(sticker.exists, "the element is still a sticker")
     }
 
+    /// The panel's header Undo has none of its own steps to take back, so
+    /// it never reaches the canvas under it (the sticker's placement).
+    func testThePanelsHeaderUndoLeavesTheCanvasAlone() {
+        startMemory()
+        placeOneSticker()
+        XCTAssertTrue(app.buttons["editor.undo"].isEnabled, "the placement can be undone from the canvas")
+
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        sticker.press(forDuration: 1.1)
+        let entry = app.buttons["Edit sticker"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        entry.tap()
+        XCTAssertTrue(app.textFields["sticker.ai.instruction"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "the panel's Undo would take the sticker away")
+    }
+
     func testLongPressPanelEditsTheSticker() {
         startMemory()
         placeOneSticker()

@@ -348,6 +348,7 @@ struct CanvasScene: View {
                     editingImageItem = nil
                 }
             }
+            photoEditors.dropDeleted(on: editor)
             if let id = editingStickerItem {
                 if case .sticker = editor.item(id)?.content {} else {
                     editingStickerItem = nil
@@ -742,15 +743,20 @@ struct CanvasScene: View {
     }
 
     /// The header's undo: while a photo is lifted, only that visit's own
-    /// steps, like the floating Undo -- never a change under the scrim.
+    /// steps, like the floating Undo -- never a change under the scrim. The
+    /// sticker panel's visit records no step while it is open (its edit
+    /// lands as it closes), so there it has none to take back.
     private var headerUndo: () -> Void {
         if writing { return undoFromHeader }
         if editingImageItem != nil { return { photoEdit?.undo() } }
+        if editingStickerItem != nil { return {} }
         return editor.undo
     }
 
     private var headerUndoEnabled: Bool {
-        editingImageItem != nil && !writing ? photoEdit?.canUndo == true : editor.canUndo
+        if writing { return editor.canUndo }
+        if editingImageItem != nil { return photoEdit?.canUndo == true }
+        return editingStickerItem == nil && editor.canUndo
     }
 
     // MARK: Image tool (handoff screens 23-26, 29)
