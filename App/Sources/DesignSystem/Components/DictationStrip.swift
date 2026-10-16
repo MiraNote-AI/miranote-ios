@@ -26,6 +26,8 @@ struct DictationStrip: View {
     var onCancel: () -> Void
 
     @State private var pressed = false
+    /// Counts presses, so a late cancel never ends a newer press.
+    @State private var pressCount = 0
     /// The press as the gesture system sees it: it lets go even when
     /// onEnded never comes.
     @GestureState private var touching = false
@@ -68,6 +70,7 @@ struct DictationStrip: View {
                 .onChanged { _ in
                     guard !pressed else { return }
                     pressed = true
+                    pressCount += 1
                     onPress()
                 }
                 .onEnded { _ in
@@ -77,9 +80,11 @@ struct DictationStrip: View {
         )
         .onChange(of: touching) { _, down in
             guard !down else { return }
+            let press = pressCount
             Task { @MainActor in
-                // onEnded, when it comes, has run by now.
-                guard pressed else { return }
+                // onEnded, when it comes, has run by now -- and a new press
+                // that began meanwhile is not this one's to cancel.
+                guard pressed, pressCount == press else { return }
                 pressed = false
                 onCancel()
             }

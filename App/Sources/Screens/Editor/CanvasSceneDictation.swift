@@ -81,6 +81,9 @@ extension CanvasScene {
     /// their own step -- a new block ended empty waits for them; Cancel
     /// (`dictationTarget` cleared) drops them.
     func stopDictation() {
+        // A mic still coming up is let go of here (its start then stops
+        // it): no stale claim left for a later cancel to act on.
+        if startingMic == .text { startingMic = nil }
         guard let recorder else {
             dictating = false
             return
