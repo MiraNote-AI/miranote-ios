@@ -255,8 +255,8 @@ struct HomeView: View {
 }
 
 /// One collection card in the Home grid (handoff screen 01): 188 pt tall,
-/// r26, the title in Bold 20 at (30, 26) (#D9CDBA, or AA-safe -- see
-/// `Style.cycle`), and a 110 x 60 art block
+/// r26, the title in Bold 20 at (30, 26) (#D9CDBA, or AA-safe for large
+/// text -- see `Style.cycle`), and a 110 x 60 art block
 /// with its accent layer 18 above the bottom edge. No note count.
 struct HomeCollectionCard: View {
     static let height: CGFloat = 188
@@ -267,23 +267,24 @@ struct HomeCollectionCard: View {
         let card: Color
         let art: Color
         let accent: Color
-        /// The handoff's #D9CDBA where it reads at 4.5:1 (forest, 8.4:1).
+        /// The handoff's #D9CDBA where it reads at 3:1 (forest, 8.4:1).
         var title = Color(hex: 0xD9CDBA)
 
         /// Accessibility deviation (decided 2026-10-15, as dev had it): the
         /// handoff's titles read at 1.5-2.5:1 on the grey, olive and tan
-        /// cards. Grey and olive darken along their hue under a paper title
-        /// (4.6:1), the tan card takes an ink title (7:1).
+        /// cards, under the 3:1 that Bold 20 (large text) needs. Grey and
+        /// olive keep the drawn card colors under a paper title (3.5 and
+        /// 3.4:1), the tan card takes an ink title (7:1).
         static func cycle(_ index: Int) -> Style {
             let warmAccent = Color(hex: 0x8F7E76).opacity(0.5)
             let coolAccent = Color(hex: 0xEEF1EB).opacity(0.32)
             switch index % 4 {
             case 1: return Style(card: Palette.forest, art: Color(hex: 0xB6C2BA), accent: coolAccent)
-            case 2: return Style(card: Color(hex: 0x706E62), art: Palette.forest, accent: warmAccent,
+            case 2: return Style(card: Color(hex: 0x878476), art: Palette.forest, accent: warmAccent,
                                  title: Palette.onInk)
             case 3: return Style(card: Color(hex: 0xC1A47E), art: Color(hex: 0xC1A47E), accent: coolAccent,
                                  title: Palette.ink)
-            default: return Style(card: Color(hex: 0x7A6B64), art: Color(hex: 0xD6BFAA), accent: warmAccent,
+            default: return Style(card: Color(hex: 0x8F7E76), art: Color(hex: 0xD6BFAA), accent: warmAccent,
                                   title: Palette.onInk)
             }
         }
