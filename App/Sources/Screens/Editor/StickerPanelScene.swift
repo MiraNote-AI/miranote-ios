@@ -50,8 +50,11 @@ struct StickerPanelScene: View {
             trailing: "Add",
             onLeading: actions.leading,
             onTrailing: add,
-            onUndo: editor.undo,
-            undoEnabled: editor.canUndo,
+            // The panel records no step of its own (presets and favorites
+            // leave it as they place; a made sticker has its own undo): the
+            // header Undo has nothing here, never a change under the scrim.
+            onUndo: {},
+            undoEnabled: false,
             scrimmed: true,
             onScrimTap: {
                 // A tap on the page goes back to it -- except while a

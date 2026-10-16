@@ -36,6 +36,25 @@ final class StickerPanelUITests: XCTestCase {
         app.buttons["sticker.generate.run"].tap()
     }
 
+    /// The panel records no steps of its own (presets and favorites leave
+    /// it as they place): its header Undo is off, never the canvas-wide
+    /// undo reaching under the scrim.
+    func testThePanelsHeaderUndoLeavesTheCanvasAlone() {
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Dinner with Mom")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.buttons["editor.undo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["editor.undo"].isEnabled, "the block can be undone from the canvas")
+
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "the panel's Undo would take the block away")
+    }
+
     func testAPresetFromTheFoodSetPlacesOnATap() {
         let food = app.buttons["sticker.tab.food"]
         XCTAssertTrue(food.waitForExistence(timeout: 5))
