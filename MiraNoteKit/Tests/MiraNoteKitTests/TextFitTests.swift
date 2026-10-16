@@ -84,26 +84,122 @@ final class TextFitTests: XCTestCase {
         let fitted = TextFit.apply(to: [caption, photo, sticker]) { $0.id == caption.id ? 100 : nil }
         XCTAssertLessThanOrEqual(bottom(fitted[1]), top(fitted[2]), "the push drove the photo into the sticker")    }
 
-    /// Writing grows the block live without moving anything (the page does
-    /// not jump under the cursor); Done pushes what is below by the growth,
-    /// in the session's own undo step.
-    func testDonePushesWhatTheWritingGrewOverInTheSessionsStep() {
+    /// Chain A (grows 40) -> B (shrinks 20) -> C: C stays clear of B.
+    func testCascadeThroughAShrinkingBox() {
+        let blockA = CanvasItem(content: .text(TextBlock(text: "a")), position: CGPoint(x: 150, y: 50),
+                                size: CGSize(width: 240, height: 40))
+        let blockB = CanvasItem(content: .text(TextBlock(text: "b")), position: CGPoint(x: 150, y: 120),
+                                size: CGSize(width: 240, height: 60))
+        let photo = CanvasItem(content: .image(ImageRef(displayName: "c")), position: CGPoint(x: 150, y: 250),
+                               size: CGSize(width: 240, height: 100))
+        let fitted = TextFit.apply(to: [blockA, blockB, photo]) {
+            $0.id == blockA.id ? 80 : ($0.id == blockB.id ? 40 : nil)
+        }
+        XCTAssertGreaterThanOrEqual(top(fitted[1]), bottom(fitted[0]) - 0.5)
+        XCTAssertGreaterThanOrEqual(top(fitted[2]), bottom(fitted[1]) - 0.5)
+    }
+
+    // MARK: Writing
+
+    /// Writing grows the block and pushes what is below in the same change,
+    /// so whatever step records the growth records the push with it.
+    func testWritingPushesWhatTheBlockGrowsOverAsItGrows() {
         let memory = page()
         let paragraph = memory.items[0].id, photo = memory.items[1].id
         let editor = CanvasViewModel(memory: memory)
         editor.startEditingText(paragraph)
         editor.setText(itemID: paragraph, to: "Sunny afternoon by the bridge, and then the long walk home")
         editor.autosizeTextHeight(itemID: paragraph, to: 90)
-        XCTAssertEqual(top(editor.item(photo)), 112, accuracy: 0.5, "nothing moves while writing")
-
-        editor.endEditingText()
-        XCTAssertEqual(top(editor.item(photo)), 112 + 30, accuracy: 0.5, "Done pushes the photo by the 30 pt growth")
+        XCTAssertEqual(top(editor.item(photo)), 112 + 30, accuracy: 0.5, "the photo moves by the 30 pt growth")
         XCTAssertGreaterThanOrEqual(top(editor.item(photo)), bottom(editor.item(paragraph)))
 
+        editor.endEditingText()
         editor.undo()
         XCTAssertEqual(editor.item(photo)?.position, memory.items[1].position, "one undo takes the push back too")
         XCTAssertEqual(editor.item(paragraph), memory.items[0])
         XCTAssertFalse(editor.canUndo, "the push is no step of its own")
+    }
+
+    /// Deleting a line and typing it again pushes nothing twice: the photo
+    /// is already clear of the tallest the block has been.
+    func testRetypingALineThatWasDeletedPushesNoFurther() {
+        let memory = page()
+        let paragraph = memory.items[0].id, photo = memory.items[1].id
+        let editor = CanvasViewModel(memory: memory)
+        editor.startEditingText(paragraph)
+        editor.autosizeTextHeight(itemID: paragraph, to: 90)
+        editor.autosizeTextHeight(itemID: paragraph, to: 60)
+        editor.autosizeTextHeight(itemID: paragraph, to: 90)
+        XCTAssertEqual(top(editor.item(photo)), 112 + 30, accuracy: 0.5)
+        editor.autosizeTextHeight(itemID: paragraph, to: 110)
+        XCTAssertEqual(top(editor.item(photo)), 112 + 50, accuracy: 0.5, "a new line pushes by what is new")
+    }
+
+    /// Writing grows block A over a photo, then a long-press "Edit text" on
+    /// block B starts B's session straight away: the photo is clear of A.
+    func testSwitchingStraightToAnotherBlockLeavesTheGrowthClear() {
+        let blockA = CanvasItem(content: .text(TextBlock(text: "a")), position: CGPoint(x: 150, y: 50),
+                                size: CGSize(width: 240, height: 40))
+        let photo = CanvasItem(content: .image(ImageRef(displayName: "p")), position: CGPoint(x: 150, y: 150),
+                               size: CGSize(width: 240, height: 100))
+        let blockB = CanvasItem(content: .text(TextBlock(text: "b")), position: CGPoint(x: 150, y: 400),
+                                size: CGSize(width: 240, height: 40))
+        let editor = CanvasViewModel(memory: Memory(items: [blockA, photo, blockB]))
+        editor.startEditingText(blockA.id)
+        editor.setText(itemID: blockA.id, to: "a much longer paragraph")
+        editor.autosizeTextHeight(itemID: blockA.id, to: 100)
+        editor.startEditingText(blockB.id)
+        editor.endEditingText()
+        XCTAssertGreaterThanOrEqual(top(editor.item(photo.id)), bottom(editor.item(blockA.id)) - 0.5,
+                                    "A's grown words run under the photo")
+    }
+
+    /// A style step after the growth, Done, then Undo of that step: the
+    /// grown block is still clear of the photo.
+    func testUndoingALaterStepOfTheSessionKeepsTheGrownBlockClear() {
+        let blockA = CanvasItem(content: .text(TextBlock(text: "a")), position: CGPoint(x: 150, y: 50),
+                                size: CGSize(width: 240, height: 40))
+        let photo = CanvasItem(content: .image(ImageRef(displayName: "p")), position: CGPoint(x: 150, y: 150),
+                               size: CGSize(width: 240, height: 100))
+        let editor = CanvasViewModel(memory: Memory(items: [blockA, photo]))
+        editor.startEditingText(blockA.id)
+        editor.setText(itemID: blockA.id, to: "a much longer paragraph")
+        editor.autosizeTextHeight(itemID: blockA.id, to: 100)
+        editor.setTextColorName(itemID: blockA.id, to: "clay")
+        editor.endEditingText()
+        editor.undo()
+        XCTAssertGreaterThanOrEqual(top(editor.item(photo.id)), bottom(editor.item(blockA.id)) - 0.5,
+                                    "after undoing the color step the grown words run under the photo")
+    }
+
+    /// Undo back to before the growth while still writing, then the same
+    /// growth again: the photo is pushed again, never left under the words.
+    func testGrowingAgainAfterAnUndoPushesAgain() {
+        let memory = page()
+        let paragraph = memory.items[0].id, photo = memory.items[1].id
+        let editor = CanvasViewModel(memory: memory)
+        editor.startEditingText(paragraph)
+        editor.autosizeTextHeight(itemID: paragraph, to: 90)
+        editor.setTextColorName(itemID: paragraph, to: "clay")
+        editor.undo()
+        editor.undo()
+        XCTAssertEqual(editor.item(photo)?.position, memory.items[1].position)
+        XCTAssertNotNil(editor.editingTextItemID, "still writing")
+        editor.autosizeTextHeight(itemID: paragraph, to: 90)
+        XCTAssertGreaterThanOrEqual(top(editor.item(photo)), bottom(editor.item(paragraph)) - 0.5)
+    }
+
+    /// Cancel takes the session back, its pushes included.
+    func testCancelTakesThePushBackWithTheWords() {
+        let memory = page()
+        let paragraph = memory.items[0].id, photo = memory.items[1].id
+        let editor = CanvasViewModel(memory: memory)
+        editor.startEditingText(paragraph)
+        editor.setText(itemID: paragraph, to: "Sunny afternoon by the bridge, and then the long walk home")
+        editor.autosizeTextHeight(itemID: paragraph, to: 90)
+        editor.cancelEditingText()
+        XCTAssertEqual(editor.item(photo)?.position, memory.items[1].position, "the photo is back where it was")
+        XCTAssertEqual(editor.item(paragraph), memory.items[0])
     }
 
     func testRemeasuringInTheEditorPushesBelowAndRecordsNoStep() {

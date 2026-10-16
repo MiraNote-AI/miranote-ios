@@ -21,8 +21,8 @@ public final class CanvasViewModel {
             if editingTextItemID == nil {
                 sessionSteps = nil
                 sessionOrigin = nil
-                sessionStartHeight = nil
             }
+            clearedHeight = editingTextItemID.flatMap { item($0)?.size.height }
         }
     }
 
@@ -37,10 +37,10 @@ public final class CanvasViewModel {
     /// session's to take back.
     private var sessionOrigin: CanvasItem?
 
-    /// The edited block's height when the session began. Writing grows the
-    /// block in place; what it grew over is pushed down when the session
-    /// ends, so the page never jumps under the cursor.
-    private var sessionStartHeight: CGFloat?
+    /// The tallest the edited block has been since its session began (or
+    /// since the last undo): what is below it already clears that height,
+    /// so a line deleted and typed again pushes nothing twice.
+    private var clearedHeight: CGFloat?
 
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
@@ -178,6 +178,8 @@ public final class CanvasViewModel {
         if let editing = editingTextItemID, item(editing) == nil {
             editingTextItemID = nil
         }
+        // The page as that step had it: what is below the block clears it.
+        clearedHeight = editingTextItemID.flatMap { item($0)?.size.height }
     }
 
     // MARK: Selection
@@ -185,7 +187,6 @@ public final class CanvasViewModel {
     public func select(_ id: CanvasItem.ID?) {
         selectedItemID = id
         if editingTextItemID != id {
-            pushBelowWrittenGrowth()
             editingTextItemID = nil
         }
     }
@@ -201,27 +202,10 @@ public final class CanvasViewModel {
         // caller made) is the page as it was before the session.
         sessionSteps = history.isEmpty ? nil : 0
         sessionOrigin = history.last?.items.first { $0.id == id }
-        sessionStartHeight = item(id)?.size.height
     }
 
     public func endEditingText() {
-        pushBelowWrittenGrowth()
         editingTextItemID = nil
-    }
-
-    /// The session's growth pushes the elements below the block down, as
-    /// part of the session's undo step (no step of its own).
-    private func pushBelowWrittenGrowth() {
-        guard let id = editingTextItemID, let start = sessionStartHeight,
-              let index = index(of: id) else { return }
-        let grown = memory.items[index].size.height
-        guard grown > start + 0.5 else { return }
-        // The page with the block at its starting height, top where it is.
-        var before = memory.items
-        before[index].position.y -= (grown - start) / 2
-        before[index].size.height = start
-        let fitted = TextFit.apply(to: before) { $0.id == id ? grown : nil }
-        if fitted != memory.items { memory.items = fitted }
     }
 
     /// Changes previewed live without undo steps (an AI rewrite, a custom
@@ -326,15 +310,23 @@ public final class CanvasViewModel {
         )
     }
 
-    /// Measured text height, TOP anchored; continuous, no undo step.
+    /// Measured text height, TOP anchored; continuous, no undo step. A block
+    /// that grows pushes what is below it down in the same change (TextFit),
+    /// so the step that records the growth records the push too.
     public func autosizeTextHeight(itemID: CanvasItem.ID, to height: CGFloat) {
         guard let index = index(of: itemID),
               case .text = memory.items[index].content else { return }
         let old = memory.items[index].size.height
         let clamped = max(36, height)
         guard abs(old - clamped) > 0.5 else { return }
-        memory.items[index].size.height = clamped
-        memory.items[index].position.y += (clamped - old) / 2
+        // While writing, what is below already clears the tallest the block
+        // has been: only growth past that pushes.
+        let cleared = itemID == editingTextItemID ? max(old, clearedHeight ?? old) : old
+        var items = memory.items
+        items[index].size.height = cleared
+        items[index].position.y += (cleared - old) / 2
+        memory.items = TextFit.apply(to: items) { $0.id == itemID ? clamped : nil }
+        if itemID == editingTextItemID { clearedHeight = max(cleared, clamped) }
     }
 
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
@@ -348,15 +340,24 @@ public final class CanvasViewModel {
 extension CanvasViewModel {
     /// The header's Cancel: ends the session and takes the edited block back
     /// to how it was when the session began -- words, style and, for a new
-    /// block, the block itself. Other elements and the page keep what landed
-    /// meanwhile. The session's undo steps lose the block's edits; a step
-    /// left with nothing else in it goes.
+    /// block, the block itself -- and what its growth pushed back up. Other
+    /// elements and the page keep what landed meanwhile. The session's undo
+    /// steps lose the block's edits; a step left with nothing else in it goes.
     public func cancelEditingText() {
         guard let id = editingTextItemID else { return }
         if let steps = sessionSteps, steps < history.count {
             let origin = sessionOrigin
+            // Where the elements stood when the session began: the block's
+            // growth pushed them, and nothing else moves one while writing.
+            let startPositions = Dictionary(
+                history[history.count - steps - 1].items.map { ($0.id, $0.position) },
+                uniquingKeysWith: { first, _ in first }
+            )
             func reverted(_ items: [CanvasItem]) -> [CanvasItem] {
                 var items = items
+                for index in items.indices {
+                    if let start = startPositions[items[index].id] { items[index].position = start }
+                }
                 if let index = items.firstIndex(where: { $0.id == id }) {
                     if let origin { items[index] = origin } else { items.remove(at: index) }
                 } else if let origin {
