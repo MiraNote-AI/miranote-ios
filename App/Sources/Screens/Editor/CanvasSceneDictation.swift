@@ -5,7 +5,9 @@ import SwiftUI
 // MARK: - Dictation (hold to talk)
 
 extension CanvasScene {
-    /// Touch down on the strip: the mic goes live unless it already is.
+    /// Touch down on the strip: the mic goes live unless it already is. A
+    /// take already let go of and being written down is not live: a press
+    /// then records a new take.
     func pressDictation() {
         // A live voice take owns the recorder slot: the strip never takes
         // it over (or its release would transcribe the take into the block).
@@ -79,26 +81,25 @@ extension CanvasScene {
     /// Record, transcribe (:8005), append to the block being edited, inside
     /// its session like typing. Words never land after the session ends:
     /// Done waits for them ("Writing it down...", `endTextEditing`); Cancel,
-    /// or a session that ends or moves on, drops them.
+    /// or a session that ends or moves on, drops them. The take stops being
+    /// live here, as the recorder is let go of: its words on their way are
+    /// `writingDown`, and the strip is free for the next take.
     func stopDictation() {
         // A mic still coming up is let go of here (its start then stops
         // it): no stale claim left for a later cancel to act on.
         if startingMic == .text { startingMic = nil }
-        guard let recorder else {
-            dictating = false
-            return
-        }
+        dictating = false
+        guard let recorder else { return }
         self.recorder = nil
         let id = editor.editingTextItemID
         dictationTarget = id
-        // A take spoken while an earlier one is still written down queues
-        // behind it: both land, in the order spoken.
+        // A take spoken while an earlier one of the same session is still
+        // written down queues behind it: both land, in the order spoken.
         let take = UUID()
         pendingTakes.append(take)
         let earlier = lastTake
         lastTake = Task {
             let words = await transcribe(recorder, for: id)
-            dictating = false
             await earlier?.value
             let queued = pendingTakes.contains(take)
             pendingTakes.removeAll { $0 == take }

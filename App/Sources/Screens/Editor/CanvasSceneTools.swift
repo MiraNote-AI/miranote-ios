@@ -152,7 +152,7 @@ extension CanvasScene {
                 .padding(.horizontal, Metrics.chromeInset)
             DictationStrip(
                 surface: .page,
-                listening: dictating && !writingDown,
+                listening: dictating,
                 detail: stripDetail ?? "accurate voice-to-text",
                 onPress: { if dictationPress == nil { pressDictation() } },
                 onRelease: releaseDictation,
@@ -173,10 +173,11 @@ extension CanvasScene {
         .animation(.easeOut(duration: 0.15), value: textTool)
     }
 
-    /// The strip's line when it is not at rest.
+    /// The strip's line when it is not at rest: a new take listening while
+    /// an earlier one is written down reads as listening.
     private var stripDetail: String? {
-        if writingDown { return "Writing it down..." }
-        return dictating ? "Listening..." : dictationHint
+        if dictating { return "Listening..." }
+        return writingDown ? "Writing it down..." : dictationHint
     }
 
     @ViewBuilder private var textToolRow: some View {
@@ -252,8 +253,10 @@ extension CanvasScene {
     // MARK: Ending a session
 
     /// The header's Done: the session's previews are kept. Dictated words
-    /// on their way are waited for, so they land inside the session.
+    /// on their way are waited for, so they land inside the session -- a
+    /// take still listening (the tap toggle) stops and is waited for too.
     func endTextEditing() {
+        if dictating, editor.editingTextItemID != nil { stopDictation() }
         if writingDown {
             waitForWordsThenEnd()
             return

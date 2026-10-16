@@ -94,14 +94,22 @@ extension CanvasScene {
             onHoldStart: pressMiraDictation,
             onHoldEnd: releaseMiraDictation,
             onHoldCancel: cancelMiraDictation,
-            onToggle: { miraDictation == .listening ? finishMiraDictation() : startMiraDictation() }
+            onToggle: { miraListening ? finishMiraDictation() : startMiraDictation() }
         )
+    }
+
+    /// The strip as drawn: a live take listens even while earlier ones are
+    /// still being written down.
+    var miraDictation: DictationStripState {
+        if miraListening { return .listening }
+        if miraTakesOut > 0 { return .transcribing }
+        return miraNotice.map { .notice($0) } ?? .idle
     }
 
     /// Tapping the composer opens the chat with the keyboard up.
     func openMiraChat() {
         guard !mira.isWorking else { return }
-        miraDictation = .idle
+        miraNotice = nil
         miraChatOpen = true
         Task { @MainActor in miraFocus = true }
     }
@@ -123,9 +131,10 @@ extension CanvasScene {
 
     // MARK: Mira Dictation (hold to talk)
 
-    /// Touch down on the strip: the mic goes live unless it already is.
+    /// Touch down on the strip: the mic goes live unless it already is (a
+    /// take being written down is not live: a press records a new one).
     func pressMiraDictation() {
-        let live = miraDictation == .listening
+        let live = miraListening
         miraPress = (start: .now, wasLive: live)
         if !live { startMiraDictation() }
     }
@@ -156,46 +165,57 @@ extension CanvasScene {
                     return
                 }
                 startingMic = nil
-                miraDictation = .listening
+                miraNotice = nil
+                miraListening = true
                 // A hold let go before the mic came up: finish right away.
                 if miraFinishWhenLive { finishMiraDictation() }
             } catch {
                 guard holdsMic(newRecorder) else { return }
                 startingMic = nil
                 recorder = nil
-                miraDictation = .notice(error.localizedDescription)
+                miraNotice = error.localizedDescription
             }
         }
     }
 
-    /// The take ends: the words land in the question for editing, never
+    /// The take ends: the recorder is let go of (the strip is free for the
+    /// next take) and the words land in the question for editing, never
     /// sent.
     func finishMiraDictation() {
-        guard miraDictation == .listening, let recorder else {
+        guard miraListening, let recorder else {
             // Still coming up: end it once it is live.
             if recorder != nil { miraFinishWhenLive = true }
             return
         }
         miraFinishWhenLive = false
         self.recorder = nil
-        miraDictation = .transcribing
+        miraListening = false
+        miraTakesOut += 1
         Task {
-            guard let data = try? await recorder.stop(), !data.isEmpty else {
-                miraDictation = .notice("I couldn't catch any words -- try again?")
-                return
-            }
-            guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
-                miraDictation = .notice("Couldn't reach the transcriber -- try again?")
-                return
-            }
-            let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !words.isEmpty else {
-                miraDictation = .notice("I couldn't catch any words -- try again?")
-                return
-            }
+            let words = await miraWords(from: recorder)
+            miraTakesOut -= 1
+            guard let words else { return }
             miraPrompt = miraPrompt.isEmpty ? words : miraPrompt + " " + words
-            miraDictation = .idle
         }
+    }
+
+    /// The take's words, or nil with the strip's notice saying why.
+    private func miraWords(from recorder: AudioRecording) async -> String? {
+        guard let data = try? await recorder.stop(), !data.isEmpty else {
+            miraNotice = "I couldn't catch any words -- try again?"
+            return nil
+        }
+        guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
+            miraNotice = "Couldn't reach the transcriber -- try again?"
+            return nil
+        }
+        let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else {
+            miraNotice = "I couldn't catch any words -- try again?"
+            return nil
+        }
+        miraNotice = nil
+        return words
     }
 
     /// The chat closed mid-take (or the app left): stop the mic quietly,
@@ -208,10 +228,10 @@ extension CanvasScene {
             recorder = nil
             return
         }
-        guard miraDictation == .listening else { return }
+        guard miraListening else { return }
         let abandoned = recorder
         recorder = nil
-        miraDictation = .idle
+        miraListening = false
         Task { _ = try? await abandoned?.stop() }
     }
 

@@ -68,14 +68,23 @@ struct UITestScriptedStudio: ImageStudioService {
 }
 
 /// The mock transcriber, slower by `-TRANSCRIBE_DELAY <ms>` so a test can
-/// act while the words are on their way ("Writing it down...").
+/// act while the words are on their way ("Writing it down..."), or with
+/// only the process's first take held (`-TRANSCRIBE_FIRST_DELAY <ms>`).
 struct UITestScriptedTranscription: VoiceTranscriptionService {
     private let mock = MockVoiceTranscriptionService()
+    @MainActor private static var takes = 0
 
     func transcribe(audio: Data, filename: String) async throws -> String {
         let delay = UserDefaults.standard.integer(forKey: "TRANSCRIBE_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
+        let first = UserDefaults.standard.integer(forKey: "TRANSCRIBE_FIRST_DELAY")
+        if first > 0, await Self.countTake() == 1 { try await Task.sleep(for: .milliseconds(first)) }
         return try await mock.transcribe(audio: audio, filename: filename)
+    }
+
+    @MainActor private static func countTake() -> Int {
+        takes += 1
+        return takes
     }
 }
 

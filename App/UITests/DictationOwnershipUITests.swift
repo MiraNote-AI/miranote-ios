@@ -157,19 +157,83 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "Lunch")
     }
 
-    /// Two takes in one session, the second spoken while the first is still
-    /// being written down: the words of both land.
-    func testTwoTakesInOneSessionBothLand() {
-        startAMemory(["-TRANSCRIBE_DELAY", "6000"])
+    /// Two quick holds, the second while the first is still being written
+    /// down (the natural way to dictate two phrases): both land, no extra
+    /// tap in between.
+    func testTwoQuickHoldsLandTwoPhrases() {
+        startAMemory(["-TRANSCRIBE_DELAY", "4000"])
         write("Lunch")
         strip.press(forDuration: 0.8)
-        // While the first take is written down the strip still counts it
-        // as live: this tap lets go of it, the next hold is a new take.
-        strip.tap()
         strip.press(forDuration: 0.8)
         let both = "Lunch Transcribed voice note (mock) Transcribed voice note (mock)"
         let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", both), object: field)
-        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 12), .completed, "the second take's words land too")
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 12), .completed, "the second hold's words land too")
+    }
+
+    /// A take of a cancelled session still being written down (held 20 s)
+    /// never holds back the next session's take.
+    func testACancelledSessionsSlowTakeNeverDelaysTheNext() {
+        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "20000"])
+        write("Lunch")
+        strip.press(forDuration: 0.8)
+        app.buttons["text.cancel"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        write("Dinner")
+        strip.press(forDuration: 0.8)
+        let landed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Dinner Transcribed voice note (mock)"), object: field
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the new take waited for the old one")
+    }
+
+    /// Meng's probe: a hold across a cancelled take's return, then Done --
+    /// the new words land and no mic is left on.
+    func testAHoldAcrossAnOldTakesReturnThenDoneLeavesNoMicOn() {
+        startAMemory(["-TRANSCRIBE_DELAY", "6000"])
+        write("Lunch")
+        strip.press(forDuration: 0.8)
+        app.buttons["text.cancel"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        write("Dinner")
+        // Typing took a few seconds: the old take returns during the hold.
+        strip.press(forDuration: 6)
+        app.buttons["keyboard.done"].tap()
+        let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                             object: app.buttons["keyboard.done"])
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 9), .completed, "Done completes once the words land")
+        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 3), "the new take's words land")
+        assertVoiceRecords("the strip's mic did not stay on")
+    }
+
+    /// Done while the strip still listens (the tap toggle): the take stops
+    /// and Done waits for its words, like a take already stopped.
+    func testDoneWhileListeningStopsTheTakeAndKeepsItsWords() {
+        startAMemory(["-TRANSCRIBE_DELAY", "1500"])
+        write("Lunch")
+        strip.tap()
+        let listening = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'Listening...'"), object: strip)
+        XCTAssertEqual(XCTWaiter().wait(for: [listening], timeout: 5), .completed)
+        app.buttons["keyboard.done"].tap()
+        waitGone(app.buttons["keyboard.done"], "Done completes once the words land")
+        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 3), "the listening take's words are kept")
+        assertVoiceRecords("the strip's mic did not stay on")
+    }
+
+    /// The Mira strip: a hold across the first take's return, then Done --
+    /// no mic is left on, and both phrases are in the question.
+    func testMiraStripHoldAcrossTheFirstTakesReturnLeavesNoMicOn() {
+        startAMemory(["-TRANSCRIBE_DELAY", "1500"])
+        app.openMiraChat()
+        let miraStrip = app.descendants(matching: .any)["mira.dictation"]
+        miraStrip.press(forDuration: 0.8)
+        miraStrip.press(forDuration: 3)
+        let both = NSPredicate(format: "value CONTAINS %@",
+                               "Transcribed voice note (mock) Transcribed voice note (mock)")
+        let landed = XCTNSPredicateExpectation(predicate: both, object: app.miraInput)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed, "both phrases land")
+        app.buttons["Done"].tap()
+        waitGone(app.miraInput, "Done closes the chat")
+        assertVoiceRecords("the Mira strip's mic did not stay on")
     }
 
     /// Same, but the words do not come within the wait's cap: the session

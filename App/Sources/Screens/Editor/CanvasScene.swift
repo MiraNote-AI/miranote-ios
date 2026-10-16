@@ -44,7 +44,12 @@ struct CanvasScene: View {
     @State var miraPrompt = ""
     /// The Mira canvas chat (screen 06) is up over the canvas.
     @State var miraChatOpen = false
-    @State var miraDictation: DictationStripState = .idle
+    /// The Mira strip's take is live: its recorder is up and not yet let go
+    /// of. Takes let go of and still written down are `miraTakesOut`.
+    @State var miraListening = false
+    @State var miraTakesOut = 0
+    /// Why the last Mira strip take brought no words, while the strip rests.
+    @State var miraNotice: String?
     /// The Mira strip's press in progress (hold to talk, or a tap toggle).
     @State var miraPress: (start: Date, wasLive: Bool)?
     /// A hold ended before the mic came up: finish as soon as it is live.
@@ -96,6 +101,8 @@ struct CanvasScene: View {
     /// cannot look mid-drag, so the trail is left for it to read.
     @State var dropZoneTrail: [String] = []
     #endif
+    /// The text strip's take is live: its recorder is up and not yet let
+    /// go of (its words on their way are `writingDown`).
     @State var dictating = false
     /// A strip's mic on its way up; cancelling it stops it once it is.
     @State var startingMic: StartingMic?
@@ -378,7 +385,10 @@ struct CanvasScene: View {
                 }
             }
             dictationTarget = nil
+            // Takes chain only within a session: a slow take of the one
+            // that ended never holds back the next session's.
             pendingTakes = []
+            lastTake = nil
             doneWaiting = nil
             afterWritingDown = nil
             if editing == nil {
@@ -485,7 +495,7 @@ struct CanvasScene: View {
             },
             onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
             // Ending the writing then waits for the words, as Done does.
-            onEndWritingThen: writingDown ? { then in
+            onEndWritingThen: writingDown || dictating ? { then in
                 afterWritingDown = then
                 endTextEditing()
             } : nil,
