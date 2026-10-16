@@ -2,13 +2,24 @@ import MiraNoteKit
 import SwiftUI
 
 /// The element being moved, as the board measured it: its look, its box on
-/// screen (global, unrotated, the drag's translation included), its tilt and
-/// the finger (global).
+/// screen (global, unrotated -- the element's own size -- the drag's
+/// translation included), its tilt and the finger (global).
 struct LiftedElement: Equatable {
     let item: CanvasItem
     let frame: CGRect
     let rotation: Double
     let finger: CGPoint
+
+    /// `measured` is the element's box as read on screen, tilt included --
+    /// for a tilted element its larger bounding box. The copy is drawn at
+    /// the element's own `size` around that box's centre, then tilted.
+    init(item: CanvasItem, measured: CGRect, size: CGSize, rotation: Double, finger: CGPoint) {
+        self.item = item
+        frame = CGRect(x: measured.midX - size.width / 2, y: measured.midY - size.height / 2,
+                       width: size.width, height: size.height)
+        self.rotation = rotation
+        self.finger = finger
+    }
 }
 
 /// Handoff screen 22: the dragged element floats in a scene-level layer,

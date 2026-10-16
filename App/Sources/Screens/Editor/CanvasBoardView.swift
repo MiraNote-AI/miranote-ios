@@ -284,22 +284,25 @@ struct CanvasBoardView: View {
     }
 
     /// The moving element's box on screen, translation included: the scene
-    /// draws the lifted copy exactly there.
+    /// draws the lifted copy exactly there. Read inside the element's tilt,
+    /// the global frame is the tilted bounding box: the copy takes the
+    /// element's own size (`geo.size`) around its centre.
     private func liftReporter(_ item: CanvasItem, rotation: Double) -> some View {
         GeometryReader { geo in
             Color.clear
-                .onAppear { lift(item, frame: geo.frame(in: .global), rotation: rotation) }
+                .onAppear { lift(item, frame: geo.frame(in: .global), size: geo.size, rotation: rotation) }
                 .onChange(of: geo.frame(in: .global)) { _, frame in
-                    lift(item, frame: frame, rotation: rotation)
+                    lift(item, frame: frame, size: geo.size, rotation: rotation)
                 }
         }
     }
 
-    private func lift(_ item: CanvasItem, frame: CGRect, rotation: Double) {
+    private func lift(_ item: CanvasItem, frame: CGRect, size: CGSize, rotation: Double) {
         // The drop's own frame change can land after the move ended: never
         // bring the copy back then.
         guard let activeMove, activeMove.itemID == item.id else { return }
-        lifted.wrappedValue = LiftedElement(item: item, frame: frame, rotation: rotation, finger: activeMove.location)
+        lifted.wrappedValue = LiftedElement(item: item, measured: frame, size: size, rotation: rotation,
+                                            finger: activeMove.location)
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.
