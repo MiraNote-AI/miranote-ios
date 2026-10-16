@@ -78,8 +78,7 @@ struct ChatTextView: UIViewRepresentable {
             let insertingWords = (textView as? ChatInputView)?.takeInsertingWords() == true
             let fromReturnKey = !insertingWords && textView.markedTextRange == nil
                 && textView.textInputMode?.primaryLanguage != "dictation"
-            guard ChatReturn.sends(replacing: range, with: text, in: textView.text,
-                                   fromReturnKey: fromReturnKey) else { return true }
+            guard ChatReturn.sends(text, fromReturnKey: fromReturnKey) else { return true }
             parent.onSend()
             return false
         }
@@ -136,16 +135,14 @@ final class ChatInputView: UITextView {
     }
 }
 
-/// When the chat field sends: the keyboard's Return key typed at the end of
-/// the field, nothing selected -- a blank field too: a staged photo goes
-/// out on its own, and with nothing staged the send is a no-op. A new line
-/// from anywhere else -- a paste, Shift+Return, a keyboard's marked text,
-/// dictation's "new line" -- is words (`fromReturnKey` false), and so is
-/// Return inside the words.
+/// When the chat field sends: the keyboard's Send key, wherever the caret is
+/// (a word just tapped to fix it) and over a selection too -- it never puts
+/// a line break in or replaces the words. A blank field too: a staged photo
+/// goes out on its own, and with nothing staged the send is a no-op. A new
+/// line from anywhere else -- a paste, Shift+Return, a keyboard's marked
+/// text, dictation's "new line" -- is words (`fromReturnKey` false).
 enum ChatReturn {
-    static func sends(replacing range: NSRange, with replacement: String, in text: String,
-                      fromReturnKey: Bool) -> Bool {
-        fromReturnKey && replacement == "\n" && range.length == 0
-            && range.location == (text as NSString).length
+    static func sends(_ replacement: String, fromReturnKey: Bool) -> Bool {
+        fromReturnKey && replacement == "\n"
     }
 }

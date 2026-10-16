@@ -1,36 +1,40 @@
 import XCTest
 @testable import MiraNote
 
-/// The chat field sends only on the keyboard's Return key: a new line typed
-/// at the end of words, with nothing selected. Pastes, Shift+Return, a
-/// keyboard's marked text and dictation insert their new lines instead.
+/// The chat field's keyboard Send key sends, wherever the caret is; line
+/// breaks come only from Shift+Return or a paste (and a keyboard's marked
+/// text and dictation insert theirs).
 final class ChatReturnTests: XCTestCase {
-    private func sends(_ replacement: String, at location: Int, length: Int = 0,
-                       in text: String, fromReturnKey: Bool = true) -> Bool {
-        ChatReturn.sends(replacing: NSRange(location: location, length: length), with: replacement,
-                         in: text, fromReturnKey: fromReturnKey)
+    private func sends(_ replacement: String, fromReturnKey: Bool = true) -> Bool {
+        ChatReturn.sends(replacement, fromReturnKey: fromReturnKey)
     }
 
-    func testTheReturnKeyAtTheEndOfWordsSends() {
-        XCTAssertTrue(sends("\n", at: 5, in: "hello"))
+    func testTheReturnKeySends() {
+        XCTAssertTrue(sends("\n"))
     }
 
     func testANewLineThatIsNotTheReturnKeyDoesNotSend() {
-        XCTAssertFalse(sends("\n", at: 5, in: "hello", fromReturnKey: false),
+        XCTAssertFalse(sends("\n", fromReturnKey: false),
                        "a pasted new line, Shift+Return, marked text or dictation")
     }
 
-    func testReturnInsideTheWordsOrOverASelectionDoesNotSend() {
-        XCTAssertFalse(sends("\n", at: 2, in: "hello"), "the cursor is inside the words")
-        XCTAssertFalse(sends("\n", at: 3, length: 2, in: "hello"), "it replaces a selection")
-    }
-
-    /// A blank field's Return goes to Send too, never into the field: a
-    /// staged photo goes out on its own, and with nothing staged the send
-    /// is a no-op (ChatViewModel.canSend).
-    func testReturnInABlankFieldGoesToSend() {
-        XCTAssertTrue(sends("\n", at: 0, in: ""))
-        XCTAssertTrue(sends("\n", at: 2, in: "  "), "only spaces")
+    /// The caret inside the words (a word tapped to fix it), or words
+    /// selected: the Send key still sends, and nothing is put in or
+    /// replaced.
+    @MainActor
+    func testTheReturnKeyInsideTheWordsOrOverASelectionSendsAndChangesNothing() {
+        var sent = 0
+        let field = ChatTextView(text: .constant("hello"), isFocused: .constant(false),
+                                 font: .systemFont(ofSize: 12)) { sent += 1 }
+        let coordinator = field.makeCoordinator()
+        let view = ChatInputView()
+        view.delegate = coordinator
+        view.text = "hello"
+        XCTAssertFalse(coordinator.textView(view, shouldChangeTextIn: NSRange(location: 0, length: 0),
+                                            replacementText: "\n"), "a line break went in at the start")
+        XCTAssertFalse(coordinator.textView(view, shouldChangeTextIn: NSRange(location: 1, length: 3),
+                                            replacementText: "\n"), "the selected words were replaced")
+        XCTAssertEqual(sent, 2)
     }
 
     @MainActor
@@ -47,12 +51,7 @@ final class ChatReturnTests: XCTestCase {
     }
 
     func testWordsEndingInANewLineDoNotSend() {
-        XCTAssertFalse(sends("more\n", at: 5, in: "hello"))
-    }
-
-    func testTheEndCountsInUTF16() {
-        let text = "caf\u{E9} \u{2615}"
-        XCTAssertTrue(sends("\n", at: (text as NSString).length, in: text))
+        XCTAssertFalse(sends("more\n"))
     }
 
     // MARK: Paste

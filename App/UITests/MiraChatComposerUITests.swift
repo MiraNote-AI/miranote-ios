@@ -53,6 +53,18 @@ final class MiraChatComposerUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["second message"].waitForExistence(timeout: 5), "the next one went too")
     }
 
+    /// Meng's probe: the caret moved to the start of the words (to fix one,
+    /// say), then the Send key -- it sends, and puts no line break in.
+    func testTheSendKeySendsWhereverTheCaretIs() {
+        openChat()
+        field.tap()
+        field.typeText("hello there")
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)).tap()
+        app.keyboards.buttons["send"].tap()
+        XCTAssertTrue(app.staticTexts["hello there"].waitForExistence(timeout: 5), "the Send key sent it")
+        XCTAssertEqual(field.value as? String ?? "", "", "the field is empty again, no line break left")
+    }
+
     /// A paste of a lone new line after typed words is words, not Send.
     func testPastingANewLineAloneDoesNotSend() {
         openChat()
