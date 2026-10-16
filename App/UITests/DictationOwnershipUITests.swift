@@ -186,6 +186,31 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the new take waited for the old one")
     }
 
+    /// The same block reopened while a cancelled session's take is still
+    /// on its way: only the new session's take lands in it.
+    func testACancelledTakeNeverLandsInTheSameBlockReopened() {
+        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
+        write("Lunch")
+        app.buttons["keyboard.done"].tap()
+        waitGone(app.buttons["keyboard.done"], "writing ended")
+        let lunch = app.staticTexts["Lunch"]
+        for take in 0..<2 {
+            lunch.tap()
+            if !field.waitForExistence(timeout: 2) { lunch.tap() }
+            XCTAssertTrue(field.waitForExistence(timeout: 5), "the block reopens (\(take))")
+            strip.press(forDuration: 0.8)
+            if take == 0 {
+                app.buttons["text.cancel"].tap()
+                XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+            }
+        }
+        app.buttons["keyboard.done"].tap()
+        let once = app.staticTexts["Lunch Transcribed voice note (mock)"]
+        XCTAssertTrue(once.waitForExistence(timeout: 8), "the new take lands, once")
+        sleep(2)
+        XCTAssertTrue(once.exists, "the cancelled take landed too")
+    }
+
     /// Meng's probe: a hold across a cancelled take's return, then Done --
     /// the new words land and no mic is left on.
     func testAHoldAcrossAnOldTakesReturnThenDoneLeavesNoMicOn() {
