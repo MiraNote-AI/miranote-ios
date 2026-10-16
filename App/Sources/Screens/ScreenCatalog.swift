@@ -47,6 +47,7 @@ private struct ImagePanelCatalogPreview: View {
     )
     @State private var pendingTool: EditorMode? = .image
     @State private var pendingPlacement: PendingPlacement?
+    @State private var photoEditors = PhotoEditors()
 
     var body: some View {
         CanvasScene(
@@ -54,6 +55,7 @@ private struct ImagePanelCatalogPreview: View {
             mira: mira,
             pendingTool: $pendingTool,
             pendingPlacement: $pendingPlacement,
+            photoEditors: $photoEditors,
             recorderFactory: { MockAudioRecorder() }
         )
     }
@@ -100,6 +102,7 @@ private struct CanvasCatalogPreview: View {
     }
     @State private var pendingTool: EditorMode?
     @State private var pendingPlacement: PendingPlacement?
+    @State private var photoEditors = PhotoEditors()
 
     var body: some View {
         CanvasScene(
@@ -107,6 +110,7 @@ private struct CanvasCatalogPreview: View {
             mira: mira,
             pendingTool: $pendingTool,
             pendingPlacement: $pendingPlacement,
+            photoEditors: $photoEditors,
             recorderFactory: { MockAudioRecorder() }
         )
     }

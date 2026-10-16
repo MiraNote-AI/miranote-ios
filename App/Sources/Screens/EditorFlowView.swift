@@ -21,6 +21,9 @@ struct EditorFlowView: View {
     /// Survives the panel-to-canvas hop: the Sticker panel fills it, the
     /// canvas empties it on the placing tap.
     @State private var pendingPlacement: PendingPlacement?
+    /// One photo editor per photo, beside `editor`: an AI edit kept running
+    /// with Done outlives the canvas scene the Sticker scene replaces.
+    @State private var photoEditors = PhotoEditors()
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
     /// draft opens.
@@ -85,6 +88,7 @@ struct EditorFlowView: View {
                 actions: actions(back: finish, done: finish),
                 pendingTool: $pendingTool,
                 pendingPlacement: $pendingPlacement,
+                photoEditors: $photoEditors,
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
             )

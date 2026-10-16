@@ -51,6 +51,35 @@ final class PhotoRevertUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, message)
     }
 
+    /// Meng's probe: an AI edit kept running with Done, then the Sticker
+    /// scene and back -- the photo reopens on that edit still running (B&W
+    /// waits), never a second editor the late result lands over.
+    func testAnEditKeptWithDoneSurvivesTheStickerScene() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-AI_EDIT_DELAY", "15000"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        let photo = placeSamples()
+        openEditor(photo)
+        app.buttons["photo.tile.ai"].tap()
+        let field = app.textFields["photo.prompt"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("make it autumn")
+        app.buttons["photo.composer.action"].tap()
+        app.buttons["nav.trailing"].tap()
+        waitGone(app.buttons["photo.filter.bw"], "Done closes the editor, the edit runs on")
+
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5))
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+
+        openEditor(photo)
+        app.buttons["photo.filter.bw"].tap()
+        XCTAssertFalse(app.buttons["photo.filter.bw"].isSelected, "the kept edit is not running in this editor")
+    }
+
     func testCancelPutsThePhotoBackAndUndoReturnsTheEdit() {
         let photo = placeSamples()
         openEditor(photo)

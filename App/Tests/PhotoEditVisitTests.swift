@@ -114,7 +114,7 @@ final class PhotoEditVisitTests: XCTestCase {
 
         /// What opening the photo again does.
         mutating func reopen(_ make: () -> PhotoEditController) -> PhotoEditController {
-            editors.open(id, make: make)
+            editors.open(id, onEdited: {}, onClose: {}, make: make)
         }
     }
 
@@ -122,7 +122,7 @@ final class PhotoEditVisitTests: XCTestCase {
     private func doneDuringAnAIEdit() throws -> RunningEdit {
         let (editor, id) = try makePhoto()
         var editors = PhotoEditors()
-        let first = editors.open(id) { controller(editor, id, studio: SlowStudio()) }
+        let first = editors.open(id, onEdited: {}, onClose: {}) { controller(editor, id, studio: SlowStudio()) }
         first.tap(.ai)
         first.prompt = "make it autumn"
         first.runComposer()
@@ -149,7 +149,7 @@ final class PhotoEditVisitTests: XCTestCase {
         let fileB = try ImageFileStore().save(MockImageStudioService.tinyPNG, id: UUID())
         let other = try XCTUnwrap(editor.addImages([ImageRef(displayName: "B", fileName: fileB)],
                                                    around: CGPoint(x: 180, y: 500)).first)
-        run.editors.open(other) { controller(editor, other) }
+        run.editors.open(other, onEdited: {}, onClose: {}) { controller(editor, other) }
         run.editors.close(other)
 
         let reopened = run.reopen { controller(editor, id, studio: SlowStudio()) }
@@ -213,6 +213,21 @@ final class PhotoEditVisitTests: XCTestCase {
         editor.undo()
         try await Task.sleep(for: .milliseconds(1_200))
         XCTAssertEqual(fileName(editor, id), original, "the dropped edit landed on the photo brought back")
+    }
+
+    /// The photo reopened by another canvas scene than the one that ran the
+    /// edit (the Sticker scene rebuilt it meanwhile): the running editor
+    /// reports to the scene that reopened it, never to the gone one.
+    func testAReopenedEditorReportsToTheSceneThatReopenedIt() async throws {
+        var run = try doneDuringAnAIEdit()
+        let (editor, id) = (run.editor, run.id)
+        var edited = false
+        let reopened = run.editors.open(id, onEdited: { edited = true }, onClose: {}) {
+            controller(editor, id, studio: SlowStudio())
+        }
+        XCTAssertTrue(reopened === run.first)
+        try await Task.sleep(for: .milliseconds(1_200))
+        XCTAssertTrue(edited, "the landed edit was reported to the scene that is gone")
     }
 
     func testCancellingTheReopenedVisitWhileTheEditRunsLetsItLand() async throws {

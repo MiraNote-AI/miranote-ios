@@ -70,8 +70,10 @@ final class PhotoEditController {
 
     private let editor: CanvasViewModel
     private let studio: ImageStudioService
-    private let onEdited: () -> Void
-    private let onClose: () -> Void
+    /// What the scene that opened the editor hears; a reopening scene (the
+    /// canvas is rebuilt after the Sticker scene) takes them over.
+    private var onEdited: () -> Void
+    private var onClose: () -> Void
     private let imageStore = ImageFileStore()
     private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
@@ -97,8 +99,11 @@ final class PhotoEditController {
     var comparing: Bool { pinnedCompare || holdingCompare }
 
     /// A new visit on a running edit kept with Done: none of the steps so
-    /// far are this visit's, and it starts from the edit's result.
-    fileprivate func reopen() {
+    /// far are this visit's, and it starts from the edit's result. The
+    /// scene that reopened it hears from it now.
+    fileprivate func reopen(onEdited: @escaping () -> Void, onClose: @escaping () -> Void) {
+        self.onEdited = onEdited
+        self.onClose = onClose
         workKeptByDone = true
         ownSteps = 0
         ownCount = nil
@@ -335,13 +340,20 @@ struct PhotoEditors {
 
     subscript(id: CanvasItem.ID) -> PhotoEditController? { byPhoto[id] }
 
-    /// The editor for a photo being opened: its running one, or a new visit.
+    /// The editor for a photo being opened: its running one, now reporting
+    /// `onEdited` / `onClose` to the opener, or a new visit (`make`, built
+    /// with the same two).
     @discardableResult
-    mutating func open(_ id: CanvasItem.ID, make: () -> PhotoEditController) -> PhotoEditController {
+    mutating func open(
+        _ id: CanvasItem.ID,
+        onEdited: @escaping () -> Void,
+        onClose: @escaping () -> Void,
+        make: () -> PhotoEditController
+    ) -> PhotoEditController {
         // Editors closed with Done whose edit has landed are done with.
         byPhoto = byPhoto.filter { $0.value.working }
         if let running = byPhoto[id] {
-            running.reopen()
+            running.reopen(onEdited: onEdited, onClose: onClose)
             return running
         }
         let editor = make()

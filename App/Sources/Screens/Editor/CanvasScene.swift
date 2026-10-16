@@ -24,6 +24,10 @@ struct CanvasScene: View {
     /// panel, waiting for the tap
     /// that says where it goes.
     @Binding var pendingPlacement: PendingPlacement?
+    /// The photo editors' state (tile, words, compare, a running edit kept
+    /// with Done), one per photo. Held by the flow: the Sticker scene
+    /// rebuilds this one, and a kept edit must find its editor after it.
+    @Binding var photoEditors: PhotoEditors
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var transcription: VoiceTranscriptionService = MockVoiceTranscriptionService()
 
@@ -61,9 +65,6 @@ struct CanvasScene: View {
     /// could not land), gone after a few seconds.
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
-    /// The photo editors' state (tile, words, compare, a running edit kept
-    /// with Done), one per photo.
-    @State private var photoEditors = PhotoEditors()
     /// The lifted photo's editor, while `editingImageItem` is set.
     private var photoEdit: PhotoEditController? { editingImageItem.flatMap { photoEditors[$0] } }
     /// The Image tool, open in place over the live canvas; nil when closed.
@@ -967,28 +968,25 @@ struct CanvasScene: View {
         if photoSession?.continues(id, showing: ref) != true {
             photoSession = PhotoSession(itemID: id, original: ref)
         }
+        // Only this photo's session: a slow AI edit for A that lands after B
+        // was opened must not mark B as edited. One that lands after A's
+        // editor closed is still A's.
+        let onEdited = {
+            guard photoSession?.itemID == id else { return }
+            photoSession?.edited = true
+            notePhotoSeen(id)
+        }
+        // A slow edit for photo A finishing while B is open must not close
+        // B's editor.
+        let onClose = {
+            guard editingImageItem == id else { return }
+            closePhotoEditor()
+        }
         // Done during an AI edit left it running: the same photo reopens on
         // that controller, never a second one beside it.
-        photoEditors.open(id) {
-            PhotoEditController(
-                itemID: id,
-                editor: editor,
-                studio: imageStudio,
-                // Only this photo's session: a slow AI edit for A that lands
-                // after B was opened must not mark B as edited. One that lands
-                // after A's editor closed is still A's.
-                onEdited: {
-                    guard photoSession?.itemID == id else { return }
-                    photoSession?.edited = true
-                    notePhotoSeen(id)
-                },
-                onClose: {
-                    // A slow edit for photo A finishing while B is open must
-                    // not close B's editor.
-                    guard editingImageItem == id else { return }
-                    closePhotoEditor()
-                }
-            )
+        photoEditors.open(id, onEdited: onEdited, onClose: onClose) {
+            PhotoEditController(itemID: id, editor: editor, studio: imageStudio,
+                                onEdited: onEdited, onClose: onClose)
         }
         editingImageItem = id
     }
