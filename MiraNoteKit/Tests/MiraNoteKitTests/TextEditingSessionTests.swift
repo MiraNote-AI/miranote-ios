@@ -140,6 +140,61 @@ final class TextEditingSessionTests: XCTestCase {
         XCTAssertTrue(editor.canUndo)
     }
 
+    /// Harness seed 104377848497032: tap a block, Undo (the session's start
+    /// changed nothing, so nothing seems to happen), type, Cancel -- the
+    /// words go. Before, they stayed, and no undo could take them back.
+    func testWordsTypedAfterUndoingTheSessionStartAreTheSessions() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.undo()
+        XCTAssertEqual(editor.editingTextItemID, id, "still writing")
+        editor.setText(itemID: id, to: "lunch with Sam")
+
+        editor.cancelEditingText()
+        XCTAssertEqual(block(editor, id)?.text, "lunch")
+        editor.undo()
+        XCTAssertNil(editor.item(id), "the step before is the block's adding, nothing in between")
+    }
+
+    func testWordsTypedAfterUndoingTheSessionStartUndoInOneStep() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.undo()
+        editor.setText(itemID: id, to: "lunch with")
+        editor.setText(itemID: id, to: "lunch with Sam")
+        editor.undo()
+        XCTAssertEqual(block(editor, id)?.text, "lunch")
+        XCTAssertEqual(editor.editingTextItemID, id)
+    }
+
+    /// Harness seed 105336099809641: the Text tool's new block, a drag of a
+    /// photo mid-session, words typed, Done, Undo, Undo. A step taken while
+    /// the new block was still empty comes back: the empty block does not
+    /// come with it (it would be filed as an empty block).
+    func testUndoNeverLeavesAnEmptyBlockOutsideItsSession() {
+        let editor = CanvasViewModel(memory: Memory())
+        let photo = editor.addImages([ImageRef(displayName: "p")], around: CGPoint(x: 200, y: 500))[0]
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id, recordingUndo: false)
+        editor.beginChange()
+        editor.move(itemID: photo, to: CGPoint(x: 200, y: 600))
+        editor.setText(itemID: id, to: "dinner")
+        editor.endEditingText()
+
+        editor.undo()
+        editor.undo()
+        XCTAssertFalse(editor.items.contains { item in
+            if case .text(let block) = item.content { return block.text.isEmpty }
+            return false
+        }, "an empty block outside any session")
+        XCTAssertTrue(editor.composedMemory().items.allSatisfy { item in
+            if case .text(let block) = item.content { return !block.text.isEmpty }
+            return true
+        })
+    }
+
     func testCancelKeepsWhatLandedElsewhereDuringTheSession() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))

@@ -113,6 +113,32 @@ final class RedoTests: XCTestCase {
         XCTAssertNotNil(editor.item(id))
     }
 
+    /// Harness seed 104473408184716: the Text tool's new block, Undo, Redo.
+    /// The empty block does not come back outside its session (it would be
+    /// filed as an empty block).
+    func testRedoNeverBringsBackAnEmptyNewBlock() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id, recordingUndo: false)
+        editor.undo()
+        XCTAssertNil(editor.item(id))
+        editor.redo()
+        XCTAssertNil(editor.item(id), "a husk came back")
+        XCTAssertFalse(editor.canRedo)
+    }
+
+    /// A new block with words in it is a real step: redo brings it back.
+    func testRedoBringsBackANewBlockWithWords() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id, recordingUndo: false)
+        editor.setText(itemID: id, to: "dinner")
+        editor.undo()
+        editor.redo()
+        guard case .text(let block) = editor.item(id)?.content else { return XCTFail("the block did not come back") }
+        XCTAssertEqual(block.text, "dinner")
+    }
+
     func testDiscardingAnAbandonedBlockDropsTheRedoTrail() {
         let (editor, id) = photo()
         editor.setImageFilter(itemID: id, to: "bw")

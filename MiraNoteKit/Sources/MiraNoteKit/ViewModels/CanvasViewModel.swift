@@ -21,9 +21,21 @@ public final class CanvasViewModel {
             if editingTextItemID == nil {
                 sessionSteps = nil
                 sessionOrigin = nil
+                sessionNeedsStart = false
+                typingNeedsStep = false
             }
         }
     }
+
+    /// A step was recorded while writing (Mira's title landing, a size):
+    /// words typed after it record a step of their own, so one Undo never
+    /// takes back that step and the words typed since.
+    private var typingNeedsStep = false
+
+    /// An undo took the session's starting point back while the session
+    /// goes on: its next change (a word typed, a style) records a new one,
+    /// so that change is undoable and Cancel takes it back.
+    private var sessionNeedsStart = false
 
     /// Undo steps recorded since the open text editing session began, so
     /// Cancel can take the whole session back. Nil when no session is open,
@@ -139,15 +151,28 @@ public final class CanvasViewModel {
         changeCount += 1
         future.removeAll()
         pushHistory(currentSnapshot)
+        if editingTextItemID != nil { typingNeedsStep = true }
     }
 
     public func undo() {
         guard let snapshot = history.popLast() else { return }
         if let steps = sessionSteps {
             sessionSteps = steps > 0 ? steps - 1 : nil
+            sessionNeedsStart = steps == 0
         }
-        future.append(currentSnapshot)
+        // An empty block being written that this undo takes off goes for
+        // good: no redo brings back a husk outside its session.
+        if let editing = editingTextItemID, item(editing)?.isEmptyText == true,
+           !snapshot.items.contains(where: { $0.id == editing }) {
+            let undone = currentSnapshot.removingItem(editing)
+            if !undone.sameEdits(as: snapshot) { future.append(undone) }
+        } else {
+            future.append(currentSnapshot)
+        }
         restore(snapshot)
+        // The block as this undo left it is what Cancel takes it back to
+        // (not a live preview the next change may find on it).
+        if sessionNeedsStart, let editing = editingTextItemID { sessionOrigin = item(editing) }
     }
 
     /// Re-applies the step the last undo took back (handoff screens 32-34).
@@ -158,18 +183,26 @@ public final class CanvasViewModel {
     }
 
     private func pushHistory(_ snapshot: UndoSnapshot) {
+        let restarting = sessionNeedsStart && editingTextItemID != nil
         history.append(snapshot)
         if history.count > Self.historyCap {
             history.removeFirst()
         }
-        if let steps = sessionSteps {
+        if restarting {
+            // The page before this change starts the session anew.
+            sessionNeedsStart = false
+            sessionSteps = 0
+        } else if let steps = sessionSteps {
             sessionSteps = steps + 1 < history.count ? steps + 1 : nil
         }
     }
 
     private func restore(_ snapshot: UndoSnapshot) {
         changeCount += 1
-        memory.items = snapshot.items
+        // A step taken while a new block was still empty: the block, words
+        // since typed away, is a husk outside its session -- it goes, or it
+        // would be filed as an empty block.
+        memory.items = snapshot.items.filter { !$0.isEmptyText || $0.id == editingTextItemID }
         memory.backgroundFileName = snapshot.backgroundFileName
         memory.backgroundSummary = snapshot.backgroundSummary
         memory.paper = snapshot.paper
@@ -202,6 +235,9 @@ public final class CanvasViewModel {
         // caller made) is the page as it was before the session.
         sessionSteps = history.isEmpty ? nil : 0
         sessionOrigin = history.last?.items.first { $0.id == id }
+        sessionNeedsStart = false
+        // The session's start is the typing's undo point.
+        typingNeedsStep = false
     }
 
     public func endEditingText() {
@@ -399,6 +435,13 @@ extension CanvasViewModel {
     public func setText(itemID: CanvasItem.ID, to text: String) {
         guard let index = index(of: itemID),
               case .text(var block) = memory.items[index].content else { return }
+        // Typing records no step of its own: the session's start is its
+        // undo point. After an undo past that start, or a step recorded
+        // since (Mira's title), the first words typed record one.
+        if sessionNeedsStart || typingNeedsStep, itemID == editingTextItemID, block.text != text {
+            beginChange()
+            typingNeedsStep = false
+        }
         block.text = text
         memory.items[index].content = .text(block)
     }
