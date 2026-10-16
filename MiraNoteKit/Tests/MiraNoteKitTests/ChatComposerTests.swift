@@ -176,6 +176,38 @@ final class ChatComposerTests: XCTestCase {
     }
 }
 
+/// Harness seed 104550386822017: hold, slide away, hold again; the first
+/// take's mic then fails to come up (late), the second's comes up. The
+/// failure is the first take's: the second records on, and its words land.
+/// Before, the failure ended the second take and left its mic on unseen.
+@MainActor
+final class ChatVoiceOrderingTests: XCTestCase {
+    func testALateStartFailureOfASlidAwayTakeLeavesTheNewTakeRecording() async {
+        let mics = MicLedger()
+        let transcriber = GatedTranscription()
+        let viewModel = ChatViewModel(
+            service: MessageCapturingChat(), studio: MockImageStudioService(), transcription: transcriber,
+            makeRecorder: { mics.makeRecorder() },
+            imageStore: ImageFileStore(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("ChatVoiceOrderingTests-\(UUID().uuidString)"))
+        )
+        viewModel.startVoice()
+        viewModel.cancelVoice()
+        viewModel.startVoice()
+        mics.starts.release(0, .failure(GateError()))
+        mics.starts.release(1, .success(()))
+        let live = await eventually { mics.live == 1 }
+        XCTAssertTrue(live, "the second take's mic came up")
+        guard case .recording = viewModel.voice else { return XCTFail("the second take was ended by the first's failure") }
+
+        let finishing = Task { await viewModel.finishVoice() }
+        transcriber.calls.releaseNext(.success("lunch with Sam"))
+        await finishing.value
+        XCTAssertEqual(viewModel.draft, "lunch with Sam")
+        XCTAssertEqual(mics.live, 0, "a microphone left on")
+    }
+}
+
 struct MessageCapturingChat: ChatService {
     let messages = MessageLog()
 

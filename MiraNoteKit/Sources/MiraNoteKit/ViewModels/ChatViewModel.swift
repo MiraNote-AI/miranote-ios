@@ -245,7 +245,9 @@ public final class ChatViewModel {
                     text: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
                     opensSettings: (error as? RecordingError) == .microphonePermissionDenied
                 )
-                if case .recording = voice {
+                // Only this take ends here: one slid away and pressed again
+                // meanwhile is a newer take, recording on its own mic.
+                if case .recording = voice, self.recorder.map({ $0 as AnyObject }) === (recorder as AnyObject) {
                     voice = .idle
                     self.recorder = nil
                 }
