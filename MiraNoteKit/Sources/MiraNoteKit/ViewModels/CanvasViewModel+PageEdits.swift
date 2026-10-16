@@ -82,6 +82,8 @@ private extension CanvasViewModel {
         if let top = change.y {
             memory.items[itemIndex].position.y = max(CGFloat(top), 0) + size.height / 2
         }
+        // Mira put it there: a new place, as a drag would be.
+        if change.x != nil || change.y != nil { memory.items[itemIndex].fitOffset = nil }
         switch change.layer {
         case .front: memory.items[itemIndex].zIndex = topZ + 1
         case .back: memory.items[itemIndex].zIndex = bottomZ - 1

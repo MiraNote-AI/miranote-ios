@@ -23,11 +23,11 @@ final class TextPushTests: XCTestCase {
     /// The page as `landTitle` leaves it when the title needs room: a title
     /// on top, everything else slid down by `slide`.
     private func landTitle(on editor: CanvasViewModel, slide: CGFloat) -> CanvasItem.ID {
-        let existing = editor.items.map { ($0.id, $0.position) }
+        let existing = editor.items.map(\.id)
         let title = editor.addText("A soft title", at: CGPoint(x: 150, y: 66), pointSize: 30,
                                    size: CGSize(width: 270, height: 60))
-        for (id, position) in existing {
-            editor.move(itemID: id, to: CGPoint(x: position.x, y: position.y + slide))
+        for id in existing {
+            editor.slide(itemID: id, by: slide)
         }
         return title
     }
@@ -230,6 +230,159 @@ final class TextPushTests: XCTestCase {
         let tidy = editor.item(photo.id)?.position
         editor.fitTextHeights { $0.id == block.id ? 60 : nil }
         XCTAssertEqual(editor.item(photo.id)?.position, tidy)
+    }
+
+    // MARK: A placed element stays put
+
+    /// Harness seed 104375194061263: a growth pushes the photo, the user
+    /// drags the photo somewhere else below the block, the block shrinks:
+    /// the photo stays where the user put it -- and growing back to the
+    /// old height does not push it either.
+    func testAShrinkNeverLiftsAPhotoTheUserDraggedAfterThePush() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        XCTAssertEqual(top(editor.item(photo.id)), 150, accuracy: 0.5)
+        editor.beginChange()
+        editor.move(itemID: photo.id, to: CGPoint(x: 150, y: 400))
+
+        editor.fitTextHeights { $0.id == block.id ? 60 : nil }
+        XCTAssertEqual(editor.item(photo.id)?.position.y ?? 0, 400, accuracy: 0.5, "the shrink pulled the dragged photo")
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        XCTAssertEqual(editor.item(photo.id)?.position.y ?? 0, 400, accuracy: 0.5, "growing back pushed it")
+    }
+
+    /// A photo added under a block after the block's push was never pushed
+    /// by it: the block's shrink leaves it where it was added.
+    func testAShrinkNeverLiftsAPhotoAddedAfterThePush() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        let added = editor.addImages([ImageRef(displayName: "q")], around: CGPoint(x: 150, y: 600)).first!
+        editor.fitTextHeights { $0.id == block.id ? 60 : nil }
+        XCTAssertEqual(editor.item(photo.id)?.position, photo.position, "what it pushed comes back")
+        XCTAssertEqual(editor.item(added)?.position.y ?? 0, 600, accuracy: 0.5, "what it never pushed stays")
+    }
+
+    /// Cancel takes back the session's push from what it pushed, but not
+    /// from an element the user dragged during the session.
+    func testCancelLeavesAPhotoDraggedAfterTheSessionPushedIt() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.startEditingText(block.id)
+        editor.setText(itemID: block.id, to: "lunch by the river, then a long walk home")
+        editor.autosizeTextHeight(itemID: block.id, to: 90)
+        editor.beginChange()
+        editor.move(itemID: photo.id, to: CGPoint(x: 150, y: 500))
+
+        editor.cancelEditingText()
+        XCTAssertEqual(editor.item(photo.id)?.position.y ?? 0, 500, accuracy: 0.5)
+    }
+
+    // MARK: Reversible fits (harness ratchets)
+
+    private func text(_ x: CGFloat, top: CGFloat, width: CGFloat, height: CGFloat) -> CanvasItem {
+        CanvasItem(content: .text(TextBlock(text: "words")), position: CGPoint(x: x, y: top + height / 2),
+                   size: CGSize(width: width, height: height))
+    }
+
+    private func photo(_ x: CGFloat, top: CGFloat, width: CGFloat, height: CGFloat) -> CanvasItem {
+        CanvasItem(content: .image(ImageRef(displayName: "p")), position: CGPoint(x: x, y: top + height / 2),
+                   size: CGSize(width: width, height: height))
+    }
+
+    /// Harness seed 104523842464327 (curated sets 3, 6, 3, ...): a box grows
+    /// while the box right under it shrinks. What is below follows the box
+    /// right above it -- before, it took the far box's push and sank 34 pt
+    /// a round.
+    func testAStackOfBoxesSizedBackAndForthLeavesWhatIsBelow() {
+        let upper = text(150, top: 40, width: 240, height: 60)
+        let lower = text(150, top: 120, width: 240, height: 60)
+        let below = photo(150, top: 200, width: 240, height: 100)
+        let editor = CanvasViewModel(memory: Memory(items: [upper, lower, below]))
+        let first: [CanvasItem.ID: CGFloat] = [upper.id: 60, lower.id: 100]
+        let second: [CanvasItem.ID: CGFloat] = [upper.id: 80, lower.id: 60]
+        editor.fitTextHeights { first[$0.id] }
+        let start = editor.item(below.id)?.position
+        for round in 0..<3 {
+            editor.fitTextHeights { second[$0.id] }
+            editor.fitTextHeights { first[$0.id] }
+            XCTAssertEqual(editor.item(below.id)?.position, start, "round \(round)")
+        }
+    }
+
+    /// Harness seed 104701689660850: two elements right above a photo move
+    /// opposite ways (a box grows, a photo under a shrinking box is pulled
+    /// up). Reversed, the photo comes back -- before, "a push wins" pushed
+    /// it every round.
+    func testOppositeMovesRightAboveReverseExactly() {
+        let leftBox = text(80, top: 40, width: 140, height: 60)
+        let leftPhoto = photo(80, top: 120, width: 140, height: 80)
+        let rightBox = text(300, top: 40, width: 160, height: 60)
+        let wide = photo(190, top: 260, width: 340, height: 80)
+        let editor = CanvasViewModel(memory: Memory(items: [leftBox, leftPhoto, rightBox, wide]))
+        let first: [CanvasItem.ID: CGFloat] = [leftBox.id: 100, rightBox.id: 60]
+        let second: [CanvasItem.ID: CGFloat] = [leftBox.id: 60, rightBox.id: 100]
+        editor.fitTextHeights { first[$0.id] }
+        let start = editor.items
+        for round in 0..<3 {
+            editor.fitTextHeights { second[$0.id] }
+            editor.fitTextHeights { first[$0.id] }
+            XCTAssertEqual(editor.items.map(\.position), start.map(\.position), "round \(round)")
+        }
+    }
+
+    /// Harness seed 104956515494674: a pull held back (a sticker dragged
+    /// after the push stays put) is room the next push uses first, so the
+    /// box shrunk and grown back leaves the sticker, and what is under it.
+    func testAPullHeldBackIsUsedByTheNextPush() {
+        let block = text(150, top: 40, width: 240, height: 60)
+        let sticker = photo(80, top: 120, width: 100, height: 60)
+        let under = photo(150, top: 180, width: 240, height: 100)
+        let editor = CanvasViewModel(memory: Memory(items: [block, sticker, under]))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        editor.beginChange()
+        editor.move(itemID: sticker.id, to: editor.item(sticker.id)!.position)
+        let placed = [editor.item(sticker.id)?.position, editor.item(under.id)?.position]
+        editor.fitTextHeights { $0.id == block.id ? 60 : nil }
+        XCTAssertEqual([editor.item(sticker.id)?.position, editor.item(under.id)?.position], placed,
+                       "the dragged sticker stays, and so does what is under it")
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        XCTAssertEqual([editor.item(sticker.id)?.position, editor.item(under.id)?.position], placed,
+                       "growing back pushes nothing it never pulled")
+    }
+
+    /// Harness seed 105521910313471: words erased, a sticker dragged into
+    /// the room the shrink left, Cancel. The block grows back to its height
+    /// and the sticker is pushed clear of it, not run into.
+    func testCancelPushesClearWhatWasDraggedIntoTheRoom() {
+        let block = text(150, top: 40, width: 240, height: 96)
+        let editor = CanvasViewModel(memory: Memory(items: [block]))
+        editor.startEditingText(block.id)
+        editor.setText(itemID: block.id, to: "w")
+        editor.autosizeTextHeight(itemID: block.id, to: 36)
+        let sticker = editor.addSticker(GeneratedSticker(prompt: "s", symbolName: "sun.max"),
+                                        at: CGPoint(x: 150, y: 76 + 10 + 44))
+
+        editor.cancelEditingText()
+        XCTAssertEqual(editor.item(block.id)?.size.height ?? 0, 96, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(top(editor.item(sticker)), bottom(editor.item(block.id)) - 0.5,
+                                    "the block grew back over the sticker")
+    }
+
+    /// Harness seed 1837298725893: a block made shorter by hand forgets its
+    /// earlier push, so typing and erasing leaves the photo where it is.
+    func testABoxSizedByHandStartsItsPushesAfresh() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        editor.beginChange()
+        editor.resize(itemID: block.id, to: CGSize(width: 240, height: 60))
+        let start = editor.item(photo.id)?.position
+        editor.startEditingText(block.id)
+        editor.autosizeTextHeight(itemID: block.id, to: 120)
+        editor.autosizeTextHeight(itemID: block.id, to: 60)
+        XCTAssertEqual(editor.item(photo.id)?.position, start)
     }
 
     /// A pulled element never rises into another element above it.

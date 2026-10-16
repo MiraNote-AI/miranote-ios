@@ -283,6 +283,16 @@ public final class CanvasViewModel {
             clamped.x = min(max(24, clamped.x), width - 24)
         }
         memory.items[index].position = clamped
+        // A new place: no fit lifts the element above it.
+        memory.items[index].fitOffset = nil
+    }
+
+    /// Slides an element down by `offset` with the page (a Mira title making
+    /// room): not a new place, so what fits pushed it stays theirs to take
+    /// back.
+    func slide(itemID: CanvasItem.ID, by offset: CGFloat) {
+        guard let index = index(of: itemID) else { return }
+        memory.items[index].position.y += offset
     }
 
     public func resize(itemID: CanvasItem.ID, to size: CGSize) {
@@ -291,6 +301,9 @@ public final class CanvasViewModel {
             width: max(44, size.width),
             height: max(36, size.height)
         )
+        // A box sized by hand: what is below clears it as it stands, and its
+        // earlier pushes are no longer its to take back (as after Tidy).
+        memory.items[index].clearance = nil
     }
 
     /// Measured text height, TOP anchored; continuous, no undo step. A block
@@ -621,6 +634,7 @@ extension CanvasViewModel {
             memory.items[itemIndex].rotation = 0
             // A new layout: no earlier push is left to take back.
             memory.items[itemIndex].clearance = nil
+            memory.items[itemIndex].fitOffset = nil
             nextTop += size.height + spacing
         }
     }

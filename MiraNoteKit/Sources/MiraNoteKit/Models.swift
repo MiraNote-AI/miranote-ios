@@ -234,6 +234,9 @@ public struct CanvasItem: Identifiable, Equatable, Sendable {
     /// already pushed. Nil: what is below clears the box as it stands, and
     /// the box has pushed nothing.
     public var clearance: TextClearance?
+    /// What text fits did to this element since it was last placed
+    /// (dragged, or put somewhere by Mira). Nil: nothing.
+    public var fitOffset: FitOffset?
 
     public init(
         id: UUID = UUID(),
@@ -254,8 +257,17 @@ public struct CanvasItem: Identifiable, Equatable, Sendable {
 
 extension CanvasItem: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, content, position, size, rotation, zIndex, clearance
+        case id, content, position, size, rotation, zIndex, clearance, fitOffset
     }
+}
+
+/// How far text fits moved an element down since it was last placed --
+/// no fit lifts it above that place -- and how much lower that is than the
+/// gaps above it ask for (held back by that place, or by an element above
+/// it): so the same fits reversed bring it back exactly.
+public struct FitOffset: Equatable, Sendable, Codable {
+    public var down: CGFloat
+    public var spared: CGFloat
 }
 
 /// What a text box's growth did to the elements below it: the height they
