@@ -1112,8 +1112,15 @@ extension CanvasScene {
         Task {
             do {
                 try await newRecorder.start()
+                // Cancelled, or the scene left, while the mic came up (the
+                // first-use permission alert): it stops now, never on unseen.
+                guard holdsMic(newRecorder) else {
+                    _ = try? await newRecorder.stop()
+                    return
+                }
                 recorderState = .recording(start: .now)
             } catch {
+                guard holdsMic(newRecorder) else { return }
                 recorder = nil
                 recorderState = .idle
                 recorderNotice = error.localizedDescription

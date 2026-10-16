@@ -79,6 +79,22 @@ final class DictationOwnershipUITests: XCTestCase {
         assertVoiceRecords("the chat's mic did not stay on")
     }
 
+    /// Monkey seed 1001: Voice's Record, then the Sticker tool while the
+    /// mic is still coming up. The canvas let go of the recorder, but the
+    /// mic came up anyway and stayed on with nothing showing it.
+    func testLeavingWhileTheVoiceMicComesUpLeavesNoMicOn() {
+        startAMemory(["-MIC_START_DELAY", "1500"])
+        app.buttons["mode.voice"].tap()
+        let record = app.buttons["recorder.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        record.tap()
+        app.buttons["mode.sticker"].tap()
+        sleep(3)
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state").firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        XCTAssertTrue(probe.label.contains("\"micLive\":0"), "a mic is on behind the Sticker scene: \(probe.label)")
+    }
+
     /// Writing ends while the strip's mic is still coming up: same.
     func testEndingTheWritingWhileItsMicComesUpLeavesNoMicOn() {
         startAMemory(["-MIC_START_DELAY", "1500"])
