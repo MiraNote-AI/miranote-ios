@@ -121,6 +121,42 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "no step left showing an empty block")
     }
 
+    /// A new block: dictate, then tap empty paper while "Writing it
+    /// down...". The tap waits like Done, the words land in the block, and
+    /// then the tap's deselect follows.
+    func testATapOnThePaperWhileTranscribingWaitsForTheWords() {
+        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        strip.press(forDuration: 0.8)
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5)).tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
+        XCTAssertEqual(strip.value as? String, "Writing it down...")
+        waitGone(app.buttons["keyboard.done"], "the session ends once the words arrive")
+        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 3), "the words land in the new block")
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira anything", "and nothing is selected")
+    }
+
+    /// Same with a tap on another element: the words land, then that
+    /// element is the one selected (a second tap writes in it).
+    func testATapOnAnotherElementWhileTranscribingWaitsThenSelectsIt() {
+        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
+        write("Lunch")
+        app.buttons["keyboard.done"].tap()
+        waitGone(app.buttons["keyboard.done"], "writing ended")
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        strip.press(forDuration: 0.8)
+        app.staticTexts["Lunch"].tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
+        waitGone(app.buttons["keyboard.done"], "the session ends once the words arrive")
+        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 3), "the words land in the new block")
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira to refine...", "an element is selected")
+        app.staticTexts["Lunch"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "a second tap writes in the tapped element")
+        XCTAssertEqual(field.value as? String, "Lunch")
+    }
+
     /// Same, but the words do not come within the wait's cap: the session
     /// ends without them, the empty block goes, and Home at once files no
     /// "New memory" page.

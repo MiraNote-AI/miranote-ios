@@ -105,6 +105,9 @@ struct CanvasScene: View {
     /// Done is waiting for those words (the wait's token: its cap timer
     /// acts only on its own wait).
     @State var doneWaiting: UUID?
+    /// What a page tap or an element tap/drag that ended the writing while
+    /// the words were on their way does once the wait is over.
+    @State var afterWritingDown: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
@@ -361,9 +364,18 @@ struct CanvasScene: View {
         }
         .onChange(of: editor.editingTextItemID) { _, editing in
             // Words on their way belong to the session that asked for them:
-            // never landed after it ends or moves on.
+            // never landed after it ends or moves on -- the page says so
+            // (Cancel, which drops them on purpose, let go of them first).
+            if dictationTarget != nil {
+                if editing == nil {
+                    flashHint("Couldn't catch those words.")
+                } else {
+                    dictationHint = "Couldn't catch those words."
+                }
+            }
             dictationTarget = nil
             doneWaiting = nil
+            afterWritingDown = nil
             if editing == nil {
                 // Ended from anywhere (a paper tap, an undo past the block):
                 // an open preview is kept, like Done keeps it.
@@ -467,6 +479,11 @@ struct CanvasScene: View {
                 }
             },
             onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
+            // Ending the writing then waits for the words, as Done does.
+            onEndWritingThen: writingDown ? { then in
+                afterWritingDown = then
+                endTextEditing()
+            } : nil,
             revealItem: $revealItem,
             dropToDelete: $dropToDelete,
             lifted: $lifted,

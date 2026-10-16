@@ -26,6 +26,11 @@ struct CanvasBoardView: View {
     var onFavorite: (CanvasItem) -> Void = { _ in }
     /// Non-nil while a picture waits to be placed: the tap places it there.
     var onPlaceTap: ((CGPoint) -> CanvasItem.ID?)?
+    /// Non-nil while dictated words are on their way to the block being
+    /// written: a tap or drag that would end the writing hands over what it
+    /// does next, and the scene ends the writing (as Done, waiting for the
+    /// words) before doing it.
+    var onEndWritingThen: ((@escaping () -> Void) -> Void)?
     /// Set when an edit panel closes: the edited element scrolls into view
     /// once the panel has given its room back, then this clears.
     var revealItem: Binding<CanvasItem.ID?> = .constant(nil)
@@ -226,6 +231,11 @@ struct CanvasBoardView: View {
             .onTapGesture(coordinateSpace: .local) { point in
                 if let onPlaceTap {
                     scrollTarget = onPlaceTap(point)
+                } else if let onEndWritingThen {
+                    onEndWritingThen {
+                        editor.select(nil)
+                        onPaperTap()
+                    }
                 } else {
                     editor.endEditingText()
                     editor.select(nil)
@@ -315,20 +325,6 @@ struct CanvasBoardView: View {
         return ElementGeometry(position: position, size: size, rotation: rotation)
     }
 
-    private func handleTap(_ item: CanvasItem, isSelected: Bool) {
-        if !isSelected {
-            editor.select(item.id)
-            // An unselected marker reads "tap to play" (screen 09): the
-            // tap that selects it also plays it.
-            if case .sound = item.content { togglePlay(item) }
-            return
-        }
-        if case .text = item.content {
-            editor.startEditingText(item.id)
-            textFocus.wrappedValue = item.id
-        }
-    }
-
     private func textBinding(_ item: CanvasItem) -> Binding<String> {
         Binding(
             get: {
@@ -349,6 +345,23 @@ struct CanvasBoardView: View {
 extension CanvasBoardView {
     // MARK: Gestures
 
+    private func handleTap(_ item: CanvasItem, isSelected: Bool) {
+        if !isSelected {
+            let select = {
+                editor.select(item.id)
+                // An unselected marker reads "tap to play" (screen 09): the
+                // tap that selects it also plays it.
+                if case .sound = item.content { togglePlay(item) }
+            }
+            if let onEndWritingThen { onEndWritingThen(select) } else { select() }
+            return
+        }
+        if case .text = item.content {
+            editor.startEditingText(item.id)
+            textFocus.wrappedValue = item.id
+        }
+    }
+
     private var dropPhase: DropToDelete? {
         guard let activeMove else { return nil }
         return isOverDeleteZone(activeMove.location) ? .armed : .dragging
@@ -367,7 +380,11 @@ extension CanvasBoardView {
         // the delete zone. Translation is the same in either space.
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { _ in
-                editor.select(item.id)
+                if let onEndWritingThen {
+                    onEndWritingThen { editor.select(item.id) }
+                } else {
+                    editor.select(item.id)
+                }
             }
             .updating($activeMove) { value, state, _ in
                 state = ActiveMove(itemID: item.id, translation: value.translation, location: value.location)

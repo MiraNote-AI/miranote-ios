@@ -144,9 +144,14 @@ extension CanvasScene {
 
     static let doneWaitCap: Duration = .seconds(10)
 
+    /// Ends the writing, then does what the tap that asked for it does
+    /// (deselect, select another element), if a tap did.
     private func finishWaitingDone(caught: Bool) {
         doneWaiting = nil
+        let then = afterWritingDown
+        afterWritingDown = nil
         endTextEditing()
+        then?()
         if !caught { flashHint("Couldn't catch those words.") }
     }
 
