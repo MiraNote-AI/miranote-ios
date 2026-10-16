@@ -25,9 +25,25 @@ final class ChatReturnTests: XCTestCase {
         XCTAssertFalse(sends("\n", at: 3, length: 2, in: "hello"), "it replaces a selection")
     }
 
-    func testReturnInAnEmptyFieldDoesNotSend() {
-        XCTAssertFalse(sends("\n", at: 0, in: ""))
-        XCTAssertFalse(sends("\n", at: 2, in: "  "), "only spaces")
+    /// A blank field's Return goes to Send too, never into the field: a
+    /// staged photo goes out on its own, and with nothing staged the send
+    /// is a no-op (ChatViewModel.canSend).
+    func testReturnInABlankFieldGoesToSend() {
+        XCTAssertTrue(sends("\n", at: 0, in: ""))
+        XCTAssertTrue(sends("\n", at: 2, in: "  "), "only spaces")
+    }
+
+    @MainActor
+    func testTheReturnKeyInAnEmptyFieldSendsAndPutsNoNewLineIn() {
+        var sent = false
+        let field = ChatTextView(text: .constant(""), isFocused: .constant(false),
+                                 font: .systemFont(ofSize: 12)) { sent = true }
+        let coordinator = field.makeCoordinator()
+        let view = ChatInputView()
+        view.delegate = coordinator
+        XCTAssertFalse(coordinator.textView(view, shouldChangeTextIn: NSRange(location: 0, length: 0),
+                                            replacementText: "\n"), "the new line is not put in")
+        XCTAssertTrue(sent, "a staged photo can go out with the Return key")
     }
 
     func testWordsEndingInANewLineDoNotSend() {

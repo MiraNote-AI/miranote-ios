@@ -24,9 +24,8 @@ struct ChatTextView: UIViewRepresentable {
         view.textColor = UIColor(Palette.ink)
         view.tintColor = UIColor(Palette.forest)
         view.backgroundColor = .clear
+        // The Send key is on without words too: a staged photo goes alone.
         view.returnKeyType = .send
-        // No Send key until there are words to send.
-        view.enablesReturnKeyAutomatically = true
         view.textContainer.lineFragmentPadding = 0
         // One line sits centred in the 34 pt row, as the single-line field did.
         let inset = max(0, (Self.minHeight - font.lineHeight) / 2)
@@ -135,14 +134,15 @@ final class ChatInputView: UITextView {
 }
 
 /// When the chat field sends: the keyboard's Return key typed at the end of
-/// words, nothing selected. A new line from anywhere else -- a paste,
-/// Shift+Return, a keyboard's marked text, dictation's "new line" -- is
-/// words (`fromReturnKey` false), and so is Return inside the words.
+/// the field, nothing selected -- a blank field too: a staged photo goes
+/// out on its own, and with nothing staged the send is a no-op. A new line
+/// from anywhere else -- a paste, Shift+Return, a keyboard's marked text,
+/// dictation's "new line" -- is words (`fromReturnKey` false), and so is
+/// Return inside the words.
 enum ChatReturn {
     static func sends(replacing range: NSRange, with replacement: String, in text: String,
                       fromReturnKey: Bool) -> Bool {
         fromReturnKey && replacement == "\n" && range.length == 0
             && range.location == (text as NSString).length
-            && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
