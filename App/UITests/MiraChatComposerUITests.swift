@@ -53,6 +53,17 @@ final class MiraChatComposerUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["second message"].waitForExistence(timeout: 5), "the next one went too")
     }
 
+    /// A paste of a lone new line after typed words is words, not Send.
+    func testPastingANewLineAloneDoesNotSend() {
+        openChat()
+        field.tap()
+        field.typeText("hello there")
+        app.paste("\n", into: field)
+        sleep(2)
+        XCTAssertFalse(app.staticTexts["hello there"].exists, "the paste sent the message")
+        XCTAssertTrue((field.value as? String ?? "").contains("hello there"), "the words wait in the field")
+    }
+
     func testALongMessageWrapsAndTheFieldGrows() {
         openChat()
         field.tap()
