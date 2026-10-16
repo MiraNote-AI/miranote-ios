@@ -68,6 +68,19 @@ final class MiraChatComposerUITests: XCTestCase {
                        "nothing was sent")
     }
 
+    /// The quick starts send their label straight away: while Mira answers
+    /// they are disabled, not silently ignored.
+    func testQuickStartsWaitWhileMiraAnswers() {
+        openChat()
+        field.tap()
+        field.typeText("tell me slowly\n")
+        let chip = app.buttons["chat.quick.Rewrite softer"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        let waiting = NSPredicate(format: "isEnabled == false")
+        expectation(for: waiting, evaluatedWith: chip)
+        waitForExpectations(timeout: 3)
+    }
+
     /// A sent photo's file outlives the camera's full-screen cover (opened
     /// and closed again over the chat) and is deleted when the chat closes.
     func testASentPhotoOutlivesTheCameraCoverAndGoesWithTheChat() {
