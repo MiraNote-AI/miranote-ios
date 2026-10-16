@@ -78,6 +78,23 @@ final class TextEditingSessionTests: XCTestCase {
         XCTAssertEqual(editor.composedMemory().items.map(\.id), [id])
     }
 
+    /// A blank page with a custom color only previewed is still blank:
+    /// backgrounding with the sheet open files no empty "New memory".
+    func testAPreviewedPageColorKeepsAPageBlank() {
+        let editor = CanvasViewModel(memory: Memory())
+        editor.setPageColor("#D1E0F0", recordingUndo: false)
+        XCTAssertEqual(editor.composedMemory().pageColorName, "")
+        XCTAssertTrue(editor.isBlankPage)
+    }
+
+    /// A painted page previewing a color still has its painting.
+    func testAPaintedPagePreviewingAColorIsNotBlank() {
+        let editor = CanvasViewModel(memory: Memory())
+        editor.setBackground(fileName: "dusk.png")
+        editor.setPageColor("#D1E0F0", recordingUndo: false)
+        XCTAssertFalse(editor.isBlankPage)
+    }
+
     // MARK: Cancel
 
     func testCancelOnANewBlockRemovesIt() {

@@ -112,8 +112,10 @@ public final class CanvasViewModel {
     /// Nothing the user made or chose: no elements, no painting, no page
     /// color, plain paper. Only such a page is dropped on leaving.
     public var isBlankPage: Bool {
-        filedItems.isEmpty && memory.backgroundFileName.isEmpty
-            && memory.pageColorName.isEmpty && memory.paper == .blank
+        // The look the autosave files: not a color only previewed.
+        let look = pagePreviewOrigin ?? pageLook
+        return filedItems.isEmpty && look.backgroundFileName.isEmpty
+            && look.pageColorName.isEmpty && memory.paper == .blank
     }
 
     /// The elements a filing keeps: not an empty block still being written
