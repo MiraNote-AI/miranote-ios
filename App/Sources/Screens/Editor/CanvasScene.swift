@@ -52,6 +52,8 @@ struct CanvasScene: View {
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState private var applyFocus: Bool
+    /// A short line over the tool bar (the gesture hint, a dictation that
+    /// could not land), gone after a few seconds.
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
     /// The photo editors' state (tile, words, compare, a running edit kept
@@ -97,8 +99,12 @@ struct CanvasScene: View {
     @State var dictating = false
     /// A strip's mic on its way up; cancelling it stops it once it is.
     @State var startingMic: StartingMic?
-    /// The block a dictation's words are for; Cancel clears it, Done not.
+    /// The block a dictation's words are for, while they are on their way;
+    /// cleared by Cancel and whenever the session ends or moves on.
     @State var dictationTarget: CanvasItem.ID?
+    /// Done is waiting for those words (the wait's token: its cap timer
+    /// acts only on its own wait).
+    @State var doneWaiting: UUID?
     @Environment(\.scenePhase) private var scenePhase
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
@@ -323,11 +329,7 @@ struct CanvasScene: View {
             // selection ever, then graduates for good.
             guard selected != nil, HintCenter.shouldShow("gesture-basics") else { return }
             HintCenter.graduate("gesture-basics")
-            gestureHint = "Drag to move. Two fingers tilt. Long-press for more."
-            Task {
-                try? await Task.sleep(for: .seconds(5))
-                gestureHint = nil
-            }
+            flashHint("Drag to move. Two fingers tilt. Long-press for more.")
         }
         .onChange(of: editor.changeCount) {
             // A user edit while a receipt shows makes Revert dishonest: the
@@ -357,6 +359,10 @@ struct CanvasScene: View {
             remeasureTextBlocks()
         }
         .onChange(of: editor.editingTextItemID) { _, editing in
+            // Words on their way belong to the session that asked for them:
+            // never landed after it ends or moves on.
+            dictationTarget = nil
+            doneWaiting = nil
             if editing == nil {
                 // Ended from anywhere (a paper tap, an undo past the block):
                 // an open preview is kept, like Done keeps it.
@@ -1028,11 +1034,19 @@ struct CanvasScene: View {
         }
     }
 
+    /// A short line over the tool bar for five seconds.
+    func flashHint(_ text: String) {
+        gestureHint = text
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if gestureHint == text { gestureHint = nil }
+        }
+    }
+
     /// Ending an editing session on a blank block removes it -- no empty
     /// husks left on the page (and no undo step burned on the cleanup).
-    /// A block whose dictated words are still on their way waits for them.
     private func cleanUpEmptyText() {
-        for item in editor.items where item.id != dictationTarget {
+        for item in editor.items {
             if case .text(let block) = item.content,
                block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 editor.discardAbandonedText(itemID: item.id)

@@ -76,10 +76,10 @@ extension CanvasScene {
         }
     }
 
-    /// Record, transcribe (:8005), append to the block being edited. Words
-    /// still on their way when Done ends the session land in that block as
-    /// their own step -- a new block ended empty waits for them; Cancel
-    /// (`dictationTarget` cleared) drops them.
+    /// Record, transcribe (:8005), append to the block being edited, inside
+    /// its session like typing. Words never land after the session ends:
+    /// Done waits for them ("Writing it down...", `endTextEditing`); Cancel,
+    /// or a session that ends or moves on, drops them.
     func stopDictation() {
         // A mic still coming up is let go of here (its start then stops
         // it): no stale claim left for a later cancel to act on.
@@ -92,66 +92,62 @@ extension CanvasScene {
         let id = editor.editingTextItemID
         dictationTarget = id
         Task {
-            defer {
-                dictating = false
-                releaseTarget(id)
-            }
-            // A silent return here looked like a dead feature: say why
-            // nothing landed instead of swallowing it.
-            guard let data = try? await recorder.stop(), !data.isEmpty else {
-                dictationHint = "I couldn't catch any words -- try again?"
-                return
-            }
-            guard let id else {
-                dictationHint = "Tap a text block first, then dictate."
-                return
-            }
-            guard let transcript = try? await transcription.transcribe(
-                audio: data, filename: "dictation.m4a"
-            ) else {
-                dictationHint = "Couldn't reach the transcriber -- try again?"
-                return
-            }
-            let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !words.isEmpty else {
-                dictationHint = "I couldn't catch any words -- try again?"
-                return
-            }
-            // Cancelled while the words were on their way: they belong to
-            // no session any more.
-            guard dictationTarget == id else { return }
+            let words = await transcribe(recorder, for: id)
+            dictating = false
+            guard let id, dictationTarget == id, editor.editingTextItemID == id else { return }
             dictationTarget = nil
-            land(words, in: id)
+            if let words { append(words, to: id) }
+            if doneWaiting != nil { finishWaitingDone(caught: words != nil) }
         }
     }
 
-    private func land(_ words: String, in id: CanvasItem.ID) {
-        if editor.editingTextItemID == id {
-            append(words, to: id)
-        } else if isEmptyText(id) {
-            // Done right after dictating into a new block: it waited empty;
-            // the words fill it as their own step.
-            editor.fillEmptyText(itemID: id, with: words)
-        } else if let before = editor.item(id) {
-            // Done while "Writing it down...": kept, as one undo step.
-            append(words, to: id)
-            editor.commitPreview(of: before)
+    /// The take's words, or nil with the strip saying why -- a silent
+    /// return looked like a dead feature.
+    private func transcribe(_ recorder: AudioRecording, for id: CanvasItem.ID?) async -> String? {
+        guard let data = try? await recorder.stop(), !data.isEmpty else {
+            dictationHint = "I couldn't catch any words -- try again?"
+            return nil
+        }
+        guard id != nil else {
+            dictationHint = "Tap a text block first, then dictate."
+            return nil
+        }
+        guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
+            dictationHint = "Couldn't reach the transcriber -- try again?"
+            return nil
+        }
+        let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else {
+            dictationHint = "I couldn't catch any words -- try again?"
+            return nil
+        }
+        return words
+    }
+
+    /// Words are on their way for the block being written.
+    var writingDown: Bool { dictationTarget != nil && dictationTarget == editor.editingTextItemID }
+
+    /// Done while the words are on their way: the session stays open until
+    /// they land (then Done completes), or for at most `doneWaitCap` -- then
+    /// it ends without them, an empty block going as usual.
+    func waitForWordsThenEnd() {
+        guard doneWaiting == nil else { return }
+        let wait = UUID()
+        doneWaiting = wait
+        Task {
+            try? await Task.sleep(for: Self.doneWaitCap)
+            guard doneWaiting == wait else { return }
+            dictationTarget = nil
+            finishWaitingDone(caught: false)
         }
     }
 
-    /// The dictation for `id` ended without words: the empty block that
-    /// waited for them goes after all.
-    private func releaseTarget(_ id: CanvasItem.ID?) {
-        guard let id, dictationTarget == id else { return }
-        dictationTarget = nil
-        if editor.editingTextItemID != id, isEmptyText(id) {
-            editor.discardAbandonedText(itemID: id)
-        }
-    }
+    static let doneWaitCap: Duration = .seconds(10)
 
-    private func isEmptyText(_ id: CanvasItem.ID) -> Bool {
-        guard case .text(let block) = editor.item(id)?.content else { return false }
-        return block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private func finishWaitingDone(caught: Bool) {
+        doneWaiting = nil
+        endTextEditing()
+        if !caught { flashHint("Couldn't catch those words.") }
     }
 
     private func append(_ words: String, to id: CanvasItem.ID) {

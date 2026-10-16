@@ -10,39 +10,56 @@ final class TextEditingSessionTests: XCTestCase {
         return block
     }
 
-    // MARK: Words after Done
+    // MARK: Dictated words
 
-    /// A new block ended empty (Done right after dictating into it): the
-    /// words that then arrive fill it as one undo step of their own, and no
-    /// step ever shows the block empty.
-    func testWordsForANewBlockEndedEmptyLandAsTheirOwnStep() {
+    // Dictated words land only inside the open session, like typing (Done
+    // waits for them in the scene); these pin what that means for undo.
+
+    /// A written block emptied, then dictated into: undo goes back to the
+    /// old words -- never through a page without the block.
+    func testWordsDictatedIntoAnEmptiedBlockUndoBackToItsOldWords() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("hello", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.setText(itemID: id, to: "")
+        editor.setText(itemID: id, to: "dictated words")
+        editor.endEditingText()
+
+        editor.undo()
+        XCTAssertEqual(block(editor, id)?.text, "hello", "one undo is the block as before the session")
+    }
+
+    /// A new block dictated into: one undo takes the whole block back, and
+    /// no step shows it empty.
+    func testWordsDictatedIntoANewBlockGoWithOneUndo() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("", at: CGPoint(x: 100, y: 100))
         editor.startEditingText(id, recordingUndo: false)
-        editor.setTextFont(itemID: id, to: "Futura")
+        editor.setText(itemID: id, to: "Lunch by the river")
         editor.endEditingText()
-        XCTAssertEqual(block(editor, id)?.text, "", "starts from an empty block")
-
-        editor.fillEmptyText(itemID: id, with: "Lunch by the river")
-        XCTAssertEqual(block(editor, id)?.text, "Lunch by the river")
-        XCTAssertEqual(block(editor, id)?.fontName, "Futura", "the session's style stays")
 
         editor.undo()
-        XCTAssertNil(editor.item(id), "one undo takes the dictated block back")
-        XCTAssertFalse(editor.canUndo, "no step shows the block empty")
+        XCTAssertNil(editor.item(id))
+        XCTAssertFalse(editor.canUndo)
     }
 
-    func testFillingLeavesABlockWithWordsOrInASessionAlone() {
+    /// Two sessions in turn stay two steps: the first undo after the second
+    /// session takes back all of it, and nothing of the first.
+    func testStepsNeverMergeAcrossSessions() {
         let editor = CanvasViewModel(memory: Memory())
-        let written = editor.addText("kept", at: CGPoint(x: 100, y: 100))
-        let open = editor.addText("", at: CGPoint(x: 100, y: 300))
-        editor.startEditingText(open, recordingUndo: false)
-        let steps = editor.changeCount
-        editor.fillEmptyText(itemID: written, with: "more")
-        editor.fillEmptyText(itemID: open, with: "more")
-        XCTAssertEqual(block(editor, written)?.text, "kept")
-        XCTAssertEqual(block(editor, open)?.text, "")
-        XCTAssertEqual(editor.changeCount, steps)
+        let other = editor.addText("first", at: CGPoint(x: 100, y: 100))
+        let id = editor.addText("orig", at: CGPoint(x: 100, y: 400))
+        editor.startEditingText(other)
+        editor.setText(itemID: other, to: "first, dictated")
+        editor.endEditingText()
+        editor.startEditingText(id)
+        editor.setText(itemID: id, to: "typed1")
+        editor.setText(itemID: id, to: "typed1 more")
+        editor.endEditingText()
+
+        editor.undo()
+        XCTAssertEqual(block(editor, id)?.text, "orig")
+        XCTAssertEqual(block(editor, other)?.text, "first, dictated")
     }
 
     // MARK: Cancel

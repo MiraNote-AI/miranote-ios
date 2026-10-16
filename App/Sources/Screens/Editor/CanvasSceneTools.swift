@@ -152,8 +152,8 @@ extension CanvasScene {
                 .padding(.horizontal, Metrics.chromeInset)
             DictationStrip(
                 surface: .page,
-                listening: dictating,
-                detail: dictating ? "Listening..." : (dictationHint ?? "accurate voice-to-text"),
+                listening: dictating && !writingDown,
+                detail: stripDetail ?? "accurate voice-to-text",
                 onPress: { if dictationPress == nil { pressDictation() } },
                 onRelease: releaseDictation,
                 onCancel: cancelDictationIfNeeded
@@ -162,7 +162,7 @@ extension CanvasScene {
             .padding(.top, 4)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Mira Dictation")
-            .accessibilityValue(dictating ? "Listening..." : (dictationHint ?? ""))
+            .accessibilityValue(stripDetail ?? "")
             .accessibilityHint(dictating ? "Ends the dictation." : "Hold to talk, or tap to start.")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { dictating ? stopDictation() : startDictation() }
@@ -171,6 +171,12 @@ extension CanvasScene {
         // 4 above the keyboard.
         .padding(.bottom, 4)
         .animation(.easeOut(duration: 0.15), value: textTool)
+    }
+
+    /// The strip's line when it is not at rest.
+    private var stripDetail: String? {
+        if writingDown { return "Writing it down..." }
+        return dictating ? "Listening..." : dictationHint
     }
 
     @ViewBuilder private var textToolRow: some View {
@@ -245,8 +251,13 @@ extension CanvasScene {
 
     // MARK: Ending a session
 
-    /// The header's Done: the session's previews are kept.
+    /// The header's Done: the session's previews are kept. Dictated words
+    /// on their way are waited for, so they land inside the session.
     func endTextEditing() {
+        if writingDown {
+            waitForWordsThenEnd()
+            return
+        }
         finishRewrite()
         if let request = colorRequest {
             editor.commitPreview(of: request.original)

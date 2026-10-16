@@ -102,20 +102,47 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertTrue(dictatedWords.waitForExistence(timeout: 6), "words dictated just before Done are kept")
     }
 
-    /// A new, empty block: dictate, then Done at once. The block waits for
-    /// the words on their way, they land, and one undo takes them back.
-    func testDoneRightAfterDictatingIntoANewBlockKeepsTheWords() {
-        startAMemory(["-TRANSCRIBE_DELAY", "1500"])
+    /// A new, empty block: dictate, then Done while "Writing it down...".
+    /// Done waits inside the session, completes when the words arrive, the
+    /// words are in the block, and one undo takes the block back.
+    func testDoneRightAfterDictatingIntoANewBlockWaitsForTheWords() {
+        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
         app.buttons["mode.text"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         strip.press(forDuration: 0.8)
         app.buttons["keyboard.done"].tap()
-        waitGone(app.buttons["keyboard.done"], "writing ended")
-        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 6), "words dictated into the new block are kept")
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "Done waits while the words are on their way")
+        XCTAssertEqual(strip.value as? String, "Writing it down...")
+        waitGone(app.buttons["keyboard.done"], "Done completes once the words arrive")
+        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 3), "words dictated into the new block are kept")
 
         app.buttons["editor.undo"].tap()
         waitGone(dictatedWords, "one undo takes the dictated block back")
         XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "no step left showing an empty block")
+    }
+
+    /// Same, but the words do not come within the wait's cap: the session
+    /// ends without them, the empty block goes, and Home at once files no
+    /// "New memory" page.
+    func testHomeAfterTheWaitRanOutFilesNoPage() {
+        startAMemory(["-TRANSCRIBE_DELAY", "14000"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        strip.press(forDuration: 0.8)
+        app.buttons["keyboard.done"].tap()
+        let home = app.buttons["nav.leading"]
+        let homeShows = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Home'"), object: home)
+        XCTAssertEqual(XCTWaiter().wait(for: [homeShows], timeout: 13), .completed, "the wait ends at its cap")
+        XCTAssertTrue(app.staticTexts["Couldn't catch those words."].exists, "the page says why")
+        XCTAssertFalse(field.exists, "the empty block went")
+        home.tap()
+
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5))
+        app.buttons["collection.Daily Log"].tap()
+        let filed = NSPredicate(format: "identifier BEGINSWITH 'note.' AND identifier != 'note.add'")
+        let covers = app.buttons.matching(filed)
+        XCTAssertTrue(covers.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(covers.count, 2, "Daily Log stays at its seeded 2 notes")
     }
 
     /// Cancel while "Writing it down...": the words are dropped with the session.
