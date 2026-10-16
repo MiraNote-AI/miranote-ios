@@ -1,4 +1,5 @@
 import CoreGraphics
+import MiraNoteKit
 import UIKit
 import XCTest
 @testable import MiraNote
@@ -47,6 +48,28 @@ final class PageExporterTests: XCTestCase {
         let data = try XCTUnwrap(PageExporter.data(from: rounded, format: .jpg))
         let corner = try XCTUnwrap(pixel(at: CGPoint(x: 0, y: 0), in: data))
         XCTAssertGreaterThan(corner.red + corner.green + corner.blue, 600, "the corner is light, like the app's screen")
+    }
+
+    // Exports keep the r24 page corner they always had; the editor's r30
+    // card clips its own view of the page. At (8.5, 8.5) pt a r24 corner is
+    // filled and a r30 one is not.
+    @MainActor
+    func testExportedPagesKeepTheR24Corner() throws {
+        let image = try XCTUnwrap(PageExporter.render(Memory(pageColorName: "#24382D"), quality: .standard))
+        let cgImage = try XCTUnwrap(image.cgImage)
+        func alpha(atPoint point: CGFloat) -> UInt8 {
+            var bytes = [UInt8](repeating: 0, count: 4)
+            let context = CGContext(
+                data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+            let pixel = point * image.scale
+            context?.draw(cgImage, in: CGRect(x: -pixel, y: -(CGFloat(cgImage.height) - 1 - pixel),
+                                              width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+            return bytes[3]
+        }
+        XCTAssertGreaterThan(alpha(atPoint: 8.5), 200, "inside a r24 corner")
+        XCTAssertLessThan(alpha(atPoint: 2), 50, "the corner itself stays open")
     }
 
     /// The RGB of one pixel of an encoded image.
@@ -110,6 +133,35 @@ final class PageExporterTests: XCTestCase {
         XCTAssertEqual(PageExporter.fileName(title: "Lunch by the river", format: .png), "Lunch-by-the-river.png")
         XCTAssertEqual(PageExporter.fileName(title: "Lunch by the river", format: .jpg), "Lunch-by-the-river.jpg")
         XCTAssertEqual(PageExporter.fileName(title: "  ", format: .pdf), "MiraNote-page.pdf")
+    }
+
+    // Quality (screen 37): Standard 2x and High 3x at any length; Original
+    // renders 4x, but a page too long for the pixel budget comes down to
+    // fit it, however long the page.
+    func testQualityScales() {
+        let short = CGSize(width: 360, height: 620)
+        XCTAssertEqual(ExportQuality.standard.scale(for: short), 2)
+        XCTAssertEqual(ExportQuality.high.scale(for: short), 3)
+        XCTAssertEqual(ExportQuality.original.scale(for: short), 4)
+        XCTAssertEqual(ExportQuality.high.scale(for: CGSize(width: 360, height: 40_000)), 3)
+    }
+
+    func testOriginalStaysInsideItsPixelBudget() {
+        let long = CGSize(width: 360, height: 5_000)
+        let scale = ExportQuality.original.scale(for: long)
+        XCTAssertGreaterThan(scale, 3)
+        XCTAssertLessThan(scale, 4)
+        XCTAssertEqual(long.width * long.height * scale * scale, ExportQuality.originalPixelBudget,
+                       accuracy: ExportQuality.originalPixelBudget * 0.001)
+    }
+
+    func testAVeryLongPageStillStaysInsideTheOriginalBudget() {
+        for height: CGFloat in [10_000, 40_000] {
+            let size = CGSize(width: MiraNoteConfig.pageWidth, height: height)
+            let scale = ExportQuality.original.scale(for: size)
+            XCTAssertLessThanOrEqual(size.width * size.height * scale * scale,
+                                     ExportQuality.originalPixelBudget * 1.001, "\(height) pt")
+        }
     }
 
     func testOnlyImageFormatsCanGoToPhotos() {

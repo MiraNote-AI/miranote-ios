@@ -27,7 +27,6 @@ final class MiraPhotoRestyleTurnTests: XCTestCase {
         MiraCanvasCoordinator(
             text: ScriptedText(), chat: chat,
             workingDelay: .milliseconds(1), timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
             imageStudio: MockImageStudioService(), imageStore: store
         )
     }

@@ -23,6 +23,9 @@ enum FlowScene: String, CaseIterable {
         case .chat:
             MiraChatView(
                 service: MockChatService(),
+                transcription: MockVoiceTranscriptionService(),
+                studio: MockImageStudioService(),
+                recorderFactory: { MockAudioRecorder() },
                 seed: "Sunny afternoon, tiny noodle shop by the bridge"
             )
         case .collection:
@@ -33,16 +36,25 @@ enum FlowScene: String, CaseIterable {
     }
 }
 
-/// Renders the image panel with mock services for the DEBUG catalog.
+/// The Image tool opens in place on the canvas: the catalog shows the
+/// starter draft with the tool requested.
 private struct ImagePanelCatalogPreview: View {
     @State private var editor = CanvasViewModel(memory: Memory(items: Memory.starterDraft()))
+    @State private var mira = MiraCanvasCoordinator(
+        text: MockTextTransformService(),
+        chat: MockChatService(),
+        imageStudio: MockImageStudioService()
+    )
+    @State private var pendingTool: EditorMode? = .image
     @State private var pendingPlacement: PendingPlacement?
 
     var body: some View {
-        ImagePanelScene(
+        CanvasScene(
             editor: editor,
-            studio: MockImageStudioService(),
-            pendingPlacement: $pendingPlacement
+            mira: mira,
+            pendingTool: $pendingTool,
+            pendingPlacement: $pendingPlacement,
+            recorderFactory: { MockAudioRecorder() }
         )
     }
 }

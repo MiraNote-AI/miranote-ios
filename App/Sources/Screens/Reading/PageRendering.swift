@@ -13,9 +13,26 @@ struct StaticPageView: View {
     var soundStore = SoundFileStore()
     var player: SoundPlayer?
 
-    private var contentHeight: CGFloat {
-        let bottom = memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
+    /// The page's drawn height: its lowest element plus a margin, at least
+    /// one screenful.
+    static func contentHeight(of memory: Memory) -> CGFloat {
+        let bottom = laidOut(memory).map { $0.position.y + $0.size.height / 2 }.max() ?? 0
         return max(620, bottom + 120)
+    }
+
+    /// The page's elements as drawn: a text box saved shorter than its text
+    /// now measures (pages saved under the old 6 pt padding, which only the
+    /// editor re-measures) grows down to fit, top fixed, as the editor
+    /// would grow it, and pushes the elements below it down by as much.
+    /// Taller boxes keep their height.
+    static func laidOut(_ memory: Memory) -> [CanvasItem] {
+        TextFit.apply(to: memory.items) { item in
+            guard case .text(let block) = item.content else { return nil }
+            let needed = TextMeasure.blockHeight(
+                text: block.text, pointSize: block.pointSize, fontName: block.fontName, width: item.size.width
+            )
+            return needed > item.size.height + 0.5 ? needed : nil
+        }
     }
 
     var body: some View {
@@ -24,11 +41,11 @@ struct StaticPageView: View {
             if memory.items.isEmpty {
                 metadataFallback
             }
-            ForEach(memory.items.sorted { $0.zIndex < $1.zIndex }) { item in
+            ForEach(Self.laidOut(memory).sorted { $0.zIndex < $1.zIndex }) { item in
                 element(item)
             }
         }
-        .frame(width: designWidth, height: contentHeight)
+        .frame(width: designWidth, height: Self.contentHeight(of: memory))
     }
 
     /// Pages without canvas elements (legacy seeds, chat-filed notes) still
@@ -78,10 +95,11 @@ struct StaticElementView: View {
         case .text(let block):
             Text(block.text)
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(Palette.color(named: block.colorName))
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
-                .padding(6)
+                .padding(TextFace.inset)
                 .textBlockBackground(block)
         case .image(let ref):
             if let image = CanvasImageCache.image(

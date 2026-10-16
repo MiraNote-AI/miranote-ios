@@ -16,10 +16,38 @@ public final class CanvasViewModel {
     public var selectedItemID: CanvasItem.ID?
 
     /// The text element currently being edited in place, if any.
-    public var editingTextItemID: CanvasItem.ID?
+    public var editingTextItemID: CanvasItem.ID? {
+        didSet {
+            if editingTextItemID == nil {
+                sessionSteps = nil
+                sessionOrigin = nil
+            }
+            clearedHeight = editingTextItemID.flatMap { item($0)?.size.height }
+        }
+    }
+
+    /// Undo steps recorded since the open text editing session began, so
+    /// Cancel can take the whole session back. Nil when no session is open,
+    /// or when its starting point was undone or fell off the history cap.
+    private var sessionSteps: Int?
+
+    /// The edited block as it was when the session began; nil for a block
+    /// the session made. Cancel puts back only this element: whatever else
+    /// landed meanwhile (a Mira backdrop, a photo AI edit) is not the
+    /// session's to take back.
+    private var sessionOrigin: CanvasItem?
+
+    /// The tallest the edited block has been since its session began (or
+    /// since the last undo): what is below it already clears that height,
+    /// so a line deleted and typed again pushes nothing twice.
+    private var clearedHeight: CGFloat?
 
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
+
+    /// The page as it was before a live page color preview, while one is
+    /// shown: the autosave files this, not a color nobody applied.
+    var pagePreviewOrigin: PageLook?
 
     /// One undo step: the canvas elements plus the page background.
     // The backdrop and its description travel together: restoring one
@@ -30,11 +58,19 @@ public final class CanvasViewModel {
         let backgroundSummary: String
         let paper: PaperKind
         let pageColorName: String
+        /// The block being written then, and the height what is below it
+        /// clears (its clearedHeight): bookkeeping, not an edit.
+        let cleared: ClearedHeight?
 
         /// The same page without one element.
         func removingItem(_ id: CanvasItem.ID) -> UndoSnapshot {
-            UndoSnapshot(items: items.filter { $0.id != id }, backgroundFileName: backgroundFileName,
-                         backgroundSummary: backgroundSummary, paper: paper, pageColorName: pageColorName)
+            replacingItems(items.filter { $0.id != id })
+        }
+
+        /// The same page with other elements.
+        func replacingItems(_ items: [CanvasItem]) -> UndoSnapshot {
+            UndoSnapshot(items: items, backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
+                         paper: paper, pageColorName: pageColorName, cleared: cleared)
         }
 
         /// Equal as far as the user's edits go: a photo's description lands
@@ -53,15 +89,25 @@ public final class CanvasViewModel {
                     return plain
                 },
                 backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
-                paper: paper, pageColorName: pageColorName
+                paper: paper, pageColorName: pageColorName, cleared: nil
             )
         }
     }
+    private struct ClearedHeight: Equatable {
+        let itemID: CanvasItem.ID
+        let height: CGFloat
+    }
     private var history: [UndoSnapshot] = []
+    /// Steps undone since the last change, newest last; any new change
+    /// drops them (a redo after an edit would rewrite the edit away).
+    private var future: [UndoSnapshot] = []
     private var currentSnapshot: UndoSnapshot {
         UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
                      backgroundSummary: memory.backgroundSummary,
-                     paper: memory.paper, pageColorName: memory.pageColorName)
+                     paper: memory.paper, pageColorName: memory.pageColorName,
+                     cleared: editingTextItemID.flatMap { id in
+                         clearedHeight.map { ClearedHeight(itemID: id, height: $0) }
+                     })
     }
     private static let historyCap = 50
 
@@ -82,8 +128,15 @@ public final class CanvasViewModel {
     /// Nothing the user made or chose: no elements, no painting, no page
     /// color, plain paper. Only such a page is dropped on leaving.
     public var isBlankPage: Bool {
-        memory.items.isEmpty && memory.backgroundFileName.isEmpty
+        filedItems.isEmpty && memory.backgroundFileName.isEmpty
             && memory.pageColorName.isEmpty && memory.paper == .blank
+    }
+
+    /// The elements a filing keeps: not an empty block still being written
+    /// (one waiting for dictated words when the app is backgrounded) -- the
+    /// session's end removes it unless words land.
+    private var filedItems: [CanvasItem] {
+        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
     }
 
     public var contentBottom: CGFloat {
@@ -94,16 +147,41 @@ public final class CanvasViewModel {
 
     public var canUndo: Bool { !history.isEmpty }
 
+    public var canRedo: Bool { !future.isEmpty }
+
     public func beginChange() {
         changeCount += 1
-        history.append(currentSnapshot)
-        if history.count > Self.historyCap {
-            history.removeFirst()
-        }
+        future.removeAll()
+        pushHistory(currentSnapshot)
     }
 
     public func undo() {
         guard let snapshot = history.popLast() else { return }
+        if let steps = sessionSteps {
+            sessionSteps = steps > 0 ? steps - 1 : nil
+        }
+        future.append(currentSnapshot)
+        restore(snapshot)
+    }
+
+    /// Re-applies the step the last undo took back (handoff screens 32-34).
+    public func redo() {
+        guard let snapshot = future.popLast() else { return }
+        pushHistory(currentSnapshot)
+        restore(snapshot)
+    }
+
+    private func pushHistory(_ snapshot: UndoSnapshot) {
+        history.append(snapshot)
+        if history.count > Self.historyCap {
+            history.removeFirst()
+        }
+        if let steps = sessionSteps {
+            sessionSteps = steps + 1 < history.count ? steps + 1 : nil
+        }
+    }
+
+    private func restore(_ snapshot: UndoSnapshot) {
         changeCount += 1
         memory.items = snapshot.items
         memory.backgroundFileName = snapshot.backgroundFileName
@@ -115,6 +193,12 @@ public final class CanvasViewModel {
         }
         if let editing = editingTextItemID, item(editing) == nil {
             editingTextItemID = nil
+        }
+        // The page as that step had it: what is below the block clears the
+        // height the step recorded for it (taller than the block when a line
+        // was deleted after the push), or else the block itself.
+        clearedHeight = editingTextItemID.flatMap { id in
+            snapshot.cleared?.itemID == id ? snapshot.cleared?.height : item(id)?.size.height
         }
     }
 
@@ -134,6 +218,10 @@ public final class CanvasViewModel {
         if recordingUndo { beginChange() }
         selectedItemID = id
         editingTextItemID = id
+        // The undo point on top of the history (this call's, or the one the
+        // caller made) is the page as it was before the session.
+        sessionSteps = history.isEmpty ? nil : 0
+        sessionOrigin = history.last?.items.first { $0.id == id }
     }
 
     public func endEditingText() {
@@ -147,11 +235,13 @@ public final class CanvasViewModel {
         _ text: String,
         at position: CGPoint,
         pointSize: CGFloat = 17,
-        size: CGSize = CGSize(width: 220, height: 84)
+        size: CGSize = CGSize(width: 220, height: 84),
+        fontName: String = "",
+        colorName: String = "ink"
     ) -> CanvasItem.ID {
         beginChange()
         let item = CanvasItem(
-            content: .text(TextBlock(text: text, pointSize: pointSize)),
+            content: .text(TextBlock(text: text, pointSize: pointSize, colorName: colorName, fontName: fontName)),
             position: position,
             size: size,
             zIndex: topZ + 1
@@ -223,20 +313,119 @@ public final class CanvasViewModel {
         )
     }
 
-    /// Measured text height, TOP anchored; continuous, no undo step.
+    /// Measured text height, TOP anchored; continuous, no undo step. A block
+    /// that grows pushes what is below it down in the same change (TextFit),
+    /// so the step that records the growth records the push too.
     public func autosizeTextHeight(itemID: CanvasItem.ID, to height: CGFloat) {
         guard let index = index(of: itemID),
               case .text = memory.items[index].content else { return }
         let old = memory.items[index].size.height
         let clamped = max(36, height)
         guard abs(old - clamped) > 0.5 else { return }
-        memory.items[index].size.height = clamped
-        memory.items[index].position.y += (clamped - old) / 2
+        // While writing, what is below already clears the tallest the block
+        // has been: only growth past that pushes.
+        let cleared = itemID == editingTextItemID ? max(old, clearedHeight ?? old) : old
+        var items = memory.items
+        items[index].size.height = cleared
+        items[index].position.y += (cleared - old) / 2
+        memory.items = TextFit.apply(to: items) { $0.id == itemID ? clamped : nil }
+        if itemID == editingTextItemID { clearedHeight = max(cleared, clamped) }
     }
 
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees
+    }
+}
+
+// MARK: - Previews
+
+extension CanvasViewModel {
+    /// Changes previewed live without undo steps (an AI rewrite, a custom
+    /// color being dragged) become one undo step back to `original`; none
+    /// when the item ends up unchanged. `page` is the elements as the
+    /// preview found them: what its growth pushed goes back there in that
+    /// step, like Cancel -- and right away when the item is unchanged (a
+    /// longer rewrite, then Original).
+    public func commitPreview(of original: CanvasItem, from page: [CanvasItem]) {
+        guard let index = index(of: original.id) else { return }
+        let previewed = memory.items
+        let start = Dictionary(page.map { ($0.id, $0.position) }, uniquingKeysWith: { first, _ in first })
+        var before = previewed.map { item in
+            var placed = item
+            placed.position = start[item.id] ?? item.position
+            return placed
+        }
+        before[index] = original
+        guard before != previewed else { return }
+        let cleared = clearedHeight
+        // What is below clears the block as the preview found it.
+        if original.id == editingTextItemID { clearedHeight = original.size.height }
+        memory.items = before
+        guard previewed[index] != original else { return }
+        beginChange()
+        memory.items = previewed
+        clearedHeight = cleared
+    }
+
+    /// Drops a live preview: the item as it was, no undo step.
+    public func discardPreview(of original: CanvasItem) {
+        guard let index = index(of: original.id) else { return }
+        memory.items[index] = original
+    }
+}
+
+// MARK: - Text session Cancel
+
+extension CanvasViewModel {
+    /// The header's Cancel: ends the session and takes the edited block back
+    /// to how it was when the session began -- words, style and, for a new
+    /// block, the block itself -- and what its growth pushed back up. Other
+    /// elements and the page keep what landed meanwhile. The session's undo
+    /// steps lose the block's edits; a step left with nothing else in it goes.
+    public func cancelEditingText() {
+        guard let id = editingTextItemID else { return }
+        if let steps = sessionSteps, steps < history.count {
+            let origin = sessionOrigin
+            // Where the elements stood when the session began: the block's
+            // growth pushed them, and nothing else moves one while writing.
+            let startPositions = Dictionary(
+                history[history.count - steps - 1].items.map { ($0.id, $0.position) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            func reverted(_ items: [CanvasItem]) -> [CanvasItem] {
+                var items = items
+                for index in items.indices {
+                    if let start = startPositions[items[index].id] { items[index].position = start }
+                }
+                if let index = items.firstIndex(where: { $0.id == id }) {
+                    if let origin { items[index] = origin } else { items.remove(at: index) }
+                } else if let origin {
+                    items.append(origin)
+                }
+                return items
+            }
+            memory.items = reverted(memory.items)
+            changeCount += 1
+            // The session's steps plus its starting point, newest first:
+            // each loses the block's edits, and one that then matches the
+            // page above it recorded nothing else.
+            var next = currentSnapshot
+            var kept: [UndoSnapshot] = []
+            for snapshot in history.suffix(steps + 1).reversed() {
+                let step = snapshot.replacingItems(reverted(snapshot.items))
+                if !step.sameEdits(as: next) {
+                    kept.insert(step, at: 0)
+                    next = step
+                }
+            }
+            history.removeLast(steps + 1)
+            history += kept
+            // Nothing of a cancelled session comes back by redo.
+            future.removeAll()
+        }
+        editingTextItemID = nil
+        if selectedItemID == id, item(id) == nil { selectedItemID = nil }
     }
 }
 
@@ -357,6 +546,18 @@ extension CanvasViewModel {
         if editingTextItemID == itemID { editingTextItemID = nil }
     }
 
+    /// Takes several elements off the page as ONE undo step (the Image
+    /// tool's Cancel takes back the photos it placed); ids no longer on the
+    /// page are ignored, and nothing is recorded when none are.
+    public func remove(itemIDs: [CanvasItem.ID]) {
+        let ids = Set(itemIDs)
+        guard memory.items.contains(where: { ids.contains($0.id) }) else { return }
+        beginChange()
+        memory.items.removeAll { ids.contains($0.id) }
+        if let selected = selectedItemID, ids.contains(selected) { selectedItemID = nil }
+        if let editing = editingTextItemID, ids.contains(editing) { editingTextItemID = nil }
+    }
+
     /// Removes an abandoned husk (e.g. an empty text block) without
     /// recording an undo step, and takes it out of the trailing history
     /// snapshots taken while it was empty, so undo never "restores" a husk.
@@ -371,6 +572,9 @@ extension CanvasViewModel {
         memory.items.remove(at: index)
         if selectedItemID == itemID { selectedItemID = nil }
         if editingTextItemID == itemID { editingTextItemID = nil }
+        // Undone steps were taken with the husk on the page: redoing one
+        // would bring it back.
+        future.removeAll()
         var next = currentSnapshot
         var kept: [UndoSnapshot] = []
         while let last = history.last, last.items.contains(where: { $0.id == itemID && $0.isEmptyText }) {
@@ -409,6 +613,12 @@ extension CanvasViewModel {
     /// title IS a text element"), body = remaining text in reading order.
     public func composedMemory(defaultTitle: String = "New memory") -> Memory {
         var composed = memory
+        composed.items = filedItems
+        if let origin = pagePreviewOrigin {
+            composed.pageColorName = origin.pageColorName
+            composed.backgroundFileName = origin.backgroundFileName
+            composed.backgroundSummary = origin.backgroundSummary
+        }
         let textBlocks: [(block: TextBlock, item: CanvasItem)] = memory.items.compactMap {
             guard case .text(let block) = $0.content,
                   !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }

@@ -33,6 +33,21 @@ targets:
         UIAppFonts:
           - Fraunces.ttf
           - JosefinSans.ttf
+          - Raleway.ttf
+          # The Background tool's curated sets (screen 05). Didot, Bodoni 72
+          # and Optima ship with iOS; Raleway is above (also in the font row).
+          - Poppins-Regular.ttf
+          - Lora.ttf
+          - Cardo-Regular.ttf
+          # Static Regular/Bold (v2.002, ~0.3 MB) in place of the 4.6 MB
+          # variable font: the set uses no other weight.
+          - Merriweather-Regular.ttf
+          - Merriweather-Bold.ttf
+          - Montserrat.ttf
+          - OpenSans.ttf
+          - PlayfairDisplay.ttf
+          - Oswald.ttf
+          - DarkerGrotesque.ttf
         # Version and build number for TestFlight. Both read from build
         # settings so a new upload is a one-line bump of CURRENT_PROJECT_VERSION
         # (TestFlight rejects a re-used build number).
@@ -40,6 +55,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSMicrophoneUsageDescription: MiraNote uses the microphone to turn your voice into notes.
         NSCameraUsageDescription: MiraNote uses the camera to add photos to your memory pages.
+        NSPhotoLibraryUsageDescription: MiraNote shows your recent photos so you can add them to your memory pages.
         NSPhotoLibraryAddUsageDescription: MiraNote saves your exported memory pages to your photo library.
         # Export compliance: the app adds no encryption of its own, it only
         # talks HTTPS. Declaring it here stops the question being asked on

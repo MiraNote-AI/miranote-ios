@@ -11,9 +11,12 @@ struct ReadingView: View {
     let memory: Memory
     var onBack: () -> Void = {}
     var onEdit: () -> Void = {}
+    var photoSaver: PhotoSaver = .library
 
     @State private var player = SoundPlayer()
     @State private var showsExport = false
+    @State private var toast: SaveToast.Message?
+    @State private var toastDismiss: Task<Void, Never>?
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -34,20 +37,67 @@ struct ReadingView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                 Spacer()
-                circleButton("square.and.arrow.up", id: "reading.share") { showsExport = true }
+                circleButton("square.and.arrow.up", id: "reading.share") { setExport(open: !showsExport) }
                 circleButton("pencil", id: "reading.edit", action: onEdit)
             }
             .padding(.horizontal, Metrics.screenPadding)
             .padding(.vertical, 8)
             .background(Palette.paper.opacity(0.94))
         }
-        .sheet(isPresented: $showsExport) {
-            // Large too: with Advanced open the sheet outgrows the medium
-            // detent on small phones.
-            ExportSheet(memory: memory)
-                .presentationDetents([.medium, .large])
+        // The export sheet is modal: VoiceOver cannot wander onto the page
+        // or its header behind it.
+        .accessibilityHidden(showsExport)
+        .overlay {
+            // Screen 37 draws the sheet over the live page, no scrim: a tap
+            // on the page around it closes it.
+            if showsExport {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { setExport(open: false) }
+                    .accessibilityHidden(true)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 12) {
+                if let toast {
+                    SaveToast(message: toast)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if showsExport {
+                    ExportSheet(
+                        memory: memory,
+                        photoSaver: photoSaver,
+                        onClose: { setExport(open: false) },
+                        onSaved: saved
+                    )
+                    // The screen's width, not the page's: the reading page is
+                    // wider than a 390 pt phone, and padding it would push
+                    // the sheet off the chrome inset.
+                    .containerRelativeFrame(.horizontal) { width, _ in width - 2 * Metrics.chromeInset }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            // The sheet's foot sits 42 above the screen edge, as drawn.
+            .padding(.bottom, 8)
         }
         .onDisappear { player.stop() }
+    }
+
+    private func setExport(open: Bool) {
+        withAnimation(.spring(duration: 0.3)) { showsExport = open }
+    }
+
+    /// Screen 38: a saved page closes the sheet and says where it went; a
+    /// failed one keeps the sheet up to try again (or the other way).
+    private func saved(_ message: SaveToast.Message) {
+        if !message.isFailure { setExport(open: false) }
+        toastDismiss?.cancel()
+        withAnimation(.spring(duration: 0.3)) { toast = message }
+        toastDismiss = Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.2)) { toast = nil }
+        }
     }
 
     private func circleButton(_ symbol: String, id: String, action: @escaping () -> Void) -> some View {
@@ -67,28 +117,60 @@ struct ReadingView: View {
     }
 }
 
-/// The export sheet: destinations first (Save to Photos or Files, Share,
-/// Print) and format, quality and PDF layout behind Advanced (redesign phase
-/// C1, handoff screen 37). The page is always one long canvas; cutting it
-/// into A4 pages is a PDF option. A page with sound says plainly that audio
-/// stays in the app.
+/// Where Save to Photos puts the encoded bytes. UI tests swap in a stub so
+/// no Photos permission prompt is involved.
+struct PhotoSaver {
+    var save: (Data) async -> Bool
+
+    /// The bytes go in as they are, so a PNG export stays a PNG and a JPG a
+    /// JPG (going through UIImage would re-encode either).
+    static let library = PhotoSaver { data in
+        await withCheckedContinuation { continuation in
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: nil)
+            }, completionHandler: { succeeded, _ in
+                continuation.resume(returning: succeeded)
+            })
+        }
+    }
+}
+
+/// The four tiles of the export sheet's format row (screen 37). Print is
+/// not a file format: it sends A4 pages to a printer.
+enum ExportTile: String, CaseIterable, Identifiable {
+    case png, pdf, jpg, print
+
+    var id: String { rawValue }
+    var label: String { self == .print ? "Print" : rawValue.uppercased() }
+
+    var format: ExportFormat? {
+        switch self {
+        case .png: return .png
+        case .pdf: return .pdf
+        case .jpg: return .jpg
+        case .print: return nil
+        }
+    }
+}
+
+/// Handoff screen 37, in the scene rather than a system sheet: a raised
+/// glass sheet over the page with the format tiles (PNG, PDF, JPG, Print),
+/// the quality pills (Standard, High, Original), and Save to Photos / Save
+/// to Files. A PDF also chooses one long page or A4 pages; Share sits in
+/// the header. A page with sound says plainly that audio stays in the app.
 struct ExportSheet: View {
     let memory: Memory
+    var photoSaver: PhotoSaver
+    var onClose: () -> Void
+    var onSaved: (SaveToast.Message) -> Void
 
-    @State private var rendered: UIImage?
-    @State private var format: ExportFormat = .png
-    @State private var quality: ExportQuality = .standard
+    @State private var tile: ExportTile = .png
+    @State private var quality: ExportQuality = .high
     @State private var pdfLayout: PDFLayout = .a4Pages
-    @State private var advancedOpen = false
-    @State private var confirmation: String?
+    @State private var rendered: UIImage?
     @State private var savingToFiles = false
     /// This sheet's own temp folder for the Share file.
     @State private var exportFolder = "export-\(UUID().uuidString)"
-    @Environment(\.dismiss) private var dismiss
-
-    private var hasSound: Bool {
-        memory.items.contains { if case .sound = $0.content { return true } else { return false } }
-    }
 
     /// The bytes for the chosen format, and the same bytes as a named file
     /// for Share. Rebuilt only when the render, format or layout changes --
@@ -97,104 +179,73 @@ struct ExportSheet: View {
     @State private var shareURL: URL?
     /// Bumps per option change; a slower earlier encode must not land last.
     @State private var exportGeneration = 0
+    @State private var closed = false
 
+    /// The file format the bytes are in; Print sends A4 PDF pages.
+    private var format: ExportFormat { tile.format ?? .pdf }
     private var fileName: String { PageExporter.fileName(title: memory.title, format: format) }
 
+    private var hasSound: Bool {
+        memory.items.contains { if case .sound = $0.content { return true } else { return false } }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Share this page")
-                .font(.miraPageTitle)
-                .foregroundStyle(Palette.ink)
-
-            HStack(alignment: .top, spacing: 14) {
-                preview
-                VStack(spacing: 8) {
-                    if format.savesToPhotos {
-                        Button {
-                            saveToPhotos()
-                        } label: {
-                            destinationLabel("Save to Photos", filled: true)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(exportData == nil)
-                        .accessibilityIdentifier("export.photos")
-                    }
-
-                    Button {
-                        savingToFiles = true
-                    } label: {
-                        destinationLabel("Save to Files", filled: !format.savesToPhotos)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(exportData == nil)
-                    .accessibilityIdentifier("export.files")
-
-                    shareButton
-
-                    Button {
-                        printPage()
-                    } label: {
-                        destinationLabel("Print", filled: false)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(rendered == nil)
-                    .accessibilityIdentifier("export.print")
-
-                    if hasSound {
-                        Label {
-                            Text("This page's sound plays in MiraNote only.")
-                        } icon: {
-                            Image(systemName: "speaker.wave.2")
-                        }
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
-                    }
-                    if let confirmation {
-                        Text(confirmation)
-                            .font(.miraCaption)
-                            .foregroundStyle(Palette.forest)
-                            .accessibilityIdentifier("export.confirmation")
-                    }
+        // Sheet-relative frames from the handoff: title (21, 19), line 51,
+        // tiles 81, "Quality" 153, pills 175, actions 223, foot 272.
+        GlassSheet(titleSize: 20, elevation: .raised, bottomPadding: 11) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Export & Save")
+                    .font(Sans.font(size: 20, weight: 700))
+                    .foregroundStyle(Palette.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(alignment: .trailing) { shareButton }
+                    .padding(.top, 2)
+                Text("Choose format and quality before saving.")
+                    .font(Sans.font(size: 12, weight: 500))
+                    .foregroundStyle(Palette.ink)
+                    .padding(.top, 12)
+                tiles
+                    .padding(.top, 16)
+                Text("Quality")
+                    .font(Sans.font(size: 12, weight: 500))
+                    .foregroundStyle(Palette.ink)
+                    .padding(.top, 20)
+                pills(ExportQuality.allCases, selected: quality, id: "export.quality") { quality = $0 }
+                    .padding(.top, 8)
+                if tile == .pdf {
+                    pills(PDFLayout.allCases, selected: pdfLayout, id: "export.pdf") { pdfLayout = $0 }
+                        .padding(.top, 10)
                 }
-                .frame(maxWidth: .infinity)
-            }
-
-            // Right under the destinations, not pinned to the sheet's bottom
-            // edge: down there it sat in the home-indicator gesture zone and
-            // taps missed it.
-            Button {
-                advancedOpen.toggle()
-            } label: {
-                HStack {
-                    Image(systemName: advancedOpen ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Advanced")
-                    Spacer()
-                    Text(summary)
-                        .foregroundStyle(Palette.textSecondary)
+                actions
+                    .padding(.top, 16)
+                if hasSound {
+                    Label {
+                        Text("This page's sound plays in MiraNote only.")
+                    } icon: {
+                        Image(systemName: "speaker.wave.2")
+                    }
+                    .font(Sans.font(size: 11, weight: 400))
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.top, 10)
                 }
-                .font(.miraCaption)
-                .foregroundStyle(Palette.ink)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("export.advanced")
-
-            if advancedOpen {
-                advancedOptions
-            }
-
-            Spacer(minLength: 0)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.paper)
+        .accessibilityElement(children: .contain)
+        // Modal like the system sheet it replaced: VoiceOver stays in it
+        // until it closes (the escape scrub closes it).
+        .accessibilityAddTraits(.isModal)
+        .accessibilityIdentifier("export.sheet")
+        .accessibilityAction(.escape, onClose)
         .task { render() }
-        // The share file is only needed while the sheet is up.
-        .onDisappear { try? FileManager.default.removeItem(at: folderURL) }
+        // The share file is only needed while the sheet is up; an encode
+        // still running finds the sheet gone and removes what it wrote.
+        .onDisappear {
+            exportGeneration += 1
+            closed = true
+            try? FileManager.default.removeItem(at: folderURL)
+        }
         .onChange(of: quality) { render() }
-        .onChange(of: format) { refreshExport() }
+        .onChange(of: tile) { refreshExport() }
         .onChange(of: pdfLayout) { refreshExport() }
         .fileExporter(
             isPresented: $savingToFiles,
@@ -202,96 +253,134 @@ struct ExportSheet: View {
             contentType: format.contentType,
             defaultFilename: fileName
         ) { result in
-            if case .success = result { confirmation = "Saved to Files." }
-        }
-    }
-
-    private var summary: String {
-        let shape = format == .pdf ? pdfLayout.label : "Long image"
-        return "\(shape) \u{00B7} \(format.label) \u{00B7} \(quality.label)"
-    }
-
-    private var advancedOptions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            optionRow("Format", ExportFormat.allCases, selected: format, id: "export.format") { format = $0 }
-            if format == .pdf {
-                optionRow("Pages", PDFLayout.allCases, selected: pdfLayout, id: "export.pdf") { pdfLayout = $0 }
+            switch result {
+            case .success:
+                onSaved(.savedToFiles)
+            case .failure(let error):
+                // Backing out of the picker is not a failed save.
+                if (error as? CocoaError)?.code != .userCancelled { onSaved(.failed) }
             }
-            optionRow("Quality", ExportQuality.allCases, selected: quality, id: "export.quality") { quality = $0 }
         }
     }
 
-    private func optionRow<Option: ExportOption>(
-        _ title: String,
+    /// PNG, PDF, JPG, Print: 54 pt r18 tiles, ink when chosen, #ECE7D8
+    /// otherwise.
+    private var tiles: some View {
+        HStack(spacing: 10) {
+            ForEach(ExportTile.allCases) { option in
+                Button {
+                    tile = option
+                } label: {
+                    Text(option.label)
+                        .font(Sans.font(size: 11, weight: 700))
+                        .foregroundStyle(option == tile ? Palette.onInk : Palette.ink)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(option == tile ? Palette.ink : Palette.cardFill)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 18))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(option == tile ? .isSelected : [])
+                .accessibilityIdentifier("export.format.\(option.rawValue)")
+            }
+        }
+    }
+
+    /// A row of 32 pt pills: ink when chosen, white with a faint rim and
+    /// the muted label otherwise.
+    private func pills<Option: ExportOption>(
         _ options: [Option],
         selected: Option,
         id: String,
         choose: @escaping (Option) -> Void
     ) -> some View {
-        HStack(spacing: 8) {
-            Text(title)
-                .font(.miraCaption)
-                .foregroundStyle(Palette.textSecondary)
-                .frame(width: 56, alignment: .leading)
+        HStack(spacing: 10) {
             ForEach(options) { option in
                 Button {
                     choose(option)
                 } label: {
-                    Chip(text: option.label, selected: option == selected, compact: true)
+                    Text(option.label)
+                        .font(Sans.font(size: 11, weight: 700))
+                        .foregroundStyle(option == selected ? Palette.onInk : Palette.muted)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                        .background(
+                            Capsule()
+                                .fill(option == selected ? Palette.ink : Color.white)
+                                .overlay(Capsule().strokeBorder(Palette.ink.opacity(option == selected ? 0 : 0.05),
+                                                                lineWidth: 1))
+                        )
+                        .contentShape(Capsule())
+                        .minimumHitTarget()
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(option == selected ? .isSelected : [])
                 .accessibilityIdentifier("\(id).\(option.id)")
             }
-            Spacer(minLength: 0)
         }
     }
 
-    private var preview: some View {
-        Group {
-            if let rendered {
-                Image(uiImage: rendered)
-                    .resizable()
-                    .scaledToFit()
+    /// Save to Photos (ink) beside Save to Files (white); a PDF goes to
+    /// Files only, which then takes the ink; Print is one ink button.
+    @ViewBuilder private var actions: some View {
+        HStack(spacing: 10) {
+            if tile == .print {
+                // Ready once the A4 pages are built (off the main actor).
+                action("Print", filled: true, id: "export.print", action: printPage)
+                    .disabled(exportData == nil)
             } else {
-                RoundedRectangle(cornerRadius: 10).fill(Palette.cardFill)
+                if format.savesToPhotos {
+                    action("Save to Photos", filled: true, id: "export.photos", action: saveToPhotos)
+                        .disabled(exportData == nil)
+                }
+                action("Save to Files", filled: !format.savesToPhotos, id: "export.files") { savingToFiles = true }
+                    .disabled(exportData == nil)
             }
         }
-        .frame(width: 88, height: 150)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
-        )
     }
 
+    private func action(_ title: String, filled: Bool, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Sans.font(size: 12, weight: 700))
+                .foregroundStyle(filled ? Palette.onInk : Palette.muted)
+                .frame(maxWidth: .infinity)
+                .frame(height: 38)
+                .background(Capsule().fill(filled ? Palette.ink : Color.white))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+    }
+
+    /// Share stays one tap away, as a header glyph (the design draws no
+    /// Share; the system sheet takes the named file).
     @ViewBuilder private var shareButton: some View {
-        if let rendered, let shareURL {
-            ShareLink(
-                item: shareURL,
-                preview: SharePreview(memory.title, image: Image(uiImage: rendered))
-            ) {
-                destinationLabel("Share...", filled: false)
+        let glyph = Image(systemName: "square.and.arrow.up")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Palette.ink)
+            .frame(width: 32, height: 32)
+            .background(Circle().fill(Color.white.opacity(0.7)))
+            // 44 x 44 to the finger, 32 as drawn.
+            .padding(6)
+            .contentShape(Rectangle())
+            .padding(-6)
+        if let rendered, let shareURL, tile != .print {
+            ShareLink(item: shareURL, preview: SharePreview(memory.title, image: Image(uiImage: rendered))) {
+                glyph
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Share")
             .accessibilityIdentifier("export.share")
         } else {
-            destinationLabel("Share...", filled: false)
-                .opacity(0.5)
+            glyph
+                .opacity(0.4)
+                .accessibilityLabel("Share")
+                .accessibilityIdentifier("export.share")
         }
-    }
-
-    private func destinationLabel(_ text: String, filled: Bool) -> some View {
-        Text(text)
-            .font(.miraPill)
-            .foregroundStyle(filled ? Palette.onInk : Palette.ink)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 11)
-            .background(
-                Capsule()
-                    .fill(filled ? Palette.ink : Palette.onInk)
-                    .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-            )
     }
 
     @MainActor private func render() {
@@ -305,56 +394,57 @@ struct ExportSheet: View {
     }
 
     /// Re-encodes the render for the chosen format and writes it to a temp
-    /// file named after the page, which is what Share hands to receivers.
-    /// Off the main actor: a long page at High is tens of megabytes, and the
-    /// tapped chip should highlight at once. The destinations stay disabled
-    /// until the bytes are ready.
+    /// file named after the page, which is what Share hands to receivers;
+    /// for Print, the A4 PDF pages the printer takes (no file). Off the main
+    /// actor: a long page at High is tens of megabytes, and the tapped tile
+    /// should highlight at once. The destinations stay disabled until the
+    /// bytes are ready.
     private func refreshExport() {
         exportGeneration += 1
         let generation = exportGeneration
         exportData = nil
         shareURL = nil
         guard let rendered else { return }
-        let format = format, layout = pdfLayout
+        let format = format
+        // Printing always goes out as A4 pages: a printer cannot take one
+        // 4,000 pt sheet.
+        let layout = tile == .print ? PDFLayout.a4Pages : pdfLayout
         // A folder per encode: an older encode finishing last must not
         // overwrite the file Share hands out.
-        let url = folderURL.appendingPathComponent("\(generation)", isDirectory: true)
+        let url: URL? = tile == .print ? nil : folderURL.appendingPathComponent("\(generation)", isDirectory: true)
             .appendingPathComponent(fileName)
         Task {
             let encoded = await Task.detached(priority: .userInitiated) { () -> (Data, URL?)? in
                 guard let data = PageExporter.data(from: rendered, format: format, pdfLayout: layout) else { return nil }
+                guard let url else { return (data, nil) }
                 try? FileManager.default.createDirectory(
                     at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 return (data, (try? data.write(to: url, options: .atomic)) == nil ? nil : url)
             }.value
-            guard generation == exportGeneration else { return }
+            guard generation == exportGeneration else {
+                // Stale: its file is no one's. After the sheet closed, the
+                // whole folder it recreated goes.
+                if let url {
+                    try? FileManager.default.removeItem(at: closed ? folderURL : url.deletingLastPathComponent())
+                }
+                return
+            }
             exportData = encoded?.0
             shareURL = encoded?.1
         }
     }
 
-    /// Hands Photos the encoded bytes as they are, so a PNG export stays a
-    /// PNG and a JPG a JPG (going through UIImage would re-encode either).
     private func saveToPhotos() {
         guard let exportData else { return }
-        PHPhotoLibrary.shared().performChanges({
-            PHAssetCreationRequest.forAsset().addResource(with: .photo, data: exportData, options: nil)
-        }, completionHandler: { succeeded, _ in
-            Task { @MainActor in
-                confirmation = succeeded
-                    ? "Saved to Photos."
-                    : "Couldn't save -- allow Photos access in Settings."
-            }
-        })
+        Task {
+            let saved = await photoSaver.save(exportData)
+            onSaved(saved ? .savedToPhotos : .photosFailed)
+        }
     }
 
-    /// Printing always goes out as A4 pages, whatever the export format: a
-    /// printer cannot take one 4,000 pt sheet.
+    /// Sends the A4 pages `refreshExport` built for the Print tile.
     private func printPage() {
-        // Reuse the A4 PDF when that is what the sheet already built.
-        let built = format == .pdf && pdfLayout == .a4Pages ? exportData : nil
-        guard let rendered,
-              let pages = built ?? PageExporter.data(from: rendered, format: .pdf, pdfLayout: .a4Pages) else { return }
+        guard tile == .print, let pages = exportData else { return }
         let info = UIPrintInfo(dictionary: nil)
         info.jobName = memory.title.isEmpty ? "MiraNote page" : memory.title
         info.outputType = .general
@@ -384,4 +474,3 @@ struct ExportDocument: FileDocument {
         FileWrapper(regularFileWithContents: data)
     }
 }
-

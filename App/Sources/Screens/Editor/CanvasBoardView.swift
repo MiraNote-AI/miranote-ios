@@ -26,14 +26,23 @@ struct CanvasBoardView: View {
     var onFavorite: (CanvasItem) -> Void = { _ in }
     /// Non-nil while a picture waits to be placed: the tap places it there.
     var onPlaceTap: ((CGPoint) -> CanvasItem.ID?)?
+    /// Non-nil while dictated words are on their way to the block being
+    /// written: a tap or drag that would end the writing hands over what it
+    /// does next, and the scene ends the writing (as Done, waiting for the
+    /// words) before doing it.
+    var onEndWritingThen: ((@escaping () -> Void) -> Void)?
     /// Set when an edit panel closes: the edited element scrolls into view
     /// once the panel has given its room back, then this clears.
     var revealItem: Binding<CanvasItem.ID?> = .constant(nil)
     /// Where an in-flight move stands against the delete zone; nil when
     /// nothing is being moved.
     @Binding var dropToDelete: DropToDelete?
-    /// The photo panel's held compare: this image drawn as it was.
-    var comparing: (itemID: CanvasItem.ID, original: ImageRef)?
+    /// The element being moved, for the scene to draw above the dock
+    /// (screen 22): the board's own copy hides, so the drag is never cut at
+    /// the card's edge. Nil when nothing is being moved.
+    var lifted: Binding<LiftedElement?> = .constant(nil)
+    /// While Voice records: where the take will land, in page points.
+    var pendingSoundMarker: CGPoint?
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -53,8 +62,12 @@ struct CanvasBoardView: View {
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
 
-    /// Bottom-edge receipts; deleted carries the one-tap Undo.
-    enum Toast { case deleted, favorited }
+    /// Bottom-edge receipts; deleted carries the one-tap Undo, good while
+    /// the delete is still the page's newest change (`changeCount`).
+    enum Toast {
+        case deleted(changeCount: Int)
+        case favorited
+    }
 
     private let minBoardHeight: CGFloat = 620
     private static let revealAnchorID = "canvas.revealAnchor"
@@ -67,10 +80,15 @@ struct CanvasBoardView: View {
                 // which made the same page a different width on every
                 // phone and disagree with its own export.
                 board
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 8)
             }
-            .onChange(of: editor.editingTextItemID) { _, id in bring(id, into: proxy) }
+            // The card holds still; the page scrolls inside it.
+            .canvasCard()
+            // The page keeps its full height under the keyboard while
+            // writing: the block rides in the upper third, clear of the
+            // keyboard and the text chrome over the page's lower part.
+            .onChange(of: editor.editingTextItemID) { _, id in
+                bring(id, into: proxy, anchor: UnitPoint(x: 0.5, y: 0.3))
+            }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
             .onChange(of: revealItem.wrappedValue) { _, id in
                 guard let id, let item = editor.item(id) else { return }
@@ -104,7 +122,16 @@ struct CanvasBoardView: View {
         )
         // Derived from the @GestureState, so a cancelled drag clears the
         // zone too.
-        .onChange(of: dropPhase) { _, phase in dropToDelete = phase }
+        .onChange(of: dropPhase) { _, phase in
+            dropToDelete = phase
+            if phase == nil { lifted.wrappedValue = nil }
+        }
+        // A take that leaves the page (Revert, undo, delete) stops playing.
+        .onChange(of: editor.changeCount) {
+            guard let playing = player.playingID,
+                  !editor.items.contains(where: { clipID(of: $0) == playing }) else { return }
+            player.stop()
+        }
         .overlay(alignment: .bottom) {
             if let toast {
                 toastView(toast)
@@ -126,29 +153,36 @@ struct CanvasBoardView: View {
         }
     }
 
+    /// While words are written the page goes under the dim glass scrim
+    /// (screens 11-20): everything but the edited block blurs and dims.
+    private var writing: Bool { editor.editingTextItemID != nil }
+
     private var board: some View {
         ZStack(alignment: .topLeading) {
+            // A blank page is just the page (handoff screen 04): the tools
+            // and the composer below are the invitation.
             paper
-            if editor.items.isEmpty {
-                // On a soft paper chip: the grey was tuned for cream paper
-                // and vanishes mid-gradient (Meng, 2026-07-11); the chip
-                // keeps the pairing readable on ANY backdrop.
-                Text("Tap a tool below, or tell Mira about today.")
-                    .font(.miraBody)
-                    .foregroundStyle(Palette.textSecondary)
-                    .frame(width: 240)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Palette.paper.opacity(0.78))
-                    )
-                    .position(x: MiraNoteConfig.pageWidth / 2, y: 200)
+                .blur(radius: writing ? 4 : 0)
+            if writing {
+                // Taps fall through to the paper, which ends editing.
+                Rectangle()
+                    .fill(Palette.scrim)
                     .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .accessibilityElement()
+                    .accessibilityLabel("Writing")
+                    .accessibilityIdentifier("text.scrim")
             }
             ForEach(editor.orderedItems) { item in
+                let edited = editor.editingTextItemID == item.id
                 element(item)
+                    .blur(radius: writing && !edited ? 4 : 0)
+                    .zIndex(edited ? 2 : 0)
+            }
+            if let pendingSoundMarker {
+                PendingSoundMarker()
+                    .position(pendingSoundMarker)
             }
             if let revealFrame {
                 // Elements are placed with .position, which stretches their
@@ -163,6 +197,7 @@ struct CanvasBoardView: View {
                     .id(Self.revealAnchorID)
             }
         }
+        .animation(.easeOut(duration: 0.2), value: writing)
         .frame(width: MiraNoteConfig.pageWidth, height: boardHeight)
         // No identifier on the container: SwiftUI cascades a parent
         // accessibilityIdentifier onto contained elements, masking child
@@ -178,27 +213,29 @@ struct CanvasBoardView: View {
         )
     }
 
+    /// At least the card's own height, so the page always fills the card.
     private var boardHeight: CGFloat {
-        max(minBoardHeight, editor.contentBottom + 240)
+        max(minBoardHeight, visibleFrame.height, editor.contentBottom + 240)
     }
 
-    private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy) {
+    private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy, anchor: UnitPoint = .center) {
         guard let id else { return }
-        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .center) }
+        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: anchor) }
     }
 
     /// The page itself -- its backdrop stretches with the content, so the
     /// background never "runs out".
     private var paper: some View {
         PageBackdrop(memory: editor.memory)
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .strokeBorder(Palette.hairline, lineWidth: Metrics.hairline)
-            )
             // One tap path, so placing and deselecting can never both fire.
             .onTapGesture(coordinateSpace: .local) { point in
                 if let onPlaceTap {
                     scrollTarget = onPlaceTap(point)
+                } else if let onEndWritingThen {
+                    onEndWritingThen {
+                        editor.select(nil)
+                        onPaperTap()
+                    }
                 } else {
                     editor.endEditingText()
                     editor.select(nil)
@@ -214,9 +251,10 @@ struct CanvasBoardView: View {
         let isSelected = editor.selectedItemID == item.id
         let isEditing = editor.editingTextItemID == item.id
         let geometry = effectiveGeometry(item)
+        let isLifted = activeMove?.itemID == item.id
 
         CanvasElementView(
-            item: shown(item),
+            item: item,
             isSelected: isSelected,
             isEditingText: isEditing,
             isPlaying: player.playingID == clipID(of: item),
@@ -227,23 +265,14 @@ struct CanvasBoardView: View {
         )
         .frame(width: geometry.size.width, height: geometry.size.height)
         .contentShape(Rectangle())
-        .overlay(alignment: .bottom) {
-            if comparing?.itemID == item.id {
-                Text("Before")
-                    .font(.miraLabel)
-                    .foregroundStyle(Palette.onInk)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(Palette.ink.opacity(0.75)))
-                    .padding(.bottom, 10)
-                    .accessibilityIdentifier("photo.before")
-            }
-        }
         .overlay {
             if isSelected && !isEditing {
                 handles(for: item, size: geometry.size)
             }
         }
+        .background { if isLifted { liftReporter(item, rotation: geometry.rotation) } }
+        // Drawn by the scene while lifted; the gesture stays with this view.
+        .opacity(isLifted ? 0 : 1)
         .rotationEffect(.degrees(geometry.rotation))
         .position(geometry.position)
         .id(item.id)
@@ -254,13 +283,23 @@ struct CanvasBoardView: View {
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
     }
 
-    /// The item as drawn: the original pixels and treatments while the
-    /// photo panel's compare is held, the model otherwise.
-    private func shown(_ item: CanvasItem) -> CanvasItem {
-        guard let comparing, comparing.itemID == item.id else { return item }
-        var shown = item
-        shown.content = .image(comparing.original)
-        return shown
+    /// The moving element's box on screen, translation included: the scene
+    /// draws the lifted copy exactly there.
+    private func liftReporter(_ item: CanvasItem, rotation: Double) -> some View {
+        GeometryReader { geo in
+            Color.clear
+                .onAppear { lift(item, frame: geo.frame(in: .global), rotation: rotation) }
+                .onChange(of: geo.frame(in: .global)) { _, frame in
+                    lift(item, frame: frame, rotation: rotation)
+                }
+        }
+    }
+
+    private func lift(_ item: CanvasItem, frame: CGRect, rotation: Double) {
+        // The drop's own frame change can land after the move ended: never
+        // bring the copy back then.
+        guard let activeMove, activeMove.itemID == item.id else { return }
+        lifted.wrappedValue = LiftedElement(item: item, frame: frame, rotation: rotation, finger: activeMove.location)
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.
@@ -286,17 +325,6 @@ struct CanvasBoardView: View {
         return ElementGeometry(position: position, size: size, rotation: rotation)
     }
 
-    private func handleTap(_ item: CanvasItem, isSelected: Bool) {
-        if !isSelected {
-            editor.select(item.id)
-            return
-        }
-        if case .text = item.content {
-            editor.startEditingText(item.id)
-            textFocus.wrappedValue = item.id
-        }
-    }
-
     private func textBinding(_ item: CanvasItem) -> Binding<String> {
         Binding(
             get: {
@@ -317,6 +345,23 @@ struct CanvasBoardView: View {
 extension CanvasBoardView {
     // MARK: Gestures
 
+    private func handleTap(_ item: CanvasItem, isSelected: Bool) {
+        if !isSelected {
+            let select = {
+                editor.select(item.id)
+                // An unselected marker reads "tap to play" (screen 09): the
+                // tap that selects it also plays it.
+                if case .sound = item.content { togglePlay(item) }
+            }
+            if let onEndWritingThen { onEndWritingThen(select) } else { select() }
+            return
+        }
+        if case .text = item.content {
+            editor.startEditingText(item.id)
+            textFocus.wrappedValue = item.id
+        }
+    }
+
     private var dropPhase: DropToDelete? {
         guard let activeMove else { return nil }
         return isOverDeleteZone(activeMove.location) ? .armed : .dragging
@@ -335,7 +380,11 @@ extension CanvasBoardView {
         // the delete zone. Translation is the same in either space.
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { _ in
-                editor.select(item.id)
+                if let onEndWritingThen {
+                    onEndWritingThen { editor.select(item.id) }
+                } else {
+                    editor.select(item.id)
+                }
             }
             .updating($activeMove) { value, state, _ in
                 state = ActiveMove(itemID: item.id, translation: value.translation, location: value.location)
@@ -364,25 +413,38 @@ extension CanvasBoardView {
             }
     }
 
-    /// Dashed selection frame with four corner dots. Corner drags resize
-    /// around the opposite corner; deltas are applied in unrotated space (a
-    /// deliberate simplification -- scrapbook tilts stay small).
+    /// The arrange-state frame (handoff screen 21): a 1 pt dashed #263521
+    /// r16 frame 6 outside the element -- or, on an unframed photo, the 3 pt
+    /// ink border along its r18 edge (screen 29) -- with 10 pt corner
+    /// handles that hit-test at 44. Corner drags resize around the opposite
+    /// corner; deltas are applied in unrotated space (a deliberate
+    /// simplification -- scrapbook tilts stay small).
     private func handles(for item: CanvasItem, size: CGSize) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(
-                    Palette.ink.opacity(0.55),
-                    style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])
-                )
+        let line = Color(hex: 0x263521)
+        var photoBorder = false
+        if case .image(let ref) = item.content { photoBorder = ref.frameName.isEmpty }
+        let outset: CGFloat = photoBorder ? 0 : 6
+        return ZStack {
+            if photoBorder {
+                RoundedRectangle(cornerRadius: Metrics.imageCorner)
+                    .strokeBorder(Palette.ink, lineWidth: 3)
+                    .allowsHitTesting(false)
+            } else {
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(line, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .padding(-outset)
+                    .allowsHitTesting(false)
+            }
             ForEach(HandleCorner.allCases, id: \.self) { corner in
                 Circle()
-                    .fill(Palette.onInk)
-                    .overlay(Circle().strokeBorder(Palette.ink, lineWidth: 1.4))
-                    .frame(width: 14, height: 14)
-                    .contentShape(Circle().inset(by: -10))
+                    .fill(Palette.warmWhite)
+                    .overlay(Circle().strokeBorder(line, lineWidth: 1))
+                    .frame(width: 10, height: 10)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
                     .offset(
-                        x: corner.sign.x * size.width / 2,
-                        y: corner.sign.y * size.height / 2
+                        x: corner.sign.x * (size.width / 2 + outset),
+                        y: corner.sign.y * (size.height / 2 + outset)
                     )
                     .gesture(resizeGesture(item, corner: corner))
             }
@@ -437,7 +499,7 @@ extension CanvasBoardView {
 
     private func deleteWithToast(_ id: CanvasItem.ID) {
         editor.delete(itemID: id)
-        show(toast: .deleted)
+        show(toast: .deleted(changeCount: editor.changeCount))
     }
 
     func show(toast kind: Toast) {
@@ -453,17 +515,20 @@ extension CanvasBoardView {
     @ViewBuilder private func toastView(_ kind: Toast) -> some View {
         HStack(spacing: 14) {
             switch kind {
-            case .deleted:
+            case .deleted(let changeCount):
                 Text("Deleted")
                     .font(.miraLabel)
                     .foregroundStyle(Palette.onInk)
+                // Only the delete: once something newer is on the page, the
+                // canvas-wide undo would take that back instead.
                 Button("Undo") {
-                    editor.undo()
+                    if editor.changeCount == changeCount { editor.undo() }
                     toastDismiss?.cancel()
                     withAnimation(.easeIn(duration: 0.18)) { toast = nil }
                 }
                 .font(.miraLabel.weight(.semibold))
                 .foregroundStyle(Palette.onInk)
+                .disabled(editor.changeCount != changeCount)
                 .accessibilityIdentifier("toast.undo")
             case .favorited:
                 Image(systemName: "heart.fill")

@@ -47,8 +47,7 @@ final class ChatNoteTests: XCTestCase {
             text: ScriptedText(),
             chat: ScriptedChat(),
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
         coordinator.ask("hello mira", editor: editor)
         let deadline = ContinuousClock.now.advanced(by: .seconds(3))
@@ -87,8 +86,7 @@ final class ChatNoteTests: XCTestCase {
             text: ScriptedText(),
             chat: ScriptedChat(reply: "How about: \"a quiet line for this page of yours\"?"),
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
         coordinator.ask("hello mira", editor: editor)
         let deadline = ContinuousClock.now.advanced(by: .seconds(3))
@@ -119,8 +117,7 @@ final class ChatNoteTests: XCTestCase {
             text: ScriptedText(),
             chat: ScriptedChat(reply: "I'm good, thanks for asking! Just here with you."),
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
         coordinator.ask("how are you", editor: editor)
         let deadline = ContinuousClock.now.advanced(by: .seconds(3))
@@ -182,8 +179,7 @@ final class ChatNoteTests: XCTestCase {
             text: ScriptedText(),
             chat: chat,
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
         coordinator.prepareTurn = {
             editor.setImageSummary(itemID: ids[0], to: "a waterfall in soft light")
@@ -234,8 +230,7 @@ final class ChatNoteTests: XCTestCase {
                 pageDraft: ChatPageDraft(title: "Waterfall dusk", body: "The sun dipped behind the rocks.")
             ),
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
         let countBefore = editor.items.count
         coordinator.ask("hello mira, tell me about the waterfall", editor: editor)
@@ -259,13 +254,6 @@ final class ChatNoteTests: XCTestCase {
         XCTAssertEqual(MiraIntent.cleanTitle("  A quiet moment  "), "A quiet moment")
         XCTAssertEqual(MiraIntent.cleanTitle(""), "")
         XCTAssertEqual(MiraIntent.cleanTitle(String(repeating: "long ", count: 30)).count <= 60, true)
-    }
-
-    func testReceiptDefaultOutlivesACarefulRead() {
-        XCTAssertEqual(
-            MiraCanvasCoordinator.defaultReceiptDismiss, .seconds(6),
-            "one line plus inline Revert reads in six; header undo covers the rest"
-        )
     }
 
     func testMaterializedDraftBodyHugsTheTitle() {
@@ -296,7 +284,12 @@ final class ChatNoteTests: XCTestCase {
 
     func testSendCarriesTheMatchingPages() async {
         let chat = CapturingChat()
-        let viewModel = ChatViewModel(service: chat) { message in
+        let viewModel = ChatViewModel(
+            service: chat, studio: MockImageStudioService(),
+            transcription: MockVoiceTranscriptionService(),
+            makeRecorder: { MockAudioRecorder() },
+            imageStore: ImageFileStore(directory: FileManager.default.temporaryDirectory)
+        ) { message in
             [ChatNote(title: "hit for " + message, body: "", date: "")]
         }
 
@@ -311,7 +304,12 @@ final class ChatNoteTests: XCTestCase {
     // out without the session and start a new one.
     func testReturnWhileAnAnswerIsPendingSendsNothing() async {
         let chat = CapturingChat(delay: .milliseconds(300))
-        let viewModel = ChatViewModel(service: chat) { _ in [] }
+        let viewModel = ChatViewModel(
+            service: chat, studio: MockImageStudioService(),
+            transcription: MockVoiceTranscriptionService(),
+            makeRecorder: { MockAudioRecorder() },
+            imageStore: ImageFileStore(directory: FileManager.default.temporaryDirectory)
+        ) { _ in [] }
 
         let first = Task { await viewModel.send("hello") }
         try? await Task.sleep(for: .milliseconds(50))

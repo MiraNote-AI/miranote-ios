@@ -4,31 +4,32 @@ import Foundation
 extension Memory {
     /// The starter draft a new memory opens with: a serif title, a caption,
     /// an image placeholder, and a body line -- real elements the user can
-    /// immediately move, edit, or delete.
+    /// immediately move, edit, or delete. Text boxes are as tall as the
+    /// app's 12/14 insets measure them (the app's StaticPageLayoutTests).
     public static func starterDraft(title: String = "Lunch by the river") -> [CanvasItem] {
         [
             CanvasItem(
                 content: .text(TextBlock(text: title, pointSize: 30)),
-                position: CGPoint(x: 150, y: 62),
-                size: CGSize(width: 270, height: 60),
+                position: CGPoint(x: 150, y: 66.5),
+                size: CGSize(width: 270, height: 69),
                 zIndex: 1
             ),
             CanvasItem(
                 content: .text(TextBlock(text: "June 21 - calm afternoon", pointSize: 12, colorName: "textSecondary")),
-                position: CGPoint(x: 120, y: 110),
-                size: CGSize(width: 200, height: 24),
+                position: CGPoint(x: 120, y: 126.5),
+                size: CGSize(width: 200, height: 47),
                 zIndex: 2
             ),
             CanvasItem(
                 content: .image(ImageRef(displayName: "placeholder")),
-                position: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: 240),
+                position: CGPoint(x: MiraNoteConfig.pageWidth / 2, y: 263),
                 size: CGSize(width: 328, height: 210),
                 zIndex: 3
             ),
             CanvasItem(
                 content: .text(TextBlock(text: "Sunny afternoon, tiny noodle shop by the bridge", pointSize: 15)),
-                position: CGPoint(x: 160, y: 400),
-                size: CGSize(width: 288, height: 66),
+                position: CGPoint(x: 160, y: 412),
+                size: CGSize(width: 288, height: 72),
                 zIndex: 4
             )
         ]
@@ -42,8 +43,8 @@ extension Memory {
         [
             CanvasItem(
                 content: .text(TextBlock(text: "A little welcome", pointSize: 30)),
-                position: CGPoint(x: 150, y: 62),
-                size: CGSize(width: 270, height: 60),
+                position: CGPoint(x: 150, y: 66.5),
+                size: CGSize(width: 270, height: 69),
                 zIndex: 1
             ),
             CanvasItem(
@@ -52,8 +53,8 @@ extension Memory {
                         + "drag it around, two fingers to tilt it.",
                     pointSize: 15
                 )),
-                position: CGPoint(x: 170, y: 150),
-                size: CGSize(width: 300, height: 70),
+                position: CGPoint(x: 170, y: 159.5),
+                size: CGSize(width: 300, height: 93),
                 zIndex: 2
             ),
             CanvasItem(
@@ -62,13 +63,13 @@ extension Memory {
                         + "Ask Mira -- she can change, tidy, and find things.",
                     pointSize: 15
                 )),
-                position: CGPoint(x: 170, y: 240),
-                size: CGSize(width: 300, height: 80),
+                position: CGPoint(x: 170, y: 262.5),
+                size: CGSize(width: 300, height: 93),
                 zIndex: 3
             ),
             CanvasItem(
                 content: .sticker(GeneratedSticker(prompt: "hello", symbolName: "hand.wave")),
-                position: CGPoint(x: 290, y: 330),
+                position: CGPoint(x: 290, y: 364),
                 size: CGSize(width: 80, height: 80),
                 rotation: 8,
                 zIndex: 4

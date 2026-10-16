@@ -7,8 +7,23 @@ import Foundation
 @MainActor
 public protocol AudioRecording {
     var isRecording: Bool { get }
+    /// The input level right now, 0 (silence) to 1 (loud), for a live
+    /// meter; 0 while not recording.
+    var level: Float { get }
     func start() async throws
     func stop() async throws -> Data
+}
+
+/// Turns a recorder's average power into a meter level.
+public enum AudioLevel {
+    /// The quietest power the meter shows; anything below reads as silence.
+    public static let floorDecibels: Float = -50
+
+    /// Maps decibels (-160 ... 0, as `AVAudioRecorder` reports them)
+    /// linearly from `floorDecibels` ... 0 onto 0 ... 1.
+    public static func normalized(power decibels: Float) -> Float {
+        min(1, max(0, (decibels - floorDecibels) / -floorDecibels))
+    }
 }
 
 public enum RecordingError: Error, LocalizedError {
@@ -33,17 +48,34 @@ public enum AudioInfo {
     }
 }
 
-/// Test double: no microphone, returns canned bytes.
+/// Test double: no microphone, returns canned bytes and a fixed level
+/// while recording.
 @MainActor
 public final class MockAudioRecorder: AudioRecording {
     public private(set) var isRecording = false
+    /// What `level` reads while recording.
+    public var recordingLevel: Float
     private let cannedAudio: Data
+    /// How long the mic takes to come up (the real one waits on the audio
+    /// session, and on the permission alert the first time).
+    private let startDelay: Duration
 
-    public init(cannedAudio: Data = Data("mock-audio".utf8)) {
+    public init(
+        cannedAudio: Data = Data("mock-audio".utf8),
+        recordingLevel: Float = 0.6,
+        startDelay: Duration = .zero
+    ) {
         self.cannedAudio = cannedAudio
+        self.recordingLevel = recordingLevel
+        self.startDelay = startDelay
     }
 
-    public func start() async throws { isRecording = true }
+    public var level: Float { isRecording ? recordingLevel : 0 }
+
+    public func start() async throws {
+        if startDelay > .zero { try? await Task.sleep(for: startDelay) }
+        isRecording = true
+    }
 
     public func stop() async throws -> Data {
         isRecording = false
@@ -64,6 +96,12 @@ public final class AudioRecorder: AudioRecording {
 
     public var isRecording: Bool { recorder?.isRecording ?? false }
 
+    public var level: Float {
+        guard let recorder, recorder.isRecording else { return 0 }
+        recorder.updateMeters()
+        return AudioLevel.normalized(power: recorder.averagePower(forChannel: 0))
+    }
+
     public func start() async throws {
         try await ensurePermission()
         #if os(iOS)
@@ -78,6 +116,7 @@ public final class AudioRecorder: AudioRecording {
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         let recorder = try AVAudioRecorder(url: fileURL, settings: settings)
+        recorder.isMeteringEnabled = true
         guard recorder.record() else { throw RecordingError.noAudioCaptured }
         self.recorder = recorder
     }

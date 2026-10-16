@@ -8,8 +8,7 @@ final class MiraPageIntentTests: XCTestCase {
             text: ScriptedText(),
             chat: chat,
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
     }
 
@@ -103,8 +102,7 @@ final class MiraPageIntentTests: XCTestCase {
             text: ScriptedText(),
             chat: ScriptedChat(reply: "Warm flaky croissants at dawn"),
             workingDelay: .milliseconds(1),
-            timeout: .seconds(5),
-            receiptDismiss: .seconds(60)
+            timeout: .seconds(5)
         )
 
         coordinator.ask("add a soft title", editor: editor)
