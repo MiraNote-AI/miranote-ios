@@ -1,6 +1,8 @@
 import XCTest
 
-/// The chat composer as WeChat has it (owner decision). Sent photos last
+/// The chat composer as WeChat has it (owner decision): the field grows with
+/// the message, the keyboard's Send sends and the keyboard stays up for the
+/// next one, a paste never sends (MiraChatStyleUITests). Sent photos last
 /// as long as the chat, and go with it.
 final class MiraChatComposerUITests: XCTestCase {
     private var app: XCUIApplication!
@@ -27,8 +29,43 @@ final class MiraChatComposerUITests: XCTestCase {
         XCTAssertTrue(replies.firstMatch.waitForExistence(timeout: 8), "Mira answered")
     }
 
+    private var field: XCUIElement { app.descendants(matching: .any)["chat.field"] }
+
     private var replies: XCUIElementQuery {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "scripted"))
+    }
+
+    private var hasKeyboardFocus: Bool { (field.value(forKey: "hasKeyboardFocus") as? Bool) == true }
+
+    func testReturnSendsAndTheKeyboardStaysUp() {
+        openChat()
+        field.tap()
+        field.typeText("first message\n")
+        XCTAssertTrue(app.staticTexts["first message"].waitForExistence(timeout: 5), "Return sent it")
+        let answered = NSPredicate(format: "count == 2")
+        expectation(for: answered, evaluatedWith: replies)
+        waitForExpectations(timeout: 8)
+
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "the keyboard stays up after Send")
+        XCTAssertTrue(hasKeyboardFocus, "the field keeps the keyboard")
+        // The next message is typed straight away, without a tap.
+        app.typeText("second message\n")
+        XCTAssertTrue(app.staticTexts["second message"].waitForExistence(timeout: 5), "the next one went too")
+    }
+
+    func testALongMessageWrapsAndTheFieldGrows() {
+        openChat()
+        field.tap()
+        let oneLine = field.frame.height
+        field.typeText("a long message that keeps going well past the width of the field")
+        XCTAssertGreaterThan(field.frame.height, oneLine + 8, "the field grows to show the next line")
+
+        field.typeText(String(repeating: " and on and on", count: 20))
+        let capped = field.frame.height
+        XCTAssertGreaterThan(capped, oneLine + 8)
+        XCTAssertLessThan(capped, oneLine * 3, "four lines at most, then it scrolls")
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "a long message")).count, 0,
+                       "nothing was sent")
     }
 
     /// A sent photo's file outlives the camera's full-screen cover (opened

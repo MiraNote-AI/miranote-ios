@@ -31,7 +31,7 @@ struct MiraChatComposer: View {
     @State private var releaseCancels = false
     /// Staged photos' thumbnails, decoded once per photo.
     @State private var thumbnails: [StagedPhoto.ID: UIImage] = [:]
-    @FocusState private var fieldFocused: Bool
+    @State private var fieldFocused = false
     @Environment(\.scenePhase) private var scenePhase
 
     /// Upward travel past which a release cancels the clip.
@@ -186,27 +186,21 @@ struct MiraChatComposer: View {
     }
 
     private var field: some View {
-        // Single line, as drawn: the keyboard's Send is the system Return
-        // (onSubmit), through sendDraft so its guards apply. A paste never
-        // sends -- only the key does.
-        TextField("", text: $viewModel.draft)
-            .font(Sans.font(size: 12, weight: 400))
-            .foregroundStyle(Palette.ink)
-            .tint(Palette.forest)
-            .submitLabel(.send)
-            .onSubmit { Task { await viewModel.sendDraft() } }
-            .focused($fieldFocused)
-            .accessibilityLabel("Message Mira")
-            .accessibilityIdentifier("chat.field")
-            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
-            .overlay(alignment: .leading) {
-                if viewModel.draft.isEmpty {
-                    Text("Ask Mira anything...")
-                        .font(Sans.font(size: 12, weight: 400))
-                        .foregroundStyle(ChatMetrics.muted)
-                        .allowsHitTesting(false)
-                }
+        // WeChat's field: one line growing to four. The keyboard's Send key
+        // sends through sendDraft (so its guards apply) and the keyboard
+        // stays up for the next message; a paste never sends.
+        ChatTextView(text: $viewModel.draft, isFocused: $fieldFocused, font: Sans.uiFont(size: 12, weight: 400)) {
+            Task { await viewModel.sendDraft() }
+        }
+        .frame(maxWidth: .infinity, minHeight: ChatTextView.minHeight, alignment: .leading)
+        .overlay(alignment: .leading) {
+            if viewModel.draft.isEmpty {
+                Text("Ask Mira anything...")
+                    .font(Sans.font(size: 12, weight: 400))
+                    .foregroundStyle(ChatMetrics.muted)
+                    .allowsHitTesting(false)
             }
+        }
     }
 
     /// WeChat's press-and-hold bar in the left nav pill's look. Release

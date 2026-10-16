@@ -146,8 +146,8 @@ final class MiraChatStyleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chat.plus"].exists)
     }
 
-    // The keyboard's Send (the system Return of a single-line field)
-    // sends a several-word message -- typed in one go with its Return.
+    // The keyboard's Send (the Return key) sends a several-word message --
+    // typed in one go with its Return.
     func testReturnSendsTheDraft() {
         openChat()
         field.tap()
