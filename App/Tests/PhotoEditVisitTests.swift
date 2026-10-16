@@ -121,7 +121,8 @@ final class PhotoEditVisitTests: XCTestCase {
     private func doneDuringAnAIEdit() throws -> RunningEdit {
         let (editor, id) = try makePhoto()
         var editors = PhotoEditors()
-        let first = editors.open(id, onEdited: {}, onClose: {}) { controller(editor, id, studio: SlowStudio()) }
+        let first = editors.open(id, onEdited: {}, onClose: {},
+                                 make: { controller(editor, id, studio: SlowStudio()) })
         first.tap(.ai)
         first.prompt = "make it autumn"
         first.runComposer()
@@ -148,7 +149,7 @@ final class PhotoEditVisitTests: XCTestCase {
         let fileB = try ImageFileStore().save(MockImageStudioService.tinyPNG, id: UUID())
         let other = try XCTUnwrap(editor.addImages([ImageRef(displayName: "B", fileName: fileB)],
                                                    around: CGPoint(x: 180, y: 500)).first)
-        run.editors.open(other, onEdited: {}, onClose: {}) { controller(editor, other) }
+        run.editors.open(other, onEdited: {}, onClose: {}, make: { controller(editor, other) })
         run.editors.close(other)
 
         let reopened = run.reopen { controller(editor, id, studio: SlowStudio()) }
@@ -221,9 +222,8 @@ final class PhotoEditVisitTests: XCTestCase {
         var run = try doneDuringAnAIEdit()
         let (editor, id) = (run.editor, run.id)
         var edited = false
-        let reopened = run.editors.open(id, onEdited: { edited = true }, onClose: {}) {
-            controller(editor, id, studio: SlowStudio())
-        }
+        let reopened = run.editors.open(id, onEdited: { edited = true }, onClose: {},
+                                        make: { controller(editor, id, studio: SlowStudio()) })
         XCTAssertTrue(reopened === run.first)
         try await Task.sleep(for: .milliseconds(1_200))
         XCTAssertTrue(edited, "the landed edit was reported to the scene that is gone")

@@ -74,8 +74,8 @@ final class MiraChatStyleUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["chat.voice.recording"].exists,
                        "the mic stayed live with no finger down")
         XCTAssertTrue(app.staticTexts["Hold to talk"].exists)
-        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Transcribed'")).firstMatch.exists,
-                       "nothing of the interrupted take is kept")
+        let kept = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Transcribed'")).firstMatch
+        XCTAssertFalse(kept.exists, "nothing of the interrupted take is kept")
     }
 
     // Voice-to-text: the transcript fills the field for editing; nothing

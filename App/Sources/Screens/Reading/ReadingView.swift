@@ -436,17 +436,6 @@ struct ExportSheet: View {
         }
     }
 
-    /// -UITEST only: `-EXPORT_DELAY <ms>` holds the encode, so a test can see
-    /// the destinations wait for it.
-    private static var exportDelay: Int {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            return UserDefaults.standard.integer(forKey: "EXPORT_DELAY")
-        }
-        #endif
-        return 0
-    }
-
     private func saveToPhotos() {
         guard let exportData else { return }
         Task {
@@ -465,6 +454,19 @@ struct ExportSheet: View {
         controller.printInfo = info
         controller.printingItem = pages
         controller.present(animated: true)
+    }
+}
+
+private extension ExportSheet {
+    /// -UITEST only: `-EXPORT_DELAY <ms>` holds the encode, so a test can see
+    /// the destinations wait for it.
+    static var exportDelay: Int {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            return UserDefaults.standard.integer(forKey: "EXPORT_DELAY")
+        }
+        #endif
+        return 0
     }
 }
 

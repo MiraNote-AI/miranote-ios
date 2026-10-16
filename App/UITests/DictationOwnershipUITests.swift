@@ -211,7 +211,8 @@ final class DictationOwnershipUITests: XCTestCase {
         startAMemory(["-TRANSCRIBE_DELAY", "1500"])
         write("Lunch")
         strip.tap()
-        let listening = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'Listening...'"), object: strip)
+        let listening = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'Listening...'"),
+                                                  object: strip)
         XCTAssertEqual(XCTWaiter().wait(for: [listening], timeout: 5), .completed)
         app.buttons["keyboard.done"].tap()
         waitGone(app.buttons["keyboard.done"], "Done completes once the words land")
