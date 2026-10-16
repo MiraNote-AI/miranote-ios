@@ -138,6 +138,34 @@ struct UITestCameraStub: View {
     }
 }
 
+/// -UITEST only: a scene's state as JSON on an invisible element, for the
+/// monkey (MonkeyUITests) to check its invariants after every event.
+struct DebugStateProbe: View {
+    let state: () -> [String: Any]
+
+    var body: some View {
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+                let json = Self.json(state())
+                Text(json)
+                    .font(.system(size: 1))
+                    .opacity(0.01)
+                    .frame(width: 1, height: 1)
+                    .accessibilityLabel(json)
+                    .accessibilityIdentifier("debug.state")
+            }
+        }
+    }
+
+    static func json(_ state: [String: Any]) -> String {
+        var state = state
+        // Ground truth for "no microphone left on": every mock recorder on.
+        state["micLive"] = MockAudioRecorder.liveCount
+        guard let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
 /// -UITEST only: how many sent chat photos are on disk (the folder is the
 /// process's own), for a test to read from the chat or from Home.
 struct ChatPhotoFilesProbe: View {

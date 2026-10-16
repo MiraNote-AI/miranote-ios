@@ -145,6 +145,9 @@ public final class CanvasViewModel {
 
     public var canUndo: Bool { !history.isEmpty }
 
+    /// How many steps undo can take back (a -UITEST probe reads it).
+    public var undoDepth: Int { history.count }
+
     public var canRedo: Bool { !future.isEmpty }
 
     public func beginChange() {

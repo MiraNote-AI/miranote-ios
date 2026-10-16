@@ -264,6 +264,8 @@ struct HomeFlow: View {
         }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
+        // Under a cover the scene's own probe shows too; nothing here listens.
+        .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
         .fullScreenCover(item: $route) { presented in
             switch presented {

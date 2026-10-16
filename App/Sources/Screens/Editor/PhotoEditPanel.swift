@@ -375,6 +375,13 @@ struct PhotoEditors {
             byPhoto[id] = nil
         }
     }
+
+    #if DEBUG
+    /// -UITEST probe: each editor's photo and whether its edit runs.
+    var debugList: [[String: Any]] {
+        byPhoto.map { ["id": $0.key.uuidString, "working": $0.value.working] }
+    }
+    #endif
 }
 
 // MARK: - Stage, sheet, composer

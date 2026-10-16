@@ -66,6 +66,12 @@ struct MiraChatView: View {
         .screenBackground()
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
+        .background(DebugStateProbe {
+            var recording = false
+            if case .recording = viewModel.voice { recording = true }
+            return ["scene": "chat", "listening": ["chat": recording], "staged": viewModel.staged.count,
+                    "loading": viewModel.loadingImages, "responding": viewModel.isResponding]
+        })
         #endif
         .task { await viewModel.seedIfNeeded(seed) }
     }

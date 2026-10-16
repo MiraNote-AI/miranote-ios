@@ -52,7 +52,15 @@ public enum AudioInfo {
 /// while recording.
 @MainActor
 public final class MockAudioRecorder: AudioRecording {
-    public private(set) var isRecording = false
+    /// Mock recorders on right now, all instances together: what a -UITEST
+    /// probe reads to tell that no microphone was left on.
+    public private(set) static var liveCount = 0
+
+    public private(set) var isRecording = false {
+        didSet {
+            if isRecording != oldValue { Self.liveCount += isRecording ? 1 : -1 }
+        }
+    }
     /// What `level` reads while recording.
     public var recordingLevel: Float
     private let cannedAudio: Data

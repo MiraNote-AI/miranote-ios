@@ -323,6 +323,7 @@ struct CanvasScene: View {
         .animation(.easeOut(duration: 0.2), value: miraChatOpen)
         #if DEBUG
         .background(dropZoneTrailProbe)
+        .background(DebugStateProbe { debugState })
         #endif
         .onDisappear {
             cancelRecording()
@@ -1209,3 +1210,47 @@ extension CanvasScene {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
+
+#if DEBUG
+// MARK: - Debug state probe (-UITEST)
+
+extension CanvasScene {
+    /// What the monkey checks after every event: what the strips and the
+    /// recorder show (against the microphones really on), the writing
+    /// session and the words on their way, the photo editors, the undo
+    /// depth, any import, and every element's frame.
+    var debugState: [String: Any] {
+        var voiceRecording = false
+        if case .recording = recorderState { voiceRecording = true }
+        return [
+            "scene": "canvas",
+            "listening": ["text": dictating, "mira": miraListening, "voice": voiceRecording,
+                          "starting": startingMic != nil],
+            "recorderHeld": recorder != nil,
+            "writing": editor.editingTextItemID?.uuidString ?? "",
+            "writingDown": writingDown,
+            "pendingTakes": pendingTakes.count,
+            "photoEditing": editingImageItem?.uuidString ?? "",
+            "photoEditors": photoEditors.debugList,
+            "undoDepth": editor.undoDepth,
+            "importing": importingPicks,
+            "pageWidth": editor.canvasWidth ?? MiraNoteConfig.pageWidth,
+            "elements": editor.items.map(Self.debugElement)
+        ]
+    }
+
+    private static func debugElement(_ item: CanvasItem) -> [String: Any] {
+        var kind = "sound", text = ""
+        switch item.content {
+        case .text(let block):
+            kind = "text"
+            text = String(block.text.prefix(24))
+        case .image: kind = "image"
+        case .sticker: kind = "sticker"
+        case .sound: break
+        }
+        return ["id": item.id.uuidString, "kind": kind, "text": text,
+                "x": item.position.x, "y": item.position.y, "w": item.size.width, "h": item.size.height]
+    }
+}
+#endif

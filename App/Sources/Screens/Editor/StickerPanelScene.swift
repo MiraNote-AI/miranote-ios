@@ -96,6 +96,12 @@ struct StickerPanelScene: View {
             // blank squares.
             favorites = favoritesStore.prunedRaisingSmall(images: imageStore)
         }
+        #if DEBUG
+        .background(DebugStateProbe {
+            ["scene": "sticker", "listening": [String: Bool](), "busy": busy, "drafts": drafts.count,
+             "undoDepth": editor.undoDepth, "writing": editor.editingTextItemID?.uuidString ?? ""]
+        })
+        #endif
     }
 
     private var busy: Bool { generating || styling }
