@@ -96,23 +96,9 @@ final class PhotoEditController {
 
     var comparing: Bool { pinnedCompare || holdingCompare }
 
-    /// The controller for a photo being opened. Done during an AI edit
-    /// keeps the edit running; opening the same photo again is that photo's
-    /// editor again, showing the work -- never a second controller whose
-    /// edits the late result would overwrite.
-    static func opening(
-        _ itemID: CanvasItem.ID,
-        current: PhotoEditController?,
-        make: () -> PhotoEditController
-    ) -> PhotoEditController {
-        guard let current, current.itemID == itemID, current.working else { return make() }
-        current.reopen()
-        return current
-    }
-
     /// A new visit on a running edit kept with Done: none of the steps so
     /// far are this visit's, and it starts from the edit's result.
-    private func reopen() {
+    fileprivate func reopen() {
         workKeptByDone = true
         ownSteps = 0
         ownCount = nil
@@ -336,6 +322,36 @@ final class PhotoEditController {
                     ?? "That didn't work this time. Try again?"
             }
         }
+    }
+}
+
+/// The photo editors in use, one per photo. Done during an AI edit keeps
+/// the edit running; opening that photo again -- even after other photos
+/// were opened meanwhile -- is its editor again, showing the work, never a
+/// second controller whose Cancel would take back the edit kept with Done.
+@MainActor
+struct PhotoEditors {
+    private var byPhoto: [CanvasItem.ID: PhotoEditController] = [:]
+
+    subscript(id: CanvasItem.ID) -> PhotoEditController? { byPhoto[id] }
+
+    /// The editor for a photo being opened: its running one, or a new visit.
+    @discardableResult
+    mutating func open(_ id: CanvasItem.ID, make: () -> PhotoEditController) -> PhotoEditController {
+        // Editors closed with Done whose edit has landed are done with.
+        byPhoto = byPhoto.filter { $0.value.working }
+        if let running = byPhoto[id] {
+            running.reopen()
+            return running
+        }
+        let editor = make()
+        byPhoto[id] = editor
+        return editor
+    }
+
+    /// The photo's editor closed: kept only while its edit runs.
+    mutating func close(_ id: CanvasItem.ID) {
+        if byPhoto[id]?.working != true { byPhoto[id] = nil }
     }
 }
 

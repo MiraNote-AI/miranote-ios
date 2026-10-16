@@ -54,9 +54,11 @@ struct CanvasScene: View {
     @FocusState private var applyFocus: Bool
     @State private var gestureHint: String?
     @State private var editingImageItem: CanvasItem.ID?
-    /// The lifted photo's editor state (tile, words, compare), while
-    /// `editingImageItem` is set.
-    @State private var photoEdit: PhotoEditController?
+    /// The photo editors' state (tile, words, compare, a running edit kept
+    /// with Done), one per photo.
+    @State private var photoEditors = PhotoEditors()
+    /// The lifted photo's editor, while `editingImageItem` is set.
+    private var photoEdit: PhotoEditController? { editingImageItem.flatMap { photoEditors[$0] } }
     /// The Image tool, open in place over the live canvas; nil when closed.
     @State private var imagePhase: ImagePhase?
     @State private var recentPhotos = RecentPhotos()
@@ -378,7 +380,7 @@ struct CanvasScene: View {
             if let left { notePhotoSeen(left) }
             // An edit kept with Done runs on: its controller waits for the
             // photo to be opened again.
-            if now == nil, photoEdit?.working != true { photoEdit = nil }
+            if let left, left != now { photoEditors.close(left) }
         }
         .sheet(isPresented: $showsCamera) {
             CameraCapture { image in
@@ -923,7 +925,7 @@ struct CanvasScene: View {
         }
         // Done during an AI edit left it running: the same photo reopens on
         // that controller, never a second one beside it.
-        photoEdit = PhotoEditController.opening(id, current: photoEdit) {
+        photoEditors.open(id) {
             PhotoEditController(
                 itemID: id,
                 editor: editor,
