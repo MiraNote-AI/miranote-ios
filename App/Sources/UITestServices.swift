@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import MiraNoteKit
+import SwiftUI
 import UIKit
 
 extension ServiceContainer {
@@ -106,6 +107,36 @@ struct UITestScriptedChat: ChatService {
             text: "A **scripted** reply for UI tests. How about: \"a quiet line for the page\"?",
             sessionID: "ui-test"
         )
+    }
+}
+
+/// The chat's camera cover under `-UITEST -CAMERA_COVER`: the system camera
+/// cannot be driven, so "Use Photo" stages a canned photo and closes it.
+struct UITestCameraStub: View {
+    let onUse: () -> Void
+
+    var body: some View {
+        Button("Use Photo", action: onUse)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black)
+            .accessibilityIdentifier("camera.stub.use")
+    }
+}
+
+/// -UITEST only: how many sent chat photos are on disk (the folder is the
+/// process's own), for a test to read from the chat or from Home.
+struct ChatPhotoFilesProbe: View {
+    var body: some View {
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                let files = try? FileManager.default.contentsOfDirectory(atPath: MiraChatView.photoDirectory.path)
+                Text("\(files?.count ?? 0)")
+                    .font(.system(size: 1))
+                    .opacity(0.01)
+                    .frame(width: 1, height: 1)
+                    .accessibilityIdentifier("debug.chatPhotoFiles")
+            }
+        }
     }
 }
 #endif

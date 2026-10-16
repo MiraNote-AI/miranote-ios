@@ -258,6 +258,9 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
         }
+        #if DEBUG
+        .background { ChatPhotoFilesProbe() }
+        #endif
         .fullScreenCover(item: $route) { presented in
             switch presented {
             case .editor:

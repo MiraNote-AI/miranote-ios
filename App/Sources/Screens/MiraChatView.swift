@@ -23,9 +23,18 @@ struct MiraChatView: View {
 
     /// Sent chat photos live only as long as the transcript (which is not
     /// saved): in tmp, out of Documents and backups, for iOS to purge.
-    private static let photoStore = ImageFileStore(
-        directory: FileManager.default.temporaryDirectory.appendingPathComponent("ChatPhotos", isDirectory: true)
-    )
+    private static let photoStore = ImageFileStore(directory: photoDirectory)
+
+    /// UI tests get the process's own folder, so a test can count it.
+    static let photoDirectory: URL = {
+        var name = "ChatPhotos"
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            name += "-uitest-\(ProcessInfo.processInfo.processIdentifier)"
+        }
+        #endif
+        return FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
+    }()
 
     init(
         service: ChatService,
@@ -66,9 +75,18 @@ struct MiraChatView: View {
             MiraChatComposer(viewModel: viewModel)
         }
         .screenBackground()
+        #if DEBUG
+        .background { ChatPhotoFilesProbe() }
+        #endif
         .task { await viewModel.seedIfNeeded(seed) }
-        // The transcript is not kept, so neither are its photos.
-        .onDisappear { viewModel.discardSentPhotos() }
+    }
+
+    /// Every way out of the chat: the transcript is not kept, so neither
+    /// are its photos. Not on disappear, which a cover over the chat (the
+    /// camera) can trigger while the chat lives on.
+    private func leave(then action: () -> Void) {
+        viewModel.discardSentPhotos()
+        action()
     }
 
     /// Handoff screen 02: Home on frosted white, Canvas on forest, no title.
@@ -76,11 +94,11 @@ struct MiraChatView: View {
     /// nothing to undo.
     private var header: some View {
         HStack {
-            Button("Home", action: onExit)
+            Button("Home") { leave(then: onExit) }
                 .buttonStyle(NavPill(prominent: false, surface: .chat, width: NavPill.leadingWidth))
                 .accessibilityIdentifier("chat.home")
             Spacer()
-            Button("Canvas", action: onOpenCanvas)
+            Button("Canvas") { leave(then: onOpenCanvas) }
                 // 70 wide like the way back (screen 02).
                 .buttonStyle(NavPill(prominent: true, fill: Palette.forest, width: NavPill.leadingWidth))
                 .accessibilityIdentifier("chat.canvas")
@@ -210,7 +228,7 @@ struct MiraChatView: View {
                 HStack(spacing: 10) {
                     ForEach(pageHits) { hit in
                         Button {
-                            onOpenPage(hit)
+                            leave { onOpenPage(hit) }
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 PageCoverView(memory: hit.memory, coverWidth: 104, coverHeight: 128)
@@ -235,7 +253,7 @@ struct MiraChatView: View {
     /// shapes" -- nothing files until the user says Done there).
     private func draftCard(_ draft: ChatPageDraft) -> some View {
         Button {
-            onOpenDraft(draft)
+            leave { onOpenDraft(draft) }
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.pencil")

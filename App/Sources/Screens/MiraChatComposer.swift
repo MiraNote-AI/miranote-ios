@@ -86,12 +86,29 @@ struct MiraChatComposer: View {
             matching: .images
         )
         .onChange(of: pickerItems) { _, items in stagePicked(items) }
-        .fullScreenCover(isPresented: $showCamera) {
-            CameraCapture { image in
-                if let data = image.downscaled() { viewModel.stageImage(data) }
+        .fullScreenCover(isPresented: $showCamera) { camera }
+    }
+
+    @ViewBuilder private var camera: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            UITestCameraStub {
+                viewModel.stageImage(MockImageStudioService.tinyPNG)
+                showCamera = false
             }
-            .ignoresSafeArea()
+        } else {
+            systemCamera
         }
+        #else
+        systemCamera
+        #endif
+    }
+
+    private var systemCamera: some View {
+        CameraCapture { image in
+            if let data = image.downscaled() { viewModel.stageImage(data) }
+        }
+        .ignoresSafeArea()
     }
 
     // MARK: - Surface
@@ -488,9 +505,15 @@ struct MiraChatComposer: View {
     private func openCamera() {
         #if DEBUG
         // UI tests cannot drive the system camera: they stage a canned
-        // photo here to exercise the send path.
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            viewModel.stageImage(MockImageStudioService.tinyPNG)
+        // photo here to exercise the send path, or with -CAMERA_COVER go
+        // through the cover with a stand-in camera.
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") {
+            if arguments.contains("-CAMERA_COVER") {
+                showCamera = true
+            } else {
+                viewModel.stageImage(MockImageStudioService.tinyPNG)
+            }
             return
         }
         #endif
