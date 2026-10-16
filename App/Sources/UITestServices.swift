@@ -80,12 +80,15 @@ struct UITestScriptedTranscription: VoiceTranscriptionService {
 }
 
 /// "slowly" holds the turn long enough to show the working bar; "fail"
-/// throws; anything else replies instantly.
+/// throws; anything else replies instantly -- or after `-CHAT_DELAY <ms>`,
+/// so a test can act while a canvas ask (a title) is on its way.
 struct UITestScriptedChat: ChatService {
     func reply(
         to message: String, sessionID: String?,
         notes: [ChatNote], page: PageContext?
     ) async throws -> ChatReply {
+        let delay = UserDefaults.standard.integer(forKey: "CHAT_DELAY")
+        if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
         let lowered = message.lowercased()
         if lowered.contains("fail") {
             throw URLError(.notConnectedToInternet)

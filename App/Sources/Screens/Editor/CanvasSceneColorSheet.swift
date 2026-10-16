@@ -14,7 +14,7 @@ extension CanvasScene {
         case .text: name = block.colorName
         case .background: name = block.backgroundColorName.isEmpty ? "#8B5962" : block.backgroundColorName
         }
-        colorRequest = ColorRequest(target: target, original: item, page: editor.items,
+        colorRequest = ColorRequest(target: target, original: item,
                                     initial: RGBColor(Palette.color(named: name)))
         textFocus = nil
     }
@@ -52,7 +52,7 @@ extension CanvasScene {
     func closeColorSheet(keeping: Bool) {
         guard let request = colorRequest else { return }
         if keeping {
-            editor.commitPreview(of: request.original, from: request.page)
+            editor.commitPreview(of: request.original)
         } else {
             dropColorPreview(request)
         }

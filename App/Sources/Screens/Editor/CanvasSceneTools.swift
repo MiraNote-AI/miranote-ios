@@ -59,23 +59,19 @@ struct PhotoSession {
     }
 }
 
-/// The AI row's open session: the cached rewrites, and the block and the
-/// page as they were when the row opened (what the commit's one undo step
-/// goes back to).
+/// The AI row's open session: the cached rewrites, and the block as it was
+/// when the row opened (what the commit's one undo step goes back to).
 struct RewriteState {
     var session: TextRewriteSession
     let original: CanvasItem
-    let page: [CanvasItem]
 }
 
 /// The custom color sheet, open for the block's text color (screen 14) or
-/// its background (screen 20), and the block and the page before the live
-/// preview.
+/// its background (screen 20), and the block before the live preview.
 struct ColorRequest {
     enum Target { case text, background }
     let target: Target
     let original: CanvasItem
-    let page: [CanvasItem]
     let initial: RGBColor
 
     /// What Apply puts on the block for the color `hex` the sheet shows;
@@ -264,7 +260,7 @@ extension CanvasScene {
         }
         finishRewrite()
         if let request = colorRequest {
-            editor.commitPreview(of: request.original, from: request.page)
+            editor.commitPreview(of: request.original)
             colorRequest = nil
         }
         textModeArming = false
@@ -321,14 +317,14 @@ extension CanvasScene {
     private func startRewrite() {
         guard let id = editor.editingTextItemID, let item = editor.item(id),
               case .text(let block) = item.content else { return }
-        rewrite = RewriteState(session: TextRewriteSession(original: block.text), original: item, page: editor.items)
+        rewrite = RewriteState(session: TextRewriteSession(original: block.text), original: item)
     }
 
     /// Leaving the row keeps the version on the canvas, as one undo step.
     func finishRewrite() {
         guard let state = rewrite else { return }
         rewrite = nil
-        editor.commitPreview(of: state.original, from: state.page)
+        editor.commitPreview(of: state.original)
     }
 
     private func pickRewrite(_ choice: TextRewriteSession.Choice) {

@@ -229,6 +229,11 @@ public struct CanvasItem: Identifiable, Equatable, Sendable {
     public var size: CGSize
     public var rotation: Double
     public var zIndex: Int
+    /// A text box's push bookkeeping (TextFit), kept with the page so a
+    /// later fit -- another session, a re-measure -- knows what this box
+    /// already pushed. Nil: what is below clears the box as it stands, and
+    /// the box has pushed nothing.
+    public var clearance: TextClearance?
 
     public init(
         id: UUID = UUID(),
@@ -249,8 +254,15 @@ public struct CanvasItem: Identifiable, Equatable, Sendable {
 
 extension CanvasItem: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, content, position, size, rotation, zIndex
+        case id, content, position, size, rotation, zIndex, clearance
     }
+}
+
+/// What a text box's growth did to the elements below it: the height they
+/// clear, and how far the box's growth has pushed them, net.
+public struct TextClearance: Equatable, Sendable, Codable {
+    public var height: CGFloat
+    public var pushed: CGFloat
 }
 
 extension CanvasItem.Content: Codable {

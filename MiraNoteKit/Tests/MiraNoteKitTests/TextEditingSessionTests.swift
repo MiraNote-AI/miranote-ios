@@ -180,7 +180,7 @@ final class TextEditingSessionTests: XCTestCase {
         editor.setText(itemID: id, to: "expanded")
         let countBefore = editor.changeCount
 
-        editor.commitPreview(of: original, from: [original])
+        editor.commitPreview(of: original)
         XCTAssertEqual(block(editor, id)?.text, "expanded")
         XCTAssertEqual(editor.changeCount, countBefore + 1)
         editor.undo()
@@ -195,7 +195,7 @@ final class TextEditingSessionTests: XCTestCase {
         editor.setTextColorName(itemID: id, to: "ink", recordingUndo: false)
         let countBefore = editor.changeCount
 
-        editor.commitPreview(of: original, from: [original])
+        editor.commitPreview(of: original)
         XCTAssertEqual(editor.changeCount, countBefore)
     }
 

@@ -22,7 +22,6 @@ public final class CanvasViewModel {
                 sessionSteps = nil
                 sessionOrigin = nil
             }
-            clearedHeight = editingTextItemID.flatMap { item($0)?.size.height }
         }
     }
 
@@ -36,11 +35,6 @@ public final class CanvasViewModel {
     /// landed meanwhile (a Mira backdrop, a photo AI edit) is not the
     /// session's to take back.
     private var sessionOrigin: CanvasItem?
-
-    /// The tallest the edited block has been since its session began (or
-    /// since the last undo): what is below it already clears that height,
-    /// so a line deleted and typed again pushes nothing twice.
-    private var clearedHeight: CGFloat?
 
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
@@ -58,9 +52,6 @@ public final class CanvasViewModel {
         let backgroundSummary: String
         let paper: PaperKind
         let pageColorName: String
-        /// The block being written then, and the height what is below it
-        /// clears (its clearedHeight): bookkeeping, not an edit.
-        let cleared: ClearedHeight?
 
         /// The same page without one element.
         func removingItem(_ id: CanvasItem.ID) -> UndoSnapshot {
@@ -70,7 +61,7 @@ public final class CanvasViewModel {
         /// The same page with other elements.
         func replacingItems(_ items: [CanvasItem]) -> UndoSnapshot {
             UndoSnapshot(items: items, backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
-                         paper: paper, pageColorName: pageColorName, cleared: cleared)
+                         paper: paper, pageColorName: pageColorName)
         }
 
         /// Equal as far as the user's edits go: a photo's description lands
@@ -89,13 +80,9 @@ public final class CanvasViewModel {
                     return plain
                 },
                 backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
-                paper: paper, pageColorName: pageColorName, cleared: nil
+                paper: paper, pageColorName: pageColorName
             )
         }
-    }
-    private struct ClearedHeight: Equatable {
-        let itemID: CanvasItem.ID
-        let height: CGFloat
     }
     private var history: [UndoSnapshot] = []
     /// Steps undone since the last change, newest last; any new change
@@ -104,10 +91,7 @@ public final class CanvasViewModel {
     private var currentSnapshot: UndoSnapshot {
         UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
                      backgroundSummary: memory.backgroundSummary,
-                     paper: memory.paper, pageColorName: memory.pageColorName,
-                     cleared: editingTextItemID.flatMap { id in
-                         clearedHeight.map { ClearedHeight(itemID: id, height: $0) }
-                     })
+                     paper: memory.paper, pageColorName: memory.pageColorName)
     }
     private static let historyCap = 50
 
@@ -193,12 +177,6 @@ public final class CanvasViewModel {
         }
         if let editing = editingTextItemID, item(editing) == nil {
             editingTextItemID = nil
-        }
-        // The page as that step had it: what is below the block clears the
-        // height the step recorded for it (taller than the block when a line
-        // was deleted after the push), or else the block itself.
-        clearedHeight = editingTextItemID.flatMap { id in
-            snapshot.cleared?.itemID == id ? snapshot.cleared?.height : item(id)?.size.height
         }
     }
 
@@ -315,21 +293,14 @@ public final class CanvasViewModel {
 
     /// Measured text height, TOP anchored; continuous, no undo step. A block
     /// that grows pushes what is below it down in the same change (TextFit),
-    /// so the step that records the growth records the push too.
+    /// and one that shrinks takes that push back, so the step that records
+    /// the growth records the push too.
     public func autosizeTextHeight(itemID: CanvasItem.ID, to height: CGFloat) {
         guard let index = index(of: itemID),
               case .text = memory.items[index].content else { return }
-        let old = memory.items[index].size.height
         let clamped = max(36, height)
-        guard abs(old - clamped) > 0.5 else { return }
-        // While writing, what is below already clears the tallest the block
-        // has been: only growth past that pushes.
-        let cleared = itemID == editingTextItemID ? max(old, clearedHeight ?? old) : old
-        var items = memory.items
-        items[index].size.height = cleared
-        items[index].position.y += (cleared - old) / 2
-        memory.items = TextFit.apply(to: items) { $0.id == itemID ? clamped : nil }
-        if itemID == editingTextItemID { clearedHeight = max(cleared, clamped) }
+        guard abs(memory.items[index].size.height - clamped) > 0.5 else { return }
+        memory.items = TextFit.apply(to: memory.items) { $0.id == itemID ? clamped : nil }
     }
 
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
@@ -343,29 +314,17 @@ public final class CanvasViewModel {
 extension CanvasViewModel {
     /// Changes previewed live without undo steps (an AI rewrite, a custom
     /// color being dragged) become one undo step back to `original`; none
-    /// when the item ends up unchanged. `page` is the elements as the
-    /// preview found them: what its growth pushed goes back there in that
-    /// step, like Cancel -- and right away when the item is unchanged (a
-    /// longer rewrite, then Original).
-    public func commitPreview(of original: CanvasItem, from page: [CanvasItem]) {
-        guard let index = index(of: original.id) else { return }
+    /// when the item ends up unchanged. That step takes back the item and
+    /// what its growth pushed (like Cancel), not what other actions moved
+    /// meanwhile.
+    public func commitPreview(of original: CanvasItem) {
+        guard item(original.id) != nil else { return }
         let previewed = memory.items
-        let start = Dictionary(page.map { ($0.id, $0.position) }, uniquingKeysWith: { first, _ in first })
-        var before = previewed.map { item in
-            var placed = item
-            placed.position = start[item.id] ?? item.position
-            return placed
-        }
-        before[index] = original
+        let before = TextFit.revert(previewed, box: original.id, to: original)
         guard before != previewed else { return }
-        let cleared = clearedHeight
-        // What is below clears the block as the preview found it.
-        if original.id == editingTextItemID { clearedHeight = original.size.height }
         memory.items = before
-        guard previewed[index] != original else { return }
         beginChange()
         memory.items = previewed
-        clearedHeight = cleared
     }
 
     /// Drops a live preview: the item as it was, no undo step.
@@ -381,29 +340,16 @@ extension CanvasViewModel {
     /// The header's Cancel: ends the session and takes the edited block back
     /// to how it was when the session began -- words, style and, for a new
     /// block, the block itself -- and what its growth pushed back up. Other
-    /// elements and the page keep what landed meanwhile. The session's undo
-    /// steps lose the block's edits; a step left with nothing else in it goes.
+    /// elements and the page keep what landed meanwhile, and whatever moved
+    /// them (a Mira title sliding the page down, a drag) -- the block too
+    /// stays where they moved it. The session's undo steps lose the block's
+    /// edits; a step left with nothing else in it goes.
     public func cancelEditingText() {
         guard let id = editingTextItemID else { return }
         if let steps = sessionSteps, steps < history.count {
             let origin = sessionOrigin
-            // Where the elements stood when the session began: the block's
-            // growth pushed them, and nothing else moves one while writing.
-            let startPositions = Dictionary(
-                history[history.count - steps - 1].items.map { ($0.id, $0.position) },
-                uniquingKeysWith: { first, _ in first }
-            )
             func reverted(_ items: [CanvasItem]) -> [CanvasItem] {
-                var items = items
-                for index in items.indices {
-                    if let start = startPositions[items[index].id] { items[index].position = start }
-                }
-                if let index = items.firstIndex(where: { $0.id == id }) {
-                    if let origin { items[index] = origin } else { items.remove(at: index) }
-                } else if let origin {
-                    items.append(origin)
-                }
-                return items
+                TextFit.revert(items, box: id, to: origin)
             }
             memory.items = reverted(memory.items)
             changeCount += 1
@@ -670,6 +616,8 @@ extension CanvasViewModel {
                 y: nextTop + size.height / 2
             )
             memory.items[itemIndex].rotation = 0
+            // A new layout: no earlier push is left to take back.
+            memory.items[itemIndex].clearance = nil
             nextTop += size.height + spacing
         }
     }

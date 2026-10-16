@@ -259,7 +259,7 @@ final class TextFitTests: XCTestCase {
         let page = editor.items
         editor.setText(itemID: block.id, to: "a much longer rewritten paragraph")
         editor.autosizeTextHeight(itemID: block.id, to: 100)
-        editor.commitPreview(of: original, from: page)
+        editor.commitPreview(of: original)
         let photoBeforeRewrite = photo.position
         editor.undo()
         XCTAssertEqual(editor.item(block.id)?.size.height ?? 0, 40, accuracy: 0.5)
@@ -282,7 +282,7 @@ final class TextFitTests: XCTestCase {
         editor.autosizeTextHeight(itemID: block.id, to: 100)
         editor.setText(itemID: block.id, to: "a")
         editor.autosizeTextHeight(itemID: block.id, to: 40)
-        editor.commitPreview(of: original, from: page)
+        editor.commitPreview(of: original)
         XCTAssertEqual(editor.items, [block, photo])
         editor.undo()
         XCTAssertFalse(editor.canUndo, "only the session's own undo point")

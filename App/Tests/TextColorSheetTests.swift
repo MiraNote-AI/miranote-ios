@@ -10,7 +10,6 @@ final class TextColorSheetTests: XCTestCase {
         ColorRequest(
             target: target,
             original: CanvasItem(content: .text(block), position: .zero),
-            page: [],
             initial: RGBColor(Palette.color(named: name))
         )
     }
