@@ -114,7 +114,10 @@ final class ChatInputView: UITextView {
     }
 
     override func paste(_ sender: Any?) {
-        pasting = true
+        // Only a paste with words to put in makes a change to mark; one
+        // without would leave the mark on the next Return key. (Clearing it
+        // a turn later instead could beat the pasteboard's read.)
+        pasting = UIPasteboard.general.hasStrings
         super.paste(sender)
     }
 

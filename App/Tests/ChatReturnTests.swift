@@ -55,6 +55,28 @@ final class ChatReturnTests: XCTestCase {
         XCTAssertTrue(sends("\n", at: (text as NSString).length, in: text))
     }
 
+    // MARK: Paste
+
+    /// A paste with nothing to put in makes no change, so nothing would
+    /// take its mark: the next Return key would then put a new line in
+    /// instead of sending.
+    @MainActor
+    func testAPasteThatPutsNothingInLeavesTheReturnKeyAlone() {
+        var sent = false
+        let field = ChatTextView(text: .constant(""), isFocused: .constant(false),
+                                 font: .systemFont(ofSize: 12)) { sent = true }
+        let coordinator = field.makeCoordinator()
+        let view = ChatInputView()
+        view.delegate = coordinator
+        view.text = "hello"
+        view.selectedRange = NSRange(location: 5, length: 0)
+        UIPasteboard.general.items = []
+        view.paste(nil)
+        XCTAssertFalse(coordinator.textView(view, shouldChangeTextIn: NSRange(location: 5, length: 0),
+                                            replacementText: "\n"))
+        XCTAssertTrue(sent, "the Return key after an empty paste sends")
+    }
+
     // MARK: Shift+Return
 
     // XCUITest's hardware Return never reaches the text system on an iPhone
