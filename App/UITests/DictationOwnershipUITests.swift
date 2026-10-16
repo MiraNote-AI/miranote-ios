@@ -157,6 +157,21 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "Lunch")
     }
 
+    /// Two takes in one session, the second spoken while the first is still
+    /// being written down: the words of both land.
+    func testTwoTakesInOneSessionBothLand() {
+        startAMemory(["-TRANSCRIBE_DELAY", "6000"])
+        write("Lunch")
+        strip.press(forDuration: 0.8)
+        // While the first take is written down the strip still counts it
+        // as live: this tap lets go of it, the next hold is a new take.
+        strip.tap()
+        strip.press(forDuration: 0.8)
+        let both = "Lunch Transcribed voice note (mock) Transcribed voice note (mock)"
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", both), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 12), .completed, "the second take's words land too")
+    }
+
     /// Same, but the words do not come within the wait's cap: the session
     /// ends without them, the empty block goes, and Home at once files no
     /// "New memory" page.

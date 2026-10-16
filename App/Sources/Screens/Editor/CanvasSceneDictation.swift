@@ -91,12 +91,22 @@ extension CanvasScene {
         self.recorder = nil
         let id = editor.editingTextItemID
         dictationTarget = id
-        Task {
+        // A take spoken while an earlier one is still written down queues
+        // behind it: both land, in the order spoken.
+        let take = UUID()
+        pendingTakes.append(take)
+        let earlier = lastTake
+        lastTake = Task {
             let words = await transcribe(recorder, for: id)
             dictating = false
-            guard let id, dictationTarget == id, editor.editingTextItemID == id else { return }
-            dictationTarget = nil
+            await earlier?.value
+            let queued = pendingTakes.contains(take)
+            pendingTakes.removeAll { $0 == take }
+            guard let id, queued, dictationTarget == id, editor.editingTextItemID == id else { return }
             if let words { append(words, to: id) }
+            // The last take on its way lets go of the block (and Done).
+            guard pendingTakes.isEmpty else { return }
+            dictationTarget = nil
             if doneWaiting != nil { finishWaitingDone(caught: words != nil) }
         }
     }

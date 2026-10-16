@@ -102,6 +102,10 @@ struct CanvasScene: View {
     /// The block a dictation's words are for, while they are on their way;
     /// cleared by Cancel and whenever the session ends or moves on.
     @State var dictationTarget: CanvasItem.ID?
+    /// The takes for that block still on their way, oldest first; the
+    /// newest's task, which the next take's words wait for (spoken order).
+    @State var pendingTakes: [UUID] = []
+    @State var lastTake: Task<Void, Never>?
     /// Done is waiting for those words (the wait's token: its cap timer
     /// acts only on its own wait).
     @State var doneWaiting: UUID?
@@ -374,6 +378,7 @@ struct CanvasScene: View {
                 }
             }
             dictationTarget = nil
+            pendingTakes = []
             doneWaiting = nil
             afterWritingDown = nil
             if editing == nil {
