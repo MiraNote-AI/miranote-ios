@@ -221,4 +221,31 @@ final class TextFitTests: XCTestCase {
         XCTAssertEqual(editor.item(paragraph)?.size.height ?? 0, 40, accuracy: 0.5)
         XCTAssertEqual(editor.item(photo)?.position, memory.items[1].position)
     }
+
+    // MARK: Undo inside the session, previews
+
+    private func blockAndPhoto() -> (CanvasItem, CanvasItem) {
+        let block = CanvasItem(content: .text(TextBlock(text: "a")), position: CGPoint(x: 150, y: 50),
+                               size: CGSize(width: 240, height: 40))
+        let photo = CanvasItem(content: .image(ImageRef(displayName: "p")), position: CGPoint(x: 150, y: 150),
+                               size: CGSize(width: 240, height: 100))
+        return (block, photo)
+    }
+
+    /// Grow, delete a line, a style step, Undo of that step, retype the
+    /// line: the photo already clears the taller height and is not pushed
+    /// a second time.
+    func testRetypingAfterAnUndoInsideTheSessionDoesNotPushTwice() {
+        let (block, photo) = blockAndPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.startEditingText(block.id)
+        editor.autosizeTextHeight(itemID: block.id, to: 100)
+        let pushedOnce = editor.item(photo.id)!.position
+        editor.autosizeTextHeight(itemID: block.id, to: 70)
+        editor.setTextColorName(itemID: block.id, to: "clay")
+        editor.undo()
+        XCTAssertNotNil(editor.editingTextItemID)
+        editor.autosizeTextHeight(itemID: block.id, to: 100)
+        XCTAssertEqual(editor.item(photo.id)?.position, pushedOnce, "photo pushed twice (gap)")
+    }
 }

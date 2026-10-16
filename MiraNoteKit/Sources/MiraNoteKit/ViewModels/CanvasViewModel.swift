@@ -58,17 +58,19 @@ public final class CanvasViewModel {
         let backgroundSummary: String
         let paper: PaperKind
         let pageColorName: String
+        /// The block being written then, and the height what is below it
+        /// clears (its clearedHeight): bookkeeping, not an edit.
+        let cleared: ClearedHeight?
 
         /// The same page without one element.
         func removingItem(_ id: CanvasItem.ID) -> UndoSnapshot {
-            UndoSnapshot(items: items.filter { $0.id != id }, backgroundFileName: backgroundFileName,
-                         backgroundSummary: backgroundSummary, paper: paper, pageColorName: pageColorName)
+            replacingItems(items.filter { $0.id != id })
         }
 
         /// The same page with other elements.
         func replacingItems(_ items: [CanvasItem]) -> UndoSnapshot {
-            UndoSnapshot(items: items, backgroundFileName: backgroundFileName,
-                         backgroundSummary: backgroundSummary, paper: paper, pageColorName: pageColorName)
+            UndoSnapshot(items: items, backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
+                         paper: paper, pageColorName: pageColorName, cleared: cleared)
         }
 
         /// Equal as far as the user's edits go: a photo's description lands
@@ -87,9 +89,13 @@ public final class CanvasViewModel {
                     return plain
                 },
                 backgroundFileName: backgroundFileName, backgroundSummary: backgroundSummary,
-                paper: paper, pageColorName: pageColorName
+                paper: paper, pageColorName: pageColorName, cleared: nil
             )
         }
+    }
+    private struct ClearedHeight: Equatable {
+        let itemID: CanvasItem.ID
+        let height: CGFloat
     }
     private var history: [UndoSnapshot] = []
     /// Steps undone since the last change, newest last; any new change
@@ -98,7 +104,10 @@ public final class CanvasViewModel {
     private var currentSnapshot: UndoSnapshot {
         UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
                      backgroundSummary: memory.backgroundSummary,
-                     paper: memory.paper, pageColorName: memory.pageColorName)
+                     paper: memory.paper, pageColorName: memory.pageColorName,
+                     cleared: editingTextItemID.flatMap { id in
+                         clearedHeight.map { ClearedHeight(itemID: id, height: $0) }
+                     })
     }
     private static let historyCap = 50
 
@@ -178,8 +187,12 @@ public final class CanvasViewModel {
         if let editing = editingTextItemID, item(editing) == nil {
             editingTextItemID = nil
         }
-        // The page as that step had it: what is below the block clears it.
-        clearedHeight = editingTextItemID.flatMap { item($0)?.size.height }
+        // The page as that step had it: what is below the block clears the
+        // height the step recorded for it (taller than the block when a line
+        // was deleted after the push), or else the block itself.
+        clearedHeight = editingTextItemID.flatMap { id in
+            snapshot.cleared?.itemID == id ? snapshot.cleared?.height : item(id)?.size.height
+        }
     }
 
     // MARK: Selection
