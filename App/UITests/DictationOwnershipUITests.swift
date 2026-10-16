@@ -260,6 +260,26 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(covers.count, 2, "Daily Log stays at its seeded 2 notes")
     }
 
+    /// Meng's probe: while the words are on their way the keyboard stays
+    /// up, so a drag of another element toward the bottom of the screen
+    /// runs behind it -- it must not delete there, unseen.
+    func testADragWhileTheKeyboardIsUpNeverDeletes() {
+        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
+        write("Lunch")
+        app.buttons["keyboard.done"].tap()
+        waitGone(app.buttons["keyboard.done"], "writing ended")
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        strip.press(forDuration: 0.8)
+        let lunch = app.staticTexts["Lunch"]
+        lunch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)))
+        waitGone(app.buttons["keyboard.done"], "the session ends once the words land")
+        sleep(1)
+        XCTAssertTrue(lunch.exists, "the drag behind the keyboard deleted the block")
+        XCTAssertFalse(app.buttons["toast.undo"].exists)
+    }
+
     /// Cancel while "Writing it down...": the words are dropped with the session.
     func testCancelWhileTranscribingDropsTheWords() {
         startAMemory(["-TRANSCRIBE_DELAY", "1500"])
