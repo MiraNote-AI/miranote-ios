@@ -56,13 +56,15 @@ final class StickerPresetTests: XCTestCase {
                                     StickerSet.minPlacedSide, "its file is raised like a preset placed today")
     }
 
+    /// salad (100 x 72) is the Food preset at the size floor: it is stored
+    /// as it came, not raised.
     func testALargePresetIsStoredAsItCame() throws {
         let set = StickerSet.food
-        let raw = try XCTUnwrap(UIImage(named: set.imageName(set.hero))?.cgImage)
-        let placed = try XCTUnwrap(UIImage(data: try XCTUnwrap(set.placeableData(set.hero)))?.cgImage)
-        if CGFloat(min(raw.width, raw.height)) >= StickerSet.minPlacedSide {
-            XCTAssertEqual(placed.width, raw.width)
-            XCTAssertEqual(placed.height, raw.height)
-        }
+        let raw = try XCTUnwrap(UIImage(named: set.imageName("salad"))?.cgImage)
+        XCTAssertGreaterThanOrEqual(CGFloat(min(raw.width, raw.height)), StickerSet.minPlacedSide,
+                                    "salad is no longer a large preset: pick another")
+        let placed = try XCTUnwrap(UIImage(data: try XCTUnwrap(set.placeableData("salad")))?.cgImage)
+        XCTAssertEqual(placed.width, raw.width)
+        XCTAssertEqual(placed.height, raw.height)
     }
 }

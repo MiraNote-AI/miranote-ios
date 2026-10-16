@@ -280,14 +280,23 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertFalse(app.buttons["toast.undo"].exists)
     }
 
-    /// Cancel while "Writing it down...": the words are dropped with the session.
+    /// Cancel while "Writing it down...": the words are dropped with the
+    /// session. An existing block, reopened: it stays on the page, so only
+    /// the session's guard keeps the late words out of it.
     func testCancelWhileTranscribingDropsTheWords() {
         startAMemory(["-TRANSCRIBE_DELAY", "1500"])
         write("Lunch")
+        app.buttons["keyboard.done"].tap()
+        waitGone(app.buttons["keyboard.done"], "writing ended")
+        let lunch = app.staticTexts["Lunch"]
+        lunch.tap()
+        if !field.waitForExistence(timeout: 2) { lunch.tap() }
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "the block reopens")
         strip.press(forDuration: 0.8)
         app.buttons["text.cancel"].tap()
         sleep(3)
         XCTAssertFalse(dictatedWords.exists, "Cancel keeps nothing of the session")
+        XCTAssertTrue(lunch.exists, "the block keeps its words")
         XCTAssertFalse(field.exists, "and no writing session opens for them")
     }
 

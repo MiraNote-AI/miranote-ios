@@ -109,13 +109,14 @@ final class ExportUITests: XCTestCase {
     }
 
     // Print sends the A4 pages built off the main actor with the other
-    // formats; the button waits for them.
+    // formats; the button waits for them (the encode held 3 s).
     func testPrintWaitsForItsPagesThenOpensThePrinter() {
-        openExport()
+        openExport(["-EXPORT_DELAY", "3000"])
         app.buttons["export.format.print"].tap()
         let print = app.buttons["export.print"]
         XCTAssertTrue(print.waitForExistence(timeout: 5))
-        waitUntil(print, "isEnabled == true")
+        XCTAssertFalse(print.isEnabled, "Print waits while its pages are built")
+        waitUntil(print, "isEnabled == true", timeout: 8)
         print.tap()
         XCTAssertTrue(app.navigationBars["Options"].waitForExistence(timeout: 8), "the system print sheet")
     }

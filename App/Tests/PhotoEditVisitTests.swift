@@ -79,9 +79,8 @@ final class PhotoEditVisitTests: XCTestCase {
         photoEdit.runComposer()
         XCTAssertTrue(photoEdit.working)
 
-        // What the header Cancel does.
-        photoEdit.cancelWork()
-        if let start = photoEdit.visitStart { editor.restoreImage(itemID: id, to: start) }
+        // The header Cancel's own path.
+        photoEdit.cancelVisit()
         try await Task.sleep(for: .milliseconds(1_200))
 
         XCTAssertEqual(fileName(editor, id), original, "the late result did not land")

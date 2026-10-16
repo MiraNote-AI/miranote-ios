@@ -413,8 +413,10 @@ struct ExportSheet: View {
         // overwrite the file Share hands out.
         let url: URL? = tile == .print ? nil : folderURL.appendingPathComponent("\(generation)", isDirectory: true)
             .appendingPathComponent(fileName)
+        let delay = Self.exportDelay
         Task {
             let encoded = await Task.detached(priority: .userInitiated) { () -> (Data, URL?)? in
+                if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
                 guard let data = PageExporter.data(from: rendered, format: format, pdfLayout: layout) else { return nil }
                 guard let url else { return (data, nil) }
                 try? FileManager.default.createDirectory(
@@ -432,6 +434,17 @@ struct ExportSheet: View {
             exportData = encoded?.0
             shareURL = encoded?.1
         }
+    }
+
+    /// -UITEST only: `-EXPORT_DELAY <ms>` holds the encode, so a test can see
+    /// the destinations wait for it.
+    private static var exportDelay: Int {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            return UserDefaults.standard.integer(forKey: "EXPORT_DELAY")
+        }
+        #endif
+        return 0
     }
 
     private func saveToPhotos() {
