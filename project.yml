@@ -116,6 +116,9 @@ targets:
     platform: iOS
     sources:
       - App/Tests
+      # The Kit's gate mocks (public API only): the app's ordering tests hold
+      # and release service results the same way.
+      - MiraNoteKit/Tests/MiraNoteKitTests/Harness/GateMocks.swift
     dependencies:
       - target: MiraNote
   MiraNoteUITests:
