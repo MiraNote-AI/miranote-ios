@@ -94,14 +94,7 @@ extension CanvasScene {
         Task {
             defer {
                 dictating = false
-                // No words came: the empty block that waited goes after all.
-                if let id, dictationTarget == id {
-                    dictationTarget = nil
-                    if editor.editingTextItemID != id, case .text(let block) = editor.item(id)?.content,
-                       block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        editor.discardAbandonedText(itemID: id)
-                    }
-                }
+                releaseTarget(id)
             }
             // A silent return here looked like a dead feature: say why
             // nothing landed instead of swallowing it.
@@ -128,19 +121,37 @@ extension CanvasScene {
             // no session any more.
             guard dictationTarget == id else { return }
             dictationTarget = nil
-            if editor.editingTextItemID == id {
-                append(words, to: id)
-            } else if case .text(let block) = editor.item(id)?.content,
-                      block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                // Done right after dictating into a new block: it waited
-                // empty; the words fill it as their own step.
-                editor.fillEmptyText(itemID: id, with: words)
-            } else if let before = editor.item(id) {
-                // Done while "Writing it down...": kept, as one undo step.
-                append(words, to: id)
-                editor.commitPreview(of: before)
-            }
+            land(words, in: id)
         }
+    }
+
+    private func land(_ words: String, in id: CanvasItem.ID) {
+        if editor.editingTextItemID == id {
+            append(words, to: id)
+        } else if isEmptyText(id) {
+            // Done right after dictating into a new block: it waited empty;
+            // the words fill it as their own step.
+            editor.fillEmptyText(itemID: id, with: words)
+        } else if let before = editor.item(id) {
+            // Done while "Writing it down...": kept, as one undo step.
+            append(words, to: id)
+            editor.commitPreview(of: before)
+        }
+    }
+
+    /// The dictation for `id` ended without words: the empty block that
+    /// waited for them goes after all.
+    private func releaseTarget(_ id: CanvasItem.ID?) {
+        guard let id, dictationTarget == id else { return }
+        dictationTarget = nil
+        if editor.editingTextItemID != id, isEmptyText(id) {
+            editor.discardAbandonedText(itemID: id)
+        }
+    }
+
+    private func isEmptyText(_ id: CanvasItem.ID) -> Bool {
+        guard case .text(let block) = editor.item(id)?.content else { return false }
+        return block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func append(_ words: String, to id: CanvasItem.ID) {

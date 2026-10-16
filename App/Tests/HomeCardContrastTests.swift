@@ -9,18 +9,18 @@ import XCTest
 /// install) and about 2.4:1 on two others. The cards themselves stay as
 /// close to the design as that allows.
 final class HomeCardContrastTests: XCTestCase {
-    private func components(_ color: Color) -> (red: CGFloat, green: CGFloat, blue: CGFloat) {
+    /// Red, green, blue.
+    private func components(_ color: Color) -> [CGFloat] {
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
         UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return (red, green, blue)
+        return [red, green, blue]
     }
 
     private func luminance(_ color: Color) -> CGFloat {
-        let rgb = components(color)
         func linear(_ value: CGFloat) -> CGFloat {
             value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
         }
-        return 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue)
+        return zip([0.2126, 0.7152, 0.0722], components(color)).reduce(0) { $0 + $1.0 * linear($1.1) }
     }
 
     private func contrast(_ lhs: Color, _ rhs: Color) -> CGFloat {
@@ -29,8 +29,7 @@ final class HomeCardContrastTests: XCTestCase {
     }
 
     private func hex(_ color: Color) -> Int {
-        let rgb = components(color)
-        return [rgb.red, rgb.green, rgb.blue].reduce(0) { $0 << 8 | Int(($1 * 255).rounded()) }
+        components(color).reduce(0) { $0 << 8 | Int(($1 * 255).rounded()) }
     }
 
     func testEveryCardTitleReadsAtAAForLargeText() {

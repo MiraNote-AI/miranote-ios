@@ -131,7 +131,8 @@ final class ChatPhotoTimingTests: XCTestCase {
         let first = try XCTUnwrap(viewModel.loadingPicks.first)
         viewModel.removeLoadingPick(first)
         try await Task.sleep(for: .milliseconds(300))
-        XCTAssertEqual(viewModel.stagedImages, [Data([2])], "the loaded second pick is still held behind the removed one")
+        XCTAssertEqual(viewModel.stagedImages, [Data([2])],
+                       "the loaded second pick is still held behind the removed one")
         XCTAssertEqual(viewModel.loadingImages, 0, "Send still held")
     }
 

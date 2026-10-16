@@ -25,17 +25,6 @@ struct MiraChatView: View {
     /// saved): in tmp, out of Documents and backups, for iOS to purge.
     private static let photoStore = ImageFileStore(directory: photoDirectory)
 
-    /// UI tests get the process's own folder, so a test can count it.
-    static let photoDirectory: URL = {
-        var name = "ChatPhotos"
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            name += "-uitest-\(ProcessInfo.processInfo.processIdentifier)"
-        }
-        #endif
-        return FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
-    }()
-
     init(
         service: ChatService,
         transcription: VoiceTranscriptionService,
@@ -297,6 +286,20 @@ struct MiraChatView: View {
             }
         }
     }
+}
+
+extension MiraChatView {
+    /// Where sent chat photos live; UI tests get the process's own folder,
+    /// so a test can count it.
+    static let photoDirectory: URL = {
+        var name = "ChatPhotos"
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            name += "-uitest-\(ProcessInfo.processInfo.processIdentifier)"
+        }
+        #endif
+        return FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
+    }()
 }
 
 /// Handoff screen 02 measures.
