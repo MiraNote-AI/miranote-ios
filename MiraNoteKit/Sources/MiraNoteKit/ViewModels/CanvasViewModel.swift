@@ -329,10 +329,11 @@ extension CanvasViewModel {
         memory.items = previewed
     }
 
-    /// Drops a live preview: the item as it was, no undo step.
+    /// Drops a live preview: the item as it was and what its growth pushed
+    /// taken back (a longer rewrite pushed the photo below), no undo step.
     public func discardPreview(of original: CanvasItem) {
-        guard let index = index(of: original.id) else { return }
-        memory.items[index] = original
+        guard item(original.id) != nil else { return }
+        memory.items = TextFit.revert(memory.items, box: original.id, to: original)
     }
 }
 

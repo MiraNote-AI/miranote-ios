@@ -124,6 +124,24 @@ final class TextPushTests: XCTestCase {
         XCTAssertEqual(top(editor.item(photo.id)), 220, accuracy: 0.5)
     }
 
+    /// Harness seed 104372539625494: the AI row open, a longer version
+    /// shown (it pushes the photo), then Cancel -- which drops the preview
+    /// first. The photo comes back up with the block.
+    func testCancelWithALongerRewriteShownPutsThePhotoBack() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.startEditingText(block.id)
+        let original = editor.item(block.id)!
+        editor.setText(itemID: block.id, to: "a much longer rewritten paragraph about the river")
+        editor.autosizeTextHeight(itemID: block.id, to: 110)
+        XCTAssertEqual(top(editor.item(photo.id)), 170, accuracy: 0.5, "pushed by the 50 pt growth")
+
+        editor.discardPreview(of: original)
+        XCTAssertEqual(editor.item(photo.id)?.position, photo.position, "the preview's push stayed")
+        editor.cancelEditingText()
+        XCTAssertEqual(editor.items, [block, photo])
+    }
+
     // MARK: No ratchet
 
     /// Meng's probe: a 60 pt block over a photo fitted to 40 and back to 60
