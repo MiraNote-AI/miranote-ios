@@ -221,23 +221,6 @@ public final class CanvasViewModel {
         editingTextItemID = nil
     }
 
-    /// Changes previewed live without undo steps (an AI rewrite, a custom
-    /// color being dragged) become one undo step back to `original`; none
-    /// when the item ends up unchanged.
-    public func commitPreview(of original: CanvasItem) {
-        guard let index = index(of: original.id), memory.items[index] != original else { return }
-        let previewed = memory.items[index]
-        memory.items[index] = original
-        beginChange()
-        memory.items[index] = previewed
-    }
-
-    /// Drops a live preview: the item as it was, no undo step.
-    public func discardPreview(of original: CanvasItem) {
-        guard let index = index(of: original.id) else { return }
-        memory.items[index] = original
-    }
-
     // MARK: Insertion
 
     @discardableResult
@@ -345,6 +328,43 @@ public final class CanvasViewModel {
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees
+    }
+}
+
+// MARK: - Previews
+
+extension CanvasViewModel {
+    /// Changes previewed live without undo steps (an AI rewrite, a custom
+    /// color being dragged) become one undo step back to `original`; none
+    /// when the item ends up unchanged. `page` is the elements as the
+    /// preview found them: what its growth pushed goes back there in that
+    /// step, like Cancel -- and right away when the item is unchanged (a
+    /// longer rewrite, then Original).
+    public func commitPreview(of original: CanvasItem, from page: [CanvasItem]) {
+        guard let index = index(of: original.id) else { return }
+        let previewed = memory.items
+        let start = Dictionary(page.map { ($0.id, $0.position) }, uniquingKeysWith: { first, _ in first })
+        var before = previewed.map { item in
+            var placed = item
+            placed.position = start[item.id] ?? item.position
+            return placed
+        }
+        before[index] = original
+        guard before != previewed else { return }
+        let cleared = clearedHeight
+        // What is below clears the block as the preview found it.
+        if original.id == editingTextItemID { clearedHeight = original.size.height }
+        memory.items = before
+        guard previewed[index] != original else { return }
+        beginChange()
+        memory.items = previewed
+        clearedHeight = cleared
+    }
+
+    /// Drops a live preview: the item as it was, no undo step.
+    public func discardPreview(of original: CanvasItem) {
+        guard let index = index(of: original.id) else { return }
+        memory.items[index] = original
     }
 }
 

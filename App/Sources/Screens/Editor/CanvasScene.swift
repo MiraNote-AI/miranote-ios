@@ -369,7 +369,7 @@ struct CanvasScene: View {
                 // an open preview is kept, like Done keeps it.
                 finishRewrite()
                 if let request = colorRequest {
-                    editor.commitPreview(of: request.original)
+                    editor.commitPreview(of: request.original, from: request.page)
                     colorRequest = nil
                 }
                 resetTextTools()

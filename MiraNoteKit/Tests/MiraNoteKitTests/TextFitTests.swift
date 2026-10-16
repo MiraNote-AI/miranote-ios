@@ -248,4 +248,43 @@ final class TextFitTests: XCTestCase {
         editor.autosizeTextHeight(itemID: block.id, to: 100)
         XCTAssertEqual(editor.item(photo.id)?.position, pushedOnce, "photo pushed twice (gap)")
     }
+
+    /// An AI rewrite preview grows the block and pushes the photo; leaving
+    /// the row commits it. Undo of that step brings the photo back too.
+    func testUndoOfACommittedRewriteBringsThePhotoBack() {
+        let (block, photo) = blockAndPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.startEditingText(block.id)
+        let original = editor.item(block.id)!
+        let page = editor.items
+        editor.setText(itemID: block.id, to: "a much longer rewritten paragraph")
+        editor.autosizeTextHeight(itemID: block.id, to: 100)
+        editor.commitPreview(of: original, from: page)
+        let photoBeforeRewrite = photo.position
+        editor.undo()
+        XCTAssertEqual(editor.item(block.id)?.size.height ?? 0, 40, accuracy: 0.5)
+        XCTAssertEqual(editor.item(photo.id)?.position, photoBeforeRewrite,
+                       "photo left pushed down after undoing the rewrite (gap)")
+        editor.autosizeTextHeight(itemID: block.id, to: 100)
+        XCTAssertGreaterThanOrEqual(top(editor.item(photo.id)), bottom(editor.item(block.id)) - 0.5,
+                                    "growing again after the undo pushes again")
+    }
+
+    /// A longer rewrite previewed, then Original again: the photo comes
+    /// back up, and no step is recorded.
+    func testALongerRewriteThenOriginalPutsThePhotoBack() {
+        let (block, photo) = blockAndPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.startEditingText(block.id)
+        let original = editor.item(block.id)!
+        let page = editor.items
+        editor.setText(itemID: block.id, to: "a much longer rewritten paragraph")
+        editor.autosizeTextHeight(itemID: block.id, to: 100)
+        editor.setText(itemID: block.id, to: "a")
+        editor.autosizeTextHeight(itemID: block.id, to: 40)
+        editor.commitPreview(of: original, from: page)
+        XCTAssertEqual(editor.items, [block, photo])
+        editor.undo()
+        XCTAssertFalse(editor.canUndo, "only the session's own undo point")
+    }
 }
