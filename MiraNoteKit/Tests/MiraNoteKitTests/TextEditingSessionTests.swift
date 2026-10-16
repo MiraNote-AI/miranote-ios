@@ -10,6 +10,41 @@ final class TextEditingSessionTests: XCTestCase {
         return block
     }
 
+    // MARK: Words after Done
+
+    /// A new block ended empty (Done right after dictating into it): the
+    /// words that then arrive fill it as one undo step of their own, and no
+    /// step ever shows the block empty.
+    func testWordsForANewBlockEndedEmptyLandAsTheirOwnStep() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id, recordingUndo: false)
+        editor.setTextFont(itemID: id, to: "Futura")
+        editor.endEditingText()
+        XCTAssertEqual(block(editor, id)?.text, "", "starts from an empty block")
+
+        editor.fillEmptyText(itemID: id, with: "Lunch by the river")
+        XCTAssertEqual(block(editor, id)?.text, "Lunch by the river")
+        XCTAssertEqual(block(editor, id)?.fontName, "Futura", "the session's style stays")
+
+        editor.undo()
+        XCTAssertNil(editor.item(id), "one undo takes the dictated block back")
+        XCTAssertFalse(editor.canUndo, "no step shows the block empty")
+    }
+
+    func testFillingLeavesABlockWithWordsOrInASessionAlone() {
+        let editor = CanvasViewModel(memory: Memory())
+        let written = editor.addText("kept", at: CGPoint(x: 100, y: 100))
+        let open = editor.addText("", at: CGPoint(x: 100, y: 300))
+        editor.startEditingText(open, recordingUndo: false)
+        let steps = editor.changeCount
+        editor.fillEmptyText(itemID: written, with: "more")
+        editor.fillEmptyText(itemID: open, with: "more")
+        XCTAssertEqual(block(editor, written)?.text, "kept")
+        XCTAssertEqual(block(editor, open)?.text, "")
+        XCTAssertEqual(editor.changeCount, steps)
+    }
+
     // MARK: Cancel
 
     func testCancelOnANewBlockRemovesIt() {

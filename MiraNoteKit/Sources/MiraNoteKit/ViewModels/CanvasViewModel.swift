@@ -550,6 +550,23 @@ extension CanvasViewModel {
         history += kept
     }
 
+    /// Words for a block whose session ended with it still empty (Done right
+    /// after dictating into a new block): the block gets them as one undo
+    /// step of its own, and -- as for a husk -- no step keeps it empty, so
+    /// undo takes the whole block back. A block with words, or one being
+    /// written, is left alone.
+    public func fillEmptyText(itemID: CanvasItem.ID, with text: String) {
+        guard let index = index(of: itemID), memory.items[index].isEmptyText,
+              editingTextItemID != itemID,
+              case .text(var block) = memory.items[index].content else { return }
+        var filled = memory.items[index]
+        block.text = text
+        filled.content = .text(block)
+        discardAbandonedText(itemID: itemID)
+        beginChange()
+        memory.items.insert(filled, at: min(index, memory.items.count))
+    }
+
     public func bringToFront(itemID: CanvasItem.ID) {
         guard let index = index(of: itemID) else { return }
         beginChange()

@@ -1030,8 +1030,9 @@ struct CanvasScene: View {
 
     /// Ending an editing session on a blank block removes it -- no empty
     /// husks left on the page (and no undo step burned on the cleanup).
+    /// A block whose dictated words are still on their way waits for them.
     private func cleanUpEmptyText() {
-        for item in editor.items {
+        for item in editor.items where item.id != dictationTarget {
             if case .text(let block) = item.content,
                block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 editor.discardAbandonedText(itemID: item.id)

@@ -102,6 +102,22 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertTrue(dictatedWords.waitForExistence(timeout: 6), "words dictated just before Done are kept")
     }
 
+    /// A new, empty block: dictate, then Done at once. The block waits for
+    /// the words on their way, they land, and one undo takes them back.
+    func testDoneRightAfterDictatingIntoANewBlockKeepsTheWords() {
+        startAMemory(["-TRANSCRIBE_DELAY", "1500"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        strip.press(forDuration: 0.8)
+        app.buttons["keyboard.done"].tap()
+        waitGone(app.buttons["keyboard.done"], "writing ended")
+        XCTAssertTrue(dictatedWords.waitForExistence(timeout: 6), "words dictated into the new block are kept")
+
+        app.buttons["editor.undo"].tap()
+        waitGone(dictatedWords, "one undo takes the dictated block back")
+        XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "no step left showing an empty block")
+    }
+
     /// Cancel while "Writing it down...": the words are dropped with the session.
     func testCancelWhileTranscribingDropsTheWords() {
         startAMemory(["-TRANSCRIBE_DELAY", "1500"])

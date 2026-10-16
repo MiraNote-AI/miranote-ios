@@ -78,7 +78,8 @@ extension CanvasScene {
 
     /// Record, transcribe (:8005), append to the block being edited. Words
     /// still on their way when Done ends the session land in that block as
-    /// their own step; Cancel (`dictationTarget` cleared) drops them.
+    /// their own step -- a new block ended empty waits for them; Cancel
+    /// (`dictationTarget` cleared) drops them.
     func stopDictation() {
         guard let recorder else {
             dictating = false
@@ -88,7 +89,17 @@ extension CanvasScene {
         let id = editor.editingTextItemID
         dictationTarget = id
         Task {
-            defer { dictating = false }
+            defer {
+                dictating = false
+                // No words came: the empty block that waited goes after all.
+                if let id, dictationTarget == id {
+                    dictationTarget = nil
+                    if editor.editingTextItemID != id, case .text(let block) = editor.item(id)?.content,
+                       block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        editor.discardAbandonedText(itemID: id)
+                    }
+                }
+            }
             // A silent return here looked like a dead feature: say why
             // nothing landed instead of swallowing it.
             guard let data = try? await recorder.stop(), !data.isEmpty else {
@@ -116,6 +127,11 @@ extension CanvasScene {
             dictationTarget = nil
             if editor.editingTextItemID == id {
                 append(words, to: id)
+            } else if case .text(let block) = editor.item(id)?.content,
+                      block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Done right after dictating into a new block: it waited
+                // empty; the words fill it as their own step.
+                editor.fillEmptyText(itemID: id, with: words)
             } else if let before = editor.item(id) {
                 // Done while "Writing it down...": kept, as one undo step.
                 append(words, to: id)
