@@ -136,6 +136,47 @@ final class ChatPhotoTimingTests: XCTestCase {
         XCTAssertEqual(viewModel.loadingImages, 0, "Send still held")
     }
 
+    /// Stuck, failing, quick: removing the stuck one stages the quick one
+    /// and says the failing one did not load.
+    func testRemovingTheStuckPickPassesAFailedOneAndStagesTheNext() async throws {
+        let viewModel = makeViewModel(studio: MockImageStudioService())
+        let failing: @Sendable () async -> Data? = { nil }
+        let quick: @Sendable () async -> Data? = { Data([3]) }
+        let loading = Task { await viewModel.stagePhotos([stuckPick, failing, quick]) }
+        defer { loading.cancel() }
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(viewModel.loadingImages, 3)
+        viewModel.removeLoadingPick(try XCTUnwrap(viewModel.loadingPicks.first))
+        XCTAssertEqual(viewModel.stagedImages, [Data([3])])
+        XCTAssertEqual(viewModel.loadingImages, 0)
+        XCTAssertEqual(viewModel.hint, .photoNotLoaded)
+    }
+
+    /// A second batch picked while the first batch's pick is stuck is
+    /// staged as it arrives, not after the first batch's timeout.
+    func testASecondBatchIsNotHeldByAStuckFirstBatch() async throws {
+        let viewModel = makeViewModel(studio: MockImageStudioService())
+        let quick: @Sendable () async -> Data? = { Data([4]) }
+        let first = Task { await viewModel.stagePhotos([stuckPick]) }
+        defer { first.cancel() }
+        try await Task.sleep(for: .milliseconds(100))
+        await viewModel.stagePhotos([quick])
+        XCTAssertEqual(viewModel.stagedImages, [Data([4])], "batch 2 waits behind batch 1's stuck pick")
+        XCTAssertEqual(viewModel.loadingImages, 1, "batch 1's pick still loads")
+    }
+
+    /// The picker task is cancelled (composer gone): staging does not run
+    /// on to the full timeout.
+    func testCancellingStagingDoesNotWaitForTheTimeout() async throws {
+        let viewModel = makeViewModel(studio: MockImageStudioService(), pickTimeout: .seconds(5))
+        let started = ContinuousClock.now
+        let loading = Task { await viewModel.stagePhotos([stuckPick]) }
+        try await Task.sleep(for: .milliseconds(100))
+        loading.cancel()
+        await loading.value
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(2), "cancelled staging still waited for the timeout")
+    }
+
     /// A loader that does not observe cancellation: the timeout still frees
     /// Send on time, without waiting for the loader to give up.
     func testTheTimeoutHoldsForALoaderThatIgnoresCancellation() async throws {
