@@ -123,6 +123,11 @@ final class RecentPhotos {
 
     /// The picked photos' bytes, downscaled for the canvas, in pick order.
     func data(for picks: [LibraryPhoto]) async -> [Data] {
+        #if DEBUG
+        // -UITEST: `-IMPORT_DELAY <ms>` stands in for slow iCloud originals.
+        let delay = UserDefaults.standard.integer(forKey: "IMPORT_DELAY")
+        if usesSamples, delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+        #endif
         var result: [Data] = []
         for pick in picks {
             let raw: Data?

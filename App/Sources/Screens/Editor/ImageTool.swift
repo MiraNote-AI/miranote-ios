@@ -204,6 +204,8 @@ struct ChoosePhotosSheet: View {
 struct RecentsSheet: View {
     let library: RecentPhotos
     @Binding var selection: [LibraryPhoto]
+    /// The picks are importing: Editing waits.
+    var importing: Bool
     var onEditing: () -> Void
     /// Photos picked through the system picker (no library access).
     var onSystemPicks: ([PhotosPickerItem]) -> Void
@@ -333,6 +335,8 @@ struct RecentsSheet: View {
             if selection.count == 1 {
                 Button("Editing", action: onEditing)
                     .buttonStyle(NavPill(prominent: false, width: NavPill.leadingWidth))
+                    .disabled(importing)
+                    .opacity(importing ? 0.35 : 1)
                     .accessibilityIdentifier("image.library.editing")
             } else if selection.count > 1 {
                 Text("\(selection.count) selected")

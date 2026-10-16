@@ -236,6 +236,8 @@ struct CanvasScene: View {
             leadingMuted: !writing,
             leadingID: writing ? "text.cancel" : nil,
             trailingID: writing ? "keyboard.done" : nil,
+            // The picks importing are Add's: a second tap waits it out.
+            trailingEnabled: !(imagePhase == .library && importingPicks),
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
             dimmed: editor.editingTextItemID != nil,
@@ -856,6 +858,7 @@ struct CanvasScene: View {
                 RecentsSheet(
                     library: recentPhotos,
                     selection: $libraryPicks,
+                    importing: importingPicks,
                     onEditing: editPick,
                     onSystemPicks: { items in
                         importPicks(load: { await PhotoPlacer.data(for: items) }) { _ in imagePhase = .placed }
@@ -893,14 +896,17 @@ struct CanvasScene: View {
         }
     }
 
+    /// The grid's picks are imported once: while they load, Add and
+    /// Editing wait (only the system picker's picks queue behind them).
     private func addPicks() {
-        guard !libraryPicks.isEmpty else { return }
+        guard !libraryPicks.isEmpty, !importingPicks else { return }
         importPicks(load: libraryLoad) { _ in imagePhase = .placed }
     }
 
     /// Screen 26: one pick, "Editing" -- it lands, and lifts straight into
     /// the photo editor; Done returns to the placed state (29).
     private func editPick() {
+        guard !importingPicks else { return }
         importPicks(load: libraryLoad) { ids in
             imagePhase = .placed
             guard let id = ids.first else { return }
@@ -917,7 +923,8 @@ struct CanvasScene: View {
     }
 
     /// Loads the picks, then places them -- only if the user is still on
-    /// the same pick of the same Image visit. Picks made meanwhile follow.
+    /// the same pick of the same Image visit. System picker picks made
+    /// meanwhile follow.
     private func importPicks(
         load: @escaping () async -> [Data],
         then: @escaping ([CanvasItem.ID]) -> Void

@@ -21,6 +21,8 @@ struct TopBar: View {
     var leadingMuted = true
     var leadingID: String?
     var trailingID: String?
+    /// Dims and disables the trailing pill (Add while picks import).
+    var trailingEnabled = true
     /// The leading pill over the Mira chat's frosted scrim (screen 06):
     /// white@0.54 with a white rim and an ink label.
     var leadingOnGlass = false
@@ -80,6 +82,8 @@ struct TopBar: View {
                 if let trailing {
                     Button(trailing, action: onTrailing)
                         .buttonStyle(NavPill(prominent: true, fill: trailingFill, width: NavPill.trailingWidth))
+                        .disabled(!trailingEnabled)
+                        .opacity(trailingEnabled ? 1 : 0.35)
                         .accessibilityIdentifier(trailingID ?? "nav.trailing")
                 }
             }

@@ -67,6 +67,45 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(photos.count, 2)
     }
 
+    /// A slow import (held 4 s): the header Add tapped twice lands the
+    /// picks once, and Add / Editing wait out the import.
+    func testASecondAddDuringASlowImportAddsNothingTwice() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-IMPORT_DELAY", "4000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        openRecents()
+        any("image.library.photo.0").tap()
+        any("image.library.photo.1").tap()
+        app.buttons["nav.trailing"].tap()
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled, "Add waits while the picks import")
+        app.buttons["nav.trailing"].tap()
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 2"), object: photos)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed)
+        sleep(5)
+        XCTAssertEqual(photos.count, 2, "the picks landed twice")
+    }
+
+    /// One pick importing, then Editing again: one photo lands.
+    func testEditingDuringASlowImportIsDisabled() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-IMPORT_DELAY", "4000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        openRecents()
+        any("image.library.photo.0").tap()
+        app.buttons["image.library.editing"].tap()
+        XCTAssertFalse(app.buttons["image.library.editing"].isEnabled, "Editing waits while the pick imports")
+        app.buttons["image.library.editing"].tap()
+        XCTAssertTrue(app.buttons["photo.filter.bw"].waitForExistence(timeout: 8), "the pick lifts into the editor")
+        sleep(5)
+        XCTAssertEqual(photos.count, 1, "the pick landed twice")
+    }
+
     func testCancelTakesThisVisitsPhotosBackInOneUndoableStep() {
         openRecents()
         any("image.library.photo.0").tap()
