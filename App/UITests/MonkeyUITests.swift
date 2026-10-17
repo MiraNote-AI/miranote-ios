@@ -167,7 +167,8 @@ final class MonkeyUITests: XCTestCase {
 
     private func typeWords() {
         let field = app.descendants(matching: .any)["canvas.textEditor"]
-        guard field.exists else { return }
+        // The color sheet lowers the keyboard on purpose: no typing then.
+        guard field.exists, (field.value(forKey: "hasKeyboardFocus") as? Bool) == true else { return }
         let words = ["lunch", "by the river", "with Sam and Jo", "golden light", "a long walk home"]
         let text = words[rng.int(0...words.count - 1)] + " "
         field.typeText(text)
