@@ -143,14 +143,13 @@ struct PhotoPlacer {
 
 // MARK: - Sheets
 
-/// Screen 23: the "Choose photos" glass sheet over the canvas -- three
-/// fixed 94.55 x 30 pills, Photo Library filled ink.
+/// Screen 23: the "Choose photos" glass sheet over the canvas -- fixed
+/// 94.55 x 30 pills, Photo Library filled ink. No AI Sticker pill: stickers
+/// are the fifth tool (owner, 2026-10-17).
 struct ChoosePhotosSheet: View {
     var notice: String?
     var onLibrary: () -> Void
     var onCamera: () -> Void
-    /// The design's third pill: the Sticker tool (decision 2026-10-15).
-    var onSticker: () -> Void
     var onSamples: () -> Void
 
     var body: some View {
@@ -165,7 +164,6 @@ struct ChoosePhotosSheet: View {
                 HStack(spacing: 5.67) {
                     pill("Photo Library", filled: true, id: "image.library.open", action: onLibrary)
                     pill("Camera", filled: false, id: "image.camera.open", action: onCamera)
-                    pill("AI Sticker", filled: false, id: "image.source.sticker", action: onSticker)
                 }
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-UITEST")

@@ -851,7 +851,6 @@ struct CanvasScene: View {
                             imageNotice = "The camera isn't available here."
                         }
                     },
-                    onSticker: { handleTool(.sticker) },
                     onSamples: placeSamples
                 )
                 .transition(.opacity)
