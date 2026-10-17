@@ -11,6 +11,10 @@ extension MiraCanvasCoordinator {
         switch outcome {
         case .imageChoices(let images, let prompt, let placement):
             phase = .imageChoices(images, prompt: prompt, placement: placement)
+            if placement == .background, appliesFirstBackground {
+                appliesFirstBackground = false
+                placeImageChoice(0, editor: editor)
+            }
         case .backgroundCleared(let receipt):
             settleBackgroundCleared(receipt, editor: editor)
         case .imageReplaced(let id, let data, let receipt):

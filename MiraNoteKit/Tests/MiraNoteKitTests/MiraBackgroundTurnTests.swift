@@ -54,19 +54,24 @@ final class MiraBackgroundTurnTests: XCTestCase {
     }
 
     // The Background tool's "Apply to this page": whatever the words say,
-    // they describe a backdrop -- photo words included.
+    // they describe a backdrop -- photo words included -- and Apply puts
+    // it on the page (owner, TestFlight 1.0(5)).
     func testApplyToThisPagePaintsABackdropFromAnyWords() async {
         let editor = CanvasViewModel(memory: Memory())
-        _ = editor.addImages([ImageRef(displayName: "trip", fileName: "t.png")], around: CGPoint(x: 100, y: 300))
+        let photo = editor.addImages([ImageRef(displayName: "trip", fileName: "t.png")],
+                                     around: CGPoint(x: 100, y: 300))[0]
         let coordinator = makeCoordinator(tempDir: tempDir)
 
         coordinator.askBackground("  a garden behind my photo  ", editor: editor)
-        await waitUntil { if case .imageChoices = coordinator.phase { return true } else { return false } }
-        guard case .imageChoices(_, let prompt, let placement) = coordinator.phase else {
-            return XCTFail("expected background choices, got \(coordinator.phase)")
+        await waitUntil { if case .receipt = coordinator.phase { return true } else { return false } }
+        guard case .receipt(let receipt) = coordinator.phase else {
+            return XCTFail("expected the backdrop on the page, got \(coordinator.phase)")
         }
-        XCTAssertEqual(placement, .background)
-        XCTAssertEqual(prompt, "a garden behind my photo")
+        XCTAssertEqual(receipt.changed, "Set the page background.")
+        XCTAssertFalse(editor.memory.backgroundFileName.isEmpty)
+        XCTAssertEqual(editor.memory.backgroundSummary, "a garden behind my photo")
+        guard case .image(let ref) = editor.item(photo)?.content else { return XCTFail("the photo is gone") }
+        XCTAssertEqual(ref.fileName, "t.png", "the photo words did not become a photo edit")
     }
 
     func testApplyToThisPageWithNoWordsDoesNothing() {

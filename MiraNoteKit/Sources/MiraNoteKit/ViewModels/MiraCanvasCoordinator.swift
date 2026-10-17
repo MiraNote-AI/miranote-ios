@@ -96,6 +96,9 @@ public final class MiraCanvasCoordinator {
     private let timeout: Duration
 
     private var turnTask: Task<Void, Never>?
+    /// The running turn is the Background tool's Apply: its painting lands
+    /// at once instead of waiting as two candidates.
+    var appliesFirstBackground = false
     private var sessionID: String?
     private var lastPrompt = ""
     /// The intent the last ask was given rather than read from its words.
@@ -285,6 +288,7 @@ public final class MiraCanvasCoordinator {
         turnGeneration += 1
         turnTask?.cancel()
         turnTask = nil
+        appliesFirstBackground = false
         workingItemIDs = []
     }
 

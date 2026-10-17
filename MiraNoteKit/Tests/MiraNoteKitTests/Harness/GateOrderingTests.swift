@@ -103,6 +103,40 @@ final class GateOrderingTests: XCTestCase {
         }
     }
 
+    // MARK: The Background tool's Apply
+
+    /// Owner, TestFlight 1.0(5): "Apply to this page" + Apply did nothing
+    /// visible -- the painting waited as two thumbnails in a card after the
+    /// sheet had closed. Now Apply's painting lands on the page when it
+    /// comes back, however long it takes, and Revert takes it back. A
+    /// background asked for in the chat still offers the two to pick from.
+    func testApplyToThisPageWearsThePaintingWhenItLands() async throws {
+        let editor = CanvasViewModel(memory: Memory())
+        let studio = GatedStudio()
+        let mira = MiraCanvasCoordinator(text: ScriptedText(), chat: GatedChat(), workingDelay: .milliseconds(1),
+                                         imageStudio: studio)
+        mira.askBackground("a soft sunset glow", editor: editor)
+        let asked = await eventually { studio.generateCalls.count == 1 }
+        XCTAssertTrue(asked, "Apply never asked for a painting")
+        XCTAssertEqual(editor.memory.backgroundFileName, "", "nothing on the page before the painting is back")
+
+        studio.generateCalls.releaseNext(.success([Data([1]), Data([2])]))
+        let landed = await eventually { !editor.memory.backgroundFileName.isEmpty }
+        XCTAssertTrue(landed, "the page wears no painting after Apply")
+        XCTAssertEqual(editor.memory.backgroundSummary, "a soft sunset glow")
+        XCTAssertTrue(mira.receiptCanRevert)
+        mira.revert(editor: editor)
+        XCTAssertEqual(editor.memory.backgroundFileName, "", "Revert takes the painting back")
+
+        mira.askSuggestion(MiraCanvasCoordinator.changeBackgroundChip, editor: editor)
+        let chatAsked = await eventually { studio.generateCalls.count == 2 }
+        XCTAssertTrue(chatAsked)
+        studio.generateCalls.releaseNext(.success([Data([3]), Data([4])]))
+        let offered = await eventually { if case .imageChoices = mira.phase { return true } else { return false } }
+        XCTAssertTrue(offered, "a chat background ask still offers two to pick from")
+        XCTAssertEqual(editor.memory.backgroundFileName, "")
+    }
+
     private static func frame(_ item: CanvasItem) -> CGRect {
         CGRect(x: item.position.x - item.size.width / 2, y: item.position.y - item.size.height / 2,
                width: item.size.width, height: item.size.height)

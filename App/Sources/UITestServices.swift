@@ -25,8 +25,11 @@ extension ServiceContainer {
 struct UITestScriptedStudio: ImageStudioService {
     private let mock = MockImageStudioService()
 
+    /// Slower by `-GENERATE_DELAY <ms>`: a picture or backdrop being painted.
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
-        try await mock.generate(kind: kind, prompt: prompt)
+        let delay = UserDefaults.standard.integer(forKey: "GENERATE_DELAY")
+        if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
+        return try await mock.generate(kind: kind, prompt: prompt)
     }
 
     func generateStickers(prompt: String) async throws -> StickerGeneration {

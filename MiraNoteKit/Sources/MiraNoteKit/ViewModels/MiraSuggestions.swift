@@ -48,11 +48,14 @@ extension MiraCanvasCoordinator {
 
     /// The Background tool's "Apply to this page": the typed words describe
     /// a backdrop, so they paint one whatever else they mention ("a garden
-    /// behind my photos" must not become a photo edit).
+    /// behind my photos" must not become a photo edit) -- and Apply applies
+    /// it: the first painting lands on the page (Revert takes it back), no
+    /// second pick among thumbnails (owner, TestFlight 1.0(5)).
     public func askBackground(_ words: String, editor: CanvasViewModel) {
         let trimmed = words.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         ask(trimmed, editor: editor, as: .setBackground(prompt: trimmed))
+        appliesFirstBackground = true
     }
 
     // MARK: Canvas chat quick actions (handoff screen 06)

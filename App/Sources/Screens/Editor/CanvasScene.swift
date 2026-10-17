@@ -1241,6 +1241,8 @@ extension CanvasScene {
             "undoDepth": editor.undoDepth,
             "importing": importingPicks,
             "pageWidth": editor.canvasWidth ?? MiraNoteConfig.pageWidth,
+            "backdrop": editor.memory.backgroundFileName,
+            "pageColor": editor.memory.pageColorName,
             "elements": editor.items.map(Self.debugElement)
         ]
     }

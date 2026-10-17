@@ -62,9 +62,14 @@ final class BackgroundUITests: XCTestCase {
     }
 
     // The tool's composer is "Apply to this page": the typed words ask Mira
-    // to paint a backdrop -- candidates and all -- and the sheet steps
-    // aside for the turn.
-    func testApplyToThisPageAsksMiraForABackdrop() {
+    // to paint a backdrop, the sheet steps aside for the turn, and Apply
+    // applies it. Owner, TestFlight 1.0(5): Apply did nothing visible --
+    // the painting waited as thumbnails for a second pick. With the
+    // painting taking its time, as the live backend does.
+    func testApplyToThisPagePaintsThePage() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "3000"]
+        app.launch()
         startMemory()
         openTool()
         let words = app.textFields["background.apply.input"]
@@ -74,11 +79,15 @@ final class BackgroundUITests: XCTestCase {
         words.typeText("a soft sunset glow")
         app.buttons["background.apply"].tap()
 
-        let first = app.buttons["mira.imageChoice.0"]
-        XCTAssertTrue(first.waitForExistence(timeout: 8), "the words came back as background candidates")
-        XCTAssertFalse(app.staticTexts["background.title"].exists, "the sheet steps aside for the turn")
-        first.tap()
-        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 12),
+                      "Apply's painting landed")
+        XCTAssertFalse(app.staticTexts["background.title"].exists, "the sheet stepped aside for the turn")
+        XCTAssertFalse(app.buttons["mira.imageChoice.0"].exists, "no second pick")
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        let painted = NSPredicate(format: "NOT (label CONTAINS '\"backdrop\":\"\"')")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: painted, object: probe)],
+                                        timeout: 5), .completed, "the page wears no backdrop: \(probe.label)")
     }
 
     // The handoff draws nothing between the tool bar and the composer on the
