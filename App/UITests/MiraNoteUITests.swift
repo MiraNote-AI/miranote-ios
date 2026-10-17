@@ -68,17 +68,44 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.share"].waitForExistence(timeout: 8), "the hit opens reading mode")
     }
 
-    // Collections are real data: a seeded collection opens to its notes, and a
-    // new note can be added and appears.
-    func testOpenCollectionAndAddNote() {
-        let dailyLog = app.buttons["collection.Daily Log"]
-        XCTAssertTrue(dailyLog.waitForExistence(timeout: 5))
-        dailyLog.tap()
+    // Collections are real data: a journal opens to its pages, and its
+    // "+ New memory" opens the canvas; the page written there is filed in
+    // that journal (owner, TestFlight 1.0(5): it added an empty record).
+    func testNewMemoryInAJournalOpensTheCanvasAndFilesThere() {
+        writeANewMemory(in: "Daily Log", words: "picnic in the park")
+        writeANewMemory(in: "Travel Scrapbook", words: "train to the coast")
+        app.buttons.matching(NSPredicate(format: "label == 'Home'")).firstMatch.tap()
+        app.buttons["collection.Daily Log"].tap()
+        XCTAssertFalse(app.buttons["note.train to the coast"].waitForExistence(timeout: 2),
+                       "the Travel Scrapbook page was filed in Daily Log")
+    }
 
-        XCTAssertTrue(app.buttons["note.Lunch by the river"].waitForExistence(timeout: 5))
+    private func pageCount() -> Int {
+        let label = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH ' pages'")).firstMatch
+        XCTAssertTrue(label.waitForExistence(timeout: 5))
+        return Int(label.label.split(separator: " ").first ?? "") ?? -1
+    }
+
+    private func writeANewMemory(in journal: String, words: String) {
+        if !app.buttons["collection.\(journal)"].exists {
+            app.buttons.matching(NSPredicate(format: "label == 'Home'")).firstMatch.tap()
+        }
+        let card = app.buttons["collection.\(journal)"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        let before = pageCount()
 
         app.buttons["note.add"].tap()
-        XCTAssertTrue(app.buttons["note.New note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5), "New memory opens the canvas")
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText(words)
+        app.buttons["keyboard.done"].tap()
+        app.buttons["nav.trailing"].tap()
+
+        XCTAssertTrue(app.buttons["note.\(words)"].waitForExistence(timeout: 8), "the page is in \(journal)")
+        XCTAssertEqual(pageCount(), before + 1, "\(journal) has one more page")
     }
 
     // Tapping a page opens reading mode (looking first); Edit is one tap

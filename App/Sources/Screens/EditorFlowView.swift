@@ -206,6 +206,8 @@ struct HomeFlow: View {
 
     private enum Route: Identifiable {
         case editor
+        /// A blank page started from a journal's "+ New memory": filed there.
+        case editorIn(journal: String)
         case editMemory(Memory)
         case chat(String)
         /// A page Mira drafted in chat, opening in the editor as a new note.
@@ -214,10 +216,17 @@ struct HomeFlow: View {
         var id: String {
             switch self {
             case .editor: return "editor"
+            case .editorIn(let journal): return "editor-in-\(journal)"
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
             case .draft(let memory): return "draft-\(memory.id.uuidString)"
             }
+        }
+
+        /// The journal a new page is filed in, when it was started in one.
+        var journal: String? {
+            if case .editorIn(let title) = self { return title }
+            return nil
         }
     }
 
@@ -239,7 +248,8 @@ struct HomeFlow: View {
                     viewModel: viewModel,
                     collectionID: collection.id,
                     onBack: { path.removeLast() },
-                    onOpenNote: { path.append(NoteRef(collectionID: collection.id, noteID: $0.id)) }
+                    onOpenNote: { path.append(NoteRef(collectionID: collection.id, noteID: $0.id)) },
+                    onNewMemory: { route = .editorIn(journal: collection.title) }
                 )
                 .navigationBarHidden(true)
             }
@@ -269,14 +279,15 @@ struct HomeFlow: View {
         #endif
         .fullScreenCover(item: $route) { presented in
             switch presented {
-            case .editor:
+            case .editor, .editorIn:
+                let journal = presented.journal ?? Self.inbox
                 EditorFlowView(
                     onExit: { route = nil },
                     onComplete: { memory in
-                        viewModel.file(memory, underCollectionTitled: Self.inbox)
+                        viewModel.file(memory, underCollectionTitled: journal)
                         route = nil
                     },
-                    onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
+                    onAutosave: { viewModel.file($0, underCollectionTitled: journal) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )

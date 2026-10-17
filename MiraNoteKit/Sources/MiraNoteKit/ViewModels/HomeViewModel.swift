@@ -51,14 +51,6 @@ public final class HomeViewModel {
         store.save(library)
     }
 
-    /// Add a note to a collection by id and persist.
-    public func addNote(titled title: String, to collectionID: MemoryCollection.ID) {
-        guard let index = library.collections.firstIndex(where: { $0.id == collectionID }) else { return }
-        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        library.collections[index].memories.append(Memory(title: name.isEmpty ? "New note" : name))
-        store.save(library)
-    }
-
     /// A single note, looked up within a collection.
     public func note(_ noteID: Memory.ID, in collectionID: MemoryCollection.ID) -> Memory? {
         collections.first { $0.id == collectionID }?.memories.first { $0.id == noteID }

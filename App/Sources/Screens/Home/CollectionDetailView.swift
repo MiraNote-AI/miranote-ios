@@ -9,6 +9,8 @@ struct CollectionDetailView: View {
     let collectionID: MemoryCollection.ID
     var onBack: () -> Void = {}
     var onOpenNote: (Memory) -> Void = { _ in }
+    /// "+ New memory": the editor on a blank page, filed in this journal.
+    var onNewMemory: () -> Void = {}
 
     @State private var datingNote: Memory?
     @State private var pickedDate = Date.now
@@ -70,9 +72,7 @@ struct CollectionDetailView: View {
             .presentationDetents([.medium])
         }
         .safeAreaInset(edge: .bottom) {
-            Button {
-                viewModel.addNote(titled: "New note", to: collectionID)
-            } label: {
+            Button(action: onNewMemory) {
                 Text("+ New memory")
                     .font(.miraPill)
                     .foregroundStyle(Palette.onInk)
