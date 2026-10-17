@@ -1,5 +1,6 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import ImageIO
 import MiraNoteKit
 import SwiftUI
 import UIKit
@@ -80,14 +81,26 @@ enum CanvasImageCache {
     private static let cache = NSCache<NSString, UIImage>()
     private static let context = CIContext()
 
-    static func image(fileName: String, filterName: String, store: ImageFileStore) -> UIImage? {
+    /// On-screen elements draw a decoded copy at most this many pixels on
+    /// its long side (a 360 pt page at 3x is 1080): a full-size camera
+    /// original (12-48 MP) drawn scaled on every frame of a drag, or decoded
+    /// again after a memory-pressure eviction, made drags stutter.
+    static let displayPixels: CGFloat = 1400
+
+    /// `maxPixels` nil: the original (export, Reading); else the decoded
+    /// display copy (the canvas).
+    static func image(fileName: String, filterName: String, store: ImageFileStore,
+                      maxPixels: CGFloat? = nil) -> UIImage? {
         guard !fileName.isEmpty else { return nil }
-        let key = "\(fileName)|\(filterName)" as NSString
+        let key = "\(fileName)|\(filterName)|\(maxPixels.map { "\(Int($0))" } ?? "full")" as NSString
         if let cached = cache.object(forKey: key) {
             return cached
         }
+        #if DEBUG
+        RenderCounters.displayImageDecodes += 1
+        #endif
         guard let data = store.data(forFileName: fileName),
-              let base = UIImage(data: data) else {
+              let base = maxPixels.map({ decoded(data, maxPixels: $0) }) ?? UIImage(data: data) else {
             return nil
         }
         let filter = PhotoFilter(rawValue: filterName) ?? .none
@@ -106,6 +119,22 @@ enum CanvasImageCache {
         }
         cache.setObject(result, forKey: key)
         return result
+    }
+
+    /// The image at most `maxPixels` on its long side, upright and decoded
+    /// now (not on first draw).
+    private static func decoded(_ data: Data, maxPixels: CGFloat) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return UIImage(data: data)
+        }
+        return UIImage(cgImage: image)
     }
 
     /// A canvas box that keeps a photo's aspect within taste: fixed width,

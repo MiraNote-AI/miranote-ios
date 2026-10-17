@@ -40,7 +40,7 @@ struct CanvasBoardView: View {
     /// The element being moved, for the scene to draw above the dock
     /// (screen 22): the board's own copy hides, so the drag is never cut at
     /// the card's edge. Nil when nothing is being moved.
-    var lifted: Binding<LiftedElement?> = .constant(nil)
+    var lift = LiftTracker()
     /// While Voice records: where the take will land, in page points.
     var pendingSoundMarker: CGPoint?
     /// While writing: the top of the text tools (or the color sheet) over
@@ -138,7 +138,7 @@ struct CanvasBoardView: View {
         // zone too.
         .onChange(of: dropPhase) { _, phase in
             dropToDelete = phase
-            if phase == nil { lifted.wrappedValue = nil }
+            if phase == nil { lift.lifted = nil }
         }
         // A take that leaves the page (Revert, undo, delete) stops playing.
         .onChange(of: editor.changeCount) {
@@ -359,8 +359,8 @@ struct CanvasBoardView: View {
         // The drop's own frame change can land after the move ended: never
         // bring the copy back then.
         guard let activeMove, activeMove.itemID == item.id else { return }
-        lifted.wrappedValue = LiftedElement(item: item, measured: frame, size: size, rotation: rotation,
-                                            finger: activeMove.location)
+        lift.lifted = LiftedElement(item: item, measured: frame, size: size, rotation: rotation,
+                                    finger: activeMove.location)
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.
@@ -443,6 +443,9 @@ extension CanvasBoardView {
         // the delete zone. Translation is the same in either space.
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { _ in
+                // Once per drag: selecting again on every frame re-renders
+                // everything that reads the selection, frame after frame.
+                guard editor.selectedItemID != item.id || editor.editingTextItemID != nil else { return }
                 if let onEndWritingThen {
                     onEndWritingThen { editor.select(item.id) }
                 } else {

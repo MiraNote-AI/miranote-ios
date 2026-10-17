@@ -96,7 +96,7 @@ struct CanvasScene: View {
     @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
-    @State private var lifted: LiftedElement?
+    @State private var lift = LiftTracker()
     /// The delete zone's top edge (global) while it shows.
     @State private var deleteZoneTop: CGFloat?
     #if DEBUG
@@ -138,6 +138,9 @@ struct CanvasScene: View {
     private var writing: Bool { editor.editingTextItemID != nil || textModeArming }
 
     var body: some View {
+        #if DEBUG
+        let _ = (RenderCounters.canvasSceneBodies += 1)
+        #endif
         Group {
             if showsToolsOnboarding {
                 toolsOnboarding
@@ -311,9 +314,9 @@ struct CanvasScene: View {
                 .animation(.easeOut(duration: 0.2), value: attachedSound)
         }
         .overlay {
-            if let lifted, dropToDelete != nil {
-                LiftedElementLayer(
-                    lifted: lifted,
+            if dropToDelete != nil {
+                LiftedLayerHost(
+                    tracker: lift,
                     armed: dropToDelete == .armed,
                     zoneTop: deleteZoneTop,
                     textFocus: $textFocus
@@ -511,7 +514,7 @@ struct CanvasScene: View {
             } : nil,
             revealItem: $revealItem,
             dropToDelete: $dropToDelete,
-            lifted: $lifted,
+            lift: lift,
             pendingSoundMarker: pendingSoundMarker,
             textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop
         )

@@ -141,6 +141,16 @@ struct UITestCameraStub: View {
     }
 }
 
+/// -UITEST probe counters for render cost: how often the canvas scene's
+/// body ran, and how often an on-screen image was decoded. A drag must not
+/// move either per frame.
+enum RenderCounters {
+    // Bumped and read on the main thread (view bodies, the image cache's
+    // main-thread callers); a test counter, not state.
+    nonisolated(unsafe) static var canvasSceneBodies = 0
+    nonisolated(unsafe) static var displayImageDecodes = 0
+}
+
 /// -UITEST only: a scene's state as JSON on an invisible element, for the
 /// monkey (MonkeyUITests) to check its invariants after every event.
 struct DebugStateProbe: View {
@@ -164,6 +174,8 @@ struct DebugStateProbe: View {
         var state = state
         // Ground truth for "no microphone left on": every mock recorder on.
         state["micLive"] = MockAudioRecorder.liveCount
+        state["sceneBodies"] = RenderCounters.canvasSceneBodies
+        state["imageDecodes"] = RenderCounters.displayImageDecodes
         guard let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }

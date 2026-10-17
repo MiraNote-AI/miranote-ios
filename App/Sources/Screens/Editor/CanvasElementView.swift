@@ -35,7 +35,8 @@ struct CanvasElementView: View {
         if let image = CanvasImageCache.image(
             fileName: ref.fileName,
             filterName: ref.filterName,
-            store: imageStore
+            store: imageStore,
+            maxPixels: CanvasImageCache.displayPixels
         ) {
             framed(ref.frameName) {
                 // Fill THEN pin to the element box and clip: without the
@@ -79,7 +80,8 @@ struct CanvasElementView: View {
         if let image = CanvasImageCache.image(
             fileName: sticker.fileName,
             filterName: "",
-            store: imageStore
+            store: imageStore,
+            maxPixels: CanvasImageCache.displayPixels
         ) {
             Image(uiImage: image)
                 .resizable()

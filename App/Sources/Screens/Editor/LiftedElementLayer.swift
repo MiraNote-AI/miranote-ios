@@ -22,6 +22,30 @@ struct LiftedElement: Equatable {
     }
 }
 
+/// Where the dragged element is, updated every frame of a move. A reference
+/// that only `LiftedLayerHost` reads: a frame re-renders that layer, not
+/// the canvas scene (owner, TestFlight 1.0(5): photo drags were not smooth
+/// while the whole scene re-rendered per frame).
+@MainActor
+@Observable
+final class LiftTracker {
+    var lifted: LiftedElement?
+}
+
+/// The scene's slot for the lifted copy: reads the tracker in its own body.
+struct LiftedLayerHost: View {
+    let tracker: LiftTracker
+    let armed: Bool
+    let zoneTop: CGFloat?
+    var textFocus: FocusState<CanvasItem.ID?>.Binding
+
+    var body: some View {
+        if let lifted = tracker.lifted {
+            LiftedElementLayer(lifted: lifted, armed: armed, zoneTop: zoneTop, textFocus: textFocus)
+        }
+    }
+}
+
 /// Handoff screen 22: the dragged element floats in a scene-level layer,
 /// above the tool bar and the composer -- never cut at the canvas card's
 /// edge. An ordinary move shows the element itself, at its size, under the
