@@ -58,6 +58,8 @@ struct CanvasScene: View {
     @State var miraPress: (start: Date, wasLive: Bool)?
     /// A hold ended before the mic came up: finish as soon as it is live.
     @State var miraFinishWhenLive = false
+    /// The top of the text tools (or color sheet) over the keyboard, global.
+    @State private var textToolsTop: CGFloat?
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState private var applyFocus: Bool
@@ -198,12 +200,16 @@ struct CanvasScene: View {
                 .ignoresSafeArea(.keyboard, edges: editor.editingTextItemID != nil ? .bottom : [])
             // The text chrome floats over the page, on the keyboard.
             if editor.editingTextItemID != nil {
-                if colorRequest != nil {
-                    // 14 above the composer's slot (screens 14 and 20).
-                    colorSheet.padding(.bottom, 54 + 14 + 2)
-                } else {
-                    textAccessory
+                Group {
+                    if colorRequest != nil {
+                        // 14 above the composer's slot (screens 14 and 20).
+                        colorSheet.padding(.bottom, 54 + 14 + 2)
+                    } else {
+                        textAccessory
+                    }
                 }
+                // The board keeps the block being written above these.
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { textToolsTop = $0 }
             }
             if pageColorEdit != nil {
                 // A tap anywhere outside the sheet cancels it.
@@ -506,7 +512,8 @@ struct CanvasScene: View {
             revealItem: $revealItem,
             dropToDelete: $dropToDelete,
             lifted: $lifted,
-            pendingSoundMarker: pendingSoundMarker
+            pendingSoundMarker: pendingSoundMarker,
+            textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop
         )
     }
 

@@ -43,6 +43,9 @@ struct CanvasBoardView: View {
     var lifted: Binding<LiftedElement?> = .constant(nil)
     /// While Voice records: where the take will land, in page points.
     var pendingSoundMarker: CGPoint?
+    /// While writing: the top of the text tools (or the color sheet) over
+    /// the keyboard, global; the block being written stays above it.
+    var textToolsTop: CGFloat?
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -59,6 +62,10 @@ struct CanvasBoardView: View {
     @State private var scrollTarget: CanvasItem.ID?
     /// Where the reveal anchor sits while a reveal is in flight.
     @State private var revealFrame: CGRect?
+    /// The spot of the block being written to scroll into view, and the
+    /// block's frame on screen (global).
+    @State private var editAnchor: CGPoint?
+    @State private var writtenFrame: CGRect?
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
 
@@ -71,6 +78,7 @@ struct CanvasBoardView: View {
 
     private let minBoardHeight: CGFloat = 620
     private static let revealAnchorID = "canvas.revealAnchor"
+    private static let editAnchorID = "canvas.editAnchor"
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -84,10 +92,16 @@ struct CanvasBoardView: View {
             // The card holds still; the page scrolls inside it.
             .canvasCard()
             // The page keeps its full height under the keyboard while
-            // writing: the block rides in the upper third, clear of the
-            // keyboard and the text chrome over the page's lower part.
+            // writing: the block being written scrolls clear of the keyboard
+            // and the text chrome over the page's lower part -- when it
+            // opens, when it grows, when the tools move.
+            .onChange(of: writtenFrame) { keepWrittenBlockClear(proxy) }
+            .onChange(of: textToolsTop) { keepWrittenBlockClear(proxy) }
             .onChange(of: editor.editingTextItemID) { _, id in
-                bring(id, into: proxy, anchor: UnitPoint(x: 0.5, y: 0.3))
+                if id == nil {
+                    writtenFrame = nil
+                    editAnchor = nil
+                }
             }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
             .onChange(of: revealItem.wrappedValue) { _, id in
@@ -196,6 +210,17 @@ struct CanvasBoardView: View {
                     .accessibilityHidden(true)
                     .id(Self.revealAnchorID)
             }
+            if let editAnchor {
+                // Same trick for the block being written: a 1 pt twin at
+                // the spot that must come into view.
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .alignmentGuide(.leading) { _ in -editAnchor.x }
+                    .alignmentGuide(.top) { _ in -editAnchor.y }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .id(Self.editAnchorID)
+            }
         }
         .animation(.easeOut(duration: 0.2), value: writing)
         .frame(width: MiraNoteConfig.pageWidth, height: boardHeight)
@@ -213,9 +238,35 @@ struct CanvasBoardView: View {
         )
     }
 
-    /// At least the card's own height, so the page always fills the card.
+    /// At least the card's own height, so the page always fills the card;
+    /// while writing, a card's height below the content, so the block being
+    /// written can always scroll up clear of the keyboard and its tools.
     private var boardHeight: CGFloat {
-        max(minBoardHeight, visibleFrame.height, editor.contentBottom + 240)
+        max(minBoardHeight, visibleFrame.height,
+            editor.contentBottom + (writing ? max(240, visibleFrame.height) : 240))
+    }
+
+    /// Keeps the block being written between the card's top and the text
+    /// tools over the keyboard (owner, TestFlight 1.0(5): the tools covered
+    /// it): its top 16 below the card's top when it fits, else its bottom
+    /// just above the tools, where the words are typed.
+    private func keepWrittenBlockClear(_ proxy: ScrollViewProxy) {
+        guard let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
+              let toolsTop = textToolsTop, visibleFrame.height > 0 else { return }
+        let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
+        guard shown.minY < bandTop - 0.5 || shown.maxY > bandBottom + 0.5 else { return }
+        let top = item.position.y - item.size.height / 2
+        let fits = item.size.height <= bandBottom - bandTop
+        editAnchor = CGPoint(x: item.position.x, y: fits ? top - 16 : top + item.size.height + 8)
+        let anchorY = fits ? 0 : min(1, max(0, (toolsTop - visibleFrame.minY) / visibleFrame.height))
+        // Once the twin is laid out and the page has grown its room below
+        // (writing has just begun): a scroll before that clamps short.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))
+            }
+        }
     }
 
     private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy, anchor: UnitPoint = .center) {
@@ -271,6 +322,13 @@ struct CanvasBoardView: View {
             }
         }
         .background { if isLifted { liftReporter(item, rotation: geometry.rotation) } }
+        .background {
+            if isEditing {
+                Color.clear.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                    writtenFrame = $0
+                }
+            }
+        }
         // Drawn by the scene while lifted; the gesture stays with this view.
         .opacity(isLifted ? 0 : 1)
         .rotationEffect(.degrees(geometry.rotation))
