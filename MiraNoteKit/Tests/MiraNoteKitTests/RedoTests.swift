@@ -122,9 +122,10 @@ final class RedoTests: XCTestCase {
         editor.startEditingText(id, recordingUndo: false)
         editor.undo()
         XCTAssertNil(editor.item(id))
+        XCTAssertFalse(editor.canRedo, "a redo that would only bring back a husk")
         editor.redo()
         XCTAssertNil(editor.item(id), "a husk came back")
-        XCTAssertFalse(editor.canRedo)
+        XCTAssertFalse(editor.canUndo, "the redo recorded an empty step")
     }
 
     /// A new block with words in it is a real step: redo brings it back.

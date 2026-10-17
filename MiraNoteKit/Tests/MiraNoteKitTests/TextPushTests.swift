@@ -304,8 +304,11 @@ final class TextPushTests: XCTestCase {
         let second: [CanvasItem.ID: CGFloat] = [upper.id: 80, lower.id: 60]
         editor.fitTextHeights { first[$0.id] }
         let start = editor.item(below.id)?.position
+        let gap = top(editor.item(below.id)) - bottom(editor.item(lower.id))
         for round in 0..<3 {
             editor.fitTextHeights { second[$0.id] }
+            XCTAssertEqual(top(editor.item(below.id)) - bottom(editor.item(lower.id)), gap, accuracy: 0.5,
+                           "round \(round): the photo follows the box right above it, not the far one")
             editor.fitTextHeights { first[$0.id] }
             XCTAssertEqual(editor.item(below.id)?.position, start, "round \(round)")
         }
@@ -383,6 +386,57 @@ final class TextPushTests: XCTestCase {
         editor.autosizeTextHeight(itemID: block.id, to: 120)
         editor.autosizeTextHeight(itemID: block.id, to: 60)
         XCTAssertEqual(editor.item(photo.id)?.position, start)
+    }
+
+    /// Tidy places every element anew: a pull held back before it is not
+    /// room a later push may use, or the push would not keep the gap Tidy
+    /// laid out. (Mutation check: Tidy keeping the fit offsets survived.)
+    func testTidyForgetsHeldBackPulls() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        editor.beginChange()
+        editor.move(itemID: photo.id, to: editor.item(photo.id)!.position)
+        editor.fitTextHeights { $0.id == block.id ? 60 : nil }
+        XCTAssertGreaterThan(editor.item(photo.id)?.fitOffset?.spared ?? 0, 0, "precondition: a held-back pull")
+        editor.quickOrganize(canvasWidth: 390)
+        let gap = top(editor.item(photo.id)) - bottom(editor.item(block.id))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        XCTAssertEqual(top(editor.item(photo.id)) - bottom(editor.item(block.id)), gap, accuracy: 0.5,
+                       "the growth after Tidy kept Tidy's gap")
+    }
+
+    /// An element Mira puts somewhere (a page edit) is placed there: the
+    /// box above it shrinking never lifts it. (Mutation check survivor.)
+    func testAShrinkNeverLiftsAPhotoMiraPlaced() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        editor.fitTextHeights { $0.id == block.id ? 90 : nil }
+        XCTAssertTrue(editor.applyPageEdits([ResolvedChange(id: photo.id, y: 400)]))
+        editor.fitTextHeights { $0.id == block.id ? 60 : nil }
+        XCTAssertEqual(top(editor.item(photo.id)), 400, accuracy: 0.5, "the shrink lifted Mira's placement")
+    }
+
+    /// Mira's real title landing slides the page without placing it: the
+    /// session's Cancel still takes back its own push from the photo below.
+    /// (Mutation check: landTitle moving instead of sliding survived; the
+    /// helper above stands in for it elsewhere.)
+    func testCancelTakesBackItsPushAfterMirasTitleSlidThePage() {
+        let (block, photo) = blockOverPhoto()
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo]))
+        let mira = MiraCanvasCoordinator(text: ScriptedText(), chat: ScriptedChat())
+        editor.startEditingText(block.id)
+        editor.setText(itemID: block.id, to: "lunch by the river, then a long walk home")
+        editor.autosizeTextHeight(itemID: block.id, to: 90)
+        let pushed = top(editor.item(photo.id))
+        let blockTop = top(editor.item(block.id))
+        mira.landTitle("A soft title", receipt: MiraReceipt(changed: "", kept: ""), editor: editor)
+        let slide = top(editor.item(block.id)) - blockTop
+        XCTAssertGreaterThan(slide, 0, "precondition: the title slid the page")
+
+        editor.cancelEditingText()
+        XCTAssertEqual(top(editor.item(photo.id)), pushed + slide - 30, accuracy: 0.5,
+                       "the slide stays, the session's 30 pt push goes")
     }
 
     /// A pulled element never rises into another element above it.

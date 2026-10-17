@@ -214,6 +214,7 @@ final class ChatPhotoTimingTests: XCTestCase {
         await loading.value
         XCTAssertTrue(viewModel.stagedImages.isEmpty, "the removed pick does not come back when it loads")
         XCTAssertNil(viewModel.hint, "and is not reported as failed")
+        XCTAssertTrue(viewModel.arrivedPicks.isEmpty, "nor kept waiting in memory")
     }
 
     func testPicksLoadSideBySideInPickOrder() async {
