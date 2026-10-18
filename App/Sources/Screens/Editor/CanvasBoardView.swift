@@ -66,6 +66,10 @@ struct CanvasBoardView: View {
     /// block's frame on screen (global).
     @State private var editAnchor: CGPoint?
     @State private var writtenFrame: CGRect?
+    /// Where the page stood before the writing scrolled it; while the
+    /// scroll back is in flight, the spot to scroll the page's top to.
+    @State private var restoreAnchor: CGPoint?
+    @State private var scrollMemo = ScrollMemo()
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
 
@@ -79,6 +83,16 @@ struct CanvasBoardView: View {
     private let minBoardHeight: CGFloat = 620
     private static let revealAnchorID = "canvas.revealAnchor"
     private static let editAnchorID = "canvas.editAnchor"
+    private static let restoreAnchorID = "canvas.restoreAnchor"
+    private static let scrollSpace = "canvas.scroll"
+
+    /// The page's scroll offset, kept outside SwiftUI's state so reading it
+    /// on every scroll frame re-renders nothing.
+    final class ScrollMemo {
+        var offset: CGFloat = 0
+        var beforeWriting: CGFloat = 0
+        var scrolledForWriting = false
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -88,7 +102,13 @@ struct CanvasBoardView: View {
                 // which made the same page a different width on every
                 // phone and disagree with its own export.
                 board
+                    // Read on every scroll frame into a plain box: no
+                    // re-render while the page scrolls.
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.frame(in: .named(Self.scrollSpace)).minY
+                    } action: { scrollMemo.offset = -$0 }
             }
+            .coordinateSpace(name: Self.scrollSpace)
             // The card holds still; the page scrolls inside it.
             .canvasCard()
             // The page keeps its full height under the keyboard while
@@ -97,10 +117,15 @@ struct CanvasBoardView: View {
             // opens, when it grows, when the tools move.
             .onChange(of: writtenFrame) { keepWrittenBlockClear(proxy) }
             .onChange(of: textToolsTop) { keepWrittenBlockClear(proxy) }
-            .onChange(of: editor.editingTextItemID) { _, id in
+            .onChange(of: editor.editingTextItemID) { old, id in
+                if old == nil, id != nil {
+                    scrollMemo.beforeWriting = scrollMemo.offset
+                    scrollMemo.scrolledForWriting = false
+                }
                 if id == nil {
                     writtenFrame = nil
                     editAnchor = nil
+                    if let old, scrollMemo.scrolledForWriting { scrollBackAfterWriting(proxy, written: old) }
                 }
             }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
@@ -126,7 +151,7 @@ struct CanvasBoardView: View {
         // Dragging an element moves and selects it, which disables the page
         // scroll; dragging empty paper scrolls. While editing text there is
         // no move gesture, so the page scrolls there instead.
-        .scrollDisabled(editor.selectedItemID != nil && editor.editingTextItemID == nil)
+        .scrollDisabled(editor.selectedItemID != nil && editor.editingTextItemID == nil && restoreAnchor == nil)
         .background(
             GeometryReader { geo in
                 Color.clear
@@ -221,6 +246,15 @@ struct CanvasBoardView: View {
                     .accessibilityHidden(true)
                     .id(Self.editAnchorID)
             }
+            if let restoreAnchor {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .alignmentGuide(.leading) { _ in -restoreAnchor.x }
+                    .alignmentGuide(.top) { _ in -restoreAnchor.y }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .id(Self.restoreAnchorID)
+            }
         }
         .animation(.easeOut(duration: 0.2), value: writing)
         .frame(width: MiraNoteConfig.pageWidth, height: boardHeight)
@@ -259,6 +293,7 @@ struct CanvasBoardView: View {
         let fits = item.size.height <= bandBottom - bandTop
         editAnchor = CGPoint(x: item.position.x, y: fits ? top - 16 : top + item.size.height + 8)
         let anchorY = fits ? 0 : min(1, max(0, (toolsTop - visibleFrame.minY) / visibleFrame.height))
+        scrollMemo.scrolledForWriting = true
         // Once the twin is laid out and the page has grown its room below
         // (writing has just begun): a scroll before that clamps short.
         Task { @MainActor in
@@ -266,6 +301,34 @@ struct CanvasBoardView: View {
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))
             }
+        }
+    }
+
+    /// Owner's lead: once the writing ends, a page it scrolled up goes back
+    /// to where it stood before the writing began (the block may stay
+    /// selected).
+    private func scrollBackAfterWriting(_ proxy: ScrollViewProxy, written id: CanvasItem.ID) {
+        scrollMemo.scrolledForWriting = false
+        var target = scrollMemo.beforeWriting
+        // A new block placed below the fold would vanish (and, still
+        // selected, hold the page still): go back only as far as keeps its
+        // bottom in the card.
+        if let item = editor.item(id) {
+            let bottom = item.position.y + item.size.height / 2 + 16
+            target = min(scrollMemo.offset, max(target, bottom - visibleFrame.height))
+        }
+        restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target))
+        // Once the keyboard is down and the page has given back the room
+        // it grew for the writing.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            if editor.editingTextItemID == nil {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+            }
+            restoreAnchor = nil
         }
     }
 

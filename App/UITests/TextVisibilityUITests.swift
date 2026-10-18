@@ -70,4 +70,40 @@ final class TextVisibilityUITests: XCTestCase {
         if !field.exists { block.tap() }
         assertClearOfTheTools("the block opened again")
     }
+
+    /// Owner's lead: after Done on a block that scrolled the page up to stay
+    /// clear of the text tools, the page scrolls back to where it was before
+    /// the writing began (the block may stay selected). A new block placed
+    /// below the fold scrolls back only as far as keeps it in the card.
+    func testDoneScrollsThePageBackToWhereItWas() {
+        fillThePage()
+        let photo = app.images.matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        let card = app.scrollViews.containing(.image, identifier: "element.image").firstMatch
+
+        // A new block below the fold.
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lunch by the river")
+        assertClearOfTheTools("a new block")
+        let whileWriting = photo.frame.minY
+        app.buttons["keyboard.done"].tap()
+        Thread.sleep(forTimeInterval: 1.2)
+        let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'lunch by the river'")).firstMatch
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(photo.frame.minY, whileWriting + 20, "Done scrolls the page back down")
+        XCTAssertLessThanOrEqual(block.frame.maxY, card.frame.maxY + 0.5, "the finished block stays in the card")
+        XCTAssertTrue(block.isHittable, "the finished block stays in reach")
+
+        // A block in view, opened again: the tools cover it, the page
+        // scrolls up, and Done brings it back exactly.
+        let before = photo.frame.minY
+        block.tap()
+        if !field.exists { block.tap() }
+        assertClearOfTheTools("the block opened again")
+        XCTAssertLessThan(photo.frame.minY, before - 20, "the page scrolled up while writing")
+        app.buttons["keyboard.done"].tap()
+        Thread.sleep(forTimeInterval: 1.2)
+        XCTAssertEqual(photo.frame.minY, before, accuracy: 2, "Done scrolls the page back to where it was")
+    }
 }
