@@ -89,6 +89,9 @@ struct CanvasScene: View {
     /// The photos this Image visit placed: its Cancel takes them back.
     @State private var placedThisVisit: [CanvasItem.ID] = []
     @State private var imageNotice: String?
+    /// The Image tool's AI Image words, paintings and their guard.
+    @State private var aiImage = AIImageDraft()
+    @FocusState private var aiPromptFocused: Bool
     @State private var showsCamera = false
     /// The photo editing session: which photo, how it looked when editing
     /// began, and whether it has been edited since. It outlives the panel
@@ -698,6 +701,12 @@ struct CanvasScene: View {
     }
 
     private func handleTool(_ mode: EditorMode) {
+        // An AI image on its way or waiting to be picked took seconds and
+        // real credits: no tool tap drops it, only Cancel (as stickers).
+        if imagePhase == .generate, aiImage.holdsWork {
+            aiImage.notice = Self.aiImageWaiting
+            return
+        }
         // Any tool tap closes the edit panels first -- one owner of
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
@@ -746,7 +755,7 @@ struct CanvasScene: View {
             case .library:
                 cancelImport()
                 imagePhase = .choose
-            case .placed: imagePhase = .choose
+            case .placed, .generate: imagePhase = .choose
             }
         case .sticker:
             cancelRecording()
@@ -839,6 +848,18 @@ struct CanvasScene: View {
         case .placed:
             return Header(leading: "Cancel", trailing: "Add",
                           onLeading: cancelImageVisit, onTrailing: endImageVisit)
+        case .generate:
+            // Cancel lets the paintings go; Add waits for a pick.
+            return Header(leading: "Cancel", trailing: "Add", onLeading: {
+                aiImage.discard()
+                imagePhase = placedThisVisit.isEmpty ? .choose : .placed
+            }, onTrailing: {
+                if aiImage.holdsWork {
+                    aiImage.notice = Self.aiImageWaiting
+                } else {
+                    endImageVisit()
+                }
+            })
         case .choose, nil:
             return Header(leading: toolOpen ? "Canvas" : "Home", trailing: "Save",
                           onLeading: toolOpen ? closeTool : actions.leading, onTrailing: actions.done)
@@ -875,12 +896,27 @@ struct CanvasScene: View {
     }
 
     /// Closes the Image tool keeping what it placed (Add, another tool).
+    /// Never with an AI image waiting: those paths are guarded first.
     private func endImageVisit() {
         imagePhase = nil
         libraryPicks = []
         placedThisVisit = []
         imageNotice = nil
+        aiImage.discard()
         cancelImport()
+    }
+
+    static let aiImageWaiting = "Pick an image first, or Cancel to let it go."
+
+    /// A candidate tapped: it lands like a library photo (aspect-true, one
+    /// undo step, looked at by vision) and the tool shows it placed (25).
+    private func placeAIImage(_ index: Int) {
+        let placed = aiImage.pick(index) { data, prompt in
+            guard let id = placer.place(data, name: prompt) else { return false }
+            placedThisVisit.append(id)
+            return true
+        }
+        if placed { imagePhase = .placed }
     }
 
     /// A slow import (iCloud originals) still loading belongs to a visit,
@@ -918,9 +954,16 @@ struct CanvasScene: View {
                             imageNotice = "The camera isn't available here."
                         }
                     },
+                    onGenerate: {
+                        aiImage.notice = nil
+                        imagePhase = .generate
+                    },
                     onSamples: placeSamples
                 )
                 .transition(.opacity)
+            case .generate:
+                AIImageSheet(draft: aiImage, onPick: placeAIImage)
+                    .transition(.opacity)
             case .library:
                 RecentsSheet(
                     library: recentPhotos,
@@ -947,6 +990,21 @@ struct CanvasScene: View {
                 fieldID: "image.composer",
                 actionID: "image.composer.go",
                 onAction: { imagePhase = .library }
+            )
+        case .generate:
+            ToolComposer(
+                placeholder: "Describe an image",
+                text: Binding(get: { aiImage.prompt }, set: { aiImage.prompt = $0 }),
+                action: "Generate",
+                actionWidth: 74,
+                actionEnabled: aiImage.canGenerate,
+                fieldID: "image.prompt",
+                actionID: "image.generate.run",
+                focus: $aiPromptFocused,
+                onAction: {
+                    aiPromptFocused = false
+                    aiImage.generate(with: imageStudio)
+                }
             )
         case .library, .placed:
             ToolComposer(

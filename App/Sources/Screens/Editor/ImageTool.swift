@@ -16,10 +16,12 @@ struct PendingPlacement: Equatable {
 /// (handoff screens 23-29), so placed photos land on the page the user is
 /// looking at and stay editable there.
 enum ImagePhase: Equatable {
-    /// "Choose photos": Photo Library / Camera / AI Sticker (screen 23).
+    /// "Choose photos": Photo Library / Camera / AI Image (screen 23).
     case choose
     /// The in-sheet Recents grid (screens 24, 26).
     case library
+    /// AI Image: the composer takes words, the sheet shows the paintings.
+    case generate
     /// Photos placed with the tool still open (screens 25, 29): Cancel takes
     /// them back, Add keeps them.
     case placed
@@ -144,12 +146,13 @@ struct PhotoPlacer {
 // MARK: - Sheets
 
 /// Screen 23: the "Choose photos" glass sheet over the canvas -- fixed
-/// 94.55 x 30 pills, Photo Library filled ink. No AI Sticker pill: stickers
-/// are the fifth tool (owner, 2026-10-17).
+/// 94.55 x 30 pills, Photo Library filled ink. The third pill paints an AI
+/// image (owner, 2026-10-18); stickers stay the fifth tool.
 struct ChoosePhotosSheet: View {
     var notice: String?
     var onLibrary: () -> Void
     var onCamera: () -> Void
+    var onGenerate: () -> Void
     var onSamples: () -> Void
 
     var body: some View {
@@ -157,13 +160,14 @@ struct ChoosePhotosSheet: View {
             title: "Choose photos",
             // The design's "imported media, or a link" names sources the
             // app does not have.
-            subtitle: "Start from camera roll or camera.",
+            subtitle: "Start from camera roll, camera, or AI.",
             titleSize: 20
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 5.67) {
                     pill("Photo Library", filled: true, id: "image.library.open", action: onLibrary)
                     pill("Camera", filled: false, id: "image.camera.open", action: onCamera)
+                    pill("AI Image", filled: false, id: "image.source.generate", action: onGenerate)
                 }
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-UITEST")

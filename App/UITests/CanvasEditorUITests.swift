@@ -135,8 +135,8 @@ final class CanvasEditorUITests: XCTestCase {
     }
 
     // The bar carries the handoff's five tools; the Image sheet offers
-    // Photo Library / Camera (screen 23) and no generate styles; no AI
-    // Sticker pill -- stickers are the fifth tool (owner, 2026-10-17).
+    // Photo Library / Camera / AI Image (screen 23) and no generate styles;
+    // no AI Sticker pill -- stickers are the fifth tool (owner, 2026-10-17).
     func testFiveToolsAndImageHasNoStickerStyle() {
         app.buttons["Start a memory"].tap()
         for tool in ["background", "voice", "text", "image", "sticker"] {
@@ -147,6 +147,7 @@ final class CanvasEditorUITests: XCTestCase {
         app.buttons["mode.image"].tap()
         XCTAssertTrue(app.buttons["image.library.open"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["image.camera.open"].exists)
+        XCTAssertEqual(app.buttons["image.source.generate"].label, "AI Image")
         XCTAssertFalse(app.buttons["image.style.photo"].exists)
         XCTAssertFalse(app.buttons["image.style.sticker"].exists)
         XCTAssertFalse(app.buttons["image.source.sticker"].exists, "no AI Sticker pill on the Image sheet")

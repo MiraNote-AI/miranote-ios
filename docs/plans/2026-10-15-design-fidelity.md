@@ -51,7 +51,7 @@ Acceptance (per stream):
 | Home | design visuals; drop "N notes"; no bell (no feature behind it); Start still opens the editor | bell and the Mira-first flow are product calls |
 | Chat voice | hold to talk, transcript fills the field for editing (not auto-send) | owner said "voice-to-text" |
 | Chat photos | "+" tray (Photos / Camera); staged thumbnails; the photo is described by the image service and the description rides with the message (no backend change) | chat model is text-only |
-| Image sheet third pill | removed (owner, 2026-10-17, TestFlight 1.0(5)): Photo Library and Camera only | stickers are the fifth tool; the pill duplicated it |
+| Image sheet third pill | "AI Image" (owner, 2026-10-18), same pill style: the composer becomes "Describe an image" / Generate (74); the sheet shows the sticker panel's dot ring, then the candidates (120 pt r18); a tap places one like a library photo (aspect-true, one undo step) into the placed state (Cancel / Add); no style chips -- the words go to the art command as typed; a painting on its way or waiting is kept from tool taps and header Add, only Cancel lets it go | the rebuild's AI Sticker pill (1cf3572, then removed in 1507b31) had replaced the dev Image panel's AI image source, so generating a picture from the Image tool was gone; stickers stay the fifth tool |
 | Placed photo size | aspect-true (as today), r18 corners | design crops are mock content |
 | Photo compare | hold = split Before / Current | both labels drawn at once |
 | Photo edit extra tiles | keep Match page / Warm / Film / Frames after the design's four | existing features |
