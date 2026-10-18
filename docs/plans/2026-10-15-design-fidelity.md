@@ -51,7 +51,7 @@ Acceptance (per stream):
 | Home | design visuals; drop "N notes"; no bell (no feature behind it); Start still opens the editor | bell and the Mira-first flow are product calls |
 | Chat voice | hold to talk, transcript fills the field for editing (not auto-send) | owner said "voice-to-text" |
 | Chat photos | "+" tray (Photos / Camera); staged thumbnails; the photo is described by the image service and the description rides with the message (no backend change) | chat model is text-only |
-| Image sheet third pill | "AI Sticker", routes to the Sticker tool | design label |
+| Image sheet third pill | removed (owner, 2026-10-17, TestFlight 1.0(5)): Photo Library and Camera only | stickers are the fifth tool; the pill duplicated it |
 | Placed photo size | aspect-true (as today), r18 corners | design crops are mock content |
 | Photo compare | hold = split Before / Current | both labels drawn at once |
 | Photo edit extra tiles | keep Match page / Warm / Film / Frames after the design's four | existing features |
@@ -135,6 +135,11 @@ Acceptance (per stream):
 | Photo editor reopened mid-edit (adversarial review) | Done during an AI edit keeps it running; reopening that photo is the same editor, showing the work; Cancel there never takes back the kept edit; the header Undo is visit-scoped like the floating one | two controllers for one photo let the late result wipe newer edits |
 | Grown legacy text (adversarial review) | a text box that grows to fit (old 6 pt padding, a longer polish) pushes the elements below it (in its columns) down by the growth, in Reading/export and in the editor's remeasure (no undo step) | the grown box ran under the photo below |
 | Chat picks (adversarial review) | picks load side by side, staged in pick order; one still loading after 20 s counts as failed; a loading placeholder has a remove badge | a stuck iCloud original held Send for good |
+| Placed elements and text pushes (harness) | a text box's shrink never lifts an element above where it was last placed (drag, resize handle, Mira's page edit, Tidy); a pull held back is room the next push uses first; an element follows the element right above it that moved most, so the same fits reversed reverse; a box resized by hand starts its pushes afresh | the user's own placement wins; sizing back and forth (curated sets) must never drift the page |
+| Typing's undo point (harness) | words typed after any step recorded during a writing session (Mira's title, a size) record a step of their own; after an undo past the session's start, the session starts again at its next change | one Undo took Mira's title and the words typed after it together, with no canvas Redo |
+| Background "Apply to this page" (owner, TestFlight 1.0(5)) | Apply puts Mira's first painting on the page when it lands, as picking it from the choices would (receipt with Revert); the canvas chat's "Change background" still offers the choices | Apply left a choice tray nobody noticed: "Apply does nothing" |
+| New memory in a journal (owner, TestFlight 1.0(5)) | opens the canvas; Save files the page in that journal | it added an empty record without opening anything |
+| Empty blocks in history (harness) | restoring a step drops an empty block nobody is writing; an empty new block undone away never comes back by redo | an empty block outside a session was filed as part of the page |
 | Follow-up: image file garbage collection | not done in this PR: `ImageFileStore` files no page references (AI results, preset taps, undone photos) are never deleted; needs a reference sweep across the library | out of scope for the fidelity PR |
 
 ## Streams (one branch / PR each, stacked on P0)
@@ -202,3 +207,14 @@ Audit reports with exact values: `gap-text.md`, `gap-canvas.md`,
    probe could be written; owner decisions on the five questions applied
    (decisions above). Kit 463, app unit 48, UI 123 (3 skipped) green;
    swiftlint unchanged at 75; 22, 05 and 37 re-shot.
+10. Harness, mutation and owner-fix rounds (TestFlight 1.0(5)): seeded
+    sequence models, gate mocks, a debug state probe and a simulator
+    monkey (docs/testing/adversarial-harness.md) found and fixed the
+    placement, undo-point, empty-block and late-mic bugs above; 28 hand
+    mutations of changed Kit logic, 6 survivors each given a test; owner
+    fixes: no AI Sticker pill, New memory opens the canvas, Apply paints
+    the page, the written block stays above the text tools, a cheap photo
+    drag, an owner-path tour. QA: two outdated tests fixed (scroll a photo
+    back after writing below it; the probe no longer matches staticTexts
+    queries). Kit 533, app unit 72, UI 168 (4 skipped) green on iPhone 17
+    Pro; Release builds.
