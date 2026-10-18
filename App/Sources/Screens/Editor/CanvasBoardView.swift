@@ -91,6 +91,7 @@ struct CanvasBoardView: View {
     final class ScrollMemo {
         var offset: CGFloat = 0
         var beforeWriting: CGFloat = 0
+        var cardHeight: CGFloat = 0
         var scrolledForWriting = false
     }
 
@@ -120,12 +121,13 @@ struct CanvasBoardView: View {
             .onChange(of: editor.editingTextItemID) { old, id in
                 if old == nil, id != nil {
                     scrollMemo.beforeWriting = scrollMemo.offset
+                    scrollMemo.cardHeight = visibleFrame.height
                     scrollMemo.scrolledForWriting = false
                 }
                 if id == nil {
+                    if scrollMemo.scrolledForWriting { scrollBackAfterWriting(proxy, written: writtenFrame) }
                     writtenFrame = nil
                     editAnchor = nil
-                    if let old, scrollMemo.scrolledForWriting { scrollBackAfterWriting(proxy, written: old) }
                 }
             }
             .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
@@ -307,21 +309,23 @@ struct CanvasBoardView: View {
     /// Owner's lead: once the writing ends, a page it scrolled up goes back
     /// to where it stood before the writing began (the block may stay
     /// selected).
-    private func scrollBackAfterWriting(_ proxy: ScrollViewProxy, written id: CanvasItem.ID) {
+    private func scrollBackAfterWriting(_ proxy: ScrollViewProxy, written shown: CGRect?) {
         scrollMemo.scrolledForWriting = false
         var target = scrollMemo.beforeWriting
         // A new block placed below the fold would vanish (and, still
         // selected, hold the page still): go back only as far as keeps its
-        // bottom in the card.
-        if let item = editor.item(id) {
-            let bottom = item.position.y + item.size.height / 2 + 16
-            target = min(scrollMemo.offset, max(target, bottom - visibleFrame.height))
+        // bottom, as drawn, in the card -- the card as it stood before the
+        // writing, not as the keyboard still squeezes it now.
+        if let shown {
+            let bottom = shown.maxY - visibleFrame.minY + scrollMemo.offset + 16
+            target = min(scrollMemo.offset, max(target, bottom - scrollMemo.cardHeight))
         }
         restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target))
         // Once the keyboard is down and the page has given back the room
-        // it grew for the writing.
+        // it grew for the writing (its 0.2 s shrink in flight cut the
+        // scroll 50 pt short).
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(120))
+            try? await Task.sleep(for: .milliseconds(350))
             if editor.editingTextItemID == nil {
                 withAnimation(.easeOut(duration: 0.25)) {
                     proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))

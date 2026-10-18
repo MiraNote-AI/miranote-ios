@@ -106,4 +106,31 @@ final class TextVisibilityUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 1.2)
         XCTAssertEqual(photo.frame.minY, before, accuracy: 2, "Done scrolls the page back to where it was")
     }
+
+    /// The text rows and the custom color sheet used along the way (the
+    /// sheet lowers the keyboard and the tools move): Done still scrolls
+    /// the page back.
+    func testDoneScrollsBackAfterTheRowsAndTheColorSheet() {
+        fillThePage()
+        let photo = app.images.matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        let card = app.scrollViews.containing(.image, identifier: "element.image").firstMatch
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lunch by the river, then a long walk home")
+        assertClearOfTheTools("a new block")
+        let whileWriting = photo.frame.minY
+        for row in ["style.colors", "style.highlight", "style.ai"] { app.buttons[row].tap() }
+        app.buttons["style.colors"].tap()
+        app.buttons["style.color.custom"].tap()
+        XCTAssertTrue(app.buttons["colorSheet.apply"].waitForExistence(timeout: 5))
+        app.buttons["colorSheet.apply"].tap()
+        app.buttons["keyboard.done"].tap()
+        Thread.sleep(forTimeInterval: 1.2)
+        let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'lunch by the river'")).firstMatch
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(photo.frame.minY, whileWriting + 20, "Done scrolls the page back down")
+        XCTAssertLessThanOrEqual(block.frame.maxY, card.frame.maxY + 0.5, "the finished block stays in the card")
+        XCTAssertGreaterThan(block.frame.maxY, card.frame.maxY - 60, "and the page went back as far as that allows")
+    }
 }
