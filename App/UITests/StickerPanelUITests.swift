@@ -112,6 +112,19 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "the tap placed it")
     }
 
+    /// QA owner pass: the place hint's Cancel was a caption-sized system-blue
+    /// link; it is 44 pt to the finger.
+    func testThePlaceHintsCancelIsAFullSizeTarget() {
+        generate("a coffee cup")
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        app.buttons["nav.trailing"].tap()
+        let cancel = app.buttons["canvas.place.cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(cancel.frame.height, 44)
+        cancel.tap()
+        XCTAssertFalse(app.staticTexts["canvas.place.hint"].waitForExistence(timeout: 1), "Cancel ends the placing")
+    }
+
     func testFavoriteFilesTheShowingSticker() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))

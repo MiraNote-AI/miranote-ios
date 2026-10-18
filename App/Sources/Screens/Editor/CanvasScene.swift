@@ -566,7 +566,12 @@ struct CanvasScene: View {
                         .accessibilityIdentifier("canvas.place.hint")
                     Spacer(minLength: 0)
                     Button("Cancel") { pendingPlacement = nil }
-                        .font(.miraCaption)
+                        .font(.miraCaption.weight(.semibold))
+                        .foregroundStyle(Palette.ink)
+                        // 44 pt to the finger without moving the row.
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                        .padding(.vertical, -16)
                         .accessibilityIdentifier("canvas.place.cancel")
                 }
                 .padding(.horizontal, Metrics.chromeInset)
