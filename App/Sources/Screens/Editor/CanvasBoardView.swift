@@ -122,10 +122,13 @@ struct CanvasBoardView: View {
                 if old == nil, id != nil {
                     scrollMemo.beforeWriting = scrollMemo.offset
                     scrollMemo.cardHeight = visibleFrame.height
-                    scrollMemo.scrolledForWriting = false
                 }
                 if id == nil {
+                    // The flag is cleared only here: the written block's
+                    // first frame can land (and set it) before this handler
+                    // sees the session start.
                     if scrollMemo.scrolledForWriting { scrollBackAfterWriting(proxy, written: writtenFrame) }
+                    scrollMemo.scrolledForWriting = false
                     writtenFrame = nil
                     editAnchor = nil
                 }
