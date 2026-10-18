@@ -40,6 +40,18 @@ final class PhotoRevertUITests: XCTestCase {
     }
 
     private func openEditor(_ photo: XCUIElement) {
+        // A block written below the photos scrolls the page up to stay clear
+        // of the text tools; bring the photo back down before pressing it.
+        // The finished block stays selected, which holds the page still: tap
+        // the empty left margin to let go of it, then drag there (a drag on
+        // an element moves it instead).
+        let board = app.scrollViews.containing(.image, identifier: "element.image").firstMatch
+        let margin = board.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.3))
+        if !photo.isHittable { margin.tap() }
+        for _ in 0..<3 where !photo.isHittable {
+            margin.press(forDuration: 0.05, thenDragTo: board.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.9)))
+        }
+        XCTAssertTrue(photo.isHittable, "the photo scrolled back into reach")
         photo.press(forDuration: 0.9)
         XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))
         app.buttons["Edit photo"].tap()
