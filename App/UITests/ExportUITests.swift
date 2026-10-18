@@ -128,6 +128,17 @@ final class ExportUITests: XCTestCase {
         waitUntil(sheet, "exists == false")
     }
 
+    // QA owner pass: closing the sheet with a tap on the page, then Back
+    // straight away, did nothing -- the closing sheet's tap catcher took
+    // the tap.
+    func testBackRightAfterClosingTheSheetGoesBack() {
+        openExport()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        app.buttons["reading.back"].tap()
+        XCTAssertTrue(app.buttons["note.Lunch by the river"].waitForExistence(timeout: 5),
+                      "Back returns to the journal")
+    }
+
     private func waitUntil(_ element: XCUIElement, _ format: String, timeout: TimeInterval = 5) {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: format), object: element)
         XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: timeout), .completed, format)

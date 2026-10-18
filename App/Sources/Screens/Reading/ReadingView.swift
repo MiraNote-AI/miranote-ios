@@ -55,6 +55,9 @@ struct ReadingView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { setExport(open: false) }
                     .accessibilityHidden(true)
+                    // Gone at once, not faded out with the sheet: while it
+                    // lingered it swallowed the next tap (Back did nothing).
+                    .transition(.identity)
             }
         }
         .overlay(alignment: .bottom) {
