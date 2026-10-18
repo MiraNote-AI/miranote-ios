@@ -21,7 +21,9 @@ extension CanvasScene {
                 mira.ask(words, editor: editor)
             },
             onClose: { backgroundPanelOpen = false },
-            onCustomColor: openPageColorSheet
+            onCustomColor: openPageColorSheet,
+            painting: applyingBackground,
+            notice: backgroundNotice
         )
         .frame(width: MiraNoteConfig.pageWidth)
         .padding(.bottom, -7)

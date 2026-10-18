@@ -17,8 +17,14 @@ struct BackgroundToolSheet: View {
     /// Custom and Pick open the shared custom color sheet (screens 14/20),
     /// which the scene lays over the dock so it can ride the keyboard.
     var onCustomColor: (PageColorRequest) -> Void
+    /// Apply's painting is on its way (the sheet stays up until it lands).
+    var painting = false
+    /// Why Apply's painting did not come, while the sheet stays up.
+    var notice: String?
 
     @State private var hexDraft = ""
+    /// Words typed in the hex field and not committed yet.
+    @State private var typingHex = false
     @FocusState private var hexFocused: Bool
     @State private var contentHeight: CGFloat?
 
@@ -54,6 +60,9 @@ struct BackgroundToolSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 30))
         .onAppear { hexDraft = shownHex }
         .onChange(of: editor.memory.pageColorName) { if !hexFocused { hexDraft = shownHex } }
+        // Apply closes the sheet with the hex field still focused: a typed
+        // color is the user's pick all the same.
+        .onDisappear { if typingHex { commitHex() } }
     }
 
     private var content: some View {
@@ -84,10 +93,24 @@ struct BackgroundToolSheet: View {
                 .frame(height: 25)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("background.title")
-            Text("Paper, color & curated type")
-                .font(.miraComposer)
-                .foregroundStyle(Palette.muted)
-                .frame(height: 15)
+            if painting {
+                Text("Painting a background for this page...")
+                    .font(.miraComposer)
+                    .foregroundStyle(Palette.forest)
+                    .frame(height: 15)
+                    .accessibilityIdentifier("background.status")
+            } else if let notice {
+                Text(notice)
+                    .font(.miraComposer)
+                    .foregroundStyle(Color(hex: 0x8C4A3A))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("background.notice")
+            } else {
+                Text("Paper, color & curated type")
+                    .font(.miraComposer)
+                    .foregroundStyle(Palette.muted)
+                    .frame(height: 15)
+            }
         }
     }
 
@@ -225,6 +248,7 @@ struct BackgroundToolSheet: View {
             .focused($hexFocused)
             .onSubmit(commitHex)
             .onChange(of: hexFocused) { _, focused in if !focused { commitHex() } }
+            .onChange(of: hexDraft) { _, draft in if hexFocused, draft != shownHex { typingHex = true } }
             .padding(.horizontal, 12)
             .frame(height: 27)
             .background(
@@ -240,6 +264,7 @@ struct BackgroundToolSheet: View {
     private var shownHex: String { pageColor }
 
     private func commitHex() {
+        typingHex = false
         if let hex = Self.normalizedHex(hexDraft), hex != pageColor {
             editor.setPageColor(hex)
         }

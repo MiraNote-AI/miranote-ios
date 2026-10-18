@@ -65,6 +65,11 @@ struct CanvasScene: View {
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState private var applyFocus: Bool
+    /// Apply's painting is on its way: the Background sheet shows the work
+    /// and stays up until it lands.
+    @State var applyingBackground = false
+    /// Why Apply's painting did not come, shown in the Background sheet.
+    @State var backgroundNotice: String?
     /// A short line over the tool bar (the gesture hint, a dictation that
     /// could not land), gone after a few seconds.
     @State private var gestureHint: String?
@@ -226,7 +231,12 @@ struct CanvasScene: View {
             }
         }
         .onChange(of: backgroundPanelOpen) { _, open in
-            if !open { closePageColorSheet(keeping: false) }
+            if !open {
+                closePageColorSheet(keeping: false)
+                // Closed mid-painting: the turn runs on in the Mira strip.
+                applyingBackground = false
+                backgroundNotice = nil
+            }
             // Opening Background moves on from a waiting result (Keep):
             // its sheet would draw over the tool's sets and layout.
             if open, receipt != nil { mira.dismiss() }
@@ -455,8 +465,14 @@ struct CanvasScene: View {
             #endif
         }
         .onChange(of: mira.isWorking) { _, working in
-            // A running turn owns the strip (Stop, then the receipt).
-            if working { backgroundPanelOpen = false }
+            // A running turn owns the strip (Stop, then the receipt) --
+            // except the Background tool's own Apply, which shows its work
+            // in the sheet and closes it once the painting lands.
+            if working {
+                if !applyingBackground { backgroundPanelOpen = false }
+            } else if applyingBackground {
+                finishBackgroundApply()
+            }
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
@@ -608,8 +624,9 @@ struct CanvasScene: View {
                 BackgroundApplyBar(
                     words: $applyWords,
                     focus: $applyFocus,
-                    canApply: !mira.isWorking,
-                    onApply: { mira.askBackground($0, editor: editor) }
+                    painting: applyingBackground,
+                    onApply: applyBackground,
+                    onStop: { mira.stop() }
                 )
             } else {
                 recorderCluster
@@ -754,6 +771,39 @@ struct CanvasScene: View {
         if let id = editingStickerItem {
             revealItem = id
             editingStickerItem = nil
+        }
+    }
+
+    /// The Background tool's Apply (owner, TestFlight 1.0(6)). With no words
+    /// the sheet's choices are already on the page: back to the canvas.
+    /// With words Mira paints a backdrop; the sheet shows the work.
+    private func applyBackground(_ words: String) {
+        guard !words.isEmpty else {
+            backgroundPanelOpen = false
+            return
+        }
+        guard !mira.isWorking else { return }
+        backgroundNotice = nil
+        applyingBackground = true
+        mira.askBackground(words, editor: editor)
+    }
+
+    /// Apply's turn ended: landed, the canvas with its result sheet; failed,
+    /// the sheet says why (once -- not again in the strip) with the words
+    /// back; stopped, the words back.
+    private func finishBackgroundApply() {
+        applyingBackground = false
+        let refill = mira.refillPrompt
+        mira.refillPrompt = nil
+        switch mira.phase {
+        case .failure(let failure):
+            backgroundNotice = failure.message
+            applyWords = refill ?? applyWords
+            mira.dismiss()
+        case .idle:
+            applyWords = refill ?? applyWords
+        default:
+            backgroundPanelOpen = false
         }
     }
 
@@ -1259,7 +1309,9 @@ extension CanvasScene {
             "importing": importingPicks,
             "pageWidth": editor.canvasWidth ?? MiraNoteConfig.pageWidth,
             "backdrop": editor.memory.backgroundFileName,
+            "backdropDescribes": editor.memory.backgroundSummary,
             "pageColor": editor.memory.pageColorName,
+            "paper": editor.memory.paper.rawValue,
             "elements": editor.items.map(Self.debugElement)
         ]
     }
