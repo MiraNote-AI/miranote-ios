@@ -165,6 +165,10 @@ struct DebugStateProbe: View {
                     .opacity(0.01)
                     .frame(width: 1, height: 1)
                     .accessibilityLabel(json)
+                    // Not a static text: the JSON holds every element's
+                    // words, and a test's staticTexts query by label must
+                    // find the element, never the probe.
+                    .accessibilityRemoveTraits(.isStaticText)
                     .accessibilityIdentifier("debug.state")
             }
         }
