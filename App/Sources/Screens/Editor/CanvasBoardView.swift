@@ -345,7 +345,9 @@ struct CanvasBoardView: View {
         let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
         guard shown.minY < bandTop - 0.5 || shown.maxY > bandBottom + 0.5 else { return }
         let top = item.position.y - item.size.height / 2
-        let fits = item.size.height <= bandBottom - bandTop
+        // The band is screen points; the block's height is the page's, shown
+        // scaled.
+        let fits = item.size.height * pageScale <= bandBottom - bandTop
         editAnchor = CGPoint(x: item.position.x, y: fits ? top - 16 : top + item.size.height + 8)
         let anchorY = fits ? 0 : min(1, max(0, (toolsTop - visibleFrame.minY) / visibleFrame.height))
         scrollMemo.scrolledForWriting = true
