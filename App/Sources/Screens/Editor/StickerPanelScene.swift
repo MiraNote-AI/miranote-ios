@@ -37,6 +37,9 @@ struct StickerPanelScene: View {
     /// A style tile's studio call in flight.
     @State private var styling = false
     @State private var notice: String?
+    /// The words the showing stickers were made from (sticker Add option B:
+    /// the composer adds them until new words are typed).
+    @State private var madeFrom = ""
     /// While typing, the sheet folds to its collapsed height: the keyboard
     /// leaves no room for 430 above the composer.
     @FocusState private var promptFocused: Bool
@@ -79,17 +82,25 @@ struct StickerPanelScene: View {
                 }
                 actions.selectMode(mode)
             })
+            // Sticker Add option B: with a made sticker showing and no new
+            // words typed, the composer's action adds it; Make again sits
+            // beside it. New words bring Generate back.
             ToolComposer(
                 placeholder: "Ask mira to generate a sticker",
                 text: $prompt,
-                action: "Generate",
-                actionWidth: 74,
-                actionEnabled: canGenerate,
+                action: composerAdds ? "Add" : "Generate",
+                actionWidth: composerAdds ? 52 : 74,
+                actionEnabled: composerAdds ? !busy : canGenerate,
                 fieldID: "sticker.prompt",
-                actionID: "sticker.generate.run",
+                actionID: composerAdds ? "sticker.composer.add" : "sticker.generate.run",
                 focus: $promptFocused,
-                onAction: generate
+                secondary: composerAdds ? ComposerSecondary(
+                    symbol: "arrow.clockwise", label: "Make again", id: "sticker.regenerate",
+                    enabled: !busy, action: generate
+                ) : nil,
+                onAction: composerAdds ? add : generate
             )
+            .animation(.easeOut(duration: 0.2), value: composerAdds)
         }
         .onAppear {
             // Entries whose image file is gone or degenerate would render as
@@ -106,6 +117,12 @@ struct StickerPanelScene: View {
 
     private var busy: Bool { generating || styling }
 
+    /// Sticker Add option B: the composer adds the showing sticker.
+    private var composerAdds: Bool {
+        UIVariant.stickerAdd == .b && !drafts.isEmpty
+            && prompt.trimmingCharacters(in: .whitespacesAndNewlines) == madeFrom
+    }
+
     /// A favorite or preset tap places it and leaves the panel, which would
     /// drop a sticker being made or waiting to be added -- it took seconds
     /// and real credits (#93).
@@ -116,7 +133,8 @@ struct StickerPanelScene: View {
     private var sheetHeight: CGFloat {
         if promptFocused { return 147 }
         switch tab {
-        case .make: return showsWork ? 430 : 147
+        // Sticker Add options A and C grow by their pill or hint line.
+        case .make: return showsWork ? 430 + UIVariant.stickerAdd.pick(0, a: 70, b: 0, c: 36) : 147
         case .favorites: return favorites.isEmpty ? 147 : 420
         case .set: return 420
         }
@@ -203,6 +221,7 @@ struct StickerPanelScene: View {
                     .padding(.leading, 2)
                 preview
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                addAffordance
                 styleTiles
                     .padding(.leading, 2)
             }
@@ -313,20 +332,90 @@ struct StickerPanelScene: View {
             Group {
                 if let image = UIImage(data: draft.current.data) {
                     Image(uiImage: image).resizable().scaledToFit()
+                        // Sticker Add option C: the "+" on the sticker's
+                        // own corner (the fitted image, not the frame).
+                        .overlay(alignment: .bottomTrailing) {
+                            if UIVariant.stickerAdd == .c, !busy {
+                                addBadge.offset(x: -4, y: -4)
+                            }
+                        }
                 } else {
                     Palette.cardFill
                 }
             }
             .frame(maxWidth: 232, maxHeight: 232)
-            .accessibilityElement()
+            .accessibilityElement(children: .contain)
             .accessibilityLabel(draft.prompt)
             .accessibilityAddTraits(.isImage)
             .accessibilityIdentifier("sticker.result.\(index)")
+            // Sticker Add options A and C: the sticker itself adds.
+            .onTapGesture { if previewAdds { add() } }
+            .accessibilityAction(named: "Add to page") { if previewAdds { add() } }
             if styling && index == page {
                 DotRingSpinner(diameter: 80)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: Add within thumb reach (owner, 2026-10-19)
+
+    private var previewAdds: Bool { UIVariant.stickerAdd == .a || UIVariant.stickerAdd == .c }
+
+    /// Under the made sticker: option A's full-width "Add to page", option
+    /// C's one-line hint. Today, and option B, nothing (B adds from the
+    /// composer).
+    @ViewBuilder private var addAffordance: some View {
+        switch UIVariant.stickerAdd {
+        case .a:
+            Button(action: add) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("Add to page")
+                        .font(.miraPill)
+                }
+                .foregroundStyle(Palette.onInk)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(Capsule().fill(Palette.ink))
+                .shadow(color: Palette.ink.opacity(0.16), radius: 10, y: 6)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(busy)
+            .opacity(busy ? 0.45 : 1)
+            .accessibilityIdentifier("sticker.addToPage")
+            .padding(.top, 10)
+            .padding(.bottom, 14)
+        case .c:
+            Text("Tap the sticker to add it")
+                .font(.miraCaption)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+        case .current, .b:
+            EmptyView()
+        }
+    }
+
+    /// Option C's 44 pt ink "+" on the preview's corner, ringed in paper so
+    /// it reads over any sticker.
+    private var addBadge: some View {
+        Button(action: add) {
+            Image(systemName: "plus")
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(Palette.onInk)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Palette.ink))
+                .overlay(Circle().strokeBorder(Palette.paper, lineWidth: 3))
+                .shadow(color: Palette.ink.opacity(0.22), radius: 8, y: 4)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add to page")
+        .accessibilityIdentifier("sticker.addBadge")
     }
 
     /// Outline / Cutout / B&W (the design's "Jeans" is undefined and left
@@ -505,6 +594,7 @@ struct StickerPanelScene: View {
                     notice = "Mira couldn't make that one -- try other words?"
                 }
                 drafts = images.map { StickerDraft(prompt: trimmed, data: $0) }
+                madeFrom = trimmed
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? "Making a sticker didn't work this time. Try again?"
@@ -526,6 +616,7 @@ struct StickerPanelScene: View {
                 var draft = StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)
                 draft.push(StickerVariant(data: outlined, style: .outline))
                 drafts = [draft]
+                madeFrom = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? "That didn't work this time. Try again?"

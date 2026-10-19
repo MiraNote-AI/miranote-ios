@@ -42,7 +42,8 @@ struct PreviewWords {
     /// The default face previews as the handoff's Josefin; a chosen face
     /// as itself.
     private static func font(_ name: String, size: CGFloat, fallbackWeight: CGFloat) -> Font {
-        name.isEmpty ? Sans.font(size: size, weight: fallbackWeight) : Font(TextFace.uiFont(name: name, size: size))
+        // Page faces at page sizes: never the UI type option.
+        Font(name.isEmpty ? Sans.uiFont(size: size, weight: fallbackWeight) : TextFace.uiFont(name: name, size: size))
     }
 
     /// Default ink words preview in the handoff's colors; chosen colors as

@@ -67,9 +67,10 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
                     if scrimmed {
                         RoundedRectangle(cornerRadius: Metrics.canvasCorner)
                             .fill(Palette.scrim)
-                            .frame(width: MiraNoteConfig.pageWidth)
+                            .canvasCardWidth()
                             .contentShape(Rectangle())
                             .onTapGesture(perform: onScrimTap)
+                            .padding(.horizontal, UIVariant.canvasSideInset ?? 0)
                             .accessibilityHidden(true)
                     }
                 }

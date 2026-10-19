@@ -227,7 +227,10 @@ struct BackgroundToolSheet: View {
                 Text(title)
                     .font(Sans.font(size: 10, weight: 500))
                     .foregroundStyle(Palette.muted)
-                    .frame(height: 15)
+                    // Labels may run past the 44 pt column into the gap
+                    // rather than truncate at larger type options.
+                    .fixedSize()
+                    .frame(width: 44, height: 15)
             }
             .frame(width: 44)
         }

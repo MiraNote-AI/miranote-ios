@@ -72,6 +72,12 @@ struct CanvasBoardView: View {
     @State private var scrollMemo = ScrollMemo()
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
+    /// Screen points per page point: 1 unless the canvas option fills the
+    /// card's width (the visible frame is the card row, its insets included).
+    private var pageScale: CGFloat {
+        guard let inset = UIVariant.canvasSideInset, visibleFrame.width > 2 * inset else { return 1 }
+        return (visibleFrame.width - 2 * inset) / MiraNoteConfig.pageWidth
+    }
 
     /// Bottom-edge receipts; deleted carries the one-tap Undo, good while
     /// the delete is still the page's newest change (`changeCount`).
@@ -103,6 +109,14 @@ struct CanvasBoardView: View {
                 // which made the same page a different width on every
                 // phone and disagree with its own export.
                 board
+                    // A filling card (canvas option B/C) shows the 360 pt
+                    // page scaled up; the page itself never changes width.
+                    .scaleEffect(pageScale, anchor: .topLeading)
+                    .frame(
+                        width: MiraNoteConfig.pageWidth * pageScale,
+                        height: boardHeight * pageScale,
+                        alignment: .topLeading
+                    )
                     // Read on every scroll frame into a plain box: no
                     // re-render while the page scrolls.
                     .onGeometryChange(for: CGFloat.self) {
@@ -294,8 +308,9 @@ struct CanvasBoardView: View {
     /// while writing, a card's height below the content, so the block being
     /// written can always scroll up clear of the keyboard and its tools.
     private var boardHeight: CGFloat {
-        max(minBoardHeight, visibleFrame.height,
-            editor.contentBottom + (writing ? max(240, visibleFrame.height) : 240))
+        let cardHeight = visibleFrame.height / pageScale
+        return max(minBoardHeight, cardHeight,
+                   editor.contentBottom + (writing ? max(240, cardHeight) : 240))
     }
 
     /// Keeps the block being written between the card's top and the text
@@ -454,8 +469,8 @@ struct CanvasBoardView: View {
         var size = item.size
         var rotation = item.rotation
         if let move = activeMove, move.itemID == item.id {
-            position.x += move.translation.width
-            position.y += move.translation.height
+            position.x += move.translation.width / pageScale
+            position.y += move.translation.height / pageScale
         }
         if let resize = activeResize, resize.itemID == item.id {
             size.width = max(44, size.width + resize.corner.sign.x * resize.translation.width)
@@ -545,8 +560,8 @@ extension CanvasBoardView {
                 }
                 editor.beginChange()
                 editor.move(itemID: item.id, to: CGPoint(
-                    x: item.position.x + value.translation.width,
-                    y: item.position.y + value.translation.height
+                    x: item.position.x + value.translation.width / pageScale,
+                    y: item.position.y + value.translation.height / pageScale
                 ))
             }
     }

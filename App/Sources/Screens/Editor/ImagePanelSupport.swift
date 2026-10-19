@@ -60,14 +60,24 @@ struct PagePreview: View {
 
     var body: some View {
         GeometryReader { geo in
+            // The card's width: the page's own, or the filling canvas
+            // option's (the page scales up to fill it, as on the canvas).
+            let cardWidth = UIVariant.canvasSideInset.map { geo.size.width - 2 * $0 } ?? MiraNoteConfig.pageWidth
+            let scale = cardWidth / MiraNoteConfig.pageWidth
             ScrollView(showsIndicators: false) {
                 StaticPageView(memory: memory, showsSound: false)
+                    .scaleEffect(scale, anchor: .topLeading)
+                    .frame(
+                        width: cardWidth,
+                        height: StaticPageView.contentHeight(of: memory) * scale,
+                        alignment: .topLeading
+                    )
             }
             .canvasCard()
             .contentShape(Rectangle())
             .onTapGesture(coordinateSpace: .local) { point in
-                let left = (geo.size.width - MiraNoteConfig.pageWidth) / 2
-                guard point.x >= left, point.x <= left + MiraNoteConfig.pageWidth else { return }
+                let left = (geo.size.width - cardWidth) / 2
+                guard point.x >= left, point.x <= left + cardWidth else { return }
                 onTapPage()
             }
         }

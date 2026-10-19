@@ -191,14 +191,14 @@ struct MiraChatComposer: View {
         // WeChat's field: one line growing to four. The keyboard's Send key
         // sends through sendDraft (so its guards apply) and the keyboard
         // stays up for the next message; a paste never sends.
-        ChatTextView(text: $viewModel.draft, isFocused: $fieldFocused, font: Sans.uiFont(size: 12, weight: 400)) {
+        ChatTextView(text: $viewModel.draft, isFocused: $fieldFocused, font: Sans.uiFont(size: UIVariant.typeSize(12, standard: 17), weight: 400)) {
             Task { await viewModel.sendDraft() }
         }
         .frame(maxWidth: .infinity, minHeight: ChatTextView.minHeight, alignment: .leading)
         .overlay(alignment: .leading) {
             if viewModel.draft.isEmpty {
                 Text("Ask Mira anything...")
-                    .font(Sans.font(size: 12, weight: 400))
+                    .font(Sans.font(size: 12, standard: 17, weight: 400))
                     .foregroundStyle(ChatMetrics.muted)
                     .allowsHitTesting(false)
             }

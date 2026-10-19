@@ -13,9 +13,10 @@ enum Metrics {
     static let toolBarInset: CGFloat = 19
     /// The canvas card: corner, and the gaps that frame it vertically
     /// (nav bottom to card top, card bottom to tool bar top).
-    static let canvasCorner: CGFloat = 30
-    static let navToCanvas: CGFloat = 19
-    static let canvasToToolBar: CGFloat = 20
+    /// Tighter around a bigger card under the canvas option (`UIVariant`).
+    static let canvasCorner: CGFloat = UIVariant.canvas.pick(30, a: 30, b: 30, c: 24)
+    static let navToCanvas: CGFloat = UIVariant.canvas.pick(19, a: 8, b: 8, c: 6)
+    static let canvasToToolBar: CGFloat = UIVariant.canvas.pick(20, a: 10, b: 10, c: 6)
     static let pageCorner: CGFloat = 6
     static let imageCorner: CGFloat = 18
     static let sheetCorner: CGFloat = 26

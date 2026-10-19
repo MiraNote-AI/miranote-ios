@@ -54,8 +54,10 @@ enum Sans {
 
     private static let isAvailable = UIFont.familyNames.contains(familyName)
 
-    static func font(size: CGFloat, weight: CGFloat) -> Font {
-        Font(uiFont(size: size, weight: weight))
+    /// A UI role (chrome, never page content): sized by the type option
+    /// (`UIVariant.typeSize`); `standard` is the role's iOS-standard size.
+    static func font(size: CGFloat, standard: CGFloat? = nil, weight: CGFloat) -> Font {
+        Font(uiFont(size: UIVariant.typeSize(size, standard: standard), weight: weight))
     }
 
     static func uiFont(size: CGFloat, weight: CGFloat) -> UIFont {
@@ -84,24 +86,24 @@ enum Sans {
 /// decision, 2026-10-15): the design's 8-9 px labels render at 10.
 extension Font {
     /// Nav pills (2026-10-07 handoff): Josefin SemiBold 12.
-    static let miraNav = Sans.font(size: 12, weight: 600)
+    static let miraNav = Sans.font(size: 12, standard: 15, weight: 600)
     /// The Mira composer's field and placeholder: Medium 12.
-    static let miraComposer = Sans.font(size: 12, weight: 500)
+    static let miraComposer = Sans.font(size: 12, standard: 17, weight: 500)
     /// The composer's action pill (Go, Apply): Bold 12.
-    static let miraComposerAction = Sans.font(size: 12, weight: 700)
+    static let miraComposerAction = Sans.font(size: 12, standard: 16, weight: 700)
 
     static let miraHero = Serif.font(size: 39, weight: 410, optical: 144)
     /// Home dateline (screen 01): Josefin Bold 24.
-    static let miraDate = Sans.font(size: 24, weight: 700)
+    static let miraDate = Sans.font(size: 24, standard: 26, weight: 700)
     static let miraPageTitle = Sans.font(size: 22, weight: 700)
     static let miraScreenTitle = Sans.font(size: 18, weight: 600)
-    static let miraLogo = Sans.font(size: 15, weight: 700)
+    static let miraLogo = Sans.font(size: 15, standard: 17, weight: 700)
 
-    static let miraCardTitle = Sans.font(size: 15, weight: 600)
+    static let miraCardTitle = Sans.font(size: 15, standard: 17, weight: 600)
     static let miraStatus = Sans.font(size: 15, weight: 600)
     static let miraPill = Sans.font(size: 15, weight: 600)
     static let miraBody = Sans.font(size: 14, weight: 400)
     static let miraLabel = Sans.font(size: 13, weight: 500)
-    static let miraCaption = Sans.font(size: 12.5, weight: 400)
-    static let miraChip = Sans.font(size: 12.5, weight: 500)
+    static let miraCaption = Sans.font(size: 12.5, standard: 13, weight: 400)
+    static let miraChip = Sans.font(size: 12.5, standard: 15, weight: 500)
 }

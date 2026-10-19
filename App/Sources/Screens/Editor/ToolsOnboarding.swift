@@ -174,7 +174,8 @@ private extension View {
         return background(shape.fill(Color.white.opacity(0.64)))
             .overlay(shape.strokeBorder(Palette.ink.opacity(0.06), lineWidth: Metrics.hairline))
             .background(shape.fill(Palette.paper).shadow(color: Palette.ink.opacity(0.08), radius: 19, y: 16))
-            .frame(width: MiraNoteConfig.pageWidth)
+            .canvasCardWidth()
+            .padding(.horizontal, UIVariant.canvasSideInset ?? 0)
             .frame(maxWidth: .infinity)
     }
 }

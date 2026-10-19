@@ -119,7 +119,9 @@ struct MiraChatOverlay: View {
                 Text("Mira can edit this canvas directly.")
                     .font(Sans.font(size: 14, weight: 700))
                     .foregroundStyle(Palette.ink)
-                    .frame(height: 18)
+                    // Wraps rather than truncates at larger type options.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 18)
                     .padding(.top, 17)
                 Text("The current page stays attached, so Mira can change color, layout, copy, "
                      + "stickers, or image treatment without starting over.")
@@ -163,6 +165,8 @@ struct MiraChatOverlay: View {
                 .font(Sans.font(size: 10, weight: 700))
                 .foregroundStyle(primary ? Color.white : Palette.ink)
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
                 .background(

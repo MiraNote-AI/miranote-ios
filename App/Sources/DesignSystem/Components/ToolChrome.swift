@@ -14,31 +14,62 @@ struct ToolComposer: View {
     let actionID: String
     /// Lets the page follow (and drop) the keyboard.
     var focus: FocusState<Bool>.Binding?
+    /// A small round action beside the main one (the sticker's Make again).
+    var secondary: ComposerSecondary?
     var onAction: () -> Void
 
     var body: some View {
         ComposerCapsule(
             action: action, actionID: actionID, canAct: actionEnabled, actionWidth: actionWidth, onAct: onAction
         ) {
-            Group {
-                if let text {
-                    TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(Palette.muted))
-                        .foregroundStyle(Palette.ink)
-                        .tint(Palette.forest)
-                        .submitLabel(.go)
-                        .onSubmit { if actionEnabled { onAction() } }
-                        .modifier(OptionalFocus(focus: focus))
-                } else {
-                    Text(placeholder)
-                        .foregroundStyle(Palette.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                Group {
+                    if let text {
+                        TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(Palette.muted))
+                            .foregroundStyle(Palette.ink)
+                            .tint(Palette.forest)
+                            .submitLabel(.go)
+                            .onSubmit { if actionEnabled { onAction() } }
+                            .modifier(OptionalFocus(focus: focus))
+                    } else {
+                        Text(placeholder)
+                            .foregroundStyle(Palette.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .font(.miraComposer)
+                .lineLimit(1)
+                .accessibilityIdentifier(fieldID)
+                if let secondary {
+                    Button(action: secondary.action) {
+                        Image(systemName: secondary.symbol)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Palette.ink)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(Palette.cardFill))
+                            .overlay(Circle().strokeBorder(Palette.ink.opacity(0.08), lineWidth: 1))
+                            .contentShape(Circle())
+                            .minimumHitTarget()
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!secondary.enabled)
+                    .opacity(secondary.enabled ? 1 : 0.45)
+                    .accessibilityLabel(secondary.label)
+                    .accessibilityIdentifier(secondary.id)
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
-            .font(.miraComposer)
-            .lineLimit(1)
-            .accessibilityIdentifier(fieldID)
         }
     }
+}
+
+/// `ToolComposer`'s small round action: an SF Symbol in a 34 pt paper disc.
+struct ComposerSecondary {
+    let symbol: String
+    let label: String
+    let id: String
+    var enabled = true
+    let action: () -> Void
 }
 
 private struct OptionalFocus: ViewModifier {

@@ -134,8 +134,12 @@ struct HomeView: View {
     private var startButton: some View {
         Button(action: onStart) {
             Text("Start a memory")
-                .font(Sans.font(size: 24.6, weight: 700))
+                .font(Sans.font(size: 24.6, standard: 24.6, weight: 700))
                 .foregroundStyle(Color(hex: 0xFFFAF3))
+                // One line at any text size: the button is drawn 226 wide.
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 16)
                 .frame(width: 226, height: 92)
                 .background(
                     RoundedRectangle(cornerRadius: 36)
@@ -300,6 +304,7 @@ struct HomeCollectionCard: View {
                 .foregroundStyle(style.title)
                 .lineSpacing(3)
                 .lineLimit(2)
+                .minimumScaleFactor(0.8)
                 .multilineTextAlignment(.leading)
                 .frame(width: 118, alignment: .leading)
             Spacer(minLength: 0)

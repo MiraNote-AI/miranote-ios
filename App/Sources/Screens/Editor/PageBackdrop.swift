@@ -59,11 +59,20 @@ extension View {
     /// the card sits 21 in from each edge (the design's 20 on 374).
     func canvasCard() -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.canvasCorner)
-        return frame(width: MiraNoteConfig.pageWidth)
+        return canvasCardWidth()
             .clipShape(shape)
             .overlay(shape.strokeBorder(Palette.ink.opacity(0.06), lineWidth: Metrics.hairline))
             .background(shape.fill(Palette.paper).shadow(color: Palette.ink.opacity(0.08), radius: 19, y: 16))
+            .padding(.horizontal, UIVariant.canvasSideInset ?? 0)
             .frame(maxWidth: .infinity)
+    }
+
+    /// The card's width: the page's own, or -- under a filling canvas option
+    /// -- all the room left by the side inset (the caller pads).
+    func canvasCardWidth() -> some View {
+        let fills = UIVariant.canvasSideInset != nil
+        return frame(width: fills ? nil : MiraNoteConfig.pageWidth)
+            .frame(maxWidth: fills ? .infinity : nil)
     }
 }
 
