@@ -37,6 +37,29 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.collections[0].memories[0].title, "second save")
     }
 
+    /// A page started in a journal goes to that journal, even when another
+    /// one has the same name (names are not unique); autosave then Done
+    /// still files it once.
+    func testFilingInACollectionPicksItAmongSameNamedOnes() {
+        let first = MemoryCollection(title: "Trips")
+        let second = MemoryCollection(title: "Trips")
+        let viewModel = HomeViewModel(collections: [first, second])
+        let memory = Memory(title: "train to the coast")
+        viewModel.file(memory, inCollection: second.id, orTitled: "Daily Log")
+        viewModel.file(memory, inCollection: second.id, orTitled: "Daily Log")
+        XCTAssertEqual(viewModel.collection(first.id)?.memories.count, 0)
+        XCTAssertEqual(viewModel.collection(second.id)?.memories.map(\.id), [memory.id])
+    }
+
+    /// No journal, or one that is gone: the page goes under the title given.
+    func testFilingInAMissingCollectionFallsBackToTheTitle() {
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log")])
+        viewModel.file(Memory(), inCollection: nil, orTitled: "Daily Log")
+        viewModel.file(Memory(), inCollection: UUID(), orTitled: "Daily Log")
+        XCTAssertEqual(viewModel.collections.count, 1)
+        XCTAssertEqual(viewModel.collections[0].memories.count, 2)
+    }
+
     func testAddCollectionAppendsAndIgnoresBlank() {
         let viewModel = HomeViewModel(collections: [])
         viewModel.addCollection(title: "New notebook")
