@@ -95,6 +95,19 @@ public final class HomeViewModel {
         store.save(library)
     }
 
+    /// A page started in a journal ("+ New memory") goes to that journal by
+    /// id: names are not unique. No journal, or one that is gone, files it
+    /// under `title`. Filed already (autosave): replaced in place.
+    public func file(_ memory: Memory, inCollection collectionID: MemoryCollection.ID?, orTitled title: String) {
+        let filed = library.collections.contains { $0.memories.contains { $0.id == memory.id } }
+        guard !filed, let index = library.collections.firstIndex(where: { $0.id == collectionID }) else {
+            file(memory, underCollectionTitled: title)
+            return
+        }
+        library.collections[index].memories.append(memory)
+        store.save(library)
+    }
+
     /// The page's "about" date is user-editable (v2.1): backfilled pages
     /// land in the month they are about, not the month they were made.
     public func setMemoryDate(

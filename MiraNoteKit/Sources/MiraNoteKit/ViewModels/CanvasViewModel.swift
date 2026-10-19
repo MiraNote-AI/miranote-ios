@@ -176,6 +176,8 @@ public final class CanvasViewModel {
         // The block as this undo left it is what Cancel takes it back to
         // (not a live preview the next change may find on it).
         if sessionNeedsStart, let editing = editingTextItemID { sessionOrigin = item(editing) }
+        // Words typed next are a step of their own, not part of the one below.
+        if editingTextItemID != nil { typingNeedsStep = true }
     }
 
     /// Re-applies the step the last undo took back (handoff screens 32-34).

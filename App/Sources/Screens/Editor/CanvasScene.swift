@@ -52,6 +52,8 @@ struct CanvasScene: View {
     /// of. Takes let go of and still written down are `miraTakesOut`.
     @State var miraListening = false
     @State var miraTakesOut = 0
+    /// The last Mira strip take let go of: the next one lands after it.
+    @State var lastMiraTake: Task<Void, Never>?
     /// Why the last Mira strip take brought no words, while the strip rests.
     @State var miraNotice: String?
     /// The Mira strip's press in progress (hold to talk, or a tap toggle).

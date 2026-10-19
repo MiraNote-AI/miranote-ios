@@ -54,8 +54,7 @@ extension MiraCanvasCoordinator {
     public func askBackground(_ words: String, editor: CanvasViewModel) {
         let trimmed = words.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        ask(trimmed, editor: editor, as: .setBackground(prompt: trimmed))
-        appliesFirstBackground = true
+        ask(trimmed, editor: editor, as: .setBackground(prompt: trimmed), appliesFirstBackground: true)
     }
 
     // MARK: Canvas chat quick actions (handoff screen 06)

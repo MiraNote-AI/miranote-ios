@@ -62,6 +62,25 @@ final class TextEditingSessionTests: XCTestCase {
         XCTAssertEqual(block(editor, other)?.text, "first, dictated")
     }
 
+    /// An Undo inside the session leaves the words typed next as a step of
+    /// their own: the next Undo takes back only them, never the step below
+    /// (a size, Mira's title) as well.
+    func testWordsTypedAfterAnUndoInASessionAreTheirOwnStep() {
+        let editor = CanvasViewModel(memory: Memory())
+        let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))
+        editor.startEditingText(id)
+        editor.setTextPointSize(itemID: id, to: 30)
+        editor.setText(itemID: id, to: "lunch with")
+        editor.undo()
+        XCTAssertEqual(block(editor, id)?.text, "lunch")
+        XCTAssertEqual(block(editor, id)?.pointSize, 30)
+
+        editor.setText(itemID: id, to: "lunch by the river")
+        editor.undo()
+        XCTAssertEqual(block(editor, id)?.text, "lunch")
+        XCTAssertEqual(block(editor, id)?.pointSize, 30, "the size step went with the words typed after an undo")
+    }
+
     /// The app backgrounded while a new block waits for its dictated words:
     /// the autosave files no page holding an empty block.
     func testAnEmptyBlockStillBeingWrittenIsNotFiled() {

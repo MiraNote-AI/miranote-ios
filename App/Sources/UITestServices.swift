@@ -76,16 +76,22 @@ struct UITestScriptedStudio: ImageStudioService {
 /// The mock transcriber, slower by `-TRANSCRIBE_DELAY <ms>` so a test can
 /// act while the words are on their way ("Writing it down..."), or with
 /// only the process's first take held (`-TRANSCRIBE_FIRST_DELAY <ms>`).
+/// `-NUMBER_TAKES` ends each take's words with its number, in the order
+/// the takes were let go; `-FAIL_FIRST_TAKE` fails the first take.
 struct UITestScriptedTranscription: VoiceTranscriptionService {
     private let mock = MockVoiceTranscriptionService()
     @MainActor private static var takes = 0
 
     func transcribe(audio: Data, filename: String) async throws -> String {
+        let take = await Self.countTake()
         let delay = UserDefaults.standard.integer(forKey: "TRANSCRIBE_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
         let first = UserDefaults.standard.integer(forKey: "TRANSCRIBE_FIRST_DELAY")
-        if first > 0, await Self.countTake() == 1 { try await Task.sleep(for: .milliseconds(first)) }
-        return try await mock.transcribe(audio: audio, filename: filename)
+        if first > 0, take == 1 { try await Task.sleep(for: .milliseconds(first)) }
+        let arguments = ProcessInfo.processInfo.arguments
+        if take == 1, arguments.contains("-FAIL_FIRST_TAKE") { throw URLError(.notConnectedToInternet) }
+        let words = try await mock.transcribe(audio: audio, filename: filename)
+        return arguments.contains("-NUMBER_TAKES") ? "\(words) #\(take)" : words
     }
 
     @MainActor private static func countTake() -> Int {

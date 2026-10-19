@@ -162,7 +162,13 @@ extension CanvasScene {
         let then = afterWritingDown
         afterWritingDown = nil
         endTextEditing()
-        then?()
+        // A take started meanwhile (a hold during the wait) is waited for
+        // too: the tap's own action follows once its words land.
+        if doneWaiting != nil {
+            afterWritingDown = then
+        } else {
+            then?()
+        }
         if !caught { flashHint("Couldn't catch those words.") }
     }
 
