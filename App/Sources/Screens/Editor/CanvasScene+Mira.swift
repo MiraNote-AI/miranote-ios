@@ -191,8 +191,11 @@ extension CanvasScene {
         self.recorder = nil
         miraListening = false
         miraTakesOut += 1
-        Task {
+        let earlier = lastMiraTake
+        lastMiraTake = Task {
             let words = await miraWords(from: recorder)
+            // Takes land in the order spoken, whichever is written down first.
+            await earlier?.value
             miraTakesOut -= 1
             guard let words else { return }
             miraPrompt = miraPrompt.isEmpty ? words : miraPrompt + " " + words
@@ -214,7 +217,8 @@ extension CanvasScene {
             miraNotice = "I couldn't catch any words -- try again?"
             return nil
         }
-        miraNotice = nil
+        // An earlier take's notice stays: a new hold clears it as its mic
+        // comes up.
         return words
     }
 

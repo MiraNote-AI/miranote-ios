@@ -107,7 +107,9 @@ Delay hooks (launch arguments, `-UITEST` only): `-TRANSCRIBE_DELAY <ms>`,
 `-TRANSCRIBE_FIRST_DELAY <ms>`, `-MIC_START_DELAY <ms>`, `-AI_EDIT_DELAY
 <ms>`, `-CHAT_DELAY <ms>`, `-IMPORT_DELAY <ms>`, `-EXPORT_DELAY <ms>`,
 `-GENERATE_DELAY <ms>`, `-TEXT_MODE_BEAT <ms>`, `-HOLD_INTERRUPT_AFTER
-<ms>`.
+<ms>`. Transcript hooks: `-NUMBER_TAKES` (each take's words end with its
+number, in the order the takes were let go) and `-FAIL_FIRST_TAKE` (the
+first take fails).
 
 ## 4. Simulator monkey
 

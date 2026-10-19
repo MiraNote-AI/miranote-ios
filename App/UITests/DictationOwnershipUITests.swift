@@ -293,6 +293,35 @@ final class DictationOwnershipUITests: XCTestCase {
         assertVoiceRecords("the Mira strip's mic did not stay on")
     }
 
+    /// Two holds on the Mira strip, the first written down slowly: the
+    /// question reads them in the order spoken.
+    func testMiraStripTakesLandInTheOrderSpoken() {
+        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "4000", "-NUMBER_TAKES"])
+        app.openMiraChat()
+        let miraStrip = app.descendants(matching: .any)["mira.dictation"]
+        miraStrip.press(forDuration: 0.8)
+        miraStrip.press(forDuration: 0.8)
+        let both = NSPredicate(format: "value CONTAINS %@ AND value CONTAINS %@", "#1", "#2")
+        let landed = XCTNSPredicateExpectation(predicate: both, object: app.miraInput)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 12), .completed, "both phrases land")
+        XCTAssertEqual(app.miraInput.value as? String,
+                       "Transcribed voice note (mock) #1 Transcribed voice note (mock) #2")
+    }
+
+    /// A take that fails keeps its notice on the strip when a later take
+    /// lands, so the lost phrase is explained.
+    func testAFailedMiraTakeKeepsItsNoticeWhenTheNextLands() {
+        startAMemory(["-TRANSCRIBE_DELAY", "1500", "-FAIL_FIRST_TAKE"])
+        app.openMiraChat()
+        let miraStrip = app.descendants(matching: .any)["mira.dictation"]
+        miraStrip.press(forDuration: 0.8)
+        miraStrip.press(forDuration: 0.8)
+        let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
+        let landed = XCTNSPredicateExpectation(predicate: filled, object: app.miraInput)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed, "the second phrase lands")
+        XCTAssertEqual(miraStrip.value as? String, "Couldn't reach the transcriber -- try again?")
+    }
+
     /// Same, but the words do not come within the wait's cap: the session
     /// ends without them, the empty block goes, and Home at once files no
     /// "New memory" page.
