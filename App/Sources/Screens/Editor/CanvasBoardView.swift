@@ -460,7 +460,10 @@ struct CanvasBoardView: View {
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
-        .modifier(DropIn(active: landing?.itemID == item.id && landing?.dropIn == true))
+        .modifier(DropIn(
+            active: landing?.itemID == item.id && (landing?.dropIn == true || landing?.settle == true),
+            settle: landing?.settle == true
+        ))
     }
 
     /// The moving element's box on screen, translation included: the scene

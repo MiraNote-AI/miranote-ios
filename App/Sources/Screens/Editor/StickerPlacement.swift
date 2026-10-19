@@ -88,22 +88,29 @@ struct Landing: Equatable {
     let itemID: CanvasItem.ID
     /// Drops in: from 1.35x and clear to its size, on a spring.
     var dropIn = true
+    /// Settles: a quick fly-in's last 8 % of overshoot, springing home.
+    var settle = false
     /// "Added - drag to move" with Undo, at the card's foot.
     var toast = false
 }
 
-/// The drop-in of a landing sticker, run once as it appears.
+/// The arrival of a landing sticker, run once as it appears: a drop-in
+/// from 1.35x and clear, or a settle from 1.08x.
 struct DropIn: ViewModifier {
     let active: Bool
+    var settle = false
     @State private var landed = false
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(active && !landed ? 1.35 : 1)
-            .opacity(active && !landed ? 0 : 1)
+            .scaleEffect(active && !landed ? (settle ? 1.08 : 1.35) : 1)
+            .opacity(active && !landed && !settle ? 0 : 1)
             .onAppear {
                 guard active else { return }
-                withAnimation(.spring(response: 0.38 * UIVariant.slowmo, dampingFraction: 0.58)) { landed = true }
+                let spring = settle
+                    ? Animation.spring(response: 0.22 * UIVariant.slowmo, dampingFraction: 0.5)
+                    : .spring(response: 0.38 * UIVariant.slowmo, dampingFraction: 0.58)
+                withAnimation(spring) { landed = true }
             }
     }
 }

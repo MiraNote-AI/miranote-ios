@@ -55,6 +55,11 @@ enum UIVariant {
         /// Lands beside the newest element while the panel stays open, so
         /// the page shows it arrive and another can follow.
         case stayAndStack = "5"
+        /// Flow 3, quick: a 0.25 s hop onto flow 1's spot, a settle, the
+        /// toast; a touch mid-flight lands it at once.
+        case quickFly = "6"
+
+        var flies: Bool { self == .flyIn || self == .quickFly }
     }
 
     static let placeFlow = option("placeFlow") ?? PlaceFlow.current

@@ -47,6 +47,7 @@ struct StickerPanelScene: View {
     @State private var previewFrame: CGRect = .zero
     /// Placement flow 3's sticker in flight; flow 5's sticker just stacked.
     @State private var flight: Flight?
+    @State private var flightPending: PendingPlacement?
     @State private var stacked: Stacked?
     /// While typing, the sheet folds to its collapsed height: the keyboard
     /// leaves no room for 430 above the composer.
@@ -93,7 +94,8 @@ struct StickerPanelScene: View {
                 .animation(.easeOut(duration: 0.18), value: dragPoint == nil)
                 // Flow 3: the sheet slides away under the flying sticker.
                 .offset(y: flight == nil ? 0 : 700)
-                .animation(.easeIn(duration: 0.45 * UIVariant.slowmo), value: flight == nil)
+                .animation(.easeIn(duration: min(0.45, Self.flightDuration) * UIVariant.slowmo),
+                           value: flight == nil)
         } bottom: {
             InputModeBar(active: .sticker, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
@@ -141,6 +143,15 @@ struct StickerPanelScene: View {
                 if let stacked { landingRing(stacked, origin: origin) }
             }
             .ignoresSafeArea()
+            .overlay {
+                // Flow 6: no waiting on the hop -- a touch lands it now.
+                if flight != nil, UIVariant.placeFlow == .quickFly {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .ignoresSafeArea()
+                        .gesture(DragGesture(minimumDistance: 0).onChanged { _ in land() })
+                }
+            }
         }
         .onAppear {
             // Entries whose image file is gone or degenerate would render as
@@ -872,7 +883,7 @@ struct StickerPanelScene: View {
         let pending = PendingPlacement(prompt: drafts[page].prompt, fileName: fileName, isSticker: true,
                                        at: flow == .current ? nil : placementSpot)
         switch flow {
-        case .flyIn: fly(pending)
+        case .flyIn, .quickFly: fly(pending)
         case .stayAndStack: stack(pending)
         case .current, .direct, .ghost, .dragFirst:
             pendingPlacement = pending
@@ -900,22 +911,37 @@ struct StickerPanelScene: View {
     /// Flow 3: the sticker leaves the preview along a short arc (across
     /// fast, down late) and shrinks to its placed size as the sheet slides
     /// away; the canvas takes it where it lands.
+    /// Flow 6 makes the same hop in 0.25 s and arrives 8 % large, which
+    /// the canvas settles; a touch during the hop lands it at once.
     private func fly(_ pending: PendingPlacement) {
         guard let at = pending.at, let image = UIImage(data: drafts[page].current.data) else { return }
         let target = onScreen(at)
-        let duration = 0.55 * UIVariant.slowmo
+        let quick = UIVariant.placeFlow == .quickFly
+        let duration = Self.flightDuration * UIVariant.slowmo
+        let landedSide = StickerSpot.side * pageCard.scale * (quick ? 1.08 : 1)
         flight = Flight(image: image, x: previewFrame.midX, y: previewFrame.midY,
                         side: min(232, previewFrame.height))
+        flightPending = pending
         withAnimation(.easeOut(duration: duration)) {
             flight?.x = target.x
-            flight?.side = StickerSpot.side * pageCard.scale
+            flight?.side = landedSide
         }
         withAnimation(.easeIn(duration: duration)) { flight?.y = target.y }
         Task {
-            try? await Task.sleep(for: .seconds(duration + 0.05))
-            pendingPlacement = pending
-            actions.leading()
+            try? await Task.sleep(for: .seconds(duration + (quick ? 0 : 0.05)))
+            land()
         }
+    }
+
+    private static var flightDuration: Double { UIVariant.placeFlow == .quickFly ? 0.25 : 0.55 }
+
+    /// Hands the flying sticker to the canvas, once: when the hop ends, or
+    /// at a touch during it.
+    private func land() {
+        guard let pending = flightPending else { return }
+        flightPending = nil
+        pendingPlacement = pending
+        actions.leading()
     }
 
     /// Flow 5: the sticker lands at once beside the newest element; the

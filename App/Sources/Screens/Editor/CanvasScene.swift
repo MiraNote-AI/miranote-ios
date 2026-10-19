@@ -563,7 +563,8 @@ struct CanvasScene: View {
             return
         }
         guard let id = placePending(at: at) else { return }
-        landing = Landing(itemID: id, dropIn: UIVariant.placeFlow != .flyIn, toast: UIVariant.placeFlow == .flyIn)
+        let flow = UIVariant.placeFlow
+        landing = Landing(itemID: id, dropIn: !flow.flies, settle: flow == .quickFly, toast: flow.flies)
     }
 
     private var ghostPlacement: GhostPlacement? {
