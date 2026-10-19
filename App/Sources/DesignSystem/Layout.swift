@@ -10,7 +10,9 @@ enum Metrics {
     /// Side inset of the canvas card (334 wide on 374).
     static let canvasInset: CGFloat = 20
     /// Side inset of the five-tool bar (5 x 64 + 4 x 4 on 374).
-    static let toolBarInset: CGFloat = 19
+    /// Under the filling canvas option C the bar takes the chrome's 16, so
+    /// every control shares one edge, 8 inside the card's.
+    static let toolBarInset: CGFloat = UIVariant.canvas == .c ? chromeInset : 19
     /// The canvas card: corner, and the gaps that frame it vertically
     /// (nav bottom to card top, card bottom to tool bar top).
     /// Tighter around a bigger card under the canvas option (`UIVariant`).

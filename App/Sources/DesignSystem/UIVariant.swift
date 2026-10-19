@@ -21,24 +21,41 @@ enum UIVariant {
         }
     }
 
-    /// Item 1, a bigger canvas card.
-    static let canvas = option("canvas")
-    /// Item 3, the made sticker's Add within thumb reach.
-    static let stickerAdd = option("stickerAdd")
-    /// Item 4, the UI type scale.
-    static let type = option("type")
+    /// Round 2 of item 3 (owner picked A, with changes): the header Add is
+    /// gone while a made sticker shows, and the sheet adds it.
+    enum StickerAdd: String {
+        case current, a = "A", b = "B", c = "C"
+        /// A full-width "Add to page" under the preview; a tap on it adds.
+        case a1 = "A1"
+        /// "Add to page" with a compact Favorite beside it, one row.
+        case a2 = "A2"
+        /// A1, and the preview drags out onto the page.
+        case a3 = "A3"
 
-    private static func option(_ key: String) -> Option {
+        /// Round 2: the sheet's own Add replaces the header's.
+        var hidesHeaderAdd: Bool { [.a1, .a2, .a3].contains(self) }
+        /// A full-width "Add to page" pill under the preview.
+        var addPill: Bool { [.a, .a1, .a2, .a3].contains(self) }
+        /// A tap on the preview adds it.
+        var previewAdds: Bool { self != .current && self != .b }
+    }
+
+    /// Item 1, a bigger canvas card.
+    static let canvas = option("canvas") ?? Option.current
+    /// Item 3, the made sticker's Add within thumb reach.
+    static let stickerAdd = option("stickerAdd") ?? StickerAdd.current
+    /// Item 4, the UI type scale.
+    static let type = option("type") ?? Option.current
+
+    private static func option<Value: RawRepresentable>(_ key: String) -> Value? where Value.RawValue == String {
         #if DEBUG
         let pairs = UserDefaults.standard.string(forKey: "UI_VARIANT")?.split(separator: ",") ?? []
         for pair in pairs {
             let parts = pair.split(separator: "=")
-            if parts.count == 2, parts[0] == key, let option = Option(rawValue: String(parts[1])) {
-                return option
-            }
+            if parts.count == 2, parts[0] == key { return Value(rawValue: String(parts[1])) }
         }
         #endif
-        return .current
+        return nil
     }
 }
 

@@ -12,6 +12,10 @@ extension CanvasScene {
 
     /// Screen 05: the tool's glass sheet over the canvas card, 7 pt taller
     /// than the card (it ends 13 above the tool bar).
+    private var sheetInsetInCard: CGFloat {
+        UIVariant.canvasSideInset.map { Metrics.chromeInset - $0 } ?? 0
+    }
+
     var backgroundSheet: some View {
         BackgroundToolSheet(
             editor: editor,
@@ -25,7 +29,12 @@ extension CanvasScene {
             painting: applyingBackground,
             notice: backgroundNotice
         )
-        .frame(width: MiraNoteConfig.pageWidth)
+        // Over a filling card (canvas B/C) the sheet floats inside it, its
+        // edges on the chrome's 16 pt line and as far below the card's top.
+        // (The board spans the card's row, insets included.)
+        .frame(width: UIVariant.canvasSideInset == nil ? MiraNoteConfig.pageWidth : nil)
+        .padding(.horizontal, UIVariant.canvasSideInset == nil ? 0 : Metrics.chromeInset)
+        .padding(.top, sheetInsetInCard)
         .padding(.bottom, -7)
         .transition(.opacity)
     }

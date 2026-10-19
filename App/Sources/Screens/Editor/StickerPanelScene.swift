@@ -40,6 +40,11 @@ struct StickerPanelScene: View {
     /// The words the showing stickers were made from (sticker Add option B:
     /// the composer adds them until new words are typed).
     @State private var madeFrom = ""
+    /// Option A3: where a sticker dragged out of the sheet is, and the page
+    /// row it can land on (both global).
+    @State private var dragPoint: CGPoint?
+    @State private var pageRow: CGRect = .zero
+    @State private var previewFrame: CGRect = .zero
     /// While typing, the sheet folds to its collapsed height: the keyboard
     /// leaves no room for 430 above the composer.
     @FocusState private var promptFocused: Bool
@@ -50,7 +55,9 @@ struct StickerPanelScene: View {
     var body: some View {
         EditorScaffold(
             leading: "Cancel",
-            trailing: "Add",
+            // Round 2 of sticker Add: the sheet's own Add replaces this one
+            // while a made sticker shows (or is on its way).
+            trailing: UIVariant.stickerAdd.hidesHeaderAdd && (generating || !drafts.isEmpty) ? nil : "Add",
             onLeading: actions.leading,
             onTrailing: add,
             // The panel records no step of its own (presets and favorites
@@ -58,7 +65,8 @@ struct StickerPanelScene: View {
             // header Undo has nothing here, never a change under the scrim.
             onUndo: {},
             undoEnabled: false,
-            scrimmed: true,
+            // A sticker dragged out (option A3) shows the page it lands on.
+            scrimmed: dragPoint == nil,
             onScrimTap: {
                 // A tap on the page goes back to it -- except while a
                 // sticker is being made or waits to be added: it took
@@ -69,10 +77,14 @@ struct StickerPanelScene: View {
         ) {
             // The page the sticker will land on, read-only under the scrim.
             PagePreview(memory: editor.memory) {}
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { pageRow = $0 }
         } sheet: {
             sheet
                 .frame(height: sheetHeight)
                 .animation(.spring(response: 0.35), value: sheetHeight)
+                // Out of the way while a sticker is dragged onto the page.
+                .opacity(dragPoint == nil ? 1 : 0)
+                .animation(.easeOut(duration: 0.18), value: dragPoint == nil)
         } bottom: {
             InputModeBar(active: .sticker, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
@@ -102,11 +114,27 @@ struct StickerPanelScene: View {
             )
             .animation(.easeOut(duration: 0.2), value: composerAdds)
         }
+        .overlay {
+            GeometryReader { geo in
+                draggedSticker(origin: geo.frame(in: .global).origin)
+            }
+            .ignoresSafeArea()
+        }
         .onAppear {
             // Entries whose image file is gone or degenerate would render as
             // blank squares.
             favorites = favoritesStore.prunedRaisingSmall(images: imageStore)
         }
+        #if DEBUG
+        // -STICKER_DRAG_POSE x,y: holds a drag there once a sticker shows,
+        // for a screenshot of the mid-drag state (XCUITest cannot pause a
+        // finger mid-drag).
+        .onChange(of: drafts.count) {
+            guard let pose = UserDefaults.standard.string(forKey: "STICKER_DRAG_POSE")?
+                .split(separator: ",").compactMap({ Double($0) }), pose.count == 2, !drafts.isEmpty else { return }
+            dragPoint = CGPoint(x: pose[0], y: pose[1])
+        }
+        #endif
         #if DEBUG
         .background(DebugStateProbe {
             ["scene": "sticker", "listening": [String: Bool](), "busy": busy, "drafts": drafts.count,
@@ -133,10 +161,19 @@ struct StickerPanelScene: View {
     private var sheetHeight: CGFloat {
         if promptFocused { return 147 }
         switch tab {
-        // Sticker Add options A and C grow by their pill or hint line.
-        case .make: return showsWork ? 430 + UIVariant.stickerAdd.pick(0, a: 70, b: 0, c: 36) : 147
+        // Sticker Add options grow by their pill, hint line, or both.
+        case .make: return showsWork ? 430 + addRoom : 147
         case .favorites: return favorites.isEmpty ? 147 : 420
         case .set: return 420
+        }
+    }
+
+    private var addRoom: CGFloat {
+        switch UIVariant.stickerAdd {
+        case .current, .b: return 0
+        case .c: return 36
+        case .a, .a1, .a2: return 70
+        case .a3: return 96
         }
     }
 
@@ -221,6 +258,7 @@ struct StickerPanelScene: View {
                     .padding(.leading, 2)
                 preview
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { previewFrame = $0 }
                 addAffordance
                 styleTiles
                     .padding(.leading, 2)
@@ -300,12 +338,15 @@ struct StickerPanelScene: View {
             .accessibilityLabel("Redo style")
             .accessibilityIdentifier("sticker.redo")
 
-            Button(action: favoriteCurrent) {
-                FloatingCircle { FloatingGlyph.favorite(saved: draft?.current.favorite ?? false) }
+            // Option A2 moves Favorite beside "Add to page".
+            if UIVariant.stickerAdd != .a2 {
+                Button(action: favoriteCurrent) {
+                    FloatingCircle { FloatingGlyph.favorite(saved: draft?.current.favorite ?? false) }
+                }
+                .disabled(busy || draft == nil || (draft?.current.favorite ?? false))
+                .accessibilityLabel("Add to Favorites")
+                .accessibilityIdentifier("sticker.favorite")
             }
-            .disabled(busy || draft == nil || (draft?.current.favorite ?? false))
-            .accessibilityLabel("Add to Favorites")
-            .accessibilityIdentifier("sticker.favorite")
         }
         .buttonStyle(.plain)
     }
@@ -350,6 +391,8 @@ struct StickerPanelScene: View {
             .accessibilityIdentifier("sticker.result.\(index)")
             // Sticker Add options A and C: the sticker itself adds.
             .onTapGesture { if previewAdds { add() } }
+            .gesture(UIVariant.stickerAdd == .a3 && !busy ? dragOut : nil)
+            .opacity(dragPoint != nil && index == page ? 0.3 : 1)
             .accessibilityAction(named: "Add to page") { if previewAdds { add() } }
             if styling && index == page {
                 DotRingSpinner(diameter: 80)
@@ -360,44 +403,159 @@ struct StickerPanelScene: View {
 
     // MARK: Add within thumb reach (owner, 2026-10-19)
 
-    private var previewAdds: Bool { UIVariant.stickerAdd == .a || UIVariant.stickerAdd == .c }
+    private var previewAdds: Bool { UIVariant.stickerAdd.previewAdds }
 
-    /// Under the made sticker: option A's full-width "Add to page", option
-    /// C's one-line hint. Today, and option B, nothing (B adds from the
+    /// Under the made sticker: the A options' "Add to page" (A2 with its
+    /// Favorite beside it, A3 with the drag hint above), option C's
+    /// one-line hint. Today, and option B, nothing (B adds from the
     /// composer).
     @ViewBuilder private var addAffordance: some View {
-        switch UIVariant.stickerAdd {
-        case .a:
-            Button(action: add) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
-                    Text("Add to page")
-                        .font(.miraPill)
-                }
-                .foregroundStyle(Palette.onInk)
-                .frame(maxWidth: .infinity)
-                .frame(height: 46)
-                .background(Capsule().fill(Palette.ink))
-                .shadow(color: Palette.ink.opacity(0.16), radius: 10, y: 6)
-                .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(busy)
-            .opacity(busy ? 0.45 : 1)
-            .accessibilityIdentifier("sticker.addToPage")
-            .padding(.top, 10)
-            .padding(.bottom, 14)
-        case .c:
+        let option = UIVariant.stickerAdd
+        if option == .c {
             Text("Tap the sticker to add it")
                 .font(.miraCaption)
                 .foregroundStyle(Palette.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 8)
                 .padding(.bottom, 12)
-        case .current, .b:
-            EmptyView()
+        } else if option.addPill {
+            VStack(spacing: 8) {
+                if option == .a3 {
+                    Text("Drag onto the page or tap Add")
+                        .font(.miraCaption)
+                        .foregroundStyle(Palette.textSecondary)
+                        .accessibilityIdentifier("sticker.dragHint")
+                }
+                HStack(spacing: 10) {
+                    addPill
+                    if option == .a2 { favoriteButton }
+                }
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 14)
         }
+    }
+
+    // MARK: Drag onto the page (option A3)
+
+    /// A short press lifts the sticker (a swipe still pages between made
+    /// ones); it follows the finger and lands where it is let go over the
+    /// page. Anywhere else it goes back into the sheet.
+    private var dragOut: some Gesture {
+        LongPressGesture(minimumDuration: 0.2)
+            // Inside the preview's TabView pages a drag reports locations
+            // in the page's own space, whatever space is asked for: the
+            // sticker's centre is the preview's (read outside the TabView)
+            // moved by the finger's translation.
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                if case .second(true, let drag?) = value { dragPoint = lifted(by: drag.translation) }
+            }
+            .onEnded { value in
+                guard case .second(true, let drag?) = value else {
+                    dragPoint = nil
+                    return
+                }
+                drop(at: lifted(by: drag.translation))
+            }
+    }
+
+    private func lifted(by translation: CGSize) -> CGPoint {
+        CGPoint(x: previewFrame.midX + translation.width, y: previewFrame.midY + translation.height)
+    }
+
+    /// The card within the page row, and page points per screen point.
+    private var pageCard: (frame: CGRect, scale: CGFloat) {
+        let inset = UIVariant.canvasSideInset ?? (pageRow.width - MiraNoteConfig.pageWidth) / 2
+        let card = pageRow.insetBy(dx: inset, dy: 0)
+        return (card, card.width / MiraNoteConfig.pageWidth)
+    }
+
+    private func drop(at point: CGPoint) {
+        dragPoint = nil
+        let card = pageCard
+        guard card.frame.contains(point), drafts.indices.contains(page),
+              let fileName = try? imageStore.save(drafts[page].current.data, id: UUID()) else { return }
+        // The preview shows the page from its top.
+        let onPage = CGPoint(x: (point.x - card.frame.minX) / card.scale,
+                             y: (point.y - card.frame.minY) / card.scale)
+        let id = editor.addSticker(
+            GeneratedSticker(prompt: drafts[page].prompt, symbolName: "sparkles", fileName: fileName),
+            at: onPage
+        )
+        editor.select(id)
+        actions.leading()
+    }
+
+    /// The lifted sticker, over everything, at the page's own sticker size,
+    /// with a word on what letting go does. `origin` is the overlay's
+    /// global origin.
+    @ViewBuilder private func draggedSticker(origin: CGPoint) -> some View {
+        if let dragPoint, drafts.indices.contains(page),
+           let image = UIImage(data: drafts[page].current.data) {
+            let overPage = pageCard.frame.contains(dragPoint)
+            let side = 88 * pageCard.scale
+            ZStack {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    // The 88 pt a placed sticker takes (`addSticker`).
+                    .frame(width: side, height: side)
+                    .scaleEffect(1.06)
+                    .shadow(color: Palette.ink.opacity(0.28), radius: 14, y: 10)
+                Text(overPage ? "Let go to place it" : "Drag onto the page")
+                    .font(.miraChip)
+                    .foregroundStyle(Palette.onInk)
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
+                    .background(Capsule().fill(Palette.ink.opacity(0.88)))
+                    .fixedSize()
+                    .offset(y: -side / 2 - 26)
+            }
+            .position(x: dragPoint.x - origin.x, y: dragPoint.y - origin.y)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var addPill: some View {
+        Button(action: add) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .bold))
+                Text("Add to page")
+                    .font(.miraPill)
+            }
+            .foregroundStyle(Palette.onInk)
+            .frame(maxWidth: .infinity)
+            .frame(height: 46)
+            .background(Capsule().fill(Palette.ink))
+            .shadow(color: Palette.ink.opacity(0.16), radius: 10, y: 6)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .opacity(busy ? 0.45 : 1)
+        .accessibilityIdentifier("sticker.addToPage")
+    }
+
+    /// Option A2: Favorite as the pill's 46 pt paper companion (the floating
+    /// favorite circle goes); a filled star once saved.
+    private var favoriteButton: some View {
+        let saved = drafts.indices.contains(page) && drafts[page].current.favorite
+        return Button(action: favoriteCurrent) {
+            Image(systemName: saved ? "star.fill" : "star")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(saved ? Palette.forest : Palette.ink)
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(Palette.cardFill))
+                .overlay(Circle().strokeBorder(Palette.ink.opacity(0.12), lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy || saved)
+        .accessibilityLabel(saved ? "In Favorites" : "Add to Favorites")
+        .accessibilityIdentifier("sticker.favorite")
     }
 
     /// Option C's 44 pt ink "+" on the preview's corner, ringed in paper so

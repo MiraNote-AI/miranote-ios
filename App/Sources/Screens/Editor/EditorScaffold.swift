@@ -77,6 +77,9 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
                 .overlay(alignment: .bottom) {
                     sheet()
                         .padding(.horizontal, Metrics.chromeInset)
+                        // Inside a filling card the sheet floats with the
+                        // same margin below as beside it.
+                        .padding(.bottom, max(0, Metrics.chromeInset - (UIVariant.canvasSideInset ?? Metrics.chromeInset)))
                 }
             // Handoff rhythm: canvas card, 20, tool bar, 16, composer, and
             // the composer's bottom 36 above the screen edge (2 above the
