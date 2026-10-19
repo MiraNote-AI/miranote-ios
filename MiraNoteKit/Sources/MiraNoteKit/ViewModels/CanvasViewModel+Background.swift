@@ -29,12 +29,55 @@ extension CanvasViewModel {
     public func setPageColor(_ colorName: String, recordingUndo: Bool = true) {
         let clearsPainting = !colorName.isEmpty && !memory.backgroundFileName.isEmpty
         guard memory.pageColorName != colorName || clearsPainting else { return }
-        if recordingUndo { beginChange() }
+        if recordingUndo {
+            beginChange()
+        } else if pagePreviewOrigin == nil {
+            pagePreviewOrigin = pageLook
+        }
         memory.pageColorName = colorName
         if clearsPainting {
             memory.backgroundFileName = ""
             memory.backgroundSummary = ""
         }
+    }
+
+    /// The page's color and painting: what a live color preview starts from.
+    public struct PageLook: Equatable {
+        let pageColorName: String
+        let backgroundFileName: String
+        let backgroundSummary: String
+    }
+
+    public var pageLook: PageLook {
+        PageLook(
+            pageColorName: memory.pageColorName,
+            backgroundFileName: memory.backgroundFileName,
+            backgroundSummary: memory.backgroundSummary
+        )
+    }
+
+    /// A custom page color previewed live (`setPageColor(_:recordingUndo:
+    /// false)`) becomes one undo step back to `original`; none when the page
+    /// ends up as it was.
+    public func commitPagePreview(from original: PageLook) {
+        pagePreviewOrigin = nil
+        let previewed = pageLook
+        guard previewed != original else { return }
+        restore(original)
+        beginChange()
+        restore(previewed)
+    }
+
+    /// Drops a live page color preview: the page as it was, no undo step.
+    public func discardPagePreview(from original: PageLook) {
+        pagePreviewOrigin = nil
+        restore(original)
+    }
+
+    private func restore(_ look: PageLook) {
+        memory.pageColorName = look.pageColorName
+        memory.backgroundFileName = look.backgroundFileName
+        memory.backgroundSummary = look.backgroundSummary
     }
 
     /// Back to the default gradient: no page color, no painting. One undo.

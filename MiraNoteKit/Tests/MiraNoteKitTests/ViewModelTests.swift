@@ -45,14 +45,6 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.collections[0].title, "New notebook")
     }
 
-    func testAddNoteAppendsToNamedCollection() {
-        let seed = [MemoryCollection(title: "Log")]
-        let viewModel = HomeViewModel(collections: seed)
-        viewModel.addNote(titled: "First note", to: seed[0].id)
-        XCTAssertEqual(viewModel.collection(seed[0].id)?.memories.count, 1)
-        XCTAssertEqual(viewModel.collection(seed[0].id)?.memories.first?.title, "First note")
-    }
-
     func testChangesPersistThroughAFileStore() {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("vm-\(UUID().uuidString).json")

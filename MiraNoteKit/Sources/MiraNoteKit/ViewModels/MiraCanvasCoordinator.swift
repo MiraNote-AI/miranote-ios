@@ -7,7 +7,8 @@ public enum MiraTurnPhase: Equatable {
     case idle
     /// Shown only after `workingDelay` (400 ms): verb-specific copy + Stop.
     case working(verb: String)
-    /// A canvas edit landed: the Keep-pattern receipt (auto-keeps).
+    /// A canvas edit landed: the result sheet, waiting for Keep or Revert
+    /// (or for the user to move on with an edit or a new ask).
     case receipt(MiraReceipt)
     /// The turn failed; canvas untouched, prompt refilled.
     case failure(MiraFailure)
@@ -83,11 +84,6 @@ public final class MiraCanvasCoordinator {
     let imageTimeout: Duration
     let imageStore: ImageFileStore
     let stickerFavorites: StickerFavoritesStore
-    /// How long a receipt (and its Revert) stays before keeping by
-    /// itself. One line plus an inline Revert reads in a few seconds,
-    /// and the header undo still covers regrets after auto-keep -- so
-    /// short wins (Meng tuned this twice: 20s and 10s both felt long).
-    public nonisolated static let defaultReceiptDismiss: Duration = .seconds(6)
 
     /// The middle rung of the timeout ladder. Inside it, a look_at_page
     /// hop gets 25s and failing costs only the look. Outside it,
@@ -98,10 +94,11 @@ public final class MiraCanvasCoordinator {
 
     private let workingDelay: Duration
     private let timeout: Duration
-    private let receiptDismiss: Duration
 
     private var turnTask: Task<Void, Never>?
-    private var dismissTask: Task<Void, Never>?
+    /// The running turn is the Background tool's Apply: its painting lands
+    /// at once instead of waiting as two candidates.
+    var appliesFirstBackground = false
     private var sessionID: String?
     private var lastPrompt = ""
     /// The intent the last ask was given rather than read from its words.
@@ -113,13 +110,18 @@ public final class MiraCanvasCoordinator {
     /// The editor's changeCount when the current receipt was shown; Revert
     /// only undoes if nothing else mutated the canvas since.
     private var receiptChangeCount: Int?
+    /// The page's words as the receipt found them, and its editor: typing
+    /// records no undo step (and so no count), and a change made where the
+    /// canvas view is not mounted never reaches `canvasDidChange`, so Revert
+    /// compares both the count and the words.
+    private var receiptWords: [CanvasItem.ID: String]?
+    private weak var receiptEditor: CanvasViewModel?
 
     public init(
         text: TextTransformService,
         chat: ChatService,
         workingDelay: Duration = .milliseconds(400),
         timeout: Duration = MiraCanvasCoordinator.defaultTurnTimeout,
-        receiptDismiss: Duration = MiraCanvasCoordinator.defaultReceiptDismiss,
         imageStudio: ImageStudioService = MockImageStudioService(),
         imageTimeout: Duration = .seconds(120),
         imageStore: ImageFileStore = ImageFileStore(),
@@ -129,7 +131,6 @@ public final class MiraCanvasCoordinator {
         self.chat = chat
         self.workingDelay = workingDelay
         self.timeout = timeout
-        self.receiptDismiss = receiptDismiss
         self.imageStudio = imageStudio
         self.imageTimeout = imageTimeout
         self.imageStore = imageStore
@@ -142,6 +143,13 @@ public final class MiraCanvasCoordinator {
     public var isWorking: Bool {
         if case .working = phase { return true }
         return turnTask != nil
+    }
+
+    /// The text accessory's in-place rewrite (handoff screen 15): words in,
+    /// words out, no Mira turn -- the block previews the result while the
+    /// keyboard stays up, and the editor commits it.
+    public func rewriteText(_ text: String, mode: TextTransformMode) async throws -> String {
+        try await self.text.transform(text, mode: mode)
     }
 
     // MARK: Turn lifecycle
@@ -217,21 +225,36 @@ public final class MiraCanvasCoordinator {
     /// Whether the showing receipt's Revert would undo anything; a receipt
     /// for a turn that changed nothing offers no Revert.
     public var receiptCanRevert: Bool {
-        if case .receipt = phase { return receiptChangeCount != nil }
-        return false
+        guard case .receipt = phase, let editor = receiptEditor else { return false }
+        return receiptStillLatest(on: editor)
+    }
+
+    /// Mira's change is still the page's last one: no step recorded since,
+    /// and nothing typed.
+    private func receiptStillLatest(on editor: CanvasViewModel) -> Bool {
+        guard let expected = receiptChangeCount, let words = receiptWords else { return false }
+        return editor.changeCount == expected && Self.words(on: editor) == words
+    }
+
+    /// Every text block's words. Typing is the one user edit that records
+    /// no step; re-measured heights and photo descriptions are not edits.
+    private static func words(on editor: CanvasViewModel) -> [CanvasItem.ID: String] {
+        var words: [CanvasItem.ID: String] = [:]
+        for item in editor.items {
+            if case .text(let block) = item.content { words[item.id] = block.text }
+        }
+        return words
     }
 
     /// One-tap revert of the last applied change (the receipt's escape
     /// hatch). If anything else touched the canvas since the receipt was
-    /// shown, revert declines to undo (it would eat the user's edit, not
-    /// Mira's) and just dismisses.
+    /// shown -- an edit, or words typed -- revert declines to undo (it would
+    /// eat the user's edit, not Mira's) and just dismisses.
     public func revert(editor: CanvasViewModel) {
-        if let expected = receiptChangeCount, editor.changeCount == expected {
+        if receiptStillLatest(on: editor) {
             editor.undo()
         }
-        receiptChangeCount = nil
-        dismissTask?.cancel()
-        phase = .idle
+        dismiss()
     }
 
     /// The view calls this when the canvas mutates. A showing receipt is
@@ -243,7 +266,7 @@ public final class MiraCanvasCoordinator {
         case .receipt:
             // A non-revertible receipt has no count to compare; any edit
             // means the user has moved on.
-            if let expected = receiptChangeCount, editor.changeCount == expected { return }
+            if receiptStillLatest(on: editor) { return }
             dismiss()
         case .reply:
             dismiss()
@@ -252,10 +275,12 @@ public final class MiraCanvasCoordinator {
         }
     }
 
-    /// Auto-keep is the default: dismissing keeps the change.
+    /// Keep: dismissing keeps the change. A receipt never keeps by itself
+    /// (screen 07 waits for the choice); an edit or a new ask moves on.
     public func dismiss() {
         receiptChangeCount = nil
-        dismissTask?.cancel()
+        receiptWords = nil
+        receiptEditor = nil
         phase = .idle
     }
 
@@ -263,7 +288,7 @@ public final class MiraCanvasCoordinator {
         turnGeneration += 1
         turnTask?.cancel()
         turnTask = nil
-        dismissTask?.cancel()
+        appliesFirstBackground = false
         workingItemIDs = []
     }
 
@@ -405,13 +430,9 @@ public final class MiraCanvasCoordinator {
     /// only dismisses, since an undo would take back an older step.
     func showReceipt(_ receipt: MiraReceipt, editor: CanvasViewModel, revertible: Bool = true) {
         receiptChangeCount = revertible ? editor.changeCount : nil
+        receiptWords = revertible ? Self.words(on: editor) : nil
+        receiptEditor = editor
         phase = .receipt(receipt)
-        dismissTask?.cancel()
-        dismissTask = Task { [receiptDismiss] in
-            try? await Task.sleep(for: receiptDismiss)
-            guard !Task.isCancelled else { return }
-            if case .receipt = phase { phase = .idle }
-        }
     }
 
     /// Start a NEW turn for slow image work Mira asked for.

@@ -1,9 +1,12 @@
 import MiraNoteKit
 import SwiftUI
 
-/// Flow 7 Scene 01: the wordmark row, the date, the editorial hero, the ink
-/// "Start a memory" pill, a quick-capture field, and the collection grid --
-/// now driven by the user's real, persisted note collections.
+/// Handoff screen 01: the wordmark row with the profile circle, the
+/// two-line dateline, the editorial hero, the ink "Start a memory" button,
+/// the retrieval prompt bar, and the collection grid -- driven by the
+/// user's real, persisted note collections. Beyond the design: a "New
+/// collection" card closes the grid and "Recently deleted" sits under it
+/// when the bin holds anything.
 struct HomeView: View {
     var viewModel: HomeViewModel
     var onStart: () -> Void = {}
@@ -15,31 +18,26 @@ struct HomeView: View {
     @State private var addingCollection = false
     @State private var newCollectionName = ""
 
+    /// The dateline's warm grey (#8F8477), also used for the extras the
+    /// design does not draw (New collection, Recently deleted).
+    static let dateColor = Color(hex: 0x8F8477)
+
     var body: some View {
         ScrollView(showsIndicators: false) {
+            // Vertical rhythm from the handoff's frames, in Josefin's 1.0 em
+            // line boxes (the CSS 1.18 line height adds its half-leading to
+            // the gaps here).
             VStack(alignment: .leading, spacing: 0) {
                 header
-                    .padding(.bottom, 20)
-
-                Text(HomeView.dateLine(for: .now))
-                    .font(.miraDate)
-                    .foregroundStyle(Palette.textSecondary)
-                    .lineSpacing(1)
-                    .padding(.bottom, 14)
-
+                    .padding(.bottom, 8)
+                dateline
+                    .padding(.bottom, 9)
                 hero
-                    .padding(.bottom, 24)
-
-                // Handoff screen 01: the large Start button leads, the
-                // retrieval pill follows it. The pill still asks about the
-                // past -- its icon and placeholder say so -- it never starts
-                // a note.
-                startButton
                     .padding(.bottom, 28)
-
-                quickPill
+                startButton
+                    .padding(.bottom, 27)
+                promptBar
                     .padding(.bottom, 22)
-
                 grid
 
                 if !viewModel.trash.isEmpty {
@@ -50,17 +48,22 @@ struct HomeView: View {
                             Image(systemName: "tray")
                                 .font(.system(size: 12))
                             Text("Recently deleted (\(viewModel.trash.count))")
-                                .font(.miraCaption)
+                                .font(Sans.font(size: 12, weight: 600))
                         }
+                        // Not drawn by the design: textSecondary (6.1:1 on
+                        // the paper), not the 3.3:1 date color.
                         .foregroundStyle(Palette.textSecondary)
+                        .frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.trash")
-                    .padding(.top, 14)
+                    .padding(.top, 8)
                 }
             }
-            .padding(.horizontal, Metrics.screenPadding)
-            .padding(.top, 6)
+            .padding(.horizontal, Metrics.chromeInset)
+            // The profile circle rises 6 pt into the status-bar band: the
+            // wordmark, not the circle, lines up with the editor's nav row.
+            .padding(.top, -6)
             .padding(.bottom, 28)
         }
         .screenBackground()
@@ -76,24 +79,53 @@ struct HomeView: View {
         }
     }
 
+    /// Wordmark (Bold 15, #25231F) and the 38 pt glass profile circle. The
+    /// design's bell is left out: nothing stands behind it yet.
     private var header: some View {
-        HStack(spacing: 16) {
+        HStack(alignment: .top) {
             Text("MiraNote")
                 .font(.miraLogo)
+                .foregroundStyle(Color(hex: 0x25231F))
+                .padding(.top, 9)
             Spacer()
-            Image(systemName: "person")
+            Image("home.profile")
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(Color(hex: 0x635B50))
+                .frame(width: 38, height: 38)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.58))
+                        .overlay(Circle().strokeBorder(Color(hex: 0x48433B).opacity(0.12), lineWidth: 1))
+                        .shadow(color: Color(hex: 0x544738).opacity(0.025), radius: 8, y: 6)
+                )
+                .accessibilityHidden(true)
         }
-        .font(.system(size: 17, weight: .regular))
-        .foregroundStyle(Palette.ink)
     }
 
+    /// "MONDAY," over an indented "JUNE 22", Josefin Bold 24 in #8F8477.
+    private var dateline: some View {
+        let lines = HomeView.dateLines(for: .now)
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(lines.weekday)
+            Text(lines.day)
+                .padding(.leading, 80)
+        }
+        .font(.miraDate)
+        .foregroundStyle(Self.dateColor)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Two lines at the design's 1.02 line height: Fraunces' own line box
+    /// is ~7 pt taller than 1769_W05's, so the lines overlap by that much.
     private var hero: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: -7) {
             Text("Your memory,")
             Text("beautifully made.")
         }
         .font(.miraHero)
-        .foregroundStyle(Palette.ink)
+        .foregroundStyle(Color(hex: 0x24221E))
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
     }
@@ -102,8 +134,8 @@ struct HomeView: View {
     private var startButton: some View {
         Button(action: onStart) {
             Text("Start a memory")
-                .font(Sans.font(size: 24, weight: 500))
-                .foregroundStyle(Palette.onInk)
+                .font(Sans.font(size: 24.6, weight: 700))
+                .foregroundStyle(Color(hex: 0xFFFAF3))
                 .frame(width: 226, height: 92)
                 .background(
                     RoundedRectangle(cornerRadius: 36)
@@ -116,16 +148,22 @@ struct HomeView: View {
         .accessibilityIdentifier("Start a memory")
     }
 
-    private var quickPill: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 13))
-                .foregroundStyle(Palette.ink)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Palette.tan.opacity(0.7)))
+    /// The 41 pt retrieval bar: the four-point star in a 26 pt #C6B298
+    /// circle, then a Bold 14 field at ink@0.5. It asks about the past and
+    /// opens the Mira chat; it never starts a note.
+    private var promptBar: some View {
+        HStack(spacing: 12) {
+            Image("home.spark")
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(Color(hex: 0x635B50))
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Color(hex: 0xC6B298)))
+                .accessibilityHidden(true)
 
             TextField("", text: $prompt)
-                .font(.miraBody)
+                .font(Sans.font(size: 14, weight: 700))
                 .foregroundStyle(Palette.ink)
                 .tint(Palette.forest)
                 .submitLabel(.send)
@@ -134,8 +172,8 @@ struct HomeView: View {
                 .overlay(alignment: .leading) {
                     if prompt.isEmpty {
                         Text("When was my Paris trip?")
-                            .font(.miraBody)
-                            .foregroundStyle(Palette.textSecondary)
+                            .font(Sans.font(size: 14, weight: 700))
+                            .foregroundStyle(Palette.ink.opacity(0.5))
                             .allowsHitTesting(false)
                     }
                 }
@@ -151,26 +189,26 @@ struct HomeView: View {
             }
         }
         .padding(.leading, 8)
-        .padding(.trailing, 14)
-        .padding(.vertical, 6)
+        .padding(.trailing, 9)
+        .frame(height: 41)
         .background(
             Capsule()
-                .fill(Palette.warmWhite.opacity(0.8))
+                .fill(Color(hex: 0xF6F5F1))
                 .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
         )
     }
 
     private var grid: some View {
         let columns = [
-            GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14)
+            GridItem(.flexible(), spacing: 26),
+            GridItem(.flexible(), spacing: 26)
         ]
-        return LazyVGrid(columns: columns, spacing: 14) {
+        return LazyVGrid(columns: columns, spacing: 24) {
             ForEach(Array(viewModel.collections.enumerated()), id: \.element.id) { index, collection in
                 Button {
                     onOpenCollection(collection)
                 } label: {
-                    card(for: collection, index: index)
+                    HomeCollectionCard(title: collection.title, style: HomeCollectionCard.Style.cycle(index))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("collection.\(collection.title)")
@@ -186,51 +224,26 @@ struct HomeView: View {
         }
     }
 
-    private func card(for collection: MemoryCollection, index: Int) -> some View {
-        let style = cardStyle(index)
-        return HomeCollectionCard(
-            title: collection.title,
-            count: collection.memories.count,
-            background: style.background,
-            inner: style.inner,
-            titleColor: style.title
-        )
-    }
-
+    /// Not drawn by the handoff: an outlined card in the grid's geometry,
+    /// labelled in the dateline's grey.
     private var newCollectionCard: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             Image(systemName: "plus")
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: 20, weight: .semibold))
             Text("New collection")
-                .font(.miraLabel)
+                .font(Sans.font(size: 20, weight: 700))
+            Spacer(minLength: 0)
         }
-        .foregroundStyle(Palette.textSecondary)
-        .frame(maxWidth: .infinity, minHeight: HomeCollectionCard.height)
+        .foregroundStyle(Self.dateColor)
+        .padding(.top, 26)
+        .padding(.horizontal, 30)
+        .frame(maxWidth: .infinity, minHeight: HomeCollectionCard.height, maxHeight: HomeCollectionCard.height,
+               alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: HomeCollectionCard.corner)
-                .fill(Palette.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: HomeCollectionCard.corner)
-                        .strokeBorder(Palette.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                )
+                .strokeBorder(Color(hex: 0x48433B).opacity(0.24), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
         )
-    }
-
-    /// The handoff's four card colors (screen 01), cycled by position. Its
-    /// warm-white titles read at 2.1-3.5:1 on the grey, brown and tan cards,
-    /// below the 4.5:1 a 19 pt title needs, so grey and brown are darkened
-    /// along their hue (4.6:1) and the tan card takes ink (7:1).
-    private func cardStyle(_ index: Int) -> CardStyle {
-        switch index % 4 {
-        case 1:
-            return CardStyle(background: Palette.forest, inner: Color(hex: 0xB6C2BA), title: Palette.onInk)
-        case 2:
-            return CardStyle(background: Color(hex: 0x706E62), inner: Color(hex: 0x504E45), title: Palette.onInk)
-        case 3:
-            return CardStyle(background: Color(hex: 0xC1A47E), inner: Color(hex: 0xD9CDBA), title: Palette.ink)
-        default:
-            return CardStyle(background: Color(hex: 0x7A6B64), inner: Color(hex: 0xA39088), title: Palette.onInk)
-        }
+        .contentShape(RoundedRectangle(cornerRadius: HomeCollectionCard.corner))
     }
 
     private func submitPrompt() {
@@ -241,66 +254,91 @@ struct HomeView: View {
     }
 }
 
-/// One collection card in the Home grid (handoff screen 01): a tall 26 pt
-/// rounded card, the title in up to two lines at the top, the note count,
-/// and a soft cover block resting at the bottom.
+/// One collection card in the Home grid (handoff screen 01): 188 pt tall,
+/// r26, the title in Bold 20 at (30, 26) (#D9CDBA, or AA-safe for large
+/// text -- see `Style.cycle`), and a 110 x 60 art block
+/// with its accent layer 18 above the bottom edge. No note count.
 struct HomeCollectionCard: View {
     static let height: CGFloat = 188
     static let corner: CGFloat = 26
 
+    /// The handoff's four card colors, cycled by grid position.
+    struct Style {
+        let card: Color
+        let art: Color
+        let accent: Color
+        /// The handoff's #D9CDBA where it reads at 3:1 (forest, 8.4:1).
+        var title = Color(hex: 0xD9CDBA)
+
+        /// Accessibility deviation (decided 2026-10-15, as dev had it): the
+        /// handoff's titles read at 1.5-2.5:1 on the grey, olive and tan
+        /// cards, under the 3:1 that Bold 20 (large text) needs. Grey and
+        /// olive keep the drawn card colors under a paper title (3.5 and
+        /// 3.4:1), the tan card takes an ink title (7:1).
+        static func cycle(_ index: Int) -> Style {
+            let warmAccent = Color(hex: 0x8F7E76).opacity(0.5)
+            let coolAccent = Color(hex: 0xEEF1EB).opacity(0.32)
+            switch index % 4 {
+            case 1: return Style(card: Palette.forest, art: Color(hex: 0xB6C2BA), accent: coolAccent)
+            case 2: return Style(card: Color(hex: 0x878476), art: Palette.forest, accent: warmAccent,
+                                 title: Palette.onInk)
+            case 3: return Style(card: Color(hex: 0xC1A47E), art: Color(hex: 0xC1A47E), accent: coolAccent,
+                                 title: Palette.ink)
+            default: return Style(card: Color(hex: 0x8F7E76), art: Color(hex: 0xD6BFAA), accent: warmAccent,
+                                  title: Palette.onInk)
+            }
+        }
+    }
+
     let title: String
-    let count: Int
-    var background: Color
-    var inner: Color
-    var titleColor: Color = Palette.ink
+    let style: Style
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(title)
-                .font(Sans.font(size: 19, weight: 400))
-                .foregroundStyle(titleColor)
+                .font(Sans.font(size: 20, weight: 700))
+                .foregroundStyle(style.title)
+                .lineSpacing(3)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-            Text("\(count) note\(count == 1 ? "" : "s")")
-                .font(Sans.font(size: 11, weight: 400))
-                .foregroundStyle(titleColor)
+                .frame(width: 118, alignment: .leading)
             Spacer(minLength: 0)
             RoundedRectangle(cornerRadius: 18)
-                .fill(inner)
-                .frame(height: 60)
-                .padding(.horizontal, 12)
+                .fill(style.art)
+                .overlay(RoundedRectangle(cornerRadius: 18).fill(style.accent))
+                .frame(width: 110, height: 60)
         }
-        .padding(.top, 22)
-        .padding(.horizontal, 18)
+        .padding(.top, 27)
+        .padding(.leading, 30)
         .padding(.bottom, 18)
         .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: Self.corner)
-                .fill(background)
+                .fill(style.card)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Self.corner)
+                        .strokeBorder(Color(hex: 0x48433B).opacity(0.12), lineWidth: 1)
+                )
                 .shadow(color: Color(hex: 0x544738).opacity(0.1), radius: 17, y: 18)
         )
     }
 }
 
-/// The palette a Home collection card is drawn in, cycled by grid position.
-private struct CardStyle {
-    let background: Color
-    let inner: Color
-    let title: Color
-}
-
 extension HomeView {
-    private static let dateFormatter: DateFormatter = {
+    private static func formatter(_ format: String) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US")
-        formatter.dateFormat = "EEEE,\nMMMM d"
+        formatter.dateFormat = format
         return formatter
-    }()
+    }
 
-    /// The editorial dateline under the wordmark: "WEDNESDAY,\nJULY 8".
-    /// Pinned to English -- all of the app's copy is.
-    static func dateLine(for date: Date) -> String {
-        dateFormatter.string(from: date).uppercased()
+    private static let weekdayFormatter = formatter("EEEE,")
+    private static let dayFormatter = formatter("MMMM d")
+
+    /// The editorial dateline: "MONDAY," over "JUNE 22". Pinned to English
+    /// -- all of the app's copy is.
+    static func dateLines(for date: Date) -> (weekday: String, day: String) {
+        (weekdayFormatter.string(from: date).uppercased(), dayFormatter.string(from: date).uppercased())
     }
 }
 

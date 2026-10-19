@@ -2,15 +2,14 @@ import Foundation
 
 /// How a page edit is described back to the user.
 ///
-/// The receipt strip is a fixed UI element (Meng, 2026-07-09: one line,
-/// check mark, Revert, 6s auto-keep), so its wording is derived here from
-/// the shape of the change rather than written by the model. Mira owns
-/// the conversational reply, where variety is welcome.
+/// The result sheet is a fixed UI element (handoff screen 07: what changed,
+/// what was kept, Revert / Keep), so its wording is derived here from the
+/// shape of the change rather than written by the model. Mira owns the
+/// conversational reply, where variety is welcome.
 extension MiraCanvasCoordinator {
-    /// The receipt says what changed, in the app's voice -- the strip is
-    /// a fixed UI element (one line, check mark, Revert, 6s auto-keep),
-    /// so its wording must stay steady. Mira owns the conversational
-    /// reply, where variety is welcome.
+    /// The receipt says what changed, in the app's voice -- the sheet is a
+    /// fixed UI element, so its wording must stay steady. Mira owns the
+    /// conversational reply, where variety is welcome.
     static func receipt(
         for changes: [ResolvedChange], editor: CanvasViewModel
     ) -> MiraReceipt {

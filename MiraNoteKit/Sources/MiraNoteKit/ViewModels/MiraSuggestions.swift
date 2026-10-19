@@ -18,10 +18,8 @@ extension MiraCanvasCoordinator {
     /// page too, so it waits for something visible, and leaves once the page
     /// has its own color or painting.
     ///
-    /// The handoff's quick actions (screen 06, #89 C2) map here: re-layout is
-    /// "Tidy the layout", the soft title and background are their own chips.
-    /// Its "Make text warmer" is deliberately not offered -- rewording is the
-    /// text editor's job, per the rule above.
+    /// These ride on Mira's reply cards. The canvas chat panel draws its own
+    /// four quick actions as the handoff does (`quickActions`).
     ///
     /// The row is a two-slot design, so at most two chips show, by priority.
     public func suggestions(for editor: CanvasViewModel) -> [String] {
@@ -46,6 +44,42 @@ extension MiraCanvasCoordinator {
         let words = ask(forSuggestion: chip, editor: editor)
         let intent: MiraIntent? = chip == Self.changeBackgroundChip ? .setBackground(prompt: words) : nil
         ask(words, editor: editor, as: intent)
+    }
+
+    /// The Background tool's "Apply to this page": the typed words describe
+    /// a backdrop, so they paint one whatever else they mention ("a garden
+    /// behind my photos" must not become a photo edit) -- and Apply applies
+    /// it: the first painting lands on the page (Revert takes it back), no
+    /// second pick among thumbnails (owner, TestFlight 1.0(5)).
+    public func askBackground(_ words: String, editor: CanvasViewModel) {
+        let trimmed = words.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        ask(trimmed, editor: editor, as: .setBackground(prompt: trimmed))
+        appliesFirstBackground = true
+    }
+
+    // MARK: Canvas chat quick actions (handoff screen 06)
+
+    /// The four chips of the Mira canvas chat panel, as drawn; the first is
+    /// the primary (ink) one.
+    public static let quickActions = ["Change background", "Re-layout photos", "Make text warmer", "Add soft title"]
+
+    /// Runs a canvas chat chip through the same turns its words always ran:
+    /// the background chip paints for the page, re-layout tidies, warmer
+    /// polishes the text, and the title chip adds one.
+    public func askQuickAction(_ action: String, editor: CanvasViewModel) {
+        switch action {
+        case "Change background":
+            askSuggestion(Self.changeBackgroundChip, editor: editor)
+        case "Re-layout photos":
+            ask(Self.tidyChip, editor: editor)
+        case "Make text warmer":
+            ask("Make the text warmer", editor: editor)
+        case "Add soft title":
+            ask("Add a soft title", editor: editor)
+        default:
+            ask(action, editor: editor)
+        }
     }
 
     /// The page's most prominent words: the largest text, topmost on a tie,

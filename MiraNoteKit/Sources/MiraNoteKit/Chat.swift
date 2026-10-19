@@ -13,12 +13,18 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     /// A page the companion drafted during this turn, if any -- rendered
     /// as an openable card under the bubble.
     public var pageDraft: ChatPageDraft?
+    /// Photos the user sent with this turn, as `ImageFileStore` file names.
+    public var imageFileNames: [String]
 
-    public init(id: UUID = UUID(), role: Role, text: String, pageDraft: ChatPageDraft? = nil) {
+    public init(
+        id: UUID = UUID(), role: Role, text: String,
+        pageDraft: ChatPageDraft? = nil, imageFileNames: [String] = []
+    ) {
         self.id = id
         self.role = role
         self.text = text
         self.pageDraft = pageDraft
+        self.imageFileNames = imageFileNames
     }
 }
 

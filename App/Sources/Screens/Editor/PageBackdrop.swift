@@ -11,6 +11,8 @@ struct PageBackdrop: View {
     let memory: Memory
 
     private let imageStore = ImageFileStore()
+    /// r24 as pages have always been drawn and exported; the editor's r30
+    /// card (`canvasCard()`) clips its own view of the page.
     private static let shape = RoundedRectangle(cornerRadius: 24)
 
     var body: some View {
@@ -47,6 +49,21 @@ struct PageBackdrop: View {
                     .clipShape(Self.shape)
             }
         }
+    }
+}
+
+extension View {
+    /// The handoff's canvas card (screens 04-07, 22): a page-wide window
+    /// onto the page, r30, a 1 pt ink@0.06 rim and the `0 16 38 ink@0.08`
+    /// shadow. The page keeps its fixed design width, so on a 402 pt phone
+    /// the card sits 21 in from each edge (the design's 20 on 374).
+    func canvasCard() -> some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.canvasCorner)
+        return frame(width: MiraNoteConfig.pageWidth)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Palette.ink.opacity(0.06), lineWidth: Metrics.hairline))
+            .background(shape.fill(Palette.paper).shadow(color: Palette.ink.opacity(0.08), radius: 19, y: 16))
+            .frame(maxWidth: .infinity)
     }
 }
 

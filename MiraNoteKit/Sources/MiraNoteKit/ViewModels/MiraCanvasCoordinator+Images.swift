@@ -11,6 +11,10 @@ extension MiraCanvasCoordinator {
         switch outcome {
         case .imageChoices(let images, let prompt, let placement):
             phase = .imageChoices(images, prompt: prompt, placement: placement)
+            if placement == .background, appliesFirstBackground {
+                appliesFirstBackground = false
+                placeImageChoice(0, editor: editor)
+            }
         case .backgroundCleared(let receipt):
             settleBackgroundCleared(receipt, editor: editor)
         case .imageReplaced(let id, let data, let receipt):
@@ -75,15 +79,15 @@ extension MiraCanvasCoordinator {
             .min() ?? (50 + boxHeight)
         let titleY = currentTop - 14 - boxHeight / 2
         let overflow = max(0, 36 - (titleY - boxHeight / 2))
-        let existing = editor.items.map { ($0.id, $0.position) }
+        let existing = editor.items.map(\.id)
         editor.addText(
             title,
             at: CGPoint(x: 150, y: titleY + overflow),
             pointSize: 30,
             size: CGSize(width: 270, height: boxHeight)
         )
-        for (id, position) in existing where overflow > 0 {
-            editor.move(itemID: id, to: CGPoint(x: position.x, y: position.y + overflow))
+        for id in existing where overflow > 0 {
+            editor.slide(itemID: id, by: overflow)
         }
         showReceipt(receipt, editor: editor)
     }

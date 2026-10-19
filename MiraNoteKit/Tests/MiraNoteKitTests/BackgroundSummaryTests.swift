@@ -95,7 +95,6 @@ final class BackgroundSummaryTests: XCTestCase {
         let mira = MiraCanvasCoordinator(
             text: ScriptedText(), chat: ScriptedChat(),
             workingDelay: .milliseconds(1), timeout: .seconds(5),
-            receiptDismiss: .seconds(60),
             imageStudio: MockImageStudioService(), imageStore: store
         )
         mira.phase = .imageChoices(

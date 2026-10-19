@@ -10,11 +10,27 @@ enum RecorderState {
     /// starts only when the user presses Record.
     case armed
     case recording(start: Date)
-    case review(data: Data, duration: TimeInterval)
 }
 
-enum AccessoryRow {
-    case tools, fonts, colors, highlight, ai
+/// Photos picked while another import still loads, waiting their turn.
+struct QueuedImport {
+    let load: () async -> [Data]
+    let then: ([CanvasItem.ID]) -> Void
+}
+
+/// Which dictation strip's mic is still coming up (it takes the audio
+/// session, and the permission alert the first time): a cancel then has
+/// to know whose it is.
+enum StartingMic {
+    case text, mira
+}
+
+/// A take Stop just put on the page (handoff screen 09): the result sheet
+/// offers Revert / Keep while the add is still the page's last change.
+struct AttachedSound: Equatable {
+    let itemID: CanvasItem.ID
+    /// `CanvasViewModel.changeCount` right after the add.
+    let changeCount: Int
 }
 
 /// One photo editing session (handoff screens 27-28): the photo, how it
@@ -43,234 +59,314 @@ struct PhotoSession {
     }
 }
 
-enum TextSizeChoice: CaseIterable {
-    case small, medium, large
+/// The AI row's open session: the cached rewrites, and the block as it was
+/// when the row opened (what the commit's one undo step goes back to).
+struct RewriteState {
+    var session: TextRewriteSession
+    let original: CanvasItem
+}
 
-    var label: String {
-        switch self {
-        case .small: return "S"
-        case .medium: return "M"
-        case .large: return "L"
-        }
-    }
+/// The custom color sheet, open for the block's text color (screen 14) or
+/// its background (screen 20), and the block before the live preview.
+struct ColorRequest {
+    enum Target { case text, background }
+    let target: Target
+    let original: CanvasItem
+    let initial: RGBColor
 
-    var pointSize: CGFloat {
-        switch self {
-        case .small: return 13
-        case .medium: return 17
-        case .large: return 30
-        }
+    /// What Apply puts on the block for the color `hex` the sheet shows;
+    /// nil when it is the block's own color -- "ink" stays "ink" and no
+    /// undo step is spent. A background sheet opened with none set shows
+    /// #8B5962, and applies it.
+    func applied(_ hex: String) -> String? {
+        guard case .text(let block) = original.content else { return hex }
+        let own = target == .text ? block.colorName : block.backgroundColorName
+        return !own.isEmpty && hex == initial.hex ? nil : hex
     }
 }
 
-// MARK: - Keyboard accessory (accordion) and dictation
+// MARK: - Text accessory
 
 extension CanvasScene {
-    // MARK: Text accessory (accordion: one row expanded at a time)
+    /// Text tool, screen 10 then 11: the Text tool lights up for a beat,
+    /// then a new block appears on the canvas and the keyboard rises --
+    /// typing happens where the words will live.
+    func armTextMode() {
+        withAnimation(.easeOut(duration: 0.15)) { textModeArming = true }
+        Task {
+            try? await Task.sleep(for: .milliseconds(Self.textModeBeat))
+            // Cancel (or Done) during the beat called it off.
+            guard textModeArming else { return }
+            textModeArming = false
+            addTextBlock()
+        }
+    }
+
+    /// Long enough to read the Text tool turning on; screen-capture runs
+    /// stretch it (`-TEXT_MODE_BEAT <ms>`) to photograph the state.
+    private static var textModeBeat: Int {
+        let stretched = UserDefaults.standard.integer(forKey: "TEXT_MODE_BEAT")
+        return stretched > 0 ? stretched : 250
+    }
+
+    /// The handoff's new block (screens 11-20): Josefin Medium 21, ink
+    /// #293322, 230 wide (206 of words inside the 12 pt insets).
+    private func addTextBlock() {
+        let width: CGFloat = 230
+        let height = TextMeasure.blockHeight(
+            text: "", pointSize: TextFace.newBlockSize, fontName: TextFace.newBlockFont, width: width
+        )
+        // Below what is there; on a near-empty page, a third of the way
+        // down the card, clear of the keyboard and the text chrome.
+        let top = max(editor.contentBottom + 70 - height / 2, 110)
+        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(top + height / 2, 4000))
+        let id = editor.addText(
+            "", at: position, pointSize: TextFace.newBlockSize,
+            size: CGSize(width: width, height: height),
+            fontName: TextFace.newBlockFont, colorName: TextFace.newBlockColor
+        )
+        // addText already recorded the undo point for this compound action.
+        editor.startEditingText(id, recordingUndo: false)
+        textFocus = id
+    }
 
     /// The block being edited, for showing its current style.
-    private var editingBlock: TextBlock? {
+    var editingBlock: TextBlock? {
         guard let id = editor.editingTextItemID,
               case .text(let block) = editor.item(id)?.content else { return nil }
         return block
     }
 
+    /// The three-layer accessory above the keyboard (screens 11-20): the
+    /// active tool's row, the tool bar, the dictation strip. The tool bar
+    /// never moves; rows crossfade under the finger.
     @ViewBuilder var textAccessory: some View {
-        switch accessoryRow {
-        case .tools:
-            Button("Aa") { accessoryRow = .fonts }
-                .accessibilityLabel("Font and size")
-                .accessibilityIdentifier("style.sizes")
-            Button {
-                accessoryRow = .colors
-            } label: {
-                Circle()
-                    .fill(Palette.color(named: editingBlock?.colorName ?? "ink"))
-                    .overlay(Circle().strokeBorder(Palette.hairline, lineWidth: 1))
-                    .frame(width: 18, height: 18)
+        VStack(spacing: 0) {
+            if textTool.hasRow {
+                textToolRow
+                    .id(textTool)
+                    .transition(.opacity)
+                    .padding(.bottom, textTool.rowGap)
             }
-            .accessibilityLabel("Text color")
-            .accessibilityIdentifier("style.colors")
-            Button {
-                accessoryRow = .highlight
-            } label: {
-                Image(systemName: "character.textbox")
-            }
-            .accessibilityLabel("Text background")
-            .accessibilityIdentifier("style.highlight")
-            Button {
-                if let id = editor.editingTextItemID, let block = editingBlock {
-                    editor.setTextAlignment(itemID: id, to: block.alignment.next)
-                }
-            } label: {
-                Image(systemName: (editingBlock?.alignment ?? .leading).symbol)
-            }
-            .accessibilityLabel("Alignment")
-            .accessibilityValue((editingBlock?.alignment ?? .leading).rawValue)
-            .accessibilityIdentifier("style.align")
-            Button {
-                accessoryRow = .ai
-            } label: {
-                Image(systemName: "sparkles")
-            }
-            .accessibilityLabel("Rewrite")
-            .accessibilityIdentifier("style.ai")
-            Button {
-                toggleDictation()
-            } label: {
-                // A live mic reads as ACTIVE (filled, accent, pulsing) --
-                // mic.badge.xmark said "microphone blocked" while it
-                // actually meant "tap to finish".
-                Image(systemName: dictating ? "mic.fill" : "mic")
-                    .foregroundStyle(dictating ? Palette.forest : Palette.ink)
-                    .symbolEffect(.pulse, isActive: dictating)
-            }
+            TextToolBar(active: textTool, alignment: editingBlock?.alignment ?? .leading, onSelect: selectTextTool)
+                .padding(.horizontal, Metrics.chromeInset)
+            DictationStrip(
+                surface: .page,
+                listening: dictating,
+                detail: stripDetail ?? "accurate voice-to-text",
+                onPress: { if dictationPress == nil { pressDictation() } },
+                onRelease: releaseDictation,
+                onCancel: cancelDictationIfNeeded
+            )
+            .padding(.horizontal, Metrics.chromeInset)
+            .padding(.top, 4)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mira Dictation")
+            .accessibilityValue(stripDetail ?? "")
+            .accessibilityHint(dictating ? "Ends the dictation." : "Hold to talk, or tap to start.")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { dictating ? stopDictation() : startDictation() }
             .accessibilityIdentifier("style.mic")
-            if dictating {
-                Text("Listening...")
-                    .font(.miraCaption)
-                    .foregroundStyle(Palette.forest)
-            } else if let dictationHint {
-                Text(dictationHint)
-                    .font(.miraCaption)
-                    .foregroundStyle(Palette.textSecondary)
-                    .lineLimit(1)
-            }
-            Spacer()
-            Button("Done") { endTextEditing() }
-                .fontWeight(.semibold)
-                .accessibilityIdentifier("keyboard.done")
-        case .fonts:
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(TextFace.choices, id: \.name) { face in
-                        Button(face.label) {
-                            if let id = editor.editingTextItemID {
-                                editor.setTextFont(itemID: id, to: face.name)
-                                remeasureEditedText(id)
-                            }
-                        }
-                        .font(Font(TextFace.uiFont(name: face.name, size: 15)))
-                        .fontWeight(editingBlock?.fontName == face.name ? .bold : .regular)
-                        .accessibilityAddTraits(editingBlock?.fontName == face.name ? .isSelected : [])
-                        .accessibilityIdentifier("style.font.\(face.label)")
-                    }
-                    Divider().frame(height: 18)
-                    ForEach(TextSizeChoice.allCases, id: \.self) { choice in
-                        Button(choice.label) {
-                            if let id = editor.editingTextItemID {
-                                editor.setTextPointSize(itemID: id, to: choice.pointSize)
-                                remeasureEditedText(id)
-                            }
-                        }
-                        .accessibilityIdentifier("style.size.\(choice.label)")
-                    }
+        }
+        // 4 above the keyboard.
+        .padding(.bottom, 4)
+        .animation(.easeOut(duration: 0.15), value: textTool)
+    }
+
+    /// The strip's line when it is not at rest: a new take listening while
+    /// an earlier one is written down reads as listening.
+    private var stripDetail: String? {
+        if dictating { return "Listening..." }
+        return writingDown ? "Writing it down..." : dictationHint
+    }
+
+    @ViewBuilder private var textToolRow: some View {
+        let block = editingBlock
+        switch textTool {
+        case .font:
+            FontChipRow(
+                fontName: block?.fontName ?? "",
+                pointSize: block?.pointSize ?? TextFace.newBlockSize,
+                onFont: { name in
+                    guard let id = editor.editingTextItemID else { return }
+                    editor.setTextFont(itemID: id, to: name)
+                    remeasureEditedText(id)
+                },
+                onSize: { choice in
+                    guard let id = editor.editingTextItemID else { return }
+                    editor.setTextPointSize(itemID: id, to: choice.pointSize)
+                    remeasureEditedText(id)
                 }
-            }
-            Button("Back") { closeStyleRow() }
-        case .colors:
-            swatchRow(
-                current: editingBlock?.colorName ?? "ink",
-                idPrefix: "style.color",
-                apply: { id, name, record in editor.setTextColorName(itemID: id, to: name, recordingUndo: record) }
             )
-            Button("Back") { closeStyleRow() }
-        case .highlight:
-            Button {
-                if let id = editor.editingTextItemID {
-                    editor.setTextBackground(itemID: id, to: "")
-                }
-            } label: {
-                Image(systemName: "nosign")
-            }
-            .accessibilityLabel("No background")
-            .accessibilityAddTraits(editingBlock?.backgroundColorName.isEmpty ?? true ? .isSelected : [])
-            .accessibilityIdentifier("style.highlight.none")
-            swatchRow(
-                current: editingBlock?.backgroundColorName ?? "",
-                idPrefix: "style.highlight",
-                apply: { id, name, record in editor.setTextBackground(itemID: id, to: name, recordingUndo: record) }
+        case .color:
+            let current = block?.colorName ?? ""
+            ColorSwatchRow(
+                current: current,
+                isCustom: current.hasPrefix("#") && current != TextFace.newBlockColor
+                    && !Palette.textSwatches.contains { $0.hex == current },
+                onSwatch: { hex in
+                    if let id = editor.editingTextItemID { editor.setTextColorName(itemID: id, to: hex) }
+                },
+                onCustom: { openColorSheet(.text) }
             )
-            Button("Back") { closeStyleRow() }
         case .ai:
-            ForEach(["Clean up", "Expand"], id: \.self) { action in
-                Button(action) { runTextAI(action) }
-            }
-            Spacer()
-            Button("Back") { closeStyleRow() }
+            RewriteRow(
+                selected: rewrite?.session.selected ?? .original,
+                pending: rewrite?.session.pending,
+                enabled: !(block?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
+                onSelect: pickRewrite
+            )
+            .padding(.horizontal, Metrics.chromeInset)
+        case .background:
+            let current = block?.backgroundColorName ?? ""
+            TextBackgroundRow(
+                current: current,
+                isCustom: !current.isEmpty && !Palette.textBackgroundSwatches.contains { $0.hex == current },
+                onPick: { hex in
+                    if let id = editor.editingTextItemID { editor.setTextBackground(itemID: id, to: hex) }
+                },
+                onCustom: { openColorSheet(.background) }
+            )
+            .padding(.horizontal, Metrics.chromeInset)
+        case .align:
+            EmptyView()
         }
     }
 
-    /// Quick swatches plus the system color picker (custom color with its
-    /// built-in eyedropper -- handoff screens 14 and 20). A swatch tap is
-    /// always one undo step; a picker drag is grouped by `pickerUndo`.
-    private func swatchRow(
-        current: String,
-        idPrefix: String,
-        apply: @escaping (CanvasItem.ID, String, Bool) -> Void
-    ) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(Palette.textSwatches, id: \.hex) { swatch in
-                    Button {
-                        if let id = editor.editingTextItemID { apply(id, swatch.hex, true) }
-                        pickerUndo.reset()
-                    } label: {
-                        Circle()
-                            .fill(Palette.color(named: swatch.hex))
-                            .overlay(Circle().strokeBorder(
-                                current == swatch.hex ? Palette.ink : Palette.hairline,
-                                lineWidth: current == swatch.hex ? 2 : 1
-                            ))
-                            .frame(width: 22, height: 22)
-                    }
-                    .accessibilityLabel(swatch.name)
-                    .accessibilityAddTraits(current == swatch.hex ? .isSelected : [])
-                    .accessibilityIdentifier("\(idPrefix).\(swatch.hex)")
-                }
-                ColorPicker(
-                    "Custom color",
-                    selection: Binding(
-                        get: { Palette.color(named: current.isEmpty ? "ink" : current) },
-                        set: { color in
-                            // An unchanged value must not spend the drag's
-                            // one undo step before the drag really starts.
-                            // Compared with the color the picker SHOWS (a name
-                            // or "" resolves to a hex), so its echo of that
-                            // value is no change.
-                            let shown = Palette.color(named: current.isEmpty ? "ink" : current).hexName
-                            guard let id = editor.editingTextItemID, color.hexName != shown else { return }
-                            let record = pickerUndo.shouldRecord(item: id, field: idPrefix)
-                            apply(id, color.hexName, record)
-                        }
-                    ),
-                    supportsOpacity: false
-                )
-                .labelsHidden()
-                .accessibilityIdentifier("\(idPrefix).custom")
+    /// Exactly one tool is active. Align has no row: each tap makes it the
+    /// active tool and steps the alignment (screens 16-17).
+    func selectTextTool(_ tool: TextTool) {
+        if tool != .ai { finishRewrite() }
+        switch tool {
+        case .align:
+            if let id = editor.editingTextItemID, let block = editingBlock {
+                editor.setTextAlignment(itemID: id, to: block.alignment.next)
             }
+        case .ai:
+            if textTool != .ai { startRewrite() }
+        case .font, .color, .background:
+            break
         }
+        textTool = tool
     }
 
-    private func closeStyleRow() {
-        accessoryRow = .tools
-        pickerUndo.reset()
-    }
+    // MARK: Ending a session
 
+    /// The header's Done: the session's previews are kept. Dictated words
+    /// on their way are waited for, so they land inside the session -- a
+    /// take still listening (the tap toggle) stops and is waited for too.
     func endTextEditing() {
+        if dictating, editor.editingTextItemID != nil { stopDictation() }
+        if writingDown {
+            waitForWordsThenEnd()
+            return
+        }
+        finishRewrite()
+        if let request = colorRequest {
+            editor.commitPreview(of: request.original)
+            colorRequest = nil
+        }
+        textModeArming = false
         editor.endEditingText()
         textFocus = nil
-        closeStyleRow()
+        resetTextTools()
+    }
+
+    /// The header's Cancel: the block goes back to how it was when the
+    /// session began (a new block disappears). Open previews go first, so
+    /// nothing live survives a session the Kit can no longer take back.
+    func cancelTextEditing() {
+        textModeArming = false
+        // Words still being written down belonged to this session: dropped.
+        dictationTarget = nil
+        if let state = rewrite {
+            editor.discardPreview(of: state.original)
+            rewrite = nil
+        }
+        if let request = colorRequest {
+            dropColorPreview(request)
+            colorRequest = nil
+        }
+        editor.cancelEditingText()
+        textFocus = nil
+        resetTextTools()
+    }
+
+    /// The next session opens on the font row (screen 11).
+    func resetTextTools() {
+        textTool = .font
+        rewrite = nil
         dictationHint = nil
     }
 
-    /// The keyboard's sparkle chips: transform the block being edited via
-    /// the same Mira turn machinery (working state, receipt, revert).
-    func runTextAI(_ action: String) {
-        guard let id = editor.editingTextItemID else { return }
-        editor.select(id)
-        endTextEditing()
-        mira.ask("\(action.lowercased()) the text", editor: editor)
+    /// The header's undo while writing. An open color preview is the newest
+    /// change: undo drops it and nothing more. A rewrite preview is
+    /// committed first, so undo takes it back like any other step.
+    func undoFromHeader() {
+        finishRewrite()
+        if let request = colorRequest {
+            let previewing = previewedColor(request) != nil
+            dropColorPreview(request)
+            colorRequest = nil
+            refocusEditedText()
+            if previewing { return }
+        }
+        editor.undo()
+        if textTool == .ai, editor.editingTextItemID != nil { startRewrite() }
+    }
+
+    // MARK: AI rewrite in place (screen 15)
+
+    private func startRewrite() {
+        guard let id = editor.editingTextItemID, let item = editor.item(id),
+              case .text(let block) = item.content else { return }
+        rewrite = RewriteState(session: TextRewriteSession(original: block.text), original: item)
+    }
+
+    /// Leaving the row keeps the version on the canvas, as one undo step.
+    func finishRewrite() {
+        guard let state = rewrite else { return }
+        rewrite = nil
+        editor.commitPreview(of: state.original)
+    }
+
+    private func pickRewrite(_ choice: TextRewriteSession.Choice) {
+        guard var state = rewrite, let id = editor.editingTextItemID else { return }
+        dictationHint = nil
+        if let text = state.session.select(choice) {
+            rewrite = state
+            showRewrite(text, in: id)
+            return
+        }
+        rewrite = state
+        guard let mode = choice.mode else { return }
+        let source = state.session.original
+        Task {
+            do {
+                let result = try await mira.rewriteText(source, mode: mode)
+                guard var now = rewrite, now.original.id == id else { return }
+                let shown = now.session.resolve(choice, of: source, with: result)
+                rewrite = now
+                if let shown { showRewrite(shown, in: id) }
+            } catch {
+                guard var now = rewrite, now.original.id == id else { return }
+                now.session.fail(choice, of: source)
+                rewrite = now
+                dictationHint = "Couldn't rewrite -- try again?"
+            }
+        }
+    }
+
+    private func showRewrite(_ text: String, in id: CanvasItem.ID) {
+        editor.setText(itemID: id, to: text)
+        remeasureEditedText(id)
+    }
+
+    /// Typing while the AI row is open makes the typed words the Original.
+    func noteTyped(_ text: String?) {
+        guard let text, var state = rewrite else { return }
+        state.session.adopt(typed: text)
+        rewrite = state
     }
 
     /// Size and face changes re-measure the block so the box fits the type.
@@ -282,78 +378,5 @@ extension CanvasScene {
             fontName: block.fontName,
             width: item.size.width
         ))
-    }
-
-    /// Ends a dictation that lost its editing session (keyboard dismissed,
-    /// editing finished): stop the mic quietly, keep nothing.
-    func cancelDictationIfNeeded() {
-        guard dictating else { return }
-        let abandoned = recorder
-        recorder = nil
-        dictating = false
-        Task { _ = try? await abandoned?.stop() }
-    }
-
-    /// Tap-to-toggle dictation: record, transcribe (:8005), append to the
-    /// block being edited. The sound tool and dictation never share the
-    /// recorder slot (guarded on both entry points).
-    func toggleDictation() {
-        if dictating {
-            guard let recorder else {
-                dictating = false
-                return
-            }
-            self.recorder = nil
-            Task {
-                defer { dictating = false }
-                // A silent return here looked like a dead feature: say why
-                // nothing landed instead of swallowing it.
-                guard let data = try? await recorder.stop(), !data.isEmpty else {
-                    dictationHint = "I couldn't catch any words -- try again?"
-                    return
-                }
-                guard let id = editor.editingTextItemID else {
-                    dictationHint = "Tap a text block first, then dictate."
-                    return
-                }
-                guard let transcript = try? await transcription.transcribe(
-                    audio: data, filename: "dictation.m4a"
-                ) else {
-                    dictationHint = "Couldn't reach the transcriber -- try again?"
-                    return
-                }
-                let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !words.isEmpty else {
-                    dictationHint = "I couldn't catch any words -- try again?"
-                    return
-                }
-                if case .text(let block) = editor.item(id)?.content {
-                    let joined = block.text.isEmpty ? words : block.text + " " + words
-                    editor.setText(itemID: id, to: joined)
-                    // Grow the box to the new text like typing does, or the
-                    // dictated words land clipped below the fold and read as
-                    // "nothing happened."
-                    if let width = editor.item(id)?.size.width {
-                        editor.autosizeTextHeight(itemID: id, to: TextMeasure.blockHeight(
-                            text: joined, pointSize: block.pointSize, fontName: block.fontName,
-                            width: width))
-                    }
-                }
-            }
-        } else {
-            guard recorder == nil else { return }
-            dictationHint = nil
-            let newRecorder = recorderFactory()
-            recorder = newRecorder
-            Task {
-                do {
-                    try await newRecorder.start()
-                    dictating = true
-                } catch {
-                    recorder = nil
-                    dictationHint = error.localizedDescription
-                }
-            }
-        }
     }
 }

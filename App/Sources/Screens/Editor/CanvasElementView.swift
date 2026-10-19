@@ -35,7 +35,8 @@ struct CanvasElementView: View {
         if let image = CanvasImageCache.image(
             fileName: ref.fileName,
             filterName: ref.filterName,
-            store: imageStore
+            store: imageStore,
+            maxPixels: CanvasImageCache.displayPixels
         ) {
             framed(ref.frameName) {
                 // Fill THEN pin to the element box and clip: without the
@@ -79,7 +80,8 @@ struct CanvasElementView: View {
         if let image = CanvasImageCache.image(
             fileName: sticker.fileName,
             filterName: "",
-            store: imageStore
+            store: imageStore,
+            maxPixels: CanvasImageCache.displayPixels
         ) {
             Image(uiImage: image)
                 .resizable()
@@ -91,22 +93,33 @@ struct CanvasElementView: View {
 
     @ViewBuilder private func textView(_ block: TextBlock) -> some View {
         if isEditingText {
-            TextField("Say something...", text: text, axis: .vertical)
+            // Words straight on the editing scrim (screens 11-20): no chip
+            // behind them, only the block's own background if it has one.
+            // The dark keyboard is the closest system match to the
+            // handoff's forest keyboard.
+            TextField(
+                "Say something...",
+                text: text,
+                prompt: Text("Say something...").foregroundStyle(Palette.onInk.opacity(0.6)),
+                axis: .vertical
+            )
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(Palette.color(named: block.colorName))
+                .tint(Palette.color(named: block.colorName))
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .focused(textFocus, equals: item.id)
+                .onChange(of: textFocus.wrappedValue == item.id, initial: true) { _, focused in
+                    if focused { DarkKeyboard.apply() }
+                }
                 .accessibilityIdentifier("canvas.textEditor")
-                .padding(6)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(block.backgroundColorName.isEmpty
-                              ? Palette.paper.opacity(0.75)
-                              : Palette.color(named: block.backgroundColorName))
-                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
+                .padding(TextFace.inset)
+                .textBlockBackground(block)
         } else {
             Text(block.text.isEmpty ? "Say something..." : block.text)
                 .font(TextFace.font(for: block))
+                .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(
                     block.text.isEmpty
                         ? Palette.textSecondary
@@ -114,46 +127,63 @@ struct CanvasElementView: View {
                 )
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
-                .padding(6)
+                .padding(TextFace.inset)
                 .textBlockBackground(block)
         }
     }
 
+    /// The marker's 42 pt pulse ring; the 30 pt tap circle sits inside it.
+    static let soundRing: CGFloat = 42
+
+    /// Handoff screen 09: the forest tap circle in its faint ring, then a
+    /// frosted "tap to play" pill. Selected, the pill gives way to the note
+    /// (or "Add a note") and the take's length.
     private func soundView(_ clip: SoundClip) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: -1) {
             Button(action: onTogglePlay) {
-                Image(systemName: isPlaying ? "stop.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Palette.onInk)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(Palette.forest))
-                    .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                SoundMarkerGlyph(playing: isPlaying)
+                    .frame(width: Self.soundRing, height: Self.soundRing)
+                    .background(Circle().strokeBorder(Palette.forest.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .allowsHitTesting(isSelected)
+            .accessibilityLabel(isPlaying ? "Stop" : "Play")
             .accessibilityIdentifier("sound.play")
 
-            Button(action: onEditNote) {
-                HStack(spacing: 6) {
-                    Text(clip.note.isEmpty ? "Add a note" : clip.note)
-                        .font(Sans.font(size: 11, weight: 500))
-                        .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
-                        .lineLimit(1)
-                    Text(Self.timestamp(clip.duration))
-                        .font(Sans.font(size: 11, weight: 400))
-                        .foregroundStyle(Palette.textSecondary)
+            if isSelected {
+                Button(action: onEditNote) {
+                    HStack(spacing: 6) {
+                        Text(clip.note.isEmpty ? "Add a note" : clip.note)
+                            .font(Sans.font(size: 11, weight: 500))
+                            .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
+                            .lineLimit(1)
+                        Text(Self.timestamp(clip.duration))
+                            .font(Sans.font(size: 11, weight: 400))
+                            .foregroundStyle(Palette.textSecondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(
+                        Capsule()
+                            .fill(Palette.onInk.opacity(0.9))
+                            .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+                    )
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(Palette.onInk.opacity(0.9))
-                        .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
-                )
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sound.note")
+            } else {
+                Text("tap to play")
+                    .font(Sans.font(size: 10, weight: 700))
+                    .foregroundStyle(Palette.forest)
+                    .frame(width: 74, height: 24)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Capsule().fill(Color.white.opacity(0.58)))
+                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1))
+                    )
+                    .accessibilityIdentifier("sound.tapToPlay")
             }
-            .buttonStyle(.plain)
-            .allowsHitTesting(isSelected)
-            .accessibilityIdentifier("sound.note")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -167,6 +197,41 @@ struct CanvasElementView: View {
         let tints = [Palette.tan, Palette.sage, Palette.taupe]
         let index = abs(ref.displayName.hashValue) % tints.count
         return tints[index]
+    }
+}
+
+/// The canvas text's keyboard in the dark appearance -- the closest system
+/// match to the handoff's forest keyboard (screens 11-20). SwiftUI has no
+/// keyboard-appearance modifier, so the field that just took focus (the
+/// first responder) is set directly.
+enum DarkKeyboard {
+    @MainActor
+    static func apply() {
+        // After the focus change lands: the field is first responder then.
+        DispatchQueue.main.async {
+            guard let field = UIResponder.currentFirstResponder else { return }
+            if let textView = field as? UITextView, textView.keyboardAppearance != .dark {
+                textView.keyboardAppearance = .dark
+                textView.reloadInputViews()
+            } else if let textField = field as? UITextField, textField.keyboardAppearance != .dark {
+                textField.keyboardAppearance = .dark
+                textField.reloadInputViews()
+            }
+        }
+    }
+}
+
+private extension UIResponder {
+    private static weak var found: UIResponder?
+
+    static var currentFirstResponder: UIResponder? {
+        found = nil
+        UIApplication.shared.sendAction(#selector(captureFirstResponder), to: nil, from: nil, for: nil)
+        return found
+    }
+
+    @objc private func captureFirstResponder() {
+        UIResponder.found = self
     }
 }
 

@@ -23,15 +23,11 @@ final class StickerEditUITests: XCTestCase {
     }
 
     private func ask(_ words: String) {
-        let input = app.textFields["mira.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        input.tap()
-        input.typeText(words)
-        app.buttons["mira.go"].tap()
+        app.askMira(words)
     }
 
-    /// Draw-and-place one sticker, then wait out the placement receipt
-    /// so the next step starts from a quiet strip.
+    /// Draw-and-place one sticker, then Keep the placement (the result
+    /// sheet waits for a choice) so the next step starts from a quiet strip.
     private func placeOneSticker() {
         ask("draw a sticker of a coffee cup")
         let first = app.buttons["mira.imageChoice.0"]
@@ -40,11 +36,14 @@ final class StickerEditUITests: XCTestCase {
         let sticker = app.descendants(matching: .any)
             .matching(identifier: "element.sticker").firstMatch
         XCTAssertTrue(sticker.waitForExistence(timeout: 5))
+        let keep = app.buttons["mira.keep"]
+        XCTAssertTrue(keep.waitForExistence(timeout: 5))
+        keep.tap()
         let receipt = app.staticTexts["mira.receipt"]
         let gone = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: receipt)
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 12), .completed,
-                       "the placement receipt clears")
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed,
+                       "Keep clears the result sheet")
     }
 
     func testAskRestylesThePlacedSticker() {
@@ -57,6 +56,23 @@ final class StickerEditUITests: XCTestCase {
         let sticker = app.descendants(matching: .any)
             .matching(identifier: "element.sticker").firstMatch
         XCTAssertTrue(sticker.exists, "the element is still a sticker")
+    }
+
+    /// The panel's header Undo has none of its own steps to take back, so
+    /// it never reaches the canvas under it (the sticker's placement).
+    func testThePanelsHeaderUndoLeavesTheCanvasAlone() {
+        startMemory()
+        placeOneSticker()
+        XCTAssertTrue(app.buttons["editor.undo"].isEnabled, "the placement can be undone from the canvas")
+
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        sticker.press(forDuration: 1.1)
+        let entry = app.buttons["Edit sticker"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        entry.tap()
+        XCTAssertTrue(app.textFields["sticker.ai.instruction"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "the panel's Undo would take the sticker away")
     }
 
     func testLongPressPanelEditsTheSticker() {

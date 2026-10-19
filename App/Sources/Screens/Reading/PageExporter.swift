@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// One choice row of the export sheet's Advanced fold.
+/// One choice row of the export sheet.
 protocol ExportOption: CaseIterable, Identifiable, Hashable where ID == String {
     var label: String { get }
 }
@@ -27,13 +27,29 @@ enum ExportFormat: String, ExportOption {
     var savesToPhotos: Bool { self != .pdf }
 }
 
-/// Render density: the page is laid out in points and drawn at this scale.
+/// Render density: the page is laid out in points and drawn at a scale.
 enum ExportQuality: String, ExportOption {
-    case standard, high
+    case standard, high, original
 
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
-    var scale: CGFloat { self == .standard ? 2 : 3 }
+
+    /// The most pixels Original renders (about 96 MB as RGBA): a long page
+    /// at 4x would otherwise run to hundreds of megabytes.
+    static let originalPixelBudget: CGFloat = 24_000_000
+
+    /// The scale a page of `size` points renders at: 2x, 3x, and for
+    /// Original 4x -- less on a page too long for the pixel budget, as far
+    /// down as it takes to stay inside it.
+    func scale(for size: CGSize) -> CGFloat {
+        switch self {
+        case .standard: return 2
+        case .high: return 3
+        case .original:
+            let area = max(size.width * size.height, 1)
+            return min(4, (Self.originalPixelBudget / area).squareRoot())
+        }
+    }
 }
 
 /// How a PDF holds the long page: as one tall page, or cut into A4-shaped
@@ -53,7 +69,10 @@ enum PageExporter {
         let renderer = ImageRenderer(
             content: StaticPageView(memory: memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false)
         )
-        renderer.scale = quality.scale
+        renderer.scale = quality.scale(for: CGSize(
+            width: MiraNoteConfig.pageWidth,
+            height: StaticPageView.contentHeight(of: memory)
+        ))
         return renderer.uiImage
     }
 
