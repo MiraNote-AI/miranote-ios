@@ -19,6 +19,8 @@ struct StickerEditPanel: View {
     @State private var instruction = ""
     @State private var editing = false
     @State private var notice: String?
+    /// A tap on the card lowers the instruction's keyboard.
+    @FocusState private var instructionFocused: Bool
 
     private let imageStore = ImageFileStore()
 
@@ -30,6 +32,7 @@ struct StickerEditPanel: View {
                         .font(.miraCaption)
                         .foregroundStyle(Palette.ink)
                         .tint(Palette.forest)
+                        .focused($instructionFocused)
                         .accessibilityIdentifier("sticker.ai.instruction")
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
@@ -39,6 +42,10 @@ struct StickerEditPanel: View {
                                 .overlay(Capsule().strokeBorder(
                                     Palette.hairline, lineWidth: Metrics.hairline))
                         )
+                        // The capsule is the field's, not the card's tap
+                        // that lowers the keyboard.
+                        .contentShape(Capsule())
+                        .onTapGesture { instructionFocused = true }
 
                     Button {
                         runEdit()
@@ -69,6 +76,7 @@ struct StickerEditPanel: View {
                 }
             }
         }
+        .onTapGesture { instructionFocused = false }
     }
 
     private var currentSticker: GeneratedSticker? {

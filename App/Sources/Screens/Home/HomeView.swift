@@ -15,6 +15,8 @@ struct HomeView: View {
     var onOpenTrash: () -> Void = {}
 
     @State private var prompt = ""
+    /// The ask bar's keyboard: a tap on the page or a scroll lowers it.
+    @FocusState private var promptFocused: Bool
     @State private var addingCollection = false
     @State private var newCollectionName = ""
 
@@ -65,7 +67,12 @@ struct HomeView: View {
             // wordmark, not the circle, lines up with the editor's nav row.
             .padding(.top, -6)
             .padding(.bottom, 28)
+            // A tap that no button takes lowers the ask bar's keyboard; the
+            // words stay in the bar.
+            .contentShape(Rectangle())
+            .onTapGesture { promptFocused = false }
         }
+        .scrollDismissesKeyboard(.immediately)
         .screenBackground()
         .alert("New collection", isPresented: $addingCollection) {
             TextField("Name", text: $newCollectionName)
@@ -168,6 +175,7 @@ struct HomeView: View {
                 .tint(Palette.forest)
                 .submitLabel(.send)
                 .onSubmit(submitPrompt)
+                .focused($promptFocused)
                 .accessibilityIdentifier("quick.field")
                 .overlay(alignment: .leading) {
                     if prompt.isEmpty {
@@ -196,6 +204,10 @@ struct HomeView: View {
                 .fill(Color(hex: 0xF6F5F1))
                 .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
         )
+        // A tap anywhere on the bar is for its field, not the page's tap
+        // that lowers the keyboard.
+        .contentShape(Capsule())
+        .onTapGesture { promptFocused = true }
     }
 
     private var grid: some View {

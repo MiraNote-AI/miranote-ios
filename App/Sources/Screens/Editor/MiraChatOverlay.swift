@@ -45,6 +45,9 @@ struct MiraChatOverlay: View {
                 questionCapsule
                     .padding(.top, 12 - Metrics.navToCanvas)
                 miraPanel
+                    // A tap on the panel lowers the keyboard; the quick
+                    // actions still act.
+                    .onTapGesture { focus.wrappedValue = false }
                     .padding(.top, 25)
                 Spacer(minLength: 0)
                 DictationStrip(
