@@ -10,6 +10,9 @@ struct PendingPlacement: Equatable {
     let prompt: String
     let fileName: String
     let isSticker: Bool
+    /// Where it lands, in page points, when the placement flow picks the
+    /// spot itself (`UIVariant.placeFlow`); nil asks for a tap.
+    var at: CGPoint?
 }
 
 /// Where the Image tool stands. It opens in place over the live canvas
@@ -170,8 +173,8 @@ struct ChoosePhotosSheet: View {
                     pill("AI Image", filled: false, id: "image.source.generate", action: onGenerate)
                 }
                 #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("-UITEST")
-                    || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES") {
+                if (ProcessInfo.processInfo.arguments.contains("-UITEST")
+                    || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES")) && !UIVariant.ownerShots {
                     pill("Samples", filled: false, id: "image.library.samples", action: onSamples)
                 }
                 #endif

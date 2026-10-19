@@ -45,6 +45,9 @@ struct StickerPanelScene: View {
     @State private var dragPoint: CGPoint?
     @State private var pageRow: CGRect = .zero
     @State private var previewFrame: CGRect = .zero
+    /// Placement flow 3's sticker in flight; flow 5's sticker just stacked.
+    @State private var flight: Flight?
+    @State private var stacked: Stacked?
     /// While typing, the sheet folds to its collapsed height: the keyboard
     /// leaves no room for 430 above the composer.
     @FocusState private var promptFocused: Bool
@@ -57,7 +60,9 @@ struct StickerPanelScene: View {
             leading: "Cancel",
             // Round 2 of sticker Add: the sheet's own Add replaces this one
             // while a made sticker shows (or is on its way).
-            trailing: UIVariant.stickerAdd.hidesHeaderAdd && (generating || !drafts.isEmpty) ? nil : "Add",
+            // Placement flow 5 stays in the panel after an add: Done leaves.
+            trailing: stacked != nil ? "Done"
+                : (UIVariant.stickerAdd.hidesHeaderAdd && (generating || !drafts.isEmpty) ? nil : "Add"),
             onLeading: actions.leading,
             onTrailing: add,
             // The panel records no step of its own (presets and favorites
@@ -65,8 +70,9 @@ struct StickerPanelScene: View {
             // header Undo has nothing here, never a change under the scrim.
             onUndo: {},
             undoEnabled: false,
-            // A sticker dragged out (option A3) shows the page it lands on.
-            scrimmed: dragPoint == nil,
+            // A sticker dragged out (option A3), flying in (flow 3) or just
+            // stacked (flow 5) shows the page it lands on.
+            scrimmed: dragPoint == nil && flight == nil && stacked == nil,
             onScrimTap: {
                 // A tap on the page goes back to it -- except while a
                 // sticker is being made or waits to be added: it took
@@ -85,6 +91,9 @@ struct StickerPanelScene: View {
                 // Out of the way while a sticker is dragged onto the page.
                 .opacity(dragPoint == nil ? 1 : 0)
                 .animation(.easeOut(duration: 0.18), value: dragPoint == nil)
+                // Flow 3: the sheet slides away under the flying sticker.
+                .offset(y: flight == nil ? 0 : 700)
+                .animation(.easeIn(duration: 0.45 * UIVariant.slowmo), value: flight == nil)
         } bottom: {
             InputModeBar(active: .sticker, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
@@ -98,7 +107,8 @@ struct StickerPanelScene: View {
             // words typed, the composer's action adds it; Make again sits
             // beside it. New words bring Generate back.
             ToolComposer(
-                placeholder: "Ask mira to generate a sticker",
+                // The larger type options' 17 pt cut the long copy short.
+                placeholder: UIVariant.type == .current ? "Ask mira to generate a sticker" : "Describe a sticker",
                 text: $prompt,
                 action: composerAdds ? "Add" : "Generate",
                 actionWidth: composerAdds ? 52 : 74,
@@ -116,7 +126,19 @@ struct StickerPanelScene: View {
         }
         .overlay {
             GeometryReader { geo in
-                draggedSticker(origin: geo.frame(in: .global).origin)
+                let origin = geo.frame(in: .global).origin
+                draggedSticker(origin: origin)
+                if let flight {
+                    Image(uiImage: flight.image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: flight.side, height: flight.side)
+                        .shadow(color: Palette.ink.opacity(0.25), radius: 12, y: 8)
+                        .position(x: flight.x - origin.x, y: flight.y - origin.y)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                if let stacked { landingRing(stacked, origin: origin) }
             }
             .ignoresSafeArea()
         }
@@ -172,7 +194,7 @@ struct StickerPanelScene: View {
         switch UIVariant.stickerAdd {
         case .current, .b: return 0
         case .c: return 36
-        case .a, .a1, .a2: return 70
+        case .a, .a1, .a2: return liftsPreview ? 96 : 70
         case .a3: return 96
         }
     }
@@ -266,7 +288,9 @@ struct StickerPanelScene: View {
             .padding(.bottom, -4)
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                if generating || !drafts.isEmpty {
+                if let stacked {
+                    stackedLine(stacked)
+                } else if generating || !drafts.isEmpty {
                     Text("Generate makes a new one; close the keyboard to see this one.")
                         .font(.miraComposer)
                         .foregroundStyle(Palette.textSecondary)
@@ -391,8 +415,13 @@ struct StickerPanelScene: View {
             .accessibilityIdentifier("sticker.result.\(index)")
             // Sticker Add options A and C: the sticker itself adds.
             .onTapGesture { if previewAdds { add() } }
-            .gesture(UIVariant.stickerAdd == .a3 && !busy ? dragOut : nil)
-            .opacity(dragPoint != nil && index == page ? 0.3 : 1)
+            // Placement flow 4: lifted off the sheet, it asks to be dragged.
+            .shadow(color: Palette.ink.opacity(liftsPreview ? 0.24 : 0), radius: 14, y: 12)
+            .offset(y: liftsPreview ? -4 : 0)
+            .gesture((UIVariant.stickerAdd == .a3 || UIVariant.placeFlow == .dragFirst) && !busy ? dragOut : nil)
+            .opacity(index == page ? (flight != nil ? 0 : (dragPoint != nil ? 0.3 : 1)) : 1)
+            // Gone at once when it takes flight: the flying copy is it.
+            .animation(nil, value: flight == nil)
             .accessibilityAction(named: "Add to page") { if previewAdds { add() } }
             if styling && index == page {
                 DotRingSpinner(diameter: 80)
@@ -404,6 +433,7 @@ struct StickerPanelScene: View {
     // MARK: Add within thumb reach (owner, 2026-10-19)
 
     private var previewAdds: Bool { UIVariant.stickerAdd.previewAdds }
+    private var liftsPreview: Bool { UIVariant.placeFlow == .dragFirst }
 
     /// Under the made sticker: the A options' "Add to page" (A2 with its
     /// Favorite beside it, A3 with the drag hint above), option C's
@@ -420,7 +450,12 @@ struct StickerPanelScene: View {
                 .padding(.bottom, 12)
         } else if option.addPill {
             VStack(spacing: 8) {
-                if option == .a3 {
+                if liftsPreview {
+                    Label("Drag onto your page", systemImage: "hand.draw")
+                        .font(.miraCaption)
+                        .foregroundStyle(Palette.textSecondary)
+                        .accessibilityIdentifier("sticker.dragHint")
+                } else if option == .a3 {
                     Text("Drag onto the page or tap Add")
                         .font(.miraCaption)
                         .foregroundStyle(Palette.textSecondary)
@@ -726,6 +761,7 @@ struct StickerPanelScene: View {
     private func generate() {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !busy else { return }
+        stacked = nil
         generating = true
         notice = nil
         drafts = []
@@ -832,8 +868,98 @@ struct StickerPanelScene: View {
             notice = "That sticker couldn't be saved. Try again?"
             return
         }
-        pendingPlacement = PendingPlacement(prompt: drafts[page].prompt, fileName: fileName, isSticker: true)
-        actions.leading()
+        let flow = UIVariant.placeFlow
+        let pending = PendingPlacement(prompt: drafts[page].prompt, fileName: fileName, isSticker: true,
+                                       at: flow == .current ? nil : placementSpot)
+        switch flow {
+        case .flyIn: fly(pending)
+        case .stayAndStack: stack(pending)
+        case .current, .direct, .ghost, .dragFirst:
+            pendingPlacement = pending
+            actions.leading()
+        }
+    }
+
+    // MARK: Placement flows (round 3)
+
+    /// The free spot nearest the flow's anchor in the card as the canvas
+    /// will show it (from the page's top, the sheet gone), page points.
+    private var placementSpot: CGPoint {
+        let card = pageCard
+        let visible = CGRect(x: 0, y: 0, width: MiraNoteConfig.pageWidth, height: card.frame.height / card.scale)
+        return StickerSpot.find(in: visible, near: StickerSpot.anchor(in: visible, items: editor.items),
+                                avoiding: editor.items)
+    }
+
+    /// The spot in page points, on screen (global).
+    private func onScreen(_ point: CGPoint) -> CGPoint {
+        let card = pageCard
+        return CGPoint(x: card.frame.minX + point.x * card.scale, y: card.frame.minY + point.y * card.scale)
+    }
+
+    /// Flow 3: the sticker leaves the preview along a short arc (across
+    /// fast, down late) and shrinks to its placed size as the sheet slides
+    /// away; the canvas takes it where it lands.
+    private func fly(_ pending: PendingPlacement) {
+        guard let at = pending.at, let image = UIImage(data: drafts[page].current.data) else { return }
+        let target = onScreen(at)
+        let duration = 0.55 * UIVariant.slowmo
+        flight = Flight(image: image, x: previewFrame.midX, y: previewFrame.midY,
+                        side: min(232, previewFrame.height))
+        withAnimation(.easeOut(duration: duration)) {
+            flight?.x = target.x
+            flight?.side = StickerSpot.side * pageCard.scale
+        }
+        withAnimation(.easeIn(duration: duration)) { flight?.y = target.y }
+        Task {
+            try? await Task.sleep(for: .seconds(duration + 0.05))
+            pendingPlacement = pending
+            actions.leading()
+        }
+    }
+
+    /// Flow 5: the sticker lands at once beside the newest element; the
+    /// panel stays, folded, over an unscrimmed page that shows it arrive.
+    private func stack(_ pending: PendingPlacement) {
+        guard let at = pending.at else { return }
+        let id = editor.addSticker(
+            GeneratedSticker(prompt: pending.prompt, symbolName: "sparkles", fileName: pending.fileName), at: at
+        )
+        editor.select(id)
+        withAnimation(.spring(response: 0.4 * UIVariant.slowmo, dampingFraction: 0.75)) {
+            stacked = Stacked(at: at, changeCount: editor.changeCount)
+            drafts = []
+            prompt = ""
+            madeFrom = ""
+        }
+    }
+
+    /// Flow 5's line in the folded sheet: what happened, and its Undo.
+    private func stackedLine(_ stacked: Stacked) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(Palette.forest)
+            Text("Added to your page")
+                .font(.miraBody)
+                .foregroundStyle(Palette.ink)
+            Spacer(minLength: 0)
+            Button("Undo") {
+                if editor.changeCount == stacked.changeCount { editor.undo() }
+                self.stacked = nil
+            }
+            .buttonStyle(SoftPill())
+            .accessibilityIdentifier("sticker.stacked.undo")
+        }
+        .accessibilityIdentifier("sticker.stacked")
+    }
+
+    /// Flow 5: a ring that blooms once around where the sticker landed.
+    private func landingRing(_ stacked: Stacked, origin: CGPoint) -> some View {
+        let point = onScreen(stacked.at)
+        return LandingRing(side: StickerSpot.side * pageCard.scale)
+            .position(x: point.x - origin.x, y: point.y - origin.y)
+            .allowsHitTesting(false)
     }
 
     /// Tap-to-place: stickers come back as stickers, photos as photos.

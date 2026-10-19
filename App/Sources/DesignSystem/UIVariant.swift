@@ -40,6 +40,46 @@ enum UIVariant {
         var previewAdds: Bool { self != .current && self != .b }
     }
 
+    /// Round 3 of item 3: what Add does with a made sticker. Today the
+    /// canvas asks "Tap where it should go".
+    enum PlaceFlow: String {
+        case current
+        /// Lands at once on a free spot in view, dropping in, selected.
+        case direct = "1"
+        /// A breathing ghost in view: drag it into place, or tap to drop.
+        case ghost = "2"
+        /// Flies from the sheet onto the page; a toast offers Undo.
+        case flyIn = "3"
+        /// Dragging the preview out is the main way; Add does `direct`.
+        case dragFirst = "4"
+        /// Lands beside the newest element while the panel stays open, so
+        /// the page shows it arrive and another can follow.
+        case stayAndStack = "5"
+    }
+
+    static let placeFlow = option("placeFlow") ?? PlaceFlow.current
+
+    /// DEBUG `-OWNER_SHOTS`: screenshots for the owner keep the -UITEST mock
+    /// services but none of its test-only controls (the Samples pill), so
+    /// frames match a Release build.
+    static let ownerShots: Bool = {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-OWNER_SHOTS")
+        #else
+        return false
+        #endif
+    }()
+
+    /// DEBUG `-PLACE_SLOWMO <factor>`: the placement animations run that many
+    /// times slower, for storyboard frames caught mid-motion.
+    static let slowmo: Double = {
+        #if DEBUG
+        let factor = UserDefaults.standard.double(forKey: "PLACE_SLOWMO")
+        if factor > 0 { return factor }
+        #endif
+        return 1
+    }()
+
     /// Item 1, a bigger canvas card.
     static let canvas = option("canvas") ?? Option.current
     /// Item 3, the made sticker's Add within thumb reach.

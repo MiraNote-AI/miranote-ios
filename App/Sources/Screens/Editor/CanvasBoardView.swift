@@ -46,6 +46,11 @@ struct CanvasBoardView: View {
     /// While writing: the top of the text tools (or the color sheet) over
     /// the keyboard, global; the block being written stays above it.
     var textToolsTop: CGFloat?
+    /// A sticker Add just placed (round 3 placement flows): it drops in,
+    /// and may announce itself with Undo.
+    var landing: Landing?
+    /// Flow 2: a sticker waiting on the page for a drag or a tap.
+    var ghost: GhostPlacement?
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -84,6 +89,13 @@ struct CanvasBoardView: View {
     enum Toast {
         case deleted(changeCount: Int)
         case favorited
+        /// Placement flow 3: the sticker Add just placed, with Undo.
+        case added(changeCount: Int)
+
+        var isAdded: Bool {
+            if case .added = self { return true }
+            return false
+        }
     }
 
     private let minBoardHeight: CGFloat = 620
@@ -186,6 +198,9 @@ struct CanvasBoardView: View {
             dropToDelete = phase
             if phase == nil { lift.lifted = nil }
         }
+        .onChange(of: landing, initial: true) { _, landing in
+            if landing?.toast == true { show(toast: .added(changeCount: editor.changeCount)) }
+        }
         // A take that leaves the page (Revert, undo, delete) stops playing.
         .onChange(of: editor.changeCount) {
             guard let playing = player.playingID,
@@ -254,6 +269,14 @@ struct CanvasBoardView: View {
             if let pendingSoundMarker {
                 PendingSoundMarker()
                     .position(pendingSoundMarker)
+            }
+            if let ghost {
+                PlacementGhost(image: ghost.image, scale: pageScale) { moved in
+                    ghost.place(CGPoint(x: ghost.at.x + moved.width, y: ghost.at.y + moved.height))
+                }
+                .position(ghost.at)
+                .zIndex(3)
+                .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
             if let revealFrame {
                 // Elements are placed with .position, which stretches their
@@ -437,6 +460,7 @@ struct CanvasBoardView: View {
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
+        .modifier(DropIn(active: landing?.itemID == item.id && landing?.dropIn == true))
     }
 
     /// The moving element's box on screen, translation included: the scene
@@ -679,8 +703,8 @@ extension CanvasBoardView {
     @ViewBuilder private func toastView(_ kind: Toast) -> some View {
         HStack(spacing: 14) {
             switch kind {
-            case .deleted(let changeCount):
-                Text("Deleted")
+            case .deleted(let changeCount), .added(let changeCount):
+                Text(kind.isAdded ? "Added - drag to move" : "Deleted")
                     .font(.miraLabel)
                     .foregroundStyle(Palette.onInk)
                 // Only the delete: once something newer is on the page, the

@@ -106,6 +106,10 @@ struct CanvasScene: View {
     @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
+    /// Round 3 placement flows: the sticker just placed for the user, and
+    /// flow 2's ghost spot (page points).
+    @State private var landing: Landing?
+    @State private var ghostAt: CGPoint?
     @State private var lift = LiftTracker()
     /// The delete zone's top edge (global) while it shows.
     @State private var deleteZoneTop: CGFloat?
@@ -178,6 +182,7 @@ struct CanvasScene: View {
             }
             Task { await lookAtUnseenPhotos() }
             consumePendingTool()
+            autoPlace()
         }
     }
 
@@ -527,7 +532,11 @@ struct CanvasScene: View {
                     break
                 }
             },
-            onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
+            // With flow 2's ghost up, a tap on the paper lets it go.
+            onPlaceTap: pendingPlacement == nil ? nil : (ghostAt == nil ? { placePending(at: $0) } : { _ in
+                discardGhost()
+                return nil
+            }),
             // Ending the writing then waits for the words, as Done does.
             onEndWritingThen: writingDown || dictating ? { then in
                 afterWritingDown = then
@@ -537,8 +546,42 @@ struct CanvasScene: View {
             dropToDelete: $dropToDelete,
             lift: lift,
             pendingSoundMarker: pendingSoundMarker,
-            textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop
+            textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop,
+            landing: landing,
+            ghost: ghostPlacement
         )
+    }
+
+    // MARK: Placement flows (round 3, `UIVariant.placeFlow`)
+
+    /// A sticker handed over with its spot already picked: it lands there,
+    /// or (flow 2) waits there as a ghost.
+    private func autoPlace() {
+        guard let pending = pendingPlacement, let at = pending.at else { return }
+        if UIVariant.placeFlow == .ghost {
+            withAnimation(.spring(response: 0.4 * UIVariant.slowmo, dampingFraction: 0.7)) { ghostAt = at }
+            return
+        }
+        guard let id = placePending(at: at) else { return }
+        landing = Landing(itemID: id, dropIn: UIVariant.placeFlow != .flyIn, toast: UIVariant.placeFlow == .flyIn)
+    }
+
+    private var ghostPlacement: GhostPlacement? {
+        guard let ghostAt, let pending = pendingPlacement,
+              let image = CanvasImageCache.image(fileName: pending.fileName, filterName: "", store: imageStore)
+        else { return nil }
+        return GhostPlacement(image: image, at: ghostAt) { point in
+            self.ghostAt = nil
+            guard let id = placePending(at: point) else { return }
+            landing = Landing(itemID: id, dropIn: false)
+        }
+    }
+
+    func discardGhost() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            ghostAt = nil
+            pendingPlacement = nil
+        }
     }
 
     // MARK: Bottom cluster (instrument panel + context bar)
@@ -581,12 +624,12 @@ struct CanvasScene: View {
         } else {
             if pendingPlacement != nil {
                 HStack(spacing: 8) {
-                    Text("Tap where it should go.")
+                    Text(ghostAt == nil ? "Tap where it should go." : "Drag it into place, or tap it to drop it.")
                         .font(.miraCaption)
                         .foregroundStyle(Palette.textSecondary)
                         .accessibilityIdentifier("canvas.place.hint")
                     Spacer(minLength: 0)
-                    Button("Cancel") { pendingPlacement = nil }
+                    Button("Cancel") { discardGhost() }
                         .font(.miraCaption.weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         // 44 pt to the finger without moving the row.
