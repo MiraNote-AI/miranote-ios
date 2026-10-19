@@ -116,7 +116,9 @@ struct CanvasBoardView: View {
             // writing: the block being written scrolls clear of the keyboard
             // and the text chrome over the page's lower part -- when it
             // opens, when it grows, when the tools move.
-            .onChange(of: writtenFrame) { keepWrittenBlockClear(proxy) }
+            // Not on the user's own scroll, which moves the block's frame
+            // without changing which block it is or its height.
+            .onChange(of: writtenKey) { keepWrittenBlockClear(proxy) }
             .onChange(of: textToolsTop) { keepWrittenBlockClear(proxy) }
             .onChange(of: editor.editingTextItemID) { old, id in
                 if old == nil, id != nil {
@@ -200,6 +202,17 @@ struct CanvasBoardView: View {
     /// While words are written the page goes under the dim glass scrim
     /// (screens 11-20): everything but the edited block blurs and dims.
     private var writing: Bool { editor.editingTextItemID != nil }
+
+    /// The block being written and its height: what keeps it clear of the
+    /// text tools when it changes (its first frame, its growth).
+    private var writtenKey: WrittenKey? {
+        writtenFrame.map { WrittenKey(id: editor.editingTextItemID, height: $0.height) }
+    }
+
+    private struct WrittenKey: Equatable {
+        let id: CanvasItem.ID?
+        let height: CGFloat
+    }
 
     private var board: some View {
         ZStack(alignment: .topLeading) {

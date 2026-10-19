@@ -54,6 +54,26 @@ final class TextVisibilityUITests: XCTestCase {
                                     "\(when): the block (\(field.frame)) runs under the header (\(headerBottom))")
     }
 
+    /// While a long paragraph is written, a drag on the page moves it and it
+    /// stays where the finger left it: the block is kept clear of the tools
+    /// when writing starts, when it grows and when the tools move, never
+    /// against the user's own scroll.
+    func testAScrollWhileWritingStaysWhereTheUserPutsIt() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText(String(repeating: "We walked down to the river after lunch and sat on the warm stones. ",
+                              count: 6))
+        Thread.sleep(forTimeInterval: 1.5)
+        let before = field.frame.maxY
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.2))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)))
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertGreaterThan(field.frame.maxY, before + 40,
+                             "the page went back after the drag (block bottom \(before) -> \(field.frame.maxY))")
+    }
+
     func testTheBlockBeingWrittenStaysAboveTheTextTools() {
         fillThePage()
         app.buttons["mode.text"].tap()
