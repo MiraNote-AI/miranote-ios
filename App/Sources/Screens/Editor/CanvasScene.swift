@@ -20,10 +20,10 @@ struct CanvasScene: View {
     var actions = EditorActions()
     /// A tool requested from another scene (consumed on appear/change).
     @Binding var pendingTool: EditorMode?
-    /// A generated picture or sticker handed back by the Image or Sticker
-    /// panel, waiting for the tap
-    /// that says where it goes.
+    /// A made sticker the Sticker panel's Add sent, landing on arrival.
     @Binding var pendingPlacement: PendingPlacement?
+    /// Where the page stands, kept across the Sticker panel's round trip.
+    var scrollMemory = CanvasScrollMemory()
     /// The photo editors' state (tile, words, compare, a running edit kept
     /// with Done), one per photo. Held by the flow: the Sticker scene
     /// rebuilds this one, and a kept edit must find its editor after it.
@@ -106,10 +106,8 @@ struct CanvasScene: View {
     @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
-    /// Round 3 placement flows: the sticker just placed for the user, and
-    /// flow 2's ghost spot (page points).
+    /// The sticker the Sticker panel's Add just placed.
     @State private var landing: Landing?
-    @State private var ghostAt: CGPoint?
     @State private var lift = LiftTracker()
     /// The delete zone's top edge (global) while it shows.
     @State private var deleteZoneTop: CGFloat?
@@ -182,7 +180,7 @@ struct CanvasScene: View {
             }
             Task { await lookAtUnseenPhotos() }
             consumePendingTool()
-            autoPlace()
+            placeArrivingSticker()
         }
     }
 
@@ -532,11 +530,6 @@ struct CanvasScene: View {
                     break
                 }
             },
-            // With flow 2's ghost up, a tap on the paper lets it go.
-            onPlaceTap: pendingPlacement == nil ? nil : (ghostAt == nil ? { placePending(at: $0) } : { _ in
-                discardGhost()
-                return nil
-            }),
             // Ending the writing then waits for the words, as Done does.
             onEndWritingThen: writingDown || dictating ? { then in
                 afterWritingDown = then
@@ -548,41 +541,21 @@ struct CanvasScene: View {
             pendingSoundMarker: pendingSoundMarker,
             textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop,
             landing: landing,
-            ghost: ghostPlacement
+            scrollMemory: scrollMemory
         )
     }
 
-    // MARK: Placement flows (round 3, `UIVariant.placeFlow`)
-
-    /// A sticker handed over with its spot already picked: it lands there,
-    /// or (flow 2) waits there as a ghost.
-    private func autoPlace() {
-        guard let pending = pendingPlacement, let at = pending.at else { return }
-        if UIVariant.placeFlow == .ghost {
-            withAnimation(.spring(response: 0.4 * UIVariant.slowmo, dampingFraction: 0.7)) { ghostAt = at }
-            return
-        }
-        guard let id = placePending(at: at) else { return }
-        let flow = UIVariant.placeFlow
-        landing = Landing(itemID: id, dropIn: !flow.flies, settle: flow == .quickFly, toast: flow.flies)
-    }
-
-    private var ghostPlacement: GhostPlacement? {
-        guard let ghostAt, let pending = pendingPlacement,
-              let image = CanvasImageCache.image(fileName: pending.fileName, filterName: "", store: imageStore)
-        else { return nil }
-        return GhostPlacement(image: image, at: ghostAt) { point in
-            self.ghostAt = nil
-            guard let id = placePending(at: point) else { return }
-            landing = Landing(itemID: id, dropIn: false)
-        }
-    }
-
-    func discardGhost() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            ghostAt = nil
-            pendingPlacement = nil
-        }
+    /// The sticker the panel's Add sent, landing where its hop ended:
+    /// one undo step, selected so it moves at once, announced with Undo.
+    private func placeArrivingSticker() {
+        guard let pending = pendingPlacement else { return }
+        pendingPlacement = nil
+        let id = editor.addSticker(
+            GeneratedSticker(prompt: pending.prompt, symbolName: "sparkles", fileName: pending.fileName),
+            at: pending.at
+        )
+        editor.select(id)
+        landing = Landing(itemID: id)
     }
 
     // MARK: Bottom cluster (instrument panel + context bar)
@@ -623,25 +596,7 @@ struct CanvasScene: View {
                 onOpenChat: openMiraChat
             )
         } else {
-            if pendingPlacement != nil {
-                HStack(spacing: 8) {
-                    Text(ghostAt == nil ? "Tap where it should go." : "Drag it into place, or tap it to drop it.")
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
-                        .accessibilityIdentifier("canvas.place.hint")
-                    Spacer(minLength: 0)
-                    Button("Cancel") { discardGhost() }
-                        .font(.miraCaption.weight(.semibold))
-                        .foregroundStyle(Palette.ink)
-                        // 44 pt to the finger without moving the row.
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                        .padding(.vertical, -16)
-                        .accessibilityIdentifier("canvas.place.cancel")
-                }
-                .padding(.horizontal, Metrics.chromeInset)
-                .transition(.opacity)
-            } else if let gestureHint {
+            if let gestureHint {
                 Text(gestureHint)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
@@ -1354,30 +1309,6 @@ extension CanvasScene {
         guard let tool = pendingTool else { return }
         pendingTool = nil
         handleTool(tool)
-    }
-
-    /// The canvas half of "generate, then say where it goes". The picture lands
-    /// centred on the tap and arrives selected, so it is already under the
-    /// thumb for a nudge instead of parked at the bottom of the page.
-    private func placePending(at point: CGPoint) -> CanvasItem.ID? {
-        guard let pending = pendingPlacement else { return nil }
-        pendingPlacement = nil
-        let id: CanvasItem.ID?
-        if pending.isSticker {
-            id = editor.addSticker(
-                GeneratedSticker(
-                    prompt: pending.prompt, symbolName: "sparkles", fileName: pending.fileName
-                ),
-                at: point
-            )
-        } else {
-            id = editor.addImages(
-                [ImageRef(displayName: pending.prompt, fileName: pending.fileName)],
-                around: point
-            ).first
-        }
-        if let id { editor.select(id) }
-        return id
     }
 
     static func timestamp(_ duration: TimeInterval) -> String {

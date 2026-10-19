@@ -180,6 +180,13 @@ struct UITestCameraStub: View {
     }
 }
 
+/// `-OWNER_SHOTS`: screenshots for the owner keep the -UITEST mock services
+/// but none of its test-only controls (the Samples pill), so frames match a
+/// Release build.
+enum OwnerShots {
+    static let on = ProcessInfo.processInfo.arguments.contains("-OWNER_SHOTS")
+}
+
 /// -UITEST probe counters for render cost: how often the canvas scene's
 /// body ran, and how often an on-screen image was decoded. A drag must not
 /// move either per frame.

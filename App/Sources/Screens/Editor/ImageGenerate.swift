@@ -90,7 +90,7 @@ struct AIImageSheet: View {
         GlassSheet(
             title: "AI Image",
             subtitle: "Describe an image below -- Mira paints a couple to pick from.",
-            titleSize: 20
+            titleSize: 22
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 if draft.generating {

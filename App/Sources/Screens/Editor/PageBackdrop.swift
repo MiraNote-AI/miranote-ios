@@ -53,26 +53,17 @@ struct PageBackdrop: View {
 }
 
 extension View {
-    /// The handoff's canvas card (screens 04-07, 22): a page-wide window
-    /// onto the page, r30, a 1 pt ink@0.06 rim and the `0 16 38 ink@0.08`
-    /// shadow. The page keeps its fixed design width, so on a 402 pt phone
-    /// the card sits 21 in from each edge (the design's 20 on 374).
+    /// The canvas card (screens 04-07, 22): a window onto the page across
+    /// the screen less `Metrics.canvasInset` each side, r24, a 1 pt
+    /// ink@0.06 rim and the `0 16 38 ink@0.08` shadow. The page inside keeps
+    /// its 360 pt design width and is scaled to fill the card.
     func canvasCard() -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.canvasCorner)
-        return canvasCardWidth()
+        return frame(maxWidth: .infinity)
             .clipShape(shape)
             .overlay(shape.strokeBorder(Palette.ink.opacity(0.06), lineWidth: Metrics.hairline))
             .background(shape.fill(Palette.paper).shadow(color: Palette.ink.opacity(0.08), radius: 19, y: 16))
-            .padding(.horizontal, UIVariant.canvasSideInset ?? 0)
-            .frame(maxWidth: .infinity)
-    }
-
-    /// The card's width: the page's own, or -- under a filling canvas option
-    /// -- all the room left by the side inset (the caller pads).
-    func canvasCardWidth() -> some View {
-        let fills = UIVariant.canvasSideInset != nil
-        return frame(width: fills ? nil : MiraNoteConfig.pageWidth)
-            .frame(maxWidth: fills ? .infinity : nil)
+            .padding(.horizontal, Metrics.canvasInset)
     }
 }
 

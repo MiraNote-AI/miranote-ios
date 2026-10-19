@@ -27,7 +27,7 @@ struct PageTypeTile: View {
             sample
                 .offset(x: 18, y: 10)
             Text(kind.rawValue.capitalized)
-                .font(Sans.font(size: 10, weight: 500))
+                .font(Sans.font(size: 12, weight: 500))
                 .foregroundStyle(Palette.muted)
                 .frame(maxWidth: .infinity)
                 .frame(height: 15)

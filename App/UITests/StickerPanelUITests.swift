@@ -99,30 +99,85 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertFalse(redo.isEnabled)
     }
 
-    func testAddPlacesTheShowingResultWhereTheCanvasIsTapped() {
+    /// Owner, 2026-10-19: "Add to page" under the result, within the thumb's
+    /// reach, puts the showing sticker on the page in view -- selected, one
+    /// undo step, the toast's Undo takes it back. The header has no Add then.
+    func testAddToPagePlacesTheShowingResultInView() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
-        let add = app.buttons["nav.trailing"]
-        XCTAssertEqual(add.label, "Add")
+        XCTAssertFalse(app.buttons["nav.trailing"].exists, "no second Add in the header")
+        let add = app.buttons["sticker.addToPage"]
+        XCTAssertGreaterThanOrEqual(add.frame.height, 44)
         add.tap()
 
-        XCTAssertTrue(app.staticTexts["canvas.place.hint"].waitForExistence(timeout: 5))
-        XCTAssertEqual(stickers.count, 0, "nothing lands before the canvas tap")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
-        XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "the tap placed it")
+        XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "it landed")
+        XCTAssertEqual(stickers.count, 1)
+        XCTAssertTrue(app.buttons["Save"].isHittable, "back on the canvas")
+        let undo = app.buttons["toast.undo"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 3))
+        undo.tap()
+        XCTAssertTrue(stickers.firstMatch.waitForNonExistence(timeout: 3), "Undo takes it back, in one step")
     }
 
-    /// QA owner pass: the place hint's Cancel was a caption-sized system-blue
-    /// link; it is 44 pt to the finger.
-    func testThePlaceHintsCancelIsAFullSizeTarget() {
+    /// The canvas keeps its scroll across the panel's round trip (owner,
+    /// 2026-10-19): looking further down a long page, the sticker lands in
+    /// the part that was showing, and the page is still there.
+    func testAStickerAddedFurtherDownLandsWhereThePageStood() {
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Top line" + String(repeating: "\n", count: 30) + "Bottom line")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].waitForNonExistence(timeout: 5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.6)).tap()
+
+        let save = app.buttons["Save"]
+        let toolBar = app.buttons["mode.text"]
+        let block = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Top line'")).firstMatch
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        for _ in 0..<3 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.7))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.25)))
+        }
+        let scrolledTop = block.frame.minY
+        XCTAssertLessThan(scrolledTop, save.frame.maxY - 100, "the page is scrolled well down")
+
+        app.buttons["mode.sticker"].tap()
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
-        app.buttons["nav.trailing"].tap()
-        let cancel = app.buttons["canvas.place.cancel"]
-        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
-        XCTAssertGreaterThanOrEqual(cancel.frame.height, 44)
-        cancel.tap()
-        XCTAssertFalse(app.staticTexts["canvas.place.hint"].waitForExistence(timeout: 1), "Cancel ends the placing")
+        app.buttons["sticker.addToPage"].tap()
+        let sticker = stickers.firstMatch
+        XCTAssertTrue(sticker.waitForExistence(timeout: 5))
+        sleep(1)
+
+        XCTAssertEqual(block.frame.minY, scrolledTop, accuracy: 2, "the page came back where it stood")
+        XCTAssertGreaterThan(sticker.frame.minY, save.frame.maxY, "the sticker is in view, below the header")
+        XCTAssertLessThan(sticker.frame.maxY, toolBar.frame.minY, "and above the tool bar")
+    }
+
+    /// A tap on the made sticker adds it, as the pill does.
+    func testATapOnTheResultAddsIt() {
+        generate("a coffee cup")
+        let result = any("sticker.result.0")
+        XCTAssertTrue(result.waitForExistence(timeout: 8))
+        result.tap()
+        XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5))
+    }
+
+    /// The hop is never waited on: Add lands the sticker within a moment,
+    /// draggable at once.
+    func testTheAddedStickerMovesRightAway() {
+        generate("a coffee cup")
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        app.buttons["sticker.addToPage"].tap()
+        let sticker = stickers.firstMatch
+        XCTAssertTrue(sticker.waitForExistence(timeout: 2))
+        let before = sticker.frame
+        sticker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.25)))
+        XCTAssertGreaterThan(abs(sticker.frame.midY - before.midY), 40, "it moved under the finger")
     }
 
     func testFavoriteFilesTheShowingSticker() {

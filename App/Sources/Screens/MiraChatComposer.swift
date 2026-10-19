@@ -43,7 +43,7 @@ struct MiraChatComposer: View {
         VStack(spacing: 12) {
             if let caption = statusCaption {
                 Text(caption)
-                    .font(Sans.font(size: 11, weight: 500))
+                    .font(Sans.font(size: 13, weight: 500))
                     .foregroundStyle(ChatMetrics.muted)
                     .transition(.opacity)
                     .accessibilityIdentifier("chat.voice.caption")
@@ -191,14 +191,14 @@ struct MiraChatComposer: View {
         // WeChat's field: one line growing to four. The keyboard's Send key
         // sends through sendDraft (so its guards apply) and the keyboard
         // stays up for the next message; a paste never sends.
-        ChatTextView(text: $viewModel.draft, isFocused: $fieldFocused, font: Sans.uiFont(size: UIVariant.typeSize(12, standard: 17), weight: 400)) {
+        ChatTextView(text: $viewModel.draft, isFocused: $fieldFocused, font: Sans.uiFont(size: 17, weight: 400)) {
             Task { await viewModel.sendDraft() }
         }
         .frame(maxWidth: .infinity, minHeight: ChatTextView.minHeight, alignment: .leading)
         .overlay(alignment: .leading) {
             if viewModel.draft.isEmpty {
                 Text("Ask Mira anything...")
-                    .font(Sans.font(size: 12, standard: 17, weight: 400))
+                    .font(Sans.font(size: 17, weight: 400))
                     .foregroundStyle(ChatMetrics.muted)
                     .allowsHitTesting(false)
             }
@@ -210,7 +210,7 @@ struct MiraChatComposer: View {
     /// users get a tap toggle instead of a hold.
     private var holdBar: some View {
         Text(viewModel.voice == .transcribing ? "Transcribing..." : "Hold to talk")
-            .font(Sans.font(size: 12, weight: 600))
+            .font(Sans.font(size: 14, weight: 600))
             .foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity)
             .frame(height: 34)
@@ -284,7 +284,7 @@ struct MiraChatComposer: View {
                     Task { await viewModel.sendDraft() }
                 } label: {
                     Text("Send")
-                        .font(Sans.font(size: 12, weight: 700))
+                        .font(Sans.font(size: 14, weight: 700))
                         .foregroundStyle(Palette.onInk)
                         .frame(width: 54, height: 34)
                         .background(Capsule().fill(Palette.ink))
@@ -368,12 +368,12 @@ struct MiraChatComposer: View {
     private func hintRow(_ hint: ChatHint) -> some View {
         HStack(spacing: 8) {
             Text(hint.text)
-                .font(Sans.font(size: 11, weight: 500))
+                .font(Sans.font(size: 13, weight: 500))
                 .foregroundStyle(ChatMetrics.muted)
                 .multilineTextAlignment(.center)
             if hint.opensSettings, let url = URL(string: UIApplication.openSettingsURLString) {
                 Link("Settings", destination: url)
-                    .font(Sans.font(size: 11, weight: 700))
+                    .font(Sans.font(size: 13, weight: 700))
                     .foregroundStyle(Palette.ink)
             }
         }
@@ -388,7 +388,7 @@ struct MiraChatComposer: View {
     private var tray: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Add to your message")
-                .font(Sans.font(size: 18, weight: 700))
+                .font(Sans.font(size: 20, weight: 700))
                 .foregroundStyle(Palette.ink)
             HStack(spacing: 10) {
                 trayTile("Photos", symbol: "photo.on.rectangle", id: "chat.tray.photos") {
@@ -422,7 +422,7 @@ struct MiraChatComposer: View {
                 Image(systemName: symbol)
                     .font(.system(size: 17))
                 Text(label)
-                    .font(Sans.font(size: 11, weight: 700))
+                    .font(Sans.font(size: 13, weight: 700))
             }
             .foregroundStyle(ChatMetrics.muted)
             .frame(width: 62, height: 48)

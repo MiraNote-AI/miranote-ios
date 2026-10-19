@@ -551,7 +551,7 @@ private struct PhotoEditStage: View {
 
     private func label(_ text: String, color: Color, id: String) -> some View {
         Text(text)
-            .font(Sans.font(size: 10, weight: 700))
+            .font(Sans.font(size: 12, weight: 700))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .frame(height: 16)

@@ -88,7 +88,7 @@ struct BackgroundToolSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("Background")
-                .font(Sans.font(size: 20, weight: 700))
+                .font(Sans.font(size: 22, weight: 700))
                 .foregroundStyle(Palette.ink)
                 .frame(height: 25)
                 .accessibilityAddTraits(.isHeader)
@@ -116,7 +116,7 @@ struct BackgroundToolSheet: View {
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .font(Sans.font(size: 11, weight: 500))
+            .font(Sans.font(size: 13, weight: 500))
             .foregroundStyle(Palette.ink)
             .frame(height: 15)
     }
@@ -127,7 +127,7 @@ struct BackgroundToolSheet: View {
         let words = PreviewWords(editor: editor)
         return VStack(alignment: .leading, spacing: 0) {
             Text("PREVIEW COLOR  \u{00B7}  \(previewLabel)")
-                .font(Sans.font(size: 10, weight: 600))
+                .font(Sans.font(size: 12, weight: 600))
                 .foregroundStyle(Palette.muted)
                 .frame(height: 16)
                 .padding(.top, 12)
@@ -225,7 +225,7 @@ struct BackgroundToolSheet: View {
             VStack(spacing: 3.5) {
                 dot()
                 Text(title)
-                    .font(Sans.font(size: 10, weight: 500))
+                    .font(Sans.font(size: 12, weight: 500))
                     .foregroundStyle(Palette.muted)
                     // Labels may run past the 44 pt column into the gap
                     // rather than truncate at larger type options.
@@ -241,7 +241,7 @@ struct BackgroundToolSheet: View {
 
     private var hexField: some View {
         TextField("", text: $hexDraft, prompt: Text("#RRGGBB").foregroundStyle(Palette.muted))
-            .font(Sans.font(size: 10, weight: 500))
+            .font(Sans.font(size: 12, weight: 500))
             .foregroundStyle(Palette.muted)
             .tint(Palette.forest)
             .textInputAutocapitalization(.characters)
@@ -289,11 +289,11 @@ extension BackgroundToolSheet {
     private var curatedHeader: some View {
         HStack(alignment: .top) {
             Text("Curated sets \u{00B7} \(CuratedSet.all.count)")
-                .font(Sans.font(size: 11, weight: 600))
+                .font(Sans.font(size: 13, weight: 600))
                 .foregroundStyle(Palette.ink)
             Spacer()
             Text("SWIPE \u{2192}")
-                .font(Sans.font(size: 10, weight: 600))
+                .font(Sans.font(size: 12, weight: 600))
                 .foregroundStyle(Palette.muted)
                 .accessibilityHidden(true)
         }
@@ -337,7 +337,7 @@ extension BackgroundToolSheet {
                     .resizable()
                     .frame(width: 18, height: 18)
                 Text("One-tap layout")
-                    .font(Sans.font(size: 12, weight: 600))
+                    .font(Sans.font(size: 14, weight: 600))
             }
             .foregroundStyle(Palette.onInk)
             .frame(maxWidth: .infinity)

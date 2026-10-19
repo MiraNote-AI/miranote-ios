@@ -19,8 +19,8 @@ struct ComposerCapsule<Leading: View>: View {
                 Text(action)
                     .font(.miraComposerAction)
                     .foregroundStyle(Palette.onInk)
-                    // Larger type options keep a margin inside the pill.
-                    .padding(.horizontal, UIVariant.type == .current ? 0 : 14)
+                    // A margin inside the pill for the 16 pt label.
+                    .padding(.horizontal, 14)
                     .frame(minWidth: actionWidth)
                     .frame(height: 34)
                     .background(Capsule().fill(Palette.ink))

@@ -54,10 +54,8 @@ enum Sans {
 
     private static let isAvailable = UIFont.familyNames.contains(familyName)
 
-    /// A UI role (chrome, never page content): sized by the type option
-    /// (`UIVariant.typeSize`); `standard` is the role's iOS-standard size.
-    static func font(size: CGFloat, standard: CGFloat? = nil, weight: CGFloat) -> Font {
-        Font(uiFont(size: UIVariant.typeSize(size, standard: standard), weight: weight))
+    static func font(size: CGFloat, weight: CGFloat) -> Font {
+        Font(uiFont(size: size, weight: weight))
     }
 
     static func uiFont(size: CGFloat, weight: CGFloat) -> UIFont {
@@ -82,28 +80,32 @@ enum Sans {
 
 /// Semantic type scale. Josefin Sans carries the UI and titles; Fraunces stays
 /// only on the home hero, where the design uses a high-contrast display face
-/// (1769_W05, not bundled). No role goes below 10 pt (design fidelity
-/// decision, 2026-10-15): the design's 8-9 px labels render at 10.
+/// (1769_W05, not bundled).
+///
+/// Sizes follow the iOS-standard scale the owner chose on 2026-10-19 over the
+/// handoff's (it read small beside the system keyboard): inputs 17, controls
+/// 15-16, body 16, secondary 13, nothing under 12, titles 20-22. Every
+/// `Sans.font` call in the app is on this scale.
 extension Font {
-    /// Nav pills (2026-10-07 handoff): Josefin SemiBold 12.
-    static let miraNav = Sans.font(size: 12, standard: 15, weight: 600)
-    /// The Mira composer's field and placeholder: Medium 12.
-    static let miraComposer = Sans.font(size: 12, standard: 17, weight: 500)
-    /// The composer's action pill (Go, Apply): Bold 12.
-    static let miraComposerAction = Sans.font(size: 12, standard: 16, weight: 700)
+    /// Nav pills: Josefin SemiBold 15.
+    static let miraNav = Sans.font(size: 15, weight: 600)
+    /// The Mira composer's field and placeholder: Medium 17, as iOS inputs.
+    static let miraComposer = Sans.font(size: 17, weight: 500)
+    /// The composer's action pill (Go, Apply): Bold 16.
+    static let miraComposerAction = Sans.font(size: 16, weight: 700)
 
     static let miraHero = Serif.font(size: 39, weight: 410, optical: 144)
-    /// Home dateline (screen 01): Josefin Bold 24.
-    static let miraDate = Sans.font(size: 24, standard: 26, weight: 700)
+    /// Home dateline (screen 01): Josefin Bold 26.
+    static let miraDate = Sans.font(size: 26, weight: 700)
     static let miraPageTitle = Sans.font(size: 22, weight: 700)
-    static let miraScreenTitle = Sans.font(size: 18, weight: 600)
-    static let miraLogo = Sans.font(size: 15, standard: 17, weight: 700)
+    static let miraScreenTitle = Sans.font(size: 20, weight: 600)
+    static let miraLogo = Sans.font(size: 17, weight: 700)
 
-    static let miraCardTitle = Sans.font(size: 15, standard: 17, weight: 600)
-    static let miraStatus = Sans.font(size: 15, weight: 600)
-    static let miraPill = Sans.font(size: 15, weight: 600)
-    static let miraBody = Sans.font(size: 14, weight: 400)
-    static let miraLabel = Sans.font(size: 13, weight: 500)
-    static let miraCaption = Sans.font(size: 12.5, standard: 13, weight: 400)
-    static let miraChip = Sans.font(size: 12.5, standard: 15, weight: 500)
+    static let miraCardTitle = Sans.font(size: 17, weight: 600)
+    static let miraStatus = Sans.font(size: 16, weight: 600)
+    static let miraPill = Sans.font(size: 16, weight: 600)
+    static let miraBody = Sans.font(size: 16, weight: 400)
+    static let miraLabel = Sans.font(size: 15, weight: 500)
+    static let miraCaption = Sans.font(size: 13, weight: 400)
+    static let miraChip = Sans.font(size: 15, weight: 500)
 }

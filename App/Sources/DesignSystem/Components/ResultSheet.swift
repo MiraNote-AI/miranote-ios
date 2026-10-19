@@ -27,13 +27,13 @@ struct ResultSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title)
-                .font(Sans.font(size: 13, weight: 700))
+                .font(Sans.font(size: 15, weight: 700))
                 .foregroundStyle(Palette.ink)
                 .frame(height: 16)
                 .padding(.top, 12)
                 .accessibilityIdentifier(titleID ?? "")
             Text(detail)
-                .font(Sans.font(size: 10, weight: 400))
+                .font(Sans.font(size: 12, weight: 400))
                 .foregroundStyle(Self.warmGrey)
                 .frame(height: 13)
                 .padding(.top, 5)
@@ -43,7 +43,7 @@ struct ResultSheet: View {
                 if canRevert {
                     Button(action: onRevert) {
                         Text("Revert")
-                            .font(Sans.font(size: 10, weight: 700))
+                            .font(Sans.font(size: 12, weight: 700))
                             .foregroundStyle(Palette.ink)
                             .frame(width: 78, height: 30)
                             .background(
@@ -58,7 +58,7 @@ struct ResultSheet: View {
                 }
                 Button(action: onKeep) {
                     Text("Keep")
-                        .font(Sans.font(size: 10, weight: 700))
+                        .font(Sans.font(size: 12, weight: 700))
                         .foregroundStyle(Palette.onInk)
                         .frame(width: 82, height: 30)
                         .background(Capsule().fill(Palette.ink))

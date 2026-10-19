@@ -64,7 +64,7 @@ struct CustomColorSheet: View {
             ZStack(alignment: .topLeading) {
                 header(width: width)
                 Text(subtitle)
-                    .font(Sans.font(size: 11, weight: 500))
+                    .font(Sans.font(size: 13, weight: 500))
                     .foregroundStyle(Color(hex: 0x777267))
                     .lineLimit(1)
                     .offset(x: 19, y: 60)
@@ -119,7 +119,7 @@ struct CustomColorSheet: View {
                 .offset(x: 19, y: 28)
             Button { onApply(current) } label: {
                 Text("Apply")
-                    .font(Sans.font(size: 13, weight: 600))
+                    .font(Sans.font(size: 15, weight: 600))
                     .foregroundStyle(Palette.onInk)
                     .frame(width: 66, height: 34)
                     .background(Capsule().fill(Palette.selectedTool))
@@ -147,7 +147,7 @@ struct CustomColorSheet: View {
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .font(Sans.font(size: 10, weight: 600))
+            .font(Sans.font(size: 12, weight: 600))
             .foregroundStyle(Color(hex: 0x777267))
     }
 
@@ -223,7 +223,7 @@ struct CustomColorSheet: View {
                 .fill(current.color)
                 .frame(width: 24, height: 24)
             TextField("#RRGGBB", text: $hexText)
-                .font(Sans.font(size: 15, weight: 600))
+                .font(Sans.font(size: 16, weight: 600))
                 .foregroundStyle(Palette.selectedTool)
                 .keyboardType(.asciiCapable)
                 .textInputAutocapitalization(.characters)
@@ -268,7 +268,7 @@ struct CustomColorSheet: View {
                     .resizable()
                     .frame(width: 20, height: 20)
                 Text("Pick color")
-                    .font(Sans.font(size: 11, weight: 600))
+                    .font(Sans.font(size: 13, weight: 600))
             }
             .foregroundStyle(Palette.onInk)
             .padding(.leading, 8)
@@ -370,7 +370,7 @@ struct EyedropperView: View {
         VStack(spacing: 14) {
             HStack {
                 Text("Drag to pick a color")
-                    .font(Sans.font(size: 15, weight: 600))
+                    .font(Sans.font(size: 16, weight: 600))
                     .foregroundStyle(Palette.onInk)
                 Spacer()
                 Button("Cancel") { onDone(nil) }

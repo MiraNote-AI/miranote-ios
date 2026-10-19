@@ -23,7 +23,7 @@ extension CanvasScene {
             .accessibilityLabel("Cancel")
             .accessibilityIdentifier("recorder.cancel")
             Text("Ready when you are")
-                .font(Sans.font(size: 12, weight: 500))
+                .font(Sans.font(size: 14, weight: 500))
                 .foregroundStyle(Palette.onInk.opacity(0.85))
                 .padding(.leading, 11)
             Spacer(minLength: 0)
@@ -33,7 +33,7 @@ extension CanvasScene {
                         .fill(Color(hex: 0x8C4A3A))
                         .frame(width: 8, height: 8)
                     Text("Record")
-                        .font(Sans.font(size: 12, weight: 700))
+                        .font(Sans.font(size: 14, weight: 700))
                 }
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 14)

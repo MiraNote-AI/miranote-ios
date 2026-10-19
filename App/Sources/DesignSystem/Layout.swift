@@ -4,21 +4,22 @@ import SwiftUI
 /// Named `Metrics` (not `Layout`) to avoid colliding with SwiftUI's `Layout`.
 enum Metrics {
     static let screenPadding: CGFloat = 22
-    /// 2026-10-07 handoff: side inset of the chrome -- nav pills, the Mira
-    /// composer, glass sheets (342 wide on the design's 374).
+    /// Side inset of all chrome -- nav pills, the tool bar, the composers:
+    /// one edge.
     static let chromeInset: CGFloat = 16
-    /// Side inset of the canvas card (334 wide on 374).
-    static let canvasInset: CGFloat = 20
-    /// Side inset of the five-tool bar (5 x 64 + 4 x 4 on 374).
-    /// Under the filling canvas option C the bar takes the chrome's 16, so
-    /// every control shares one edge, 8 inside the card's.
-    static let toolBarInset: CGFloat = UIVariant.canvas == .c ? chromeInset : 19
-    /// The canvas card: corner, and the gaps that frame it vertically
+    /// Side inset of the canvas card (owner, 2026-10-19: as wide as reads
+    /// well). The 360 pt page scales up to fill it.
+    static let canvasInset: CGFloat = 8
+    /// Sheets and panels over the canvas float this far inside the card on
+    /// every side -- which puts their edges on the chrome's line.
+    static let sheetInCard: CGFloat = chromeInset - canvasInset
+    /// The five-tool bar shares the chrome's edge.
+    static let toolBarInset: CGFloat = chromeInset
+    /// The canvas card: corner, and the tight gaps that frame it vertically
     /// (nav bottom to card top, card bottom to tool bar top).
-    /// Tighter around a bigger card under the canvas option (`UIVariant`).
-    static let canvasCorner: CGFloat = UIVariant.canvas.pick(30, a: 30, b: 30, c: 24)
-    static let navToCanvas: CGFloat = UIVariant.canvas.pick(19, a: 8, b: 8, c: 6)
-    static let canvasToToolBar: CGFloat = UIVariant.canvas.pick(20, a: 10, b: 10, c: 6)
+    static let canvasCorner: CGFloat = 24
+    static let navToCanvas: CGFloat = 6
+    static let canvasToToolBar: CGFloat = 6
     static let pageCorner: CGFloat = 6
     static let imageCorner: CGFloat = 18
     static let sheetCorner: CGFloat = 26

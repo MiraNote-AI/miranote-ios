@@ -195,22 +195,22 @@ struct ExportSheet: View {
     var body: some View {
         // Sheet-relative frames from the handoff: title (21, 19), line 51,
         // tiles 81, "Quality" 153, pills 175, actions 223, foot 272.
-        GlassSheet(titleSize: 20, elevation: .raised, bottomPadding: 11) {
+        GlassSheet(titleSize: 22, elevation: .raised, bottomPadding: 11) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Export & Save")
-                    .font(Sans.font(size: 20, weight: 700))
+                    .font(Sans.font(size: 22, weight: 700))
                     .foregroundStyle(Palette.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .overlay(alignment: .trailing) { shareButton }
                     .padding(.top, 2)
                 Text("Choose format and quality before saving.")
-                    .font(Sans.font(size: 12, weight: 500))
+                    .font(Sans.font(size: 14, weight: 500))
                     .foregroundStyle(Palette.ink)
                     .padding(.top, 12)
                 tiles
                     .padding(.top, 16)
                 Text("Quality")
-                    .font(Sans.font(size: 12, weight: 500))
+                    .font(Sans.font(size: 14, weight: 500))
                     .foregroundStyle(Palette.ink)
                     .padding(.top, 20)
                 pills(ExportQuality.allCases, selected: quality, id: "export.quality") { quality = $0 }
@@ -227,7 +227,7 @@ struct ExportSheet: View {
                     } icon: {
                         Image(systemName: "speaker.wave.2")
                     }
-                    .font(Sans.font(size: 11, weight: 400))
+                    .font(Sans.font(size: 13, weight: 400))
                     .foregroundStyle(Palette.textSecondary)
                     .padding(.top, 10)
                 }
@@ -275,7 +275,7 @@ struct ExportSheet: View {
                     tile = option
                 } label: {
                     Text(option.label)
-                        .font(Sans.font(size: 11, weight: 700))
+                        .font(Sans.font(size: 13, weight: 700))
                         .foregroundStyle(option == tile ? Palette.onInk : Palette.ink)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
@@ -306,7 +306,7 @@ struct ExportSheet: View {
                     choose(option)
                 } label: {
                     Text(option.label)
-                        .font(Sans.font(size: 11, weight: 700))
+                        .font(Sans.font(size: 13, weight: 700))
                         .foregroundStyle(option == selected ? Palette.onInk : Palette.muted)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
@@ -348,7 +348,7 @@ struct ExportSheet: View {
     private func action(_ title: String, filled: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(Sans.font(size: 12, weight: 700))
+                .font(Sans.font(size: 14, weight: 700))
                 .foregroundStyle(filled ? Palette.onInk : Palette.muted)
                 .frame(maxWidth: .infinity)
                 .frame(height: 38)

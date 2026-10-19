@@ -117,7 +117,7 @@ struct MiraChatOverlay: View {
                 .padding(.top, 24)
             VStack(alignment: .leading, spacing: 0) {
                 Text("Mira can edit this canvas directly.")
-                    .font(Sans.font(size: 14, weight: 700))
+                    .font(Sans.font(size: 16, weight: 700))
                     .foregroundStyle(Palette.ink)
                     // Wraps rather than truncates at larger type options.
                     .fixedSize(horizontal: false, vertical: true)
@@ -125,7 +125,7 @@ struct MiraChatOverlay: View {
                     .padding(.top, 17)
                 Text("The current page stays attached, so Mira can change color, layout, copy, "
                      + "stickers, or image treatment without starting over.")
-                    .font(Sans.font(size: 11, weight: 700))
+                    .font(Sans.font(size: 13, weight: 700))
                     .foregroundStyle(Self.warmGrey)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -162,7 +162,7 @@ struct MiraChatOverlay: View {
             onQuickAction(action)
         } label: {
             Text(action)
-                .font(Sans.font(size: 10, weight: 700))
+                .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(primary ? Color.white : Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)

@@ -35,11 +35,11 @@ struct DeleteDropZone: View {
                     .offset(x: 12.24, y: 5.83)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Drop here to delete")
-                        .font(Sans.font(size: 14.5, weight: 700))
+                        .font(Sans.font(size: 16, weight: 700))
                         .foregroundStyle(Self.red)
                         .frame(height: 18)
                     Text("Release outside the canvas")
-                        .font(Sans.font(size: 11, weight: 500))
+                        .font(Sans.font(size: 13, weight: 500))
                         .foregroundStyle(Color(hex: 0x7D786F))
                         .frame(height: 13)
                         .padding(.top, 3.6)

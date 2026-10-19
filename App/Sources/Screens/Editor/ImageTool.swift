@@ -2,17 +2,12 @@ import MiraNoteKit
 import PhotosUI
 import SwiftUI
 
-/// A made sticker the user has picked but not yet placed. The Sticker panel
-/// hands it back to the canvas, where the next tap on the paper decides where
-/// it lands -- on a tall journal, the page bottom meant scrolling down to find
-/// it and dragging all the way back up.
+/// A made sticker on its way from the Sticker panel's Add to the canvas,
+/// with the free spot in view it lands on (page points, `StickerSpot`).
 struct PendingPlacement: Equatable {
     let prompt: String
     let fileName: String
-    let isSticker: Bool
-    /// Where it lands, in page points, when the placement flow picks the
-    /// spot itself (`UIVariant.placeFlow`); nil asks for a tap.
-    var at: CGPoint?
+    let at: CGPoint
 }
 
 /// Where the Image tool stands. It opens in place over the live canvas
@@ -164,7 +159,7 @@ struct ChoosePhotosSheet: View {
             // The design's "imported media, or a link" names sources the
             // app does not have.
             subtitle: "Start from camera roll, camera, or AI.",
-            titleSize: 20
+            titleSize: 22
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 5.67) {
@@ -174,7 +169,7 @@ struct ChoosePhotosSheet: View {
                 }
                 #if DEBUG
                 if (ProcessInfo.processInfo.arguments.contains("-UITEST")
-                    || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES")) && !UIVariant.ownerShots {
+                    || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES")) && !OwnerShots.on {
                     pill("Samples", filled: false, id: "image.library.samples", action: onSamples)
                 }
                 #endif
@@ -191,7 +186,7 @@ struct ChoosePhotosSheet: View {
     private func pill(_ label: String, filled: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(Sans.font(size: 10, weight: 700))
+                .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(filled ? Palette.onInk : Palette.ink)
                 .frame(width: 94.55, height: 30)
                 .background(Capsule().fill(filled ? Palette.ink : Palette.paper))
@@ -334,7 +329,7 @@ struct RecentsSheet: View {
     private var header: some View {
         HStack {
             Text("Recents")
-                .font(Sans.font(size: 18, weight: 700))
+                .font(Sans.font(size: 20, weight: 700))
                 .foregroundStyle(Palette.ink)
             Spacer()
             if selection.count == 1 {
@@ -345,7 +340,7 @@ struct RecentsSheet: View {
                     .accessibilityIdentifier("image.library.editing")
             } else if selection.count > 1 {
                 Text("\(selection.count) selected")
-                    .font(Sans.font(size: 12, weight: 700))
+                    .font(Sans.font(size: 14, weight: 700))
                     .foregroundStyle(Palette.forest)
                     .padding(.trailing, 6)
                     .accessibilityIdentifier("image.library.count")
@@ -383,7 +378,7 @@ private struct RecentCell: View {
             .overlay(alignment: .topTrailing) {
                 if let order {
                     Text("\(order)")
-                        .font(Sans.font(size: 10, weight: 700))
+                        .font(Sans.font(size: 12, weight: 700))
                         .foregroundStyle(Palette.onInk)
                         .frame(width: 22, height: 22)
                         .background(Circle().fill(Palette.ink))

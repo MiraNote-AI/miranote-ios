@@ -26,7 +26,7 @@ struct SaveToast: View {
     var body: some View {
         // As drawn: the glyph near the leading end, the words centred.
         Text(message.text)
-            .font(Sans.font(size: 12.5, weight: 700))
+            .font(Sans.font(size: 14, weight: 700))
             .lineLimit(1)
             .padding(.horizontal, 44)
             .frame(minWidth: 222, minHeight: 38)

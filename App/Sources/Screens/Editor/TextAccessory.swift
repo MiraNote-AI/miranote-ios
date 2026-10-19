@@ -107,7 +107,7 @@ struct TextToolBar: View {
         switch tool {
         case .font:
             Text("Aa")
-                .font(Sans.font(size: 14.446, weight: 700))
+                .font(Sans.font(size: 16, weight: 700))
                 .foregroundStyle(active ? Tokens.forest : .white)
                 .frame(width: 29, height: 17)
                 .background(Capsule().fill(active ? Tokens.warmWhite : Tokens.forest))
@@ -217,7 +217,7 @@ struct FontChipRow: View {
                         let selected = abs(choice.pointSize - pointSize) < 0.5
                         Button { onSize(choice) } label: {
                             Text(choice.label)
-                                .font(Sans.font(size: 14.5, weight: 700))
+                                .font(Sans.font(size: 16, weight: 700))
                                 .foregroundStyle(selected ? .white : Tokens.forest)
                                 .frame(width: 44, height: 35)
                                 .background(FontChipBackground(selected: selected))
@@ -379,7 +379,7 @@ struct RewriteRow: View {
                                 .tint(Tokens.deepForest)
                         } else {
                             Text(title(choice))
-                                .font(Sans.font(size: 10, weight: 500))
+                                .font(Sans.font(size: 12, weight: 500))
                                 .foregroundStyle(on ? Tokens.linen : Tokens.deepForest)
                         }
                     }
@@ -447,7 +447,7 @@ struct TextBackgroundRow: View {
                             .fill(AngularGradient(colors: Tokens.conic, center: .center, angle: .degrees(90)))
                     }
                     Text("+")
-                        .font(Sans.font(size: 32, weight: 500))
+                        .font(Sans.font(size: 34, weight: 500))
                         .foregroundStyle(.white)
                         .offset(y: 3)
                 }
@@ -469,7 +469,7 @@ struct TextBackgroundRow: View {
     ) -> some View {
         Button(action: action) {
             Text("Aa")
-                .font(Sans.font(size: 12, weight: 500))
+                .font(Sans.font(size: 14, weight: 500))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 34)

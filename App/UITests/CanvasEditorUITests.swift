@@ -154,9 +154,10 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertFalse(app.buttons["AI Sticker"].exists)
     }
 
-    // Stickers are made in the Sticker tool. Add does not place the showing
-    // result and does not file it in Favorites: the canvas asks where it
-    // goes, and the next tap on the paper lands it there.
+    // Stickers are made in the Sticker tool. "Add to page" under the result
+    // (the header has no Add while one shows) puts it straight on the page,
+    // selected, with an Undo toast -- no tap asked for, nothing filed in
+    // Favorites.
     func testGenerateStickerPlacesElement() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
@@ -170,20 +171,13 @@ final class CanvasEditorUITests: XCTestCase {
 
         let firstResult = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
-        let add = app.buttons["nav.trailing"]
-        XCTAssertEqual(add.label, "Add")
-        add.tap()
+        XCTAssertFalse(app.buttons["nav.trailing"].exists, "no header Add while a result shows")
+        app.buttons["sticker.addToPage"].tap()
 
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
-        let hint = app.staticTexts["canvas.place.hint"]
-        XCTAssertTrue(hint.waitForExistence(timeout: 5), "the canvas asks where it should go")
-
-        // The paper carries no accessibility identifier on purpose (a container
-        // id cascades onto the elements), so the placing tap goes by coordinate.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
-
         let sticker = app.descendants(matching: .any).matching(identifier: "element.sticker").firstMatch
-        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the tap placed the sticker on the canvas")
+        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "Add put the sticker on the canvas")
+        XCTAssertTrue(app.buttons["toast.undo"].waitForExistence(timeout: 3), "the toast offers Undo")
     }
 
     // Save round-trip (the save-does-not-wipe regression under autosave

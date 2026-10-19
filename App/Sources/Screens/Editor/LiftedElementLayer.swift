@@ -173,7 +173,7 @@ private struct CompactLift: View {
     @ViewBuilder private func content(size: CGSize) -> some View {
         if let block = textCard {
             Text(block.text)
-                .font(Sans.font(size: 16, weight: 700))
+                .font(Sans.font(size: 17, weight: 700))
                 .foregroundStyle(Palette.warmWhite)
                 .multilineTextAlignment(.center)
                 .lineLimit(4)

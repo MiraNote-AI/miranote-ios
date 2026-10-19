@@ -150,7 +150,7 @@ struct StaticElementView: View {
             .accessibilityIdentifier("reading.sound.play")
 
             Text(clip.note.isEmpty ? CanvasElementView.timestamp(clip.duration) : clip.note)
-                .font(Sans.font(size: 11, weight: 500))
+                .font(Sans.font(size: 13, weight: 500))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .padding(.horizontal, 10)

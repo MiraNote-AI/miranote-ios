@@ -56,22 +56,39 @@ struct CameraCapture: UIViewControllerRepresentable {
 /// margins (touch slop hands a near-miss to the nearest tappable view).
 struct PagePreview: View {
     let memory: Memory
+    /// Where the canvas stood: the preview opens on the same part of the page.
+    var scroll = CanvasScrollMemory()
     var onTapPage: () -> Void
+
+    private static let topID = "preview.top"
 
     var body: some View {
         GeometryReader { geo in
-            // The card's width: the page's own, or the filling canvas
-            // option's (the page scales up to fill it, as on the canvas).
-            let cardWidth = UIVariant.canvasSideInset.map { geo.size.width - 2 * $0 } ?? MiraNoteConfig.pageWidth
+            // The page scales up to fill the card, as on the canvas.
+            let cardWidth = geo.size.width - 2 * Metrics.canvasInset
             let scale = cardWidth / MiraNoteConfig.pageWidth
-            ScrollView(showsIndicators: false) {
-                StaticPageView(memory: memory, showsSound: false)
-                    .scaleEffect(scale, anchor: .topLeading)
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    ZStack(alignment: .topLeading) {
+                        StaticPageView(memory: memory, showsSound: false)
+                            .scaleEffect(scale, anchor: .topLeading)
+                        // The canvas's scroll position, as a spot to scroll to.
+                        Color.clear
+                            .frame(width: 1, height: 1)
+                            .id(Self.topID)
+                            .padding(.top, scroll.offset * scale)
+                    }
                     .frame(
                         width: cardWidth,
-                        height: StaticPageView.contentHeight(of: memory) * scale,
+                        height: max(StaticPageView.contentHeight(of: memory), geo.size.height / scale + scroll.offset)
+                            * scale,
                         alignment: .topLeading
                     )
+                }
+                .onAppear {
+                    guard scroll.offset > 0 else { return }
+                    proxy.scrollTo(Self.topID, anchor: .top)
+                }
             }
             .canvasCard()
             .contentShape(Rectangle())
