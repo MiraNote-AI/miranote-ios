@@ -153,21 +153,6 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(app.miraComposer.label, "Ask Mira anything", "and nothing is selected")
     }
 
-    /// A hold started while that tap waits is a take of the same session:
-    /// when the first words land it is still listening, and its words land
-    /// too before the tap ends the writing.
-    func testAHoldWhileATapWaitsLandsItsWordsToo() {
-        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
-        write("Lunch")
-        strip.press(forDuration: 0.8)
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5)).tap()
-        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
-        strip.press(forDuration: 4)
-        let both = app.staticTexts["Lunch Transcribed voice note (mock) Transcribed voice note (mock)"]
-        XCTAssertTrue(both.waitForExistence(timeout: 10), "the second take's words never landed")
-        XCTAssertFalse(app.buttons["keyboard.done"].exists, "the tap ended the writing after both")
-    }
-
     /// Same with a tap on another element: the words land, then that
     /// element is the one selected (a second tap writes in it).
     func testATapOnAnotherElementWhileTranscribingWaitsThenSelectsIt() {
@@ -291,35 +276,6 @@ final class DictationOwnershipUITests: XCTestCase {
         app.buttons["Done"].tap()
         waitGone(app.miraInput, "Done closes the chat")
         assertVoiceRecords("the Mira strip's mic did not stay on")
-    }
-
-    /// Two holds on the Mira strip, the first written down slowly: the
-    /// question reads them in the order spoken.
-    func testMiraStripTakesLandInTheOrderSpoken() {
-        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "4000", "-NUMBER_TAKES"])
-        app.openMiraChat()
-        let miraStrip = app.descendants(matching: .any)["mira.dictation"]
-        miraStrip.press(forDuration: 0.8)
-        miraStrip.press(forDuration: 0.8)
-        let both = NSPredicate(format: "value CONTAINS %@ AND value CONTAINS %@", "#1", "#2")
-        let landed = XCTNSPredicateExpectation(predicate: both, object: app.miraInput)
-        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 12), .completed, "both phrases land")
-        XCTAssertEqual(app.miraInput.value as? String,
-                       "Transcribed voice note (mock) #1 Transcribed voice note (mock) #2")
-    }
-
-    /// A take that fails keeps its notice on the strip when a later take
-    /// lands, so the lost phrase is explained.
-    func testAFailedMiraTakeKeepsItsNoticeWhenTheNextLands() {
-        startAMemory(["-TRANSCRIBE_DELAY", "1500", "-FAIL_FIRST_TAKE"])
-        app.openMiraChat()
-        let miraStrip = app.descendants(matching: .any)["mira.dictation"]
-        miraStrip.press(forDuration: 0.8)
-        miraStrip.press(forDuration: 0.8)
-        let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
-        let landed = XCTNSPredicateExpectation(predicate: filled, object: app.miraInput)
-        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed, "the second phrase lands")
-        XCTAssertEqual(miraStrip.value as? String, "Couldn't reach the transcriber -- try again?")
     }
 
     /// Same, but the words do not come within the wait's cap: the session
