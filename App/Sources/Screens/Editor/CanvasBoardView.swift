@@ -373,7 +373,9 @@ struct CanvasBoardView: View {
             let bottom = shown.maxY - visibleFrame.minY + scrollMemo.offset + 16
             target = min(scrollMemo.offset, max(target, bottom - scrollMemo.cardHeight))
         }
-        restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target))
+        // The offsets are screen points; the anchor sits on the page, which
+        // the card shows scaled.
+        restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target) / pageScale)
         // Once the keyboard is down and the page has given back the room
         // it grew for the writing (its 0.2 s shrink in flight cut the
         // scroll 50 pt short).

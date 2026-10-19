@@ -352,8 +352,10 @@ final class CanvasEditorUITests: XCTestCase {
 
         // The portrait sample gets an aspect-true box AND renders inside
         // it: 8x16 -> 170-wide box capped at 260 tall. A fill that leaks
-        // its frame (the scaledToFill trap) would report ~340.
-        XCTAssertEqual(second.frame.height, 260, accuracy: 8,
+        // its frame (the scaledToFill trap) would report ~340. The card
+        // shows the 360 pt page scaled to the screen less 8 pt a side.
+        let pageScale = (app.windows.firstMatch.frame.width - 16) / 360
+        XCTAssertEqual(second.frame.height, 260 * pageScale, accuracy: 8,
                        "portrait photos arrive tall and stay inside their box")
 
         photo.press(forDuration: 0.9)
