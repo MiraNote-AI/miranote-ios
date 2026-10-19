@@ -57,6 +57,12 @@ struct StickerPanelScene: View {
             undoEnabled: false,
             scrimmed: true,
             onScrimTap: {
+                // While the prompt has the keyboard, a tap on the page only
+                // lowers it: leaving would drop the words.
+                if promptFocused {
+                    promptFocused = false
+                    return
+                }
                 // A tap on the page goes back to it -- except while a
                 // sticker is being made or waits to be added: it took
                 // seconds and real credits, and leaving would drop it.
@@ -70,6 +76,8 @@ struct StickerPanelScene: View {
             sheet
                 .frame(height: sheetHeight)
                 .animation(.spring(response: 0.35), value: sheetHeight)
+                // A tap on the sheet lowers the prompt's keyboard.
+                .onTapGesture { promptFocused = false }
         } bottom: {
             InputModeBar(active: .sticker, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
