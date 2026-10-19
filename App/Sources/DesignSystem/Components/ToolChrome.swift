@@ -53,8 +53,9 @@ private struct OptionalFocus: ViewModifier {
     }
 }
 
-/// A 62x48 r18 tile of the Photo Editing and Sticker sheets (screens 27,
-/// 32-33): paper tile, muted Bold 11 label; selected, a 2 pt ink ring and an
+/// A 48 pt tall r18 tile, at least 62 wide, of the Photo Editing and Sticker
+/// sheets (screens 27, 32-33): paper tile, muted Bold 13 label; selected, a
+/// 2 pt ink ring and an
 /// ink label.
 struct EditTile: View {
     let label: String
@@ -70,11 +71,13 @@ struct EditTile: View {
             Text(label)
                 .font(Sans.font(size: 13, weight: 700))
                 .foregroundStyle(selected ? Palette.ink : Palette.muted)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.9)
-                .padding(.horizontal, 4)
-                .frame(width: 62, height: 48)
+                // One line at 13 pt: the tile grows with its word ("AI
+                // Editing", "Match page") rather than wrap or shrink it.
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 12)
+                .frame(minWidth: 62)
+                .frame(height: 48)
                 .background(Self.shape.fill(selected ? selectedFill : Palette.cardFill))
                 .overlay(
                     Self.shape.strokeBorder(

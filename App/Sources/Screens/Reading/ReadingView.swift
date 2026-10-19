@@ -18,14 +18,29 @@ struct ReadingView: View {
     @State private var toast: SaveToast.Message?
     @State private var toastDismiss: Task<Void, Never>?
 
+    /// The screen's width: the page fills it less the canvas card's inset,
+    /// as in the editor -- the 360 pt page scaled up.
+    @State private var screenWidth: CGFloat = 0
+
+    private var pageScale: CGFloat {
+        let card = screenWidth - 2 * Metrics.canvasInset
+        return card > 0 ? card / MiraNoteConfig.pageWidth : 1
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             StaticPageView(memory: memory, designWidth: MiraNoteConfig.pageWidth, player: player)
+                .scaleEffect(pageScale, anchor: .topLeading)
+                .frame(
+                    width: MiraNoteConfig.pageWidth * pageScale,
+                    height: StaticPageView.contentHeight(of: memory) * pageScale,
+                    alignment: .topLeading
+                )
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, Metrics.screenPadding)
                 .padding(.top, 6)
                 .padding(.bottom, 24)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { screenWidth = $0 }
         .screenBackground()
         .safeAreaInset(edge: .top) {
             HStack(spacing: 10) {
@@ -40,7 +55,7 @@ struct ReadingView: View {
                 circleButton("square.and.arrow.up", id: "reading.share") { setExport(open: !showsExport) }
                 circleButton("pencil", id: "reading.edit", action: onEdit)
             }
-            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.horizontal, Metrics.chromeInset)
             .padding(.vertical, 8)
             .background(Palette.paper.opacity(0.94))
         }
@@ -73,9 +88,8 @@ struct ReadingView: View {
                         onClose: { setExport(open: false) },
                         onSaved: saved
                     )
-                    // The screen's width, not the page's: the reading page is
-                    // wider than a 390 pt phone, and padding it would push
-                    // the sheet off the chrome inset.
+                    // On the chrome line: 8 inside the page, as sheets over
+                    // the canvas card.
                     .containerRelativeFrame(.horizontal) { width, _ in width - 2 * Metrics.chromeInset }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }

@@ -631,7 +631,7 @@ private struct PhotoEditSheet: View {
 
                 if let notice = controller.notice {
                     Text(notice)
-                        .font(.miraComposer)
+                        .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
                         .accessibilityIdentifier("photo.notice")
                 }

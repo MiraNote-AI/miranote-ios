@@ -24,8 +24,10 @@ extension CanvasScene {
             onClose: { backgroundPanelOpen = false },
             onCustomColor: openPageColorSheet,
             painting: applyingBackground,
-            notice: backgroundNotice
+            notice: backgroundNotice,
+            folded: applyFocus
         )
+        .animation(.easeOut(duration: 0.2), value: applyFocus)
         .padding(.horizontal, Metrics.chromeInset)
         .padding(.vertical, Metrics.sheetInCard)
         .transition(.opacity)

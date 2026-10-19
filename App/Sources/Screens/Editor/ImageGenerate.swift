@@ -115,7 +115,7 @@ struct AIImageSheet: View {
                 }
                 if let notice = draft.notice {
                     Text(notice)
-                        .font(.miraComposer)
+                        .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("image.notice")

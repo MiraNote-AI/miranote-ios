@@ -175,7 +175,7 @@ struct ChoosePhotosSheet: View {
                 #endif
                 if let notice {
                     Text(notice)
-                        .font(.miraComposer)
+                        .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
                         .accessibilityIdentifier("image.notice")
                 }
@@ -269,7 +269,7 @@ struct RecentsSheet: View {
     private var denied: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("MiraNote can't see your photos. Allow access in Settings, or pick a few here.")
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
             HStack(spacing: 8) {
                 Button("Open Settings") {
@@ -289,7 +289,7 @@ struct RecentsSheet: View {
     private var limitedBar: some View {
         HStack(spacing: 8) {
             Text("Only the photos you shared show here.")
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)

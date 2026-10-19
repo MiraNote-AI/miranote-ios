@@ -1,15 +1,14 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The handoff's applied-result sheet -- Mira's change (screen 07) and an
-/// attached take ("Sound is attached.", screen 09): a 96 pt frosted white
-/// card, r24, 4 pt wider than the canvas card on each side, with a Bold 13
-/// headline, a Regular 10 line in #8F7E76, and Revert (78) / Keep (82)
-/// pills, 30 tall, at its trailing edge. It waits for the choice; nothing
-/// keeps it by timer.
+/// The applied-result sheet -- Mira's change (screen 07) and an attached
+/// take ("Sound is attached.", screen 09): a 104 pt frosted white card,
+/// r24, floating inside the canvas card like every sheet over it (the
+/// caller pads it onto the chrome line), with a Bold 15 headline, a
+/// Regular 12 line in #8F7E76, and Revert / Keep pills, 32 tall, at its
+/// trailing edge. It waits for the choice; nothing keeps it by timer.
 struct ResultSheet: View {
-    static let height: CGFloat = 96
-    static let width = MiraNoteConfig.pageWidth + 8
+    static let height: CGFloat = 104
 
     let title: String
     let detail: String
@@ -29,23 +28,22 @@ struct ResultSheet: View {
             Text(title)
                 .font(Sans.font(size: 15, weight: 700))
                 .foregroundStyle(Palette.ink)
-                .frame(height: 16)
-                .padding(.top, 12)
+                .padding(.top, 13)
                 .accessibilityIdentifier(titleID ?? "")
             Text(detail)
                 .font(Sans.font(size: 12, weight: 400))
                 .foregroundStyle(Self.warmGrey)
-                .frame(height: 13)
                 .padding(.top, 5)
                 .accessibilityIdentifier(detailID ?? "")
+            Spacer(minLength: 6)
             HStack(spacing: 10) {
                 Spacer(minLength: 0)
                 if canRevert {
                     Button(action: onRevert) {
                         Text("Revert")
-                            .font(Sans.font(size: 12, weight: 700))
+                            .font(Sans.font(size: 14, weight: 700))
                             .foregroundStyle(Palette.ink)
-                            .frame(width: 78, height: 30)
+                            .frame(width: 84, height: 32)
                             .background(
                                 Capsule()
                                     .fill(Color.white.opacity(0.58))
@@ -58,22 +56,22 @@ struct ResultSheet: View {
                 }
                 Button(action: onKeep) {
                     Text("Keep")
-                        .font(Sans.font(size: 12, weight: 700))
+                        .font(Sans.font(size: 14, weight: 700))
                         .foregroundStyle(Palette.onInk)
-                        .frame(width: 82, height: 30)
+                        .frame(width: 84, height: 32)
                         .background(Capsule().fill(Palette.ink))
                         .minimumHitTarget()
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(keepID)
             }
-            .padding(.top, 7)
+            .padding(.bottom, 12)
         }
         .lineLimit(1)
         .padding(.leading, 17)
-        .padding(.trailing, 19)
+        .padding(.trailing, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: Self.height, alignment: .top)
-        .frame(width: Self.width, alignment: .leading)
         .background(
             GlassSurface(
                 shape: Self.shape,

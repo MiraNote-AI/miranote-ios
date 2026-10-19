@@ -21,6 +21,9 @@ struct BackgroundToolSheet: View {
     var painting = false
     /// Why Apply's painting did not come, while the sheet stays up.
     var notice: String?
+    /// While Apply's words are typed the keyboard leaves the card too short
+    /// for the sheet: it folds to its title and status line.
+    var folded = false
 
     @State private var hexDraft = ""
     /// Words typed in the hex field and not committed yet.
@@ -34,20 +37,28 @@ struct BackgroundToolSheet: View {
         ("#D1E0F0", "Sky"), ("#E6D9F0", "Lilac")
     ]
 
+    /// The content's side inset inside the sheet (the curated row bleeds
+    /// past it to the sheet's edge).
+    private static let inset: CGFloat = 23
+
     var body: some View {
-        // The sheet hugs its 566 pt of content on the card; a card shorter
-        // than that (or squeezed by the keyboard) scrolls it. One scroll
-        // view throughout: swapping views would drop the hex field's focus.
-        ScrollView(showsIndicators: false) {
-            content
-                .background(GeometryReader { geo in
-                    Color.clear
-                        .onAppear { contentHeight = geo.size.height }
-                        .onChange(of: geo.size.height) { _, height in contentHeight = height }
-                })
+        // The sheet fills the card less its 8 pt margin, One-tap layout at
+        // its foot; a card shorter than the content (a small phone) scrolls
+        // it. Folded, it hugs its title. One scroll view throughout:
+        // swapping views would drop the hex field's focus.
+        GeometryReader { geo in
+            ScrollView(showsIndicators: false) {
+                content
+                    .frame(minHeight: folded ? nil : geo.size.height, alignment: .top)
+                    .background(GeometryReader { inner in
+                        Color.clear
+                            .onAppear { contentHeight = inner.size.height }
+                            .onChange(of: inner.size.height) { _, height in contentHeight = height }
+                    })
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .frame(maxHeight: contentHeight ?? .infinity)
+        .frame(maxHeight: folded ? contentHeight ?? .infinity : .infinity)
         .background(
             GlassSurface(
                 shape: RoundedRectangle(cornerRadius: 30),
@@ -66,21 +77,26 @@ struct BackgroundToolSheet: View {
     }
 
     private var content: some View {
+        // One rhythm: 16 between sections, 8 from a label to its control.
         VStack(alignment: .leading, spacing: 0) {
             header
-            preview.padding(.top, 13)
-            label("Page type").padding(.top, 13.5)
-            paperRow.padding(.top, 5.5)
-            label("Background color").padding(.top, 11.5)
-            colorRow.padding(.top, 7.5)
-            hexField.padding(.top, 2.5)
-            curatedHeader.padding(.top, 13)
-            curatedRow
-            layoutButton.padding(.top, 7)
+            if !folded {
+                preview.padding(.top, 14)
+                label("Page type").padding(.top, 16)
+                paperRow.padding(.top, 8)
+                label("Background color").padding(.top, 16)
+                colorRow.padding(.top, 8)
+                hexField.padding(.top, 10)
+                curatedHeader.padding(.top, 16)
+                curatedRow.padding(.top, 8)
+                Spacer(minLength: 16)
+                layoutButton
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 21)
-        .padding(.bottom, 10)
-        .padding(.horizontal, 23)
+        .padding(.bottom, folded ? 18 : 21)
+        .padding(.horizontal, Self.inset)
     }
 
     // MARK: Header and preview
@@ -95,19 +111,19 @@ struct BackgroundToolSheet: View {
                 .accessibilityIdentifier("background.title")
             if painting {
                 Text("Painting a background for this page...")
-                    .font(.miraComposer)
+                    .font(.miraLabel)
                     .foregroundStyle(Palette.forest)
                     .frame(height: 15)
                     .accessibilityIdentifier("background.status")
             } else if let notice {
                 Text(notice)
-                    .font(.miraComposer)
+                    .font(.miraLabel)
                     .foregroundStyle(Color(hex: 0x8C4A3A))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("background.notice")
             } else {
                 Text("Paper, color & curated type")
-                    .font(.miraComposer)
+                    .font(.miraLabel)
                     .foregroundStyle(Palette.muted)
                     .frame(height: 15)
             }
@@ -135,17 +151,18 @@ struct BackgroundToolSheet: View {
             Text(words.title)
                 .font(words.titleFont)
                 .foregroundStyle(words.titleColor)
-                .frame(height: 25)
-                .padding(.top, 9)
+                .lineLimit(1)
+                .padding(.top, 10)
             Text(words.line)
                 .font(words.lineFont)
                 .foregroundStyle(words.lineColor)
-                .frame(height: 15)
-                .padding(.top, -2)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 4)
         }
-        .lineLimit(1)
         .padding(.horizontal, 17)
-        .frame(maxWidth: .infinity, minHeight: 90, maxHeight: 90, alignment: .topLeading)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(PageBackdrop(memory: editor.memory))
         .clipShape(RoundedRectangle(cornerRadius: 26))
         .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(Palette.ink.opacity(0.1), lineWidth: 1))
@@ -183,56 +200,49 @@ struct BackgroundToolSheet: View {
         editor.memory.backgroundFileName.isEmpty ? editor.memory.pageColorName : ""
     }
 
+    /// The five page colors, then Custom and Pick: seven 28 pt dots on one
+    /// line, first and last on the content's edges, evenly spaced. The two
+    /// tools carry their names for VoiceOver; their glyphs say it on screen.
     private var colorRow: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(Array(Self.pageSwatches.enumerated()), id: \.offset) { index, swatch in
-                let chosen = pageColor == swatch.hex
-                Button {
-                    // The chosen dot, tapped again, gives the page back
-                    // its default backdrop; the paper stays.
-                    if chosen {
-                        editor.resetPageBackground()
-                    } else {
-                        editor.setPageColor(swatch.hex)
-                    }
-                } label: {
-                    PageSwatch(color: Palette.color(named: swatch.hex), selected: chosen)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(swatch.name)
-                .accessibilityHint(chosen ? "Returns the page to its default backdrop" : "")
-                .accessibilityAddTraits(chosen ? .isSelected : [])
-                .accessibilityIdentifier("background.color.\(swatch.hex)")
-                .offset(x: CGFloat(index) * 36)
+        HStack(spacing: 0) {
+            ForEach(Self.pageSwatches, id: \.hex) { swatch in
+                swatchButton(swatch)
+                Spacer(minLength: 4)
             }
-            colorTool("Custom", request: .custom) { CustomColorDot() }
-                .offset(x: 186 - 8)
-            colorTool("Pick", request: .pick) { PickColorDot() }
-                .offset(x: 243 - 8)
+            colorTool(request: .custom) { CustomColorDot() }
+            Spacer(minLength: 4)
+            colorTool(request: .pick) { PickColorDot() }
         }
-        .frame(height: 46.5, alignment: .topLeading)
+        .frame(height: 28)
     }
 
-    /// A 28 pt dot with its label centered under it (44 wide, like the
-    /// handoff's label box), offset 8 left of the dot's own x.
-    private func colorTool<Dot: View>(
-        _ title: String, request: PageColorRequest, @ViewBuilder dot: () -> Dot
-    ) -> some View {
+    private func swatchButton(_ swatch: (hex: String, name: String)) -> some View {
+        let chosen = pageColor == swatch.hex
+        return Button {
+            // The chosen dot, tapped again, gives the page back its default
+            // backdrop; the paper stays.
+            if chosen {
+                editor.resetPageBackground()
+            } else {
+                editor.setPageColor(swatch.hex)
+            }
+        } label: {
+            PageSwatch(color: Palette.color(named: swatch.hex), selected: chosen)
+                .minimumHitTarget()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(swatch.name)
+        .accessibilityHint(chosen ? "Returns the page to its default backdrop" : "")
+        .accessibilityAddTraits(chosen ? .isSelected : [])
+        .accessibilityIdentifier("background.color.\(swatch.hex)")
+    }
+
+    private func colorTool<Dot: View>(request: PageColorRequest, @ViewBuilder dot: () -> Dot) -> some View {
         Button {
             hexFocused = false
             onCustomColor(request)
         } label: {
-            VStack(spacing: 3.5) {
-                dot()
-                Text(title)
-                    .font(Sans.font(size: 12, weight: 500))
-                    .foregroundStyle(Palette.muted)
-                    // Labels may run past the 44 pt column into the gap
-                    // rather than truncate at larger type options.
-                    .fixedSize()
-                    .frame(width: 44, height: 15)
-            }
-            .frame(width: 44)
+            dot().minimumHitTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(request == .custom ? "Custom page color" : "Pick a page color")
@@ -317,7 +327,10 @@ extension BackgroundToolSheet {
                     .accessibilityIdentifier("background.set.\(set.id)")
                 }
             }
+            // Starts on the content's edge, scrolls out to the sheet's.
+            .padding(.horizontal, Self.inset)
         }
+        .padding(.horizontal, -Self.inset)
         .frame(height: 102)
     }
 

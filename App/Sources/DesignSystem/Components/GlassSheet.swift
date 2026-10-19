@@ -43,7 +43,7 @@ struct GlassSheet<Content: View>: View {
                     }
                     if let subtitle {
                         Text(subtitle)
-                            .font(.miraComposer)
+                            .font(.miraLabel)
                             .foregroundStyle(Palette.muted)
                     }
                 }

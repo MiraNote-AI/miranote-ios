@@ -29,10 +29,12 @@ struct PreviewWords {
 
         title = titleBlock.map { Self.firstLine($0.text) } ?? "Lunch by the river"
         line = lineBlock.map { Self.firstLine($0.text) } ?? (titleBlock == nil ? "A small moment worth keeping." : "")
-        titleFont = Self.font(titleBlock?.fontName ?? "", size: 14, fallbackWeight: 700)
-        lineFont = Self.font(lineBlock?.fontName ?? "", size: 10, fallbackWeight: 500)
+        titleFont = Self.font(titleBlock?.fontName ?? "", size: 16, fallbackWeight: 700)
+        lineFont = Self.font(lineBlock?.fontName ?? "", size: 13, fallbackWeight: 500)
         titleColor = Self.color(titleBlock?.colorName, fallback: Palette.ink)
-        lineColor = Self.color(lineBlock?.colorName, fallback: Palette.muted)
+        // Ink at 0.75, readable on every page color and on the dusk end of
+        // the default backdrop (muted grey read at 1.5:1 there).
+        lineColor = Self.color(lineBlock?.colorName, fallback: Palette.ink.opacity(0.75))
     }
 
     private static func firstLine(_ text: String) -> String {

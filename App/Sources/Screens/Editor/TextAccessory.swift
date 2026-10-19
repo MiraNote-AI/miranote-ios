@@ -61,7 +61,7 @@ private enum Tokens {
 
 // MARK: - Tool bar
 
-/// "MiraNote text icon toolbar": 30 tall, r15 frosted glass. Exactly one
+/// "MiraNote text icon toolbar": 36 tall, a frosted glass capsule. Exactly one
 /// tool is active and drawn inverted (light).
 struct TextToolBar: View {
     let active: TextTool
@@ -91,7 +91,8 @@ struct TextToolBar: View {
                 .position(x: geo.size.width * (Self.centers[tool] ?? 0), y: geo.size.height / 2)
             }
         }
-        .frame(height: 30)
+        // 36 tall, as the dictation strip under it.
+        .frame(height: 36)
         .background(
             // The page under it is already blurred by the scrim, so the
             // glass is the drawn 23% warm white alone.
@@ -379,20 +380,20 @@ struct RewriteRow: View {
                                 .tint(Tokens.deepForest)
                         } else {
                             Text(title(choice))
-                                .font(Sans.font(size: 12, weight: 500))
+                                .font(Sans.font(size: 14, weight: 500))
                                 .foregroundStyle(on ? Tokens.linen : Tokens.deepForest)
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 22)
+                    .frame(height: 30)
                     .background(
                         Capsule()
                             .fill(on ? Tokens.deepForest : Color(hex: 0xDCCFC0))
                             .overlay(Capsule().strokeBorder(on ? Tokens.deepForest : Tokens.rosewood, lineWidth: 1))
                     )
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 7)
                     .contentShape(Rectangle())
-                    .padding(.vertical, -11)
+                    .padding(.vertical, -7)
                 }
                 .buttonStyle(.plain)
                 .disabled(!enabled)
@@ -400,8 +401,8 @@ struct RewriteRow: View {
                 .accessibilityIdentifier("style.ai.\(choice.rawValue)")
             }
         }
-        .padding(.horizontal, 6)
-        .frame(height: 36)
+        .padding(.horizontal, 5)
+        .frame(height: 40)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Tokens.warmWhite.opacity(0.28))

@@ -153,14 +153,16 @@ struct StickerPanelScene: View {
     /// and real credits (#93).
     private var placingWouldDropWork: Bool { busy || !drafts.isEmpty }
 
-    /// Collapsed 147 at rest (screen 30); 500 while making or showing a
-    /// sticker (32-33, with the "Add to page" row); 420 for a full grid
-    /// (34-35).
+    /// Folded at rest (screen 30), room for two lines of 15 pt help under
+    /// the tabs; 500 while making or showing a sticker (32-33, with the
+    /// "Add to page" row); 420 for a full grid (34-35).
+    private static let folded: CGFloat = 170
+
     private var sheetHeight: CGFloat {
-        if promptFocused { return 147 }
+        if promptFocused { return Self.folded }
         switch tab {
-        case .make: return showsWork ? 500 : 147
-        case .favorites: return favorites.isEmpty ? 147 : 420
+        case .make: return showsWork ? 500 : Self.folded
+        case .favorites: return favorites.isEmpty ? Self.folded : 420
         case .set: return 420
         }
     }
@@ -241,28 +243,30 @@ struct StickerPanelScene: View {
     @ViewBuilder private var makeTab: some View {
         if showsWork {
             VStack(alignment: .leading, spacing: 0) {
+                // One rhythm: 16 between the tabs, the undo row, the
+                // sticker, the Add row and the style tiles.
                 cluster
-                    .padding(.top, 27)
+                    .padding(.top, 16)
                     .padding(.leading, 2)
                 preview
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { previewFrame = $0 }
+                    .padding(.top, 8)
                 addRow
                 styleTiles
                     .padding(.leading, 2)
             }
-            .padding(.bottom, -4)
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 if generating || !drafts.isEmpty {
                     Text("Generate makes a new one; close the keyboard to see this one.")
-                        .font(.miraComposer)
+                        .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
                 } else if let photo = selectedPhoto {
                     photoShortcut(photo)
                 } else {
                     Text("Describe a sticker below -- Mira makes a couple to pick from.")
-                        .font(.miraComposer)
+                        .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
                 }
                 noticeLine
@@ -383,8 +387,7 @@ struct StickerPanelScene: View {
             addPill
             favoriteButton
         }
-        .padding(.top, 10)
-        .padding(.bottom, 14)
+        .padding(.vertical, 16)
     }
 
     private var addPill: some View {
@@ -454,7 +457,7 @@ struct StickerPanelScene: View {
     @ViewBuilder private var noticeLine: some View {
         if let notice {
             Text(notice)
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("sticker.notice")
@@ -466,45 +469,53 @@ struct StickerPanelScene: View {
     @ViewBuilder private var favoritesTab: some View {
         if favorites.isEmpty {
             Text("Long-press any image or sticker on the canvas and choose Favorite to keep it here.")
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
                 .padding(.top, 12)
         } else {
-            waitingWorkLine
-            ScrollView(showsIndicators: false) {
-                // Five 60 pt cells across the sheet (screen 34).
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 50, maximum: 60), spacing: 4),
-                                         count: 5),
-                          spacing: 9) {
-                    ForEach(favorites) { favorite in
-                        Button {
-                            place(favorite)
+            // One column: the line, then the grid under it (the Group the
+            // tab sits in would frame them apart).
+            VStack(alignment: .leading, spacing: 0) {
+                waitingWorkLine
+                favoritesGrid
+            }
+        }
+    }
+
+    private var favoritesGrid: some View {
+        ScrollView(showsIndicators: false) {
+            // Five 60 pt cells across the sheet (screen 34).
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 50, maximum: 60), spacing: 4), count: 5),
+                      spacing: 9) {
+                ForEach(favorites) { favorite in
+                    Button {
+                        place(favorite)
+                    } label: {
+                        favoriteThumb(favorite)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(placingWouldDropWork)
+                    .opacity(placingWouldDropWork ? 0.45 : 1)
+                    .accessibilityIdentifier("library.item.\(favorite.id.uuidString)")
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            remove(favorite)
                         } label: {
-                            favoriteThumb(favorite)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(placingWouldDropWork)
-                        .accessibilityIdentifier("library.item.\(favorite.id.uuidString)")
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                remove(favorite)
-                            } label: {
-                                Label("Remove from Favorites", systemImage: "heart.slash")
-                            }
+                            Label("Remove from Favorites", systemImage: "heart.slash")
                         }
                     }
                 }
-                .padding(.top, 6)
             }
-            .padding(.leading, -4)
+            .padding(.top, 12)
         }
+        .padding(.leading, -4)
     }
 
     /// Why favorites and presets are dimmed while a made sticker waits.
     @ViewBuilder private var waitingWorkLine: some View {
         if placingWouldDropWork {
             Text("Add the sticker you made first, or Cancel to let it go.")
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
                 .padding(.top, 10)
                 .accessibilityIdentifier("sticker.waiting")

@@ -64,7 +64,7 @@ struct CanvasScene: View {
     @State private var textToolsTop: CGFloat?
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
-    @FocusState private var applyFocus: Bool
+    @FocusState var applyFocus: Bool
     /// Apply's painting is on its way: the Background sheet shows the work
     /// and stays up until it lands.
     @State var applyingBackground = false
@@ -291,6 +291,9 @@ struct CanvasScene: View {
                             onRevert: { mira.revert(editor: editor) },
                             onKeep: { mira.dismiss() }
                         )
+                        // Inside the card, as every sheet over it.
+                        .padding(.horizontal, Metrics.chromeInset)
+                        .padding(.bottom, Metrics.sheetInCard)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -319,12 +322,13 @@ struct CanvasScene: View {
                             .transition(.opacity)
                     }
                 }
-                // Screen 09: the result sheet floats over the canvas card's
-                // foot, its bottom 20 above the tool bar.
+                // Screen 09: the result sheet floats inside the canvas
+                // card's foot, as every sheet over it.
                 .overlay(alignment: .top) {
                     if attachedSound != nil, dropToDelete == nil {
                         soundAttachedSheet
-                            .offset(y: -(ResultSheet.height + Metrics.canvasToToolBar))
+                            .padding(.horizontal, Metrics.chromeInset)
+                            .offset(y: -(ResultSheet.height + Metrics.canvasToToolBar + Metrics.sheetInCard))
                             .transition(.opacity)
                     }
                 }
@@ -617,7 +621,8 @@ struct CanvasScene: View {
                     onClose: {
                         revealItem = editingStickerItem
                         self.editingStickerItem = nil
-                    }
+                    },
+                    onSelectTool: handleTool
                 )
             } else if backgroundPanelOpen {
                 // The tool's sheet lies over the canvas; the composer below
