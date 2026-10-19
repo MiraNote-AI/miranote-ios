@@ -137,6 +137,29 @@ final class GateOrderingTests: XCTestCase {
         XCTAssertEqual(editor.memory.backgroundFileName, "")
     }
 
+    /// Apply's painting fails (offline, the image timeout) and Try again
+    /// paints again: that painting lands on the page too, never as the two
+    /// to pick from that a chat background offers.
+    func testTryAgainAfterAFailedApplyWearsThePainting() async throws {
+        let editor = CanvasViewModel(memory: Memory())
+        let studio = GatedStudio()
+        let mira = MiraCanvasCoordinator(text: ScriptedText(), chat: GatedChat(), workingDelay: .milliseconds(1),
+                                         imageStudio: studio)
+        mira.askBackground("a soft sunset glow", editor: editor)
+        let asked = await eventually { studio.generateCalls.count == 1 }
+        XCTAssertTrue(asked, "Apply never asked for a painting")
+        studio.generateCalls.releaseNext(.failure(GateError()))
+        let failed = await eventually { if case .failure = mira.phase { return true } else { return false } }
+        XCTAssertTrue(failed, "the painting failed")
+
+        mira.retry(editor: editor)
+        let askedAgain = await eventually { studio.generateCalls.count == 2 }
+        XCTAssertTrue(askedAgain, "Try again never asked for a painting")
+        studio.generateCalls.releaseNext(.success([Data([1]), Data([2])]))
+        let landed = await eventually { !editor.memory.backgroundFileName.isEmpty }
+        XCTAssertTrue(landed, "Try again's painting waits to be picked instead of landing")
+    }
+
     private static func frame(_ item: CanvasItem) -> CGRect {
         CGRect(x: item.position.x - item.size.width / 2, y: item.position.y - item.size.height / 2,
                width: item.size.width, height: item.size.height)
