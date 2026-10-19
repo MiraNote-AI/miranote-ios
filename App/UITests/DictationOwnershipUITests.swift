@@ -153,6 +153,21 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(app.miraComposer.label, "Ask Mira anything", "and nothing is selected")
     }
 
+    /// A hold started while that tap waits is a take of the same session:
+    /// when the first words land it is still listening, and its words land
+    /// too before the tap ends the writing.
+    func testAHoldWhileATapWaitsLandsItsWordsToo() {
+        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
+        write("Lunch")
+        strip.press(forDuration: 0.8)
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5)).tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
+        strip.press(forDuration: 4)
+        let both = app.staticTexts["Lunch Transcribed voice note (mock) Transcribed voice note (mock)"]
+        XCTAssertTrue(both.waitForExistence(timeout: 10), "the second take's words never landed")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "the tap ended the writing after both")
+    }
+
     /// Same with a tap on another element: the words land, then that
     /// element is the one selected (a second tap writes in it).
     func testATapOnAnotherElementWhileTranscribingWaitsThenSelectsIt() {
