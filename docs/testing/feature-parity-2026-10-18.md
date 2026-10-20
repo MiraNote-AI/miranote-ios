@@ -68,7 +68,7 @@ Status values:
 | First-selection gesture hint | CanvasScene `gesture-basics` | kept |
 | Breathing lock while Mira works on an element | `BreathingLock` | kept |
 | Empty-page hint | CanvasBoardView | changed per "Blank page empty state" |
-| "Tap where it should go" + Cancel | `canvas.place.hint/cancel` | kept |
+| "Tap where it should go" + Cancel | `canvas.place.hint/cancel` | removed per "Sticker Add" (#127): no placing step, so no place hint |
 | Header Home / undo / Done | EditorScaffold | changed per "Header trailing label" (Save, still files the page) |
 | **Text** | | |
 | Text tool adds a block | `addTextBlock` | kept (per "Page while writing") |
@@ -101,7 +101,7 @@ Status values:
 | Done | `photo.done` | moved to the header Done |
 | **Sticker** | | |
 | Generate | `sticker.prompt`, `sticker.generate.run` | kept |
-| Pick a result to place | `sticker.result.N` | changed per "Sticker Add" (Add, then tap to place) |
+| Pick a result to place | `sticker.result.N` | changed per "Sticker Add" ("Add to page" hops it onto a free spot, lands selected, toast offers Undo) |
 | Favorites: tap to place, long-press to remove | `library.item.*` | kept |
 | Tap the page to leave (not mid-work) | page tap | kept (scrim tap) |
 | AI edit of a placed sticker | StickerEditPanel `sticker.ai.*` | kept |

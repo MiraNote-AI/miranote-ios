@@ -19,7 +19,7 @@ struct EditorFlowView: View {
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
     /// Survives the panel-to-canvas hop: the Sticker panel fills it, the
-    /// canvas empties it on the placing tap.
+    /// canvas empties it when the Add hop lands.
     @State private var pendingPlacement: PendingPlacement?
     /// The canvas's scroll, kept while the Sticker panel stands in for it.
     @State private var scrollMemory = CanvasScrollMemory()

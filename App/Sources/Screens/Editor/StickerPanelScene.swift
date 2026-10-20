@@ -47,7 +47,8 @@ struct StickerPanelScene: View {
     @State private var flight: Flight?
     @State private var flightPending: PendingPlacement?
     /// While typing, the sheet folds to its collapsed height: the keyboard
-    /// leaves no room for 430 above the composer.
+    /// leaves no room for the full sheet (500 while showing a sticker, 420
+    /// for a grid).
     @FocusState private var promptFocused: Bool
 
     private let imageStore = ImageFileStore()
@@ -153,7 +154,8 @@ struct StickerPanelScene: View {
         #if DEBUG
         .background(DebugStateProbe {
             ["scene": "sticker", "listening": [String: Bool](), "busy": busy, "drafts": drafts.count,
-             "undoDepth": editor.undoDepth, "writing": editor.editingTextItemID?.uuidString ?? ""]
+             "undoDepth": editor.undoDepth, "writing": editor.editingTextItemID?.uuidString ?? "",
+             "scrollOffset": scrollMemory.offset]
         })
         #endif
     }
@@ -172,11 +174,16 @@ struct StickerPanelScene: View {
 
     private var sheetHeight: CGFloat {
         if promptFocused { return Self.folded }
+        let wanted: CGFloat
         switch tab {
-        case .make: return showsWork ? 500 : Self.folded
-        case .favorites: return favorites.isEmpty ? Self.folded : 420
-        case .set: return 420
+        case .make: wanted = showsWork ? 500 : Self.folded
+        case .favorites: wanted = favorites.isEmpty ? Self.folded : 420
+        case .set: wanted = 420
         }
+        // Never over the header: on a small phone (375 x 667) the card is
+        // shorter than 500, and the sheet stays inside it (#127 review).
+        guard pageRow.height > 0 else { return wanted }
+        return min(wanted, pageRow.height - 2 * Metrics.sheetInCard)
     }
 
     // MARK: Sheet
@@ -373,7 +380,8 @@ struct StickerPanelScene: View {
                 }
             }
             .frame(maxWidth: 232, maxHeight: 232)
-            .accessibilityElement(children: .contain)
+            // One element: VoiceOver reads the prompt and offers Add.
+            .accessibilityElement()
             .accessibilityLabel(draft.prompt)
             .accessibilityAddTraits(.isImage)
             .accessibilityIdentifier("sticker.result.\(index)")
@@ -445,7 +453,7 @@ struct StickerPanelScene: View {
     /// The card within the page row, and screen points per page point.
     private var pageCard: (frame: CGRect, scale: CGFloat) {
         let card = pageRow.insetBy(dx: Metrics.canvasInset, dy: 0)
-        return (card, card.width / MiraNoteConfig.pageWidth)
+        return (card, CanvasCard.pageScale(rowWidth: pageRow.width))
     }
 
     /// Outline / Cutout / B&W (the design's "Jeans" is undefined and left
@@ -698,8 +706,9 @@ struct StickerPanelScene: View {
         favorites = favoritesStore.all()
     }
 
-    /// Nav Add: the showing sticker goes to the canvas, which asks where.
-    /// With nothing made, Add simply returns to the page.
+    /// "Add to page" (or a tap on the sticker): the showing sticker hops in
+    /// 0.25 s onto a free spot of the page in view, lands selected, and a
+    /// toast offers Undo.
     private func add() {
         guard !busy, drafts.indices.contains(page), flight == nil else { return }
         // Saved here, so a write failure is reported next to the sticker.

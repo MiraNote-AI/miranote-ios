@@ -143,7 +143,7 @@ struct HomeView: View {
             Text("Start a memory")
                 .font(Sans.font(size: 24.6, weight: 700))
                 .foregroundStyle(Color(hex: 0xFFFAF3))
-                // One line at any text size: the button is drawn 226 wide.
+                // One line: the button is drawn 226 wide.
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .padding(.horizontal, 16)
@@ -160,7 +160,7 @@ struct HomeView: View {
     }
 
     /// The 41 pt retrieval bar: the four-point star in a 26 pt #C6B298
-    /// circle, then a Bold 14 field at ink@0.5. It asks about the past and
+    /// circle, then a Bold 16 field at ink@0.5. It asks about the past and
     /// opens the Mira chat; it never starts a note.
     private var promptBar: some View {
         HStack(spacing: 12) {

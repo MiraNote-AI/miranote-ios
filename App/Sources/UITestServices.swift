@@ -195,6 +195,8 @@ enum RenderCounters {
     // main-thread callers); a test counter, not state.
     nonisolated(unsafe) static var canvasSceneBodies = 0
     nonisolated(unsafe) static var displayImageDecodes = 0
+    /// The last lifted copy's width on screen: it must match the element's.
+    nonisolated(unsafe) static var liftedCopyWidth = 0.0
 }
 
 /// -UITEST only: a scene's state as JSON on an invisible element, for the
@@ -226,6 +228,7 @@ struct DebugStateProbe: View {
         state["micLive"] = MockAudioRecorder.liveCount
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
+        state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10
         guard let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }

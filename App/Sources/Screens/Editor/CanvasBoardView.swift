@@ -86,10 +86,7 @@ struct CanvasBoardView: View {
     @State private var toastDismiss: Task<Void, Never>?
     /// Screen points per page point: the card fills the screen less its
     /// insets (the visible frame is the card's row, insets included).
-    private var pageScale: CGFloat {
-        let card = visibleFrame.width - 2 * Metrics.canvasInset
-        return card > 0 ? card / MiraNoteConfig.pageWidth : 1
-    }
+    private var pageScale: CGFloat { CanvasCard.pageScale(rowWidth: visibleFrame.width) }
 
     /// Bottom-edge receipts; deleted and added carry the one-tap Undo, good
     /// while that change is still the page's newest (`changeCount`).
@@ -447,6 +444,9 @@ struct CanvasBoardView: View {
         }
         // Drawn by the scene while lifted; the gesture stays with this view.
         .opacity(isLifted ? 0 : 1)
+        // Before `.position`, which stretches the frame to the board: the
+        // landing sticker scales about its own centre.
+        .modifier(Settle(active: landing?.itemID == item.id))
         .rotationEffect(.degrees(geometry.rotation))
         .position(geometry.position)
         .id(item.id)
@@ -455,7 +455,6 @@ struct CanvasBoardView: View {
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
-        .modifier(Settle(active: landing?.itemID == item.id))
     }
 
     /// The moving element's box on screen, translation included: the scene
@@ -476,8 +475,8 @@ struct CanvasBoardView: View {
         // The drop's own frame change can land after the move ended: never
         // bring the copy back then.
         guard let activeMove, activeMove.itemID == item.id else { return }
-        lift.lifted = LiftedElement(item: item, measured: frame, size: size, rotation: rotation,
-                                    finger: activeMove.location)
+        lift.lifted = LiftedElement(item: item, measured: frame, size: size, scale: pageScale,
+                                    rotation: rotation, finger: activeMove.location)
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.

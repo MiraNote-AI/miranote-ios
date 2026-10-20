@@ -67,6 +67,16 @@ extension View {
     }
 }
 
+enum CanvasCard {
+    /// Screen points per page point for a card row `rowWidth` wide (the
+    /// card's insets included): the page fills the card. 1 before the row
+    /// has measured.
+    static func pageScale(rowWidth: CGFloat) -> CGFloat {
+        let card = rowWidth - 2 * Metrics.canvasInset
+        return card > 0 ? card / MiraNoteConfig.pageWidth : 1
+    }
+}
+
 /// Grid, lined or dot ruling drawn in faint ink over the page; blank draws
 /// nothing. One small tile per kind is drawn once and repeated by the GPU
 /// (`ImagePaint`), so a page of any height costs the same -- a page-sized

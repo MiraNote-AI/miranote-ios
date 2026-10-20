@@ -1,6 +1,7 @@
 import MiraNoteKit
 import Observation
 import SwiftUI
+import UIKit
 
 /// The Image tool's AI Image source (screen 23's third pill): words in, a
 /// couple of paintings to pick from. A painting on its way, or waiting to
@@ -10,7 +11,12 @@ import SwiftUI
 @Observable
 final class AIImageDraft {
     var prompt = ""
-    private(set) var candidates: [Data] = []
+    private(set) var candidates: [Data] = [] {
+        // Decoded once as they arrive: the sheet redraws with every
+        // keystroke in the prompt.
+        didSet { previews = candidates.map { UIImage(data: $0) } }
+    }
+    private(set) var previews: [UIImage?] = []
     private(set) var generating = false
     var notice: String?
     /// The words the showing candidates were painted from.
@@ -100,11 +106,11 @@ struct AIImageSheet: View {
                         .accessibilityIdentifier("image.generating")
                 } else if !draft.candidates.isEmpty {
                     HStack(spacing: 10) {
-                        ForEach(Array(draft.candidates.enumerated()), id: \.offset) { index, data in
+                        ForEach(Array(draft.previews.enumerated()), id: \.offset) { index, preview in
                             Button {
                                 onPick(index)
                             } label: {
-                                candidate(data)
+                                candidate(preview)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Image \(index + 1)")
@@ -125,10 +131,10 @@ struct AIImageSheet: View {
     }
 
     /// 120 pt r18, like the Recents cells and the photo tiles.
-    private func candidate(_ data: Data) -> some View {
+    private func candidate(_ preview: UIImage?) -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.imageCorner)
         return Group {
-            if let image = UIImage(data: data) {
+            if let image = preview {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
                 GradientPlaceholder()

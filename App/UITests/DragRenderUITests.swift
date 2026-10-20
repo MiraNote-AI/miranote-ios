@@ -65,4 +65,38 @@ final class DragRenderUITests: XCTestCase {
         }
         XCTAssertTrue(moved, "the drag did not move the photo")
     }
+
+    /// The dragged copy is as big as the photo on the card: it must not
+    /// shrink while it moves (#127 review: 182 -> 170 pt on 17 Pro).
+    func testTheDraggedCopyKeepsThePhotosSize() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        app.buttons["image.library.open"].tap()
+        XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+        app.buttons["nav.trailing"].tap()
+        let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        let width = photo.frame.width
+        let element = { (state: [String: Any]) in (state["elements"] as? [[String: Any]] ?? [])[0] }
+        let before = element(canvasState())
+
+        let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.2, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 60)),
+                    withVelocity: 120, thenHoldForDuration: 0.3)
+        Thread.sleep(forTimeInterval: 0.6)
+        let state = canvasState()
+        let lifted = state["liftedWidth"] as? Double ?? 0
+        XCTAssertEqual(lifted, Double(width), accuracy: 1, "the copy is drawn at the photo's size on the card")
+
+        // 60 screen points of drag move the photo 60 / scale page points:
+        // it lands under the finger.
+        let scale = Double(width) / (before["w"] as? Double ?? 1)
+        let moved = (element(state)["y"] as? Double ?? 0) - (before["y"] as? Double ?? 0)
+        XCTAssertGreaterThan(scale, 1.02, "the card is scaled up on this phone")
+        XCTAssertEqual(moved * scale, 60, accuracy: 3, "moved \(moved) page points at scale \(scale)")
+    }
 }

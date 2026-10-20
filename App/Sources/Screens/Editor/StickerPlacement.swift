@@ -5,8 +5,7 @@ import SwiftUI
 /// free spot of the page in view in a quarter second, lands selected, and a
 /// toast offers Undo -- no "tap where it should go".
 enum StickerSpot {
-    /// A placed sticker's side (`CanvasViewModel.addSticker`).
-    static let side: CGFloat = 88
+    static let side = CanvasViewModel.placedStickerSide
 
     /// The free spot nearest the middle of `visible` (page points) where a
     /// sticker overlaps no element, 8 pt clear; the middle itself when no
@@ -20,13 +19,13 @@ enum StickerSpot {
         let half = side / 2 + 8
         var best: CGPoint?
         var bestDistance = CGFloat.infinity
-        for y in stride(from: visible.minY + half, through: visible.maxY - half, by: 8) {
-            for x in stride(from: visible.minX + half, through: visible.maxX - half, by: 8) {
-                let box = CGRect(x: x - side / 2, y: y - side / 2, width: side, height: side)
+        for spotY in stride(from: visible.minY + half, through: visible.maxY - half, by: 8) {
+            for spotX in stride(from: visible.minX + half, through: visible.maxX - half, by: 8) {
+                let box = CGRect(x: spotX - side / 2, y: spotY - side / 2, width: side, height: side)
                 guard !taken.contains(where: { $0.intersects(box) }) else { continue }
-                let distance = hypot(x - anchor.x, y - anchor.y)
+                let distance = hypot(spotX - anchor.x, spotY - anchor.y)
                 if distance < bestDistance {
-                    best = CGPoint(x: x, y: y)
+                    best = CGPoint(x: spotX, y: spotY)
                     bestDistance = distance
                 }
             }

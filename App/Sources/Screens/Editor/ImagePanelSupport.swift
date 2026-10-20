@@ -57,46 +57,30 @@ struct CameraCapture: UIViewControllerRepresentable {
 struct PagePreview: View {
     let memory: Memory
     /// Where the canvas stood: the preview opens on the same part of the page.
-    var scroll = CanvasScrollMemory()
+    var scroll: CanvasScrollMemory
     var onTapPage: () -> Void
-
-    private static let topID = "preview.top"
 
     var body: some View {
         GeometryReader { geo in
             // The page scales up to fill the card, as on the canvas.
             let cardWidth = geo.size.width - 2 * Metrics.canvasInset
-            let scale = cardWidth / MiraNoteConfig.pageWidth
-            ScrollViewReader { proxy in
-                ScrollView(showsIndicators: false) {
-                    ZStack(alignment: .topLeading) {
-                        StaticPageView(memory: memory, showsSound: false)
-                            .scaleEffect(scale, anchor: .topLeading)
-                        // The canvas's scroll position, as a spot to scroll to.
-                        Color.clear
-                            .frame(width: 1, height: 1)
-                            .id(Self.topID)
-                            .padding(.top, scroll.offset * scale)
-                    }
-                    .frame(
-                        width: cardWidth,
-                        height: max(StaticPageView.contentHeight(of: memory), geo.size.height / scale + scroll.offset)
-                            * scale,
-                        alignment: .topLeading
-                    )
+            let scale = CanvasCard.pageScale(rowWidth: geo.size.width)
+            // Shown where the canvas stood: the page laid out shifted by its
+            // scroll, not scrolled -- the scrim takes every touch, and a
+            // scroll asked for while the panel came in was lost (#127
+            // review: the preview opened on the page's top). Padding, not
+            // offset, so VoiceOver's frames move with it.
+            StaticPageView(memory: memory, showsSound: false)
+                .scaleEffect(scale, anchor: .topLeading)
+                .padding(.top, -scroll.offset * scale)
+                .frame(width: max(0, cardWidth), height: geo.size.height, alignment: .topLeading)
+                .canvasCard()
+                .contentShape(Rectangle())
+                .onTapGesture(coordinateSpace: .local) { point in
+                    let left = (geo.size.width - cardWidth) / 2
+                    guard point.x >= left, point.x <= left + cardWidth else { return }
+                    onTapPage()
                 }
-                .onAppear {
-                    guard scroll.offset > 0 else { return }
-                    proxy.scrollTo(Self.topID, anchor: .top)
-                }
-            }
-            .canvasCard()
-            .contentShape(Rectangle())
-            .onTapGesture(coordinateSpace: .local) { point in
-                let left = (geo.size.width - cardWidth) / 2
-                guard point.x >= left, point.x <= left + cardWidth else { return }
-                onTapPage()
-            }
         }
     }
 }

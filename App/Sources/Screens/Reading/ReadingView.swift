@@ -22,10 +22,7 @@ struct ReadingView: View {
     /// as in the editor -- the 360 pt page scaled up.
     @State private var screenWidth: CGFloat = 0
 
-    private var pageScale: CGFloat {
-        let card = screenWidth - 2 * Metrics.canvasInset
-        return card > 0 ? card / MiraNoteConfig.pageWidth : 1
-    }
+    private var pageScale: CGFloat { CanvasCard.pageScale(rowWidth: screenWidth) }
 
     var body: some View {
         ScrollView(showsIndicators: false) {

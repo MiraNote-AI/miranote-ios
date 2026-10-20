@@ -51,10 +51,13 @@ struct BackgroundApplyBar: View {
     /// The trimmed words, "" when none were typed.
     var onApply: (String) -> Void
     var onStop: () -> Void
+    /// When Apply started: Stop sits on the same spot, so a double tap must
+    /// not stop the painting it just started.
+    @State private var appliedAt = Date.distantPast
 
     var body: some View {
         ComposerCapsule(action: painting ? "Stop" : "Apply", actionID: "background.apply", canAct: true,
-                        onAct: painting ? onStop : apply) {
+                        onAct: painting ? stop : apply) {
             TextField("", text: $words, prompt: Text("Apply to this page").foregroundStyle(Palette.muted))
                 .font(.miraComposer)
                 .foregroundStyle(Palette.ink)
@@ -73,7 +76,13 @@ struct BackgroundApplyBar: View {
         let sent = words.trimmingCharacters(in: .whitespacesAndNewlines)
         words = ""
         focus.wrappedValue = false
+        appliedAt = Date()
         onApply(sent)
+    }
+
+    private func stop() {
+        guard Date().timeIntervalSince(appliedAt) > 0.5 else { return }
+        onStop()
     }
 }
 

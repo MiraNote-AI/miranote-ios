@@ -220,6 +220,73 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(photos.count, 1, "the pick landed twice")
     }
 
+    /// The header Add while a painting waits: it says so and stays, the
+    /// painting is not dropped.
+    func testAddWhileAPaintingWaitsSaysSoAndStays() {
+        relaunch(["-GENERATE_DELAY", "3000"])
+        generate("a lighthouse at dawn")
+        XCTAssertTrue(any("image.generating").waitForExistence(timeout: 3))
+        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "Add says why it waits")
+        XCTAssertTrue(app.buttons["image.result.0"].waitForExistence(timeout: 8), "the painting still arrives")
+        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "a waiting pick holds Add too")
+        XCTAssertTrue(app.buttons["image.result.0"].exists, "the candidates stay")
+        XCTAssertEqual(photos.count, 0)
+    }
+
+    /// While a painting is on its way, Edit photo does not open over it (its
+    /// tool bar would be dead, every tap swallowed for the hidden painting):
+    /// the AI Image sheet says why and stays.
+    func testEditPhotoWaitsForAPaintingOnItsWay() {
+        relaunch(["-GENERATE_DELAY", "4000"])
+        app.buttons["image.library.open"].tap()
+        XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+        app.buttons["nav.trailing"].tap()
+        let photo = photos.firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        generate("a lighthouse at dawn")
+        XCTAssertTrue(any("image.generating").waitForExistence(timeout: 3))
+
+        photo.press(forDuration: 0.9)
+        let edit = app.buttons["Edit photo"]
+        if edit.waitForExistence(timeout: 3) { edit.tap() }
+        XCTAssertFalse(app.buttons["photo.tile.ai"].waitForExistence(timeout: 2), "the photo editor did not open")
+        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "the sheet says why")
+        XCTAssertTrue(app.buttons["image.result.0"].waitForExistence(timeout: 8), "the painting still arrives")
+    }
+
+    /// The prompt's keyboard comes down on a tap on the sheet or the page,
+    /// without generating; the words and the sheet stay (#120's rule).
+    func testATapOnTheSheetOrThePageLowersTheAIImageKeyboard() {
+        let pill = app.buttons["image.source.generate"]
+        XCTAssertTrue(pill.waitForExistence(timeout: 5))
+        pill.tap()
+        let prompt = app.textFields["image.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText("a lighthouse")
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.exists)
+
+        app.staticTexts["AI Image"].tap()
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5), "a tap on the sheet lowers the keyboard")
+        XCTAssertEqual(prompt.value as? String, "a lighthouse", "the words stay")
+
+        prompt.tap()
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 4))
+        let header = app.buttons["nav.leading"]
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.midX, dy: header.frame.maxY + 40)).tap()
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5), "a tap on the page lowers the keyboard")
+        XCTAssertEqual(prompt.value as? String, "a lighthouse", "the words stay")
+        XCTAssertFalse(any("image.generating").exists, "nothing was generated")
+        XCTAssertTrue(app.staticTexts["AI Image"].exists, "the sheet stays")
+    }
+
     /// Cancel during a slow painting lets it go for good: it never lands.
     func testCancelDuringASlowGenerationDropsItForGood() {
         relaunch(["-GENERATE_DELAY", "3000"])

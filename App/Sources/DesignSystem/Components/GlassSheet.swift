@@ -5,8 +5,8 @@ import SwiftUI
 /// a soft drop shadow, with an optional Josefin Bold title at (21, 17).
 ///
 /// The sheet does not inset itself from the screen edge: chrome sheets sit
-/// at `Metrics.chromeInset`, the Background panel over the canvas card at
-/// `Metrics.canvasInset`, so the caller pads.
+/// at `Metrics.chromeInset`, sheets over the canvas card float
+/// `Metrics.sheetInCard` inside the card, so the caller pads.
 struct GlassSheet<Content: View>: View {
     /// The two drop shadows the handoff draws on sheets.
     enum Elevation {

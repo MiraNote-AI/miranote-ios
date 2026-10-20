@@ -471,7 +471,7 @@ private struct TypingBubble: View {
 }
 
 /// Mira's mark beside everything she says (handoff screens 02 and 06):
-/// a 36 pt ink circle, "M" in Josefin Bold 13.
+/// a 36 pt ink circle, "M" in Josefin Bold 15.
 struct MiraMark: View {
     var body: some View {
         Text("M")

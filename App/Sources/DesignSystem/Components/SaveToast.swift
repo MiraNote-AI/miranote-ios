@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The handoff's save receipt (screen 38): a 222 x 38 near-black capsule
-/// with a check and "Saved to Files" in Bold 12.5 white; a failed save
+/// with a check and "Saved to Files" in Bold 14 white; a failed save
 /// takes the same capsule in #8C4A3A.
 struct SaveToast: View {
     enum Message: Equatable {

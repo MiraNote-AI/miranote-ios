@@ -85,8 +85,14 @@ struct BackgroundToolSheet: View {
                 label("Page type").padding(.top, 16)
                 paperRow.padding(.top, 8)
                 label("Background color").padding(.top, 16)
-                colorRow.padding(.top, 8)
-                hexField.padding(.top, 10)
+                // While Apply paints the color controls rest: a color set
+                // now would wipe the paid painting when it lands.
+                Group {
+                    colorRow.padding(.top, 8)
+                    hexField.padding(.top, 10)
+                }
+                .disabled(painting)
+                .opacity(painting ? 0.45 : 1)
                 curatedHeader.padding(.top, 16)
                 curatedRow.padding(.top, 8)
                 Spacer(minLength: 16)
@@ -228,7 +234,7 @@ struct BackgroundToolSheet: View {
             }
         } label: {
             PageSwatch(color: Palette.color(named: swatch.hex), selected: chosen)
-                .minimumHitTarget()
+                .dotHitTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(swatch.name)
@@ -242,7 +248,7 @@ struct BackgroundToolSheet: View {
             hexFocused = false
             onCustomColor(request)
         } label: {
-            dot().minimumHitTarget()
+            dot().dotHitTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(request == .custom ? "Custom page color" : "Pick a page color")
@@ -339,7 +345,8 @@ extension BackgroundToolSheet {
     /// One tap re-lays the page out through Mira's normal turn (Stop,
     /// result sheet, Revert), as the "Tidy the layout" chip does.
     private var layoutButton: some View {
-        let enabled = editor.items.count >= 2
+        // Mira is busy painting: the tidy would be dropped.
+        let enabled = editor.items.count >= 2 && !painting
         return Button {
             onClose()
             onAsk(MiraCanvasCoordinator.tidyChip)
@@ -361,6 +368,15 @@ extension BackgroundToolSheet {
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.45)
         .accessibilityIdentifier("background.layout")
+    }
+}
+
+private extension View {
+    /// A 28 pt color dot taps as a 44 x 44 box without moving the row.
+    func dotHitTarget() -> some View {
+        padding(8)
+            .contentShape(Rectangle())
+            .padding(-8)
     }
 }
 

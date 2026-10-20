@@ -76,7 +76,7 @@ struct MiraChatOverlay: View {
 
     // MARK: Question
 
-    /// The live question: Medium 12 white words on ink, 253 wide against
+    /// The live question: Medium 17 white words on ink, 253 wide against
     /// the trailing inset. Return sends.
     private var questionCapsule: some View {
         HStack {
@@ -122,7 +122,7 @@ struct MiraChatOverlay: View {
                 Text("Mira can edit this canvas directly.")
                     .font(Sans.font(size: 16, weight: 700))
                     .foregroundStyle(Palette.ink)
-                    // Wraps rather than truncates at larger type options.
+                    // Wraps rather than truncates on a narrow phone.
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 18)
                     .padding(.top, 17)
@@ -132,7 +132,7 @@ struct MiraChatOverlay: View {
                     .foregroundStyle(Self.warmGrey)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
-                    // lh15 on an 11 pt, 1.0 em line box: 2 pt each side.
+                    // The handoff's lh15 on 11 pt: 2 pt each side (the text is 13 pt now).
                     .padding(.vertical, 2)
                     .padding(.top, 12)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 11), GridItem(.flexible())], spacing: 8) {

@@ -290,11 +290,15 @@ public final class CanvasViewModel {
         return ids
     }
 
+    /// A placed sticker's side, page points.
+    public static let placedStickerSide: CGFloat = 88
+
     @discardableResult
     public func addSticker(_ sticker: GeneratedSticker, at position: CGPoint) -> CanvasItem.ID {
         beginChange()
+        let side = Self.placedStickerSide
         let item = CanvasItem(content: .sticker(sticker), position: position,
-                              size: CGSize(width: 88, height: 88), zIndex: topZ + 1)
+                              size: CGSize(width: side, height: side), zIndex: topZ + 1)
         memory.items.append(item)
         return item.id
     }

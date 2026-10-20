@@ -509,7 +509,7 @@ struct CanvasScene: View {
             workingItemIDs: mira.workingItemIDs,
             onEditImage: openPhotoEditor,
             onEditSticker: { id in
-                guard !mira.isWorking else { return }
+                guard !mira.isWorking, !refusedForAIImage() else { return }
                 cancelRecording()
                 cancelDictationIfNeeded()
                 backgroundPanelOpen = false
@@ -524,8 +524,10 @@ struct CanvasScene: View {
                 // and the Image tool before anything is picked.
                 backgroundPanelOpen = false
                 if imagePhase == .choose { endImageVisit() }
-                // Edit sticker stays open; the tap only lowers its keyboard.
+                // Edit sticker and AI Image stay open; the tap only lowers
+                // their keyboards.
                 stickerPromptFocus = false
+                aiPromptFocused = false
             },
             onFavorite: { item in
                 switch item.content {
@@ -713,13 +715,17 @@ struct CanvasScene: View {
         CGPoint(x: 209, y: min(max(190, editor.contentBottom + 60), 4000))
     }
 
+    /// An AI image on its way or waiting to be picked took seconds and real
+    /// credits: no tool tap or element editor drops or hides it, only Cancel
+    /// (as stickers). True after saying so in its sheet.
+    private func refusedForAIImage() -> Bool {
+        guard imagePhase == .generate, aiImage.holdsWork else { return false }
+        aiImage.notice = Self.aiImageWaiting
+        return true
+    }
+
     private func handleTool(_ mode: EditorMode) {
-        // An AI image on its way or waiting to be picked took seconds and
-        // real credits: no tool tap drops it, only Cancel (as stickers).
-        if imagePhase == .generate, aiImage.holdsWork {
-            aiImage.notice = Self.aiImageWaiting
-            return
-        }
+        guard !refusedForAIImage() else { return }
         // Any tool tap closes the edit panels first -- one owner of
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
@@ -979,6 +985,8 @@ struct CanvasScene: View {
                 .transition(.opacity)
             case .generate:
                 AIImageSheet(draft: aiImage, onPick: placeAIImage)
+                    // A tap on the sheet lowers the prompt's keyboard (#120).
+                    .onTapGesture { aiPromptFocused = false }
                     .transition(.opacity)
             case .library:
                 RecentsSheet(
@@ -1110,6 +1118,7 @@ struct CanvasScene: View {
     /// mic stops first.
     private func openPhotoEditor(_ id: CanvasItem.ID) {
         guard !mira.isWorking, case .image(let ref) = editor.item(id)?.content else { return }
+        guard !refusedForAIImage() else { return }
         cancelRecording()
         cancelDictationIfNeeded()
         backgroundPanelOpen = false
@@ -1366,6 +1375,7 @@ extension CanvasScene {
             "photoEditing": editingImageItem?.uuidString ?? "",
             "photoEditors": photoEditors.debugList,
             "undoDepth": editor.undoDepth,
+            "selected": editor.selectedItemID?.uuidString ?? "",
             "importing": importingPicks,
             "pageWidth": editor.canvasWidth ?? MiraNoteConfig.pageWidth,
             "backdrop": editor.memory.backgroundFileName,

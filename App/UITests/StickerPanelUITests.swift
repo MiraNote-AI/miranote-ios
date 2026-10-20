@@ -113,6 +113,14 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "it landed")
         XCTAssertEqual(stickers.count, 1)
         XCTAssertTrue(app.buttons["Save"].isHittable, "back on the canvas")
+        // It lands selected: the probe's selection is the new sticker.
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        let state = (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8))) as? [String: Any] ?? [:]
+        let sticker = (state["elements"] as? [[String: Any]] ?? []).first { $0["kind"] as? String == "sticker" }
+        XCTAssertNotNil(sticker)
+        XCTAssertEqual(state["selected"] as? String, sticker?["id"] as? String, "the sticker lands selected")
         let undo = app.buttons["toast.undo"]
         XCTAssertTrue(undo.waitForExistence(timeout: 3))
         undo.tap()
@@ -139,7 +147,8 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(block.waitForExistence(timeout: 5))
         for _ in 0..<3 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.7))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.25)))
+                .press(forDuration: 0.05,
+                       thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.25)))
         }
         let scrolledTop = block.frame.minY
         XCTAssertLessThan(scrolledTop, save.frame.maxY - 100, "the page is scrolled well down")
@@ -155,6 +164,20 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertEqual(block.frame.minY, scrolledTop, accuracy: 2, "the page came back where it stood")
         XCTAssertGreaterThan(sticker.frame.minY, save.frame.maxY, "the sticker is in view, below the header")
         XCTAssertLessThan(sticker.frame.maxY, toolBar.frame.minY, "and above the tool bar")
+    }
+
+    /// With a made sticker showing, the sheet stays under the header: Cancel
+    /// is the only way to let the sticker go (#127 review: on a 375 x 667
+    /// phone the 500 pt sheet covered it). Run on the small phone too.
+    func testTheMadeStickerSheetLeavesTheHeaderInView() {
+        generate("a coffee cup")
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        sleep(1)
+        let cancel = app.buttons["nav.leading"]
+        XCTAssertTrue(cancel.isHittable, "Cancel is in view")
+        XCTAssertGreaterThan(app.staticTexts["Sticker"].frame.minY, cancel.frame.maxY,
+                             "the sheet starts below the header")
+        XCTAssertTrue(app.buttons["sticker.addToPage"].isHittable, "Add to page still fits")
     }
 
     /// A tap on the made sticker adds it, as the pill does.
@@ -220,8 +243,11 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
         app.buttons["nav.leading"].tap()
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["canvas.place.hint"].exists)
-        XCTAssertEqual(stickers.count, 0)
+        sleep(1)
+        XCTAssertEqual(stickers.count, 0, "nothing lands")
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.textFields["sticker.prompt"].waitForExistence(timeout: 5))
+        XCTAssertFalse(any("sticker.result.0").exists, "the made sticker is gone for good")
     }
 
     /// #93 through the panel's own tool bar: a tap there leaves the panel,

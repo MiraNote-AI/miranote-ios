@@ -84,8 +84,9 @@ enum Sans {
 ///
 /// Sizes follow the iOS-standard scale the owner chose on 2026-10-19 over the
 /// handoff's (it read small beside the system keyboard): inputs 17, controls
-/// 15-16, body 16, secondary 13, nothing under 12, titles 20-22. Every
-/// `Sans.font` call in the app is on this scale.
+/// 15-16, body 16, secondary 13, nothing under 12, titles 20-22. The roles
+/// below follow it; a few sizes off it remain (14 at call sites, and the
+/// home's 24.6 and 26).
 extension Font {
     /// Nav pills: Josefin SemiBold 15.
     static let miraNav = Sans.font(size: 15, weight: 600)
@@ -102,7 +103,6 @@ extension Font {
     static let miraLogo = Sans.font(size: 17, weight: 700)
 
     static let miraCardTitle = Sans.font(size: 17, weight: 600)
-    static let miraStatus = Sans.font(size: 16, weight: 600)
     static let miraPill = Sans.font(size: 16, weight: 600)
     static let miraBody = Sans.font(size: 16, weight: 400)
     static let miraLabel = Sans.font(size: 15, weight: 500)
