@@ -1022,10 +1022,14 @@ struct CanvasScene: View {
         editingImageItem = id
     }
 
-    /// While the AI prompt has the keyboard, a tap on the page only lowers
-    /// it: closing would drop the words.
+    /// While the AI prompt has the keyboard and words in it, a tap on the page
+    /// only lowers it: closing would drop the words.
     private func photoPageTapped() {
-        if photoPromptFocus { photoPromptFocus = false } else { closePhotoEditor() }
+        if photoPromptFocus && !(photoEdit?.prompt.isEmpty ?? true) {
+            photoPromptFocus = false
+        } else {
+            closePhotoEditor()
+        }
     }
 
     private func closePhotoEditor() {
