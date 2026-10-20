@@ -70,16 +70,20 @@ struct StickerPanelScene: View {
             // The hopping sticker shows the page it lands on.
             scrimmed: flight == nil,
             onScrimTap: {
-                // While the prompt has the keyboard, a tap on the page only
-                // lowers it: leaving would drop the words.
-                if promptFocused {
+                // While the prompt has the keyboard and words in it, a tap
+                // on the page only lowers it: leaving would drop the words.
+                if promptFocused && !prompt.isEmpty {
                     promptFocused = false
                     return
                 }
                 // A tap on the page goes back to it -- except while a
                 // sticker is being made or waits to be added: it took
-                // seconds and real credits, and leaving would drop it.
-                guard !placingWouldDropWork else { return }
+                // seconds and real credits, and leaving would drop it. The
+                // tap then only lowers the keyboard.
+                guard !placingWouldDropWork else {
+                    promptFocused = false
+                    return
+                }
                 actions.leading()
             }
         ) {

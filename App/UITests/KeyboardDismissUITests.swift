@@ -82,6 +82,20 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "Paris", "the words stay in the bar")
     }
 
+    /// The bar's own tap (it focuses the field) leaves the field its taps: a
+    /// tap before the words still puts the caret there.
+    func testATapInTheAskBarStillMovesTheCaret() {
+        let field = app.textFields["quick.field"]
+        // Two words: a tap on the word the caret is in shows the edit menu
+        // instead of moving the caret, so the tap goes to the first word.
+        type("Paris trip", into: field)
+        // Two points into the field: before the P.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: 2, dy: 0)).tap()
+        field.typeText("X")
+        XCTAssertEqual(field.value as? String, "XParis trip", "the tap put the caret before the words")
+    }
+
     // MARK: Editor
 
     /// Mira's panel lowers the keyboard and the chat stays; the dimmed page
@@ -134,6 +148,38 @@ final class KeyboardDismissUITests: XCTestCase {
         waitUntilGone(field, "with the keyboard down, a tap on the page goes back to the canvas")
     }
 
+    /// With nothing typed there is nothing to keep: the first tap on the page
+    /// goes back to the canvas.
+    func testAnEmptyStickerPromptLeavesOnTheFirstTapOnThePage() {
+        startMemory()
+        app.buttons["mode.sticker"].tap()
+        let field = app.textFields["sticker.prompt"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        raiseKeyboard(field)
+        point(app.frame.midX, app.buttons["Cancel"].frame.maxY + 40).tap()
+        waitUntilGone(field, "with nothing typed, the first tap on the page goes back to the canvas")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "back on the idle canvas")
+    }
+
+    /// While a made sticker waits to be added, a tap on the page stays (leaving
+    /// would drop the sticker) but still lowers the keyboard, words or not.
+    func testATapOnThePageLowersTheKeyboardWhileAStickerWaits() {
+        startMemory()
+        app.buttons["mode.sticker"].tap()
+        let field = app.textFields["sticker.prompt"]
+        type("a cat", into: field)
+        app.buttons["sticker.generate.run"].tap()
+        let made = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
+        XCTAssertTrue(made.waitForExistence(timeout: 8))
+        // Empty the prompt; the sticker still waits.
+        raiseKeyboard(field)
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 8))
+        XCTAssertFalse(app.buttons["sticker.generate.run"].isEnabled, "the prompt is empty")
+        point(app.frame.midX, app.buttons["Cancel"].frame.maxY + 40).tap()
+        waitUntilGone(keyboard, "a tap on the page lowers the keyboard")
+        XCTAssertTrue(made.waitForExistence(timeout: 5), "the sticker waiting to be added stays")
+    }
+
     /// The Photo Editing sheet sits under the keyboard: the photo lowers it,
     /// and so does the first tap on the page beside a tall photo (closing
     /// would drop the words); once it is down, that tap closes the editor.
@@ -159,6 +205,20 @@ final class KeyboardDismissUITests: XCTestCase {
         waitUntilGone(field, "with the keyboard down, a tap beside the photo closes the editor")
     }
 
+    /// With nothing typed the first tap beside the photo closes the editor.
+    func testAnEmptyPhotoPromptClosesOnTheFirstTapBesideThePhoto() {
+        openPhotoEditor(photoAt: 1)
+        app.buttons["photo.tile.ai"].tap()
+        let field = app.textFields["photo.prompt"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        raiseKeyboard(field)
+        let photo = app.descendants(matching: .any)["photo.lifted"]
+        XCTAssertGreaterThan(photo.frame.minX, 60, "Sample two is tall: the page shows beside it")
+        point(photo.frame.minX / 2 + 10, photo.frame.minY + 60).tap()
+        waitUntilGone(field, "with nothing typed, the first tap beside the photo closes the editor")
+        waitUntilGone(app.buttons["photo.tile.ai"], "the photo editor is closed, not only its prompt")
+    }
+
     /// Edit sticker sits on the shared tool chrome: a tap on the paper
     /// lowers its keyboard and the editor stays.
     func testATapOnThePaperLowersTheEditStickerKeyboard() {
@@ -173,10 +233,16 @@ final class KeyboardDismissUITests: XCTestCase {
         // The field's capsule, by its trailing end: 8 before Go, then 4 in.
         point(app.buttons["sticker.ai.run"].frame.minX - 12, field.frame.midY).tap()
         assertKeyboardStays("a tap on the field's capsule keeps the keyboard")
+        // The capsule's tap leaves the field its own. The field's frame takes
+        // in the capsule's 12 pt padding: 14 in is just before the m.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: 14, dy: 0)).tap()
+        field.typeText("X")
+        XCTAssertEqual(field.value as? String, "Xmake it blue", "a tap in the field still moves the caret")
         let board = app.scrollViews.containing(.any, identifier: "element.sticker").firstMatch
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.1)).tap()
         waitUntilGone(keyboard, "a tap on the paper lowers the keyboard")
-        XCTAssertEqual(field.value as? String, "make it blue", "the words stay")
+        XCTAssertEqual(field.value as? String, "Xmake it blue", "the words stay")
         XCTAssertTrue(field.exists, "Edit sticker stays open")
     }
 
