@@ -291,7 +291,8 @@ public final class CanvasViewModel {
     }
 
     /// A placed sticker's side, page points.
-    public static let placedStickerSide: CGFloat = 88
+    /// A constant, so readable off the main actor (the sticker spot search).
+    public nonisolated static let placedStickerSide: CGFloat = 88
 
     @discardableResult
     public func addSticker(_ sticker: GeneratedSticker, at position: CGPoint) -> CanvasItem.ID {
