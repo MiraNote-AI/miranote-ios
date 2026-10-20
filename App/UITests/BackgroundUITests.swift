@@ -266,7 +266,11 @@ final class BackgroundUITests: XCTestCase {
         let composerTop = go.frame.minY + 5 - 10
         XCTAssertEqual(composerTop - toolBarBottom, 16, accuracy: 1)
     }
+}
 
+// MARK: Paper and page color
+
+extension BackgroundUITests {
     // Paper tiles and color dots apply in place, each one undo step; the
     // chosen dot tapped again gives the page back its default backdrop but
     // keeps the paper.

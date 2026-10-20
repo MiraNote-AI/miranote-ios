@@ -138,9 +138,11 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertTrue(app.buttons["image.library.system"].exists, "or pick any photo once")
         XCTAssertTrue(any("image.library.photo.0").isHittable, "the shared photos are still the grid")
     }
+}
 
-    // MARK: AI Image (screen 23's third pill)
+// MARK: AI Image (screen 23's third pill)
 
+extension ImageToolUITests {
     private func relaunch(_ arguments: [String]) {
         app.terminate()
         app.launchArguments = ["-UITEST"] + arguments

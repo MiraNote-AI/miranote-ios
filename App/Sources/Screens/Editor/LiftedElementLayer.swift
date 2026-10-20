@@ -75,15 +75,15 @@ struct LiftedElementLayer: View {
             GeometryReader { geo in
                 let bounds = geo.frame(in: .global)
                 let full = lifted.frame
-                #if DEBUG
-                let _ = (RenderCounters.liftedCopyWidth = full.width)
-                #endif
                 LiftedElementView(item: lifted.item, size: lifted.pageSize, textFocus: textFocus)
                     .scaleEffect(lifted.scale)
                     .frame(width: full.width, height: full.height)
                     .overlay { SelectionChrome(size: full.size, armed: false) }
                     .rotationEffect(.degrees(lifted.rotation))
                     .position(x: full.midX - bounds.minX, y: full.midY - bounds.minY)
+                    #if DEBUG
+                    .onChange(of: full.width, initial: true) { _, width in RenderCounters.liftedCopyWidth = width }
+                    #endif
             }
             .ignoresSafeArea()
             .allowsHitTesting(false)
