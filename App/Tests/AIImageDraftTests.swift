@@ -69,8 +69,14 @@ final class AIImageDraftTests: XCTestCase {
         let draft = AIImageDraft()
         draft.prompt = "a lighthouse"
         draft.generate(with: studio)
+        // Each call reaches the service before the next starts, so call 0
+        // is the cancelled one however the tasks get scheduled.
+        let firstAsked = await eventually { studio.generateCalls.count == 1 }
+        XCTAssertTrue(firstAsked)
         draft.discard()
         draft.generate(with: studio)
+        let secondAsked = await eventually { studio.generateCalls.count == 2 }
+        XCTAssertTrue(secondAsked)
 
         studio.generateCalls.release(1, .success([two]))
         let arrived = await eventually { !draft.candidates.isEmpty }
