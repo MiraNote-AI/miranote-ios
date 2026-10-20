@@ -14,6 +14,8 @@ struct StickerEditPanel: View {
     @Bindable var editor: CanvasViewModel
     let itemID: CanvasItem.ID
     var studio: ImageStudioService
+    /// The instruction's keyboard; a tap on the page lowers it.
+    var focus: FocusState<Bool>.Binding
     var onClose: () -> Void
     /// The tool bar's taps, as on every other tool.
     var onSelectTool: (EditorMode) -> Void = { _ in }
@@ -42,6 +44,7 @@ struct StickerEditPanel: View {
             actionEnabled: !editing && !instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             fieldID: "sticker.ai.instruction",
             actionID: "sticker.ai.run",
+            focus: focus,
             onAction: runEdit
         )
     }

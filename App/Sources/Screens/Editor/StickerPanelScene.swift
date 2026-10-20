@@ -70,6 +70,12 @@ struct StickerPanelScene: View {
             // The hopping sticker shows the page it lands on.
             scrimmed: flight == nil,
             onScrimTap: {
+                // While the prompt has the keyboard, a tap on the page only
+                // lowers it: leaving would drop the words.
+                if promptFocused {
+                    promptFocused = false
+                    return
+                }
                 // A tap on the page goes back to it -- except while a
                 // sticker is being made or waits to be added: it took
                 // seconds and real credits, and leaving would drop it.
@@ -84,6 +90,8 @@ struct StickerPanelScene: View {
             sheet
                 .frame(height: sheetHeight)
                 .animation(.spring(response: 0.35), value: sheetHeight)
+                // A tap on the sheet lowers the prompt's keyboard.
+                .onTapGesture { promptFocused = false }
                 // The sheet slides away under the hopping sticker.
                 .offset(y: flight == nil ? 0 : 700)
                 .animation(.easeIn(duration: Self.hop), value: flight == nil)

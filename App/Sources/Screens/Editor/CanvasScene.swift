@@ -70,6 +70,10 @@ struct CanvasScene: View {
     @State var applyingBackground = false
     /// Why Apply's painting did not come, shown in the Background sheet.
     @State var backgroundNotice: String?
+    /// The photo editor's AI prompt, lowered by a tap on the photo or page.
+    @FocusState private var photoPromptFocus: Bool
+    /// The Edit sticker instruction, lowered by a tap on the page.
+    @FocusState private var stickerPromptFocus: Bool
     /// A short line over the tool bar (the gesture hint, a dictation that
     /// could not land), gone after a few seconds.
     @State private var gestureHint: String?
@@ -269,12 +273,14 @@ struct CanvasScene: View {
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
             dimmed: editor.editingTextItemID != nil,
             scrimmed: editingImageItem != nil,
-            onScrimTap: closePhotoEditor
+            onScrimTap: photoPageTapped
         ) {
             board
                 .overlay(alignment: .top) {
                     if backgroundPanelOpen {
+                        // A tap on the sheet lowers the Apply field's keyboard.
                         backgroundSheet
+                            .onTapGesture { applyFocus = false }
                     }
                 }
                 .overlay(alignment: .bottom) {
@@ -518,6 +524,8 @@ struct CanvasScene: View {
                 // and the Image tool before anything is picked.
                 backgroundPanelOpen = false
                 if imagePhase == .choose { endImageVisit() }
+                // Edit sticker stays open; the tap only lowers its keyboard.
+                stickerPromptFocus = false
             },
             onFavorite: { item in
                 switch item.content {
@@ -609,7 +617,7 @@ struct CanvasScene: View {
             }
             if editingImageItem != nil, let photoEdit {
                 InputModeBar(active: .image, onSelect: handleTool)
-                PhotoEditComposer(controller: photoEdit)
+                PhotoEditComposer(controller: photoEdit, focus: $photoPromptFocus)
             } else if let imagePhase {
                 InputModeBar(active: .image, onSelect: handleTool)
                 imageComposer(imagePhase)
@@ -618,6 +626,7 @@ struct CanvasScene: View {
                     editor: editor,
                     itemID: editingStickerItem,
                     studio: imageStudio,
+                    focus: $stickerPromptFocus,
                     onClose: {
                         revealItem = editingStickerItem
                         self.editingStickerItem = nil
@@ -945,6 +954,9 @@ struct CanvasScene: View {
                 original: session.original,
                 edited: session.edited
             )
+            // A tap on the photo lowers the AI prompt's keyboard (the sheet
+            // sits under it while it is up).
+            .onTapGesture { photoPromptFocus = false }
         } else if editor.editingTextItemID == nil {
             switch imagePhase {
             case .choose:
@@ -1125,6 +1137,12 @@ struct CanvasScene: View {
                                 onEdited: onEdited, onClose: onClose)
         }
         editingImageItem = id
+    }
+
+    /// While the AI prompt has the keyboard, a tap on the page only lowers
+    /// it: closing would drop the words.
+    private func photoPageTapped() {
+        if photoPromptFocus { photoPromptFocus = false } else { closePhotoEditor() }
     }
 
     private func closePhotoEditor() {

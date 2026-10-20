@@ -643,6 +643,7 @@ private struct PhotoEditSheet: View {
 /// The composer while a photo is lifted: its copy and action follow the tile.
 struct PhotoEditComposer: View {
     @Bindable var controller: PhotoEditController
+    var focus: FocusState<Bool>.Binding
 
     var body: some View {
         ToolComposer(
@@ -652,6 +653,7 @@ struct PhotoEditComposer: View {
             actionEnabled: controller.composerEnabled,
             fieldID: "photo.prompt",
             actionID: "photo.composer.action",
+            focus: focus,
             onAction: controller.runComposer
         )
     }
