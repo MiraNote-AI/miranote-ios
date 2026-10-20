@@ -19,8 +19,10 @@ struct EditorFlowView: View {
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
     /// Survives the panel-to-canvas hop: the Sticker panel fills it, the
-    /// canvas empties it on the placing tap.
+    /// canvas empties it when the Add hop lands.
     @State private var pendingPlacement: PendingPlacement?
+    /// The canvas's scroll, kept while the Sticker panel stands in for it.
+    @State private var scrollMemory = CanvasScrollMemory()
     /// One photo editor per photo, beside `editor`: an AI edit kept running
     /// with Done outlives the canvas scene the Sticker scene replaces.
     @State private var photoEditors = PhotoEditors()
@@ -88,6 +90,7 @@ struct EditorFlowView: View {
                 actions: actions(back: finish, done: finish),
                 pendingTool: $pendingTool,
                 pendingPlacement: $pendingPlacement,
+                scrollMemory: scrollMemory,
                 photoEditors: $photoEditors,
                 recorderFactory: recorderFactory,
                 transcription: services.voiceTranscription
@@ -97,7 +100,8 @@ struct EditorFlowView: View {
                 editor: editor,
                 studio: services.imageStudio,
                 actions: actions(back: { navigate(.canvas) }, done: { navigate(.canvas) }),
-                pendingPlacement: $pendingPlacement
+                pendingPlacement: $pendingPlacement,
+                scrollMemory: scrollMemory
             )
         case .home, .imageStart, .chat, .collection, .note, .export:
             // Export left the main flow in v2.1 (share/export moves to

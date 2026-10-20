@@ -35,7 +35,7 @@ Acceptance (per stream):
 | Topic | Decision | Why |
 |---|---|---|
 | Layout insets | 16 for chrome (nav, composer, sheets), 20 canvas, 19 tool bar | design system is 16-based |
-| Type floor | design sizes, but never below 10 pt (9/8 pt labels become 10) | design fidelity vs legibility |
+| Type floor | iOS-standard scale: inputs 17, buttons 15-16, body 16, secondary 13, nothing under 12, titles 20-22 (changed in #127, owner feedback, 2026-10-19; was design sizes with a 10 pt floor) | the design sizes read small beside the system keyboard |
 | Text editing default tool | Aa (font row) active when editing starts | screen 11 is the first editing state |
 | Font size S/M/L | kept, as trailing chips in the font row | not drawn; removing a feature silently is worse |
 | Cancel while editing text | reverts the editing session | implied by the header |
@@ -51,14 +51,14 @@ Acceptance (per stream):
 | Home | design visuals; drop "N notes"; no bell (no feature behind it); Start still opens the editor | bell and the Mira-first flow are product calls |
 | Chat voice | hold to talk, transcript fills the field for editing (not auto-send) | owner said "voice-to-text" |
 | Chat photos | "+" tray (Photos / Camera); staged thumbnails; the photo is described by the image service and the description rides with the message (no backend change) | chat model is text-only |
-| Image sheet third pill | removed (owner, 2026-10-17, TestFlight 1.0(5)): Photo Library and Camera only | stickers are the fifth tool; the pill duplicated it |
+| Image sheet third pill | "AI Image" (owner, 2026-10-18), same pill style: the composer becomes "Describe an image" / Generate (74); the sheet shows the sticker panel's dot ring, then the candidates (120 pt r18); a tap places one like a library photo (aspect-true, one undo step) into the placed state (Cancel / Add); no style chips -- the words go to the art command as typed; a painting on its way or waiting is kept from tool taps and header Add, only Cancel lets it go | the rebuild's AI Sticker pill (1cf3572, then removed in 1507b31) had replaced the dev Image panel's AI image source, so generating a picture from the Image tool was gone; stickers stay the fifth tool |
 | Placed photo size | aspect-true (as today), r18 corners | design crops are mock content |
 | Photo compare | hold = split Before / Current | both labels drawn at once |
 | Photo edit extra tiles | keep Match page / Warm / Film / Frames after the design's four | existing features |
 | Sticker "Jeans" style tile | omitted until the designer defines it | undefined |
 | Keyboard | system keyboard, `.keyboardAppearance(.dark)` | custom keyboards out of scope |
 | Canvas leading pill (P0) | "Home" on the bare canvas (way home); "Canvas" while a tool is open in place (Background, photo or sticker edit) and it folds that tool | the design's "Canvas" on the bare canvas has nowhere to go |
-| Canvas card width (P0) | the page keeps its fixed 360 pt width, so the card sits 21 in on a 402 pt phone (design: 20 on 374) | widening the page would move every saved element and the export |
+| Canvas card width (P0) | the card sits `Metrics.canvasInset` (8) in from each screen edge and the 360 pt page is drawn scaled up to fill it (pageScale = card width / 360); sheets over it float `Metrics.sheetInCard` (8) inside the card (changed in #127, owner feedback, 2026-10-19; was a 360 pt card 21 in) | saved pages and exports keep the 360 pt page, so nothing moves |
 | Composer Go at rest (P0) | full ink as drawn, still disabled with an empty field | design draws it ink; the greyed pill read as broken |
 | Muted text (P0) | #878476 as drawn for the leading nav label, composer placeholder and sheet subtitle (not the darkened #5E5C52) | fidelity bar; ~3.4:1, owner to confirm Saturday |
 | Image tool placement (P4a) | opens in place over the live canvas (no separate scene): Choose photos sheet -> Recents -> placed, nav Canvas/Save, then Cancel/Add | 23-29 keep the live page visible; placed photos stay editable and selectable there |
@@ -71,7 +71,7 @@ Acceptance (per stream):
 | Lifted photo (P4a) | aspect-true inside the 342x323 box, corner min(66, 20% of the short side) | placed photos stay aspect-true |
 | Photo edit Cancel (P4a) | reverts to the session original (one undo step) and closes; scrim tap = Done | replaces the old in-card Revert |
 | Selected photo (P4a) | 3 pt ink border on r18; corner resize dots kept | removing resize silently is worse |
-| Sticker Add (P4a) | Add hands the showing result to the canvas, which asks where it goes (tap to place) | keeps the existing placement flow |
+| Sticker Add (P4a) | a wide "Add to page" under the made sticker (or a tap on it) adds it; no header Add while one shows; it hops in 0.25 s onto a free spot of the page in view (`StickerSpot.find`), lands selected, and a toast offers Undo (changed in #127, owner feedback, 2026-10-19; was tap to place) | one tap, no placing step |
 | Sticker presets (P4a) | Food set only (30 handoff PNGs, flat ground made transparent at bundling); tap places at centre | the heart/croissant/cat tabs have no sets yet |
 | Sticker sheet while typing (P4a) | folds to the collapsed 147; Generate drops the keyboard | 430 does not fit above the keyboard |
 | Josefin weights (P4b) | follow the tsx (Bold where it says Bold) | the 01 and 37 screen.png exports render Josefin at Regular although the tsx says Bold; 03/08/09 render Bold |
@@ -103,7 +103,7 @@ Acceptance (per stream):
 | Eyedropper (P1) | full-screen page snapshot with a 64 pt loupe; lift to take the color; Cancel keeps the sheet's color | "sample it from your memory": the page only, true colors (not the dimmed screen) |
 | Dictation (P1) | hold to talk; a quick tap starts and a second tap stops (VoiceOver and tests use the tap) | hold as drawn, tap kept for accessibility |
 | Cancel after Done (P1) | Done ends the session; the block stays selected (arrange state, screen 21) | screen 21 follows 20 |
-| Background sheet size (P2) | the canvas card's width (360) and its height + 7; content scrolls on short phones, One-tap layout pinned 10 above the sheet bottom | screen 05 frames the sheet on the card |
+| Background sheet size (P2) | fills the canvas card less `Metrics.sheetInCard` (8) on every side, One-tap layout at its foot; content scrolls on short phones (changed in #127, owner feedback, 2026-10-19; was the card's width and its height + 7) | screen 05 frames the sheet on the card |
 | Background "Default" (P2) | no Default chip (not drawn): the chosen color dot tapped again returns the page to the gradient; the preview eyebrow reads DEFAULT / PAINTED / #RRGGBB | keeps the gradient reachable without an undrawn control |
 | Swatch hexes (P2) | the design's five (#F6F4E8, #F4E0D1, #D6E3D4, #D1E0F0, #E6D9F0); old pages keep their stored hexes, unselected | screen 05 |
 | Curated set page colors (P2) | 01 #D03A02, 02 #FCD766, 03 #879064, 04 #FBFBFC, 05 #236FB3, 06 #415A58, 07 #24382D, 08 #F59081 (from each card's band where its label sits); text colors as the card labels | the design does not say which band color is the page |
@@ -138,6 +138,7 @@ Acceptance (per stream):
 | Placed elements and text pushes (harness) | a text box's shrink never lifts an element above where it was last placed (drag, resize handle, Mira's page edit, Tidy); a pull held back is room the next push uses first; an element follows the element right above it that moved most, so the same fits reversed reverse; a box resized by hand starts its pushes afresh | the user's own placement wins; sizing back and forth (curated sets) must never drift the page |
 | Typing's undo point (harness) | words typed after any step recorded during a writing session (Mira's title, a size) record a step of their own; after an undo past the session's start, the session starts again at its next change | one Undo took Mira's title and the words typed after it together, with no canvas Redo |
 | Background "Apply to this page" (owner, TestFlight 1.0(5)) | Apply puts Mira's first painting on the page when it lands, as picking it from the choices would (receipt with Revert); the canvas chat's "Change background" still offers the choices | Apply left a choice tray nobody noticed: "Apply does nothing" |
+| Background Apply (owner, TestFlight 1.0(6)) | never a dead pill: with no words Apply closes the sheet, keeping what the sheet applied (a hex typed but not confirmed included); with words the sheet stays up showing "Painting a background..." and the pill reads Stop, then closes on the canvas with the Revert / Keep sheet once the painting lands; a failure stays in the sheet with the reason and the words back | "Apply still does not apply": the empty-field pill was disabled, and the sheet vanished at the start of a turn |
 | New memory in a journal (owner, TestFlight 1.0(5)) | opens the canvas; Save files the page in that journal | it added an empty record without opening anything |
 | Empty blocks in history (harness) | restoring a step drops an empty block nobody is writing; an empty new block undone away never comes back by redo | an empty block outside a session was filed as part of the page |
 | Follow-up: image file garbage collection | not done in this PR: `ImageFileStore` files no page references (AI results, preset taps, undone photos) are never deleted; needs a reference sweep across the library | out of scope for the fidelity PR |

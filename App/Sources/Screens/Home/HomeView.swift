@@ -50,7 +50,7 @@ struct HomeView: View {
                             Image(systemName: "tray")
                                 .font(.system(size: 12))
                             Text("Recently deleted (\(viewModel.trash.count))")
-                                .font(Sans.font(size: 12, weight: 600))
+                                .font(Sans.font(size: 14, weight: 600))
                         }
                         // Not drawn by the design: textSecondary (6.1:1 on
                         // the paper), not the 3.3:1 date color.
@@ -143,6 +143,10 @@ struct HomeView: View {
             Text("Start a memory")
                 .font(Sans.font(size: 24.6, weight: 700))
                 .foregroundStyle(Color(hex: 0xFFFAF3))
+                // One line: the button is drawn 226 wide.
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 16)
                 .frame(width: 226, height: 92)
                 .background(
                     RoundedRectangle(cornerRadius: 36)
@@ -156,7 +160,7 @@ struct HomeView: View {
     }
 
     /// The 41 pt retrieval bar: the four-point star in a 26 pt #C6B298
-    /// circle, then a Bold 14 field at ink@0.5. It asks about the past and
+    /// circle, then a Bold 16 field at ink@0.5. It asks about the past and
     /// opens the Mira chat; it never starts a note.
     private var promptBar: some View {
         HStack(spacing: 12) {
@@ -170,7 +174,7 @@ struct HomeView: View {
                 .accessibilityHidden(true)
 
             TextField("", text: $prompt)
-                .font(Sans.font(size: 14, weight: 700))
+                .font(Sans.font(size: 16, weight: 700))
                 .foregroundStyle(Palette.ink)
                 .tint(Palette.forest)
                 .submitLabel(.send)
@@ -180,7 +184,7 @@ struct HomeView: View {
                 .overlay(alignment: .leading) {
                     if prompt.isEmpty {
                         Text("When was my Paris trip?")
-                            .font(Sans.font(size: 14, weight: 700))
+                            .font(Sans.font(size: 16, weight: 700))
                             .foregroundStyle(Palette.ink.opacity(0.5))
                             .allowsHitTesting(false)
                     }
@@ -243,7 +247,7 @@ struct HomeView: View {
             Image(systemName: "plus")
                 .font(.system(size: 20, weight: .semibold))
             Text("New collection")
-                .font(Sans.font(size: 20, weight: 700))
+                .font(Sans.font(size: 22, weight: 700))
             Spacer(minLength: 0)
         }
         .foregroundStyle(Self.dateColor)
@@ -308,10 +312,11 @@ struct HomeCollectionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title)
-                .font(Sans.font(size: 20, weight: 700))
+                .font(Sans.font(size: 22, weight: 700))
                 .foregroundStyle(style.title)
                 .lineSpacing(3)
                 .lineLimit(2)
+                .minimumScaleFactor(0.8)
                 .multilineTextAlignment(.leading)
                 .frame(width: 118, alignment: .leading)
             Spacer(minLength: 0)

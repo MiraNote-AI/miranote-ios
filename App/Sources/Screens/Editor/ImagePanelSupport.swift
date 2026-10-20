@@ -56,20 +56,31 @@ struct CameraCapture: UIViewControllerRepresentable {
 /// margins (touch slop hands a near-miss to the nearest tappable view).
 struct PagePreview: View {
     let memory: Memory
+    /// Where the canvas stood: the preview opens on the same part of the page.
+    var scroll: CanvasScrollMemory
     var onTapPage: () -> Void
 
     var body: some View {
         GeometryReader { geo in
-            ScrollView(showsIndicators: false) {
-                StaticPageView(memory: memory, showsSound: false)
-            }
-            .canvasCard()
-            .contentShape(Rectangle())
-            .onTapGesture(coordinateSpace: .local) { point in
-                let left = (geo.size.width - MiraNoteConfig.pageWidth) / 2
-                guard point.x >= left, point.x <= left + MiraNoteConfig.pageWidth else { return }
-                onTapPage()
-            }
+            // The page scales up to fill the card, as on the canvas.
+            let cardWidth = geo.size.width - 2 * Metrics.canvasInset
+            let scale = CanvasCard.pageScale(rowWidth: geo.size.width)
+            // Shown where the canvas stood: the page laid out shifted by its
+            // scroll, not scrolled -- the scrim takes every touch, and a
+            // scroll asked for while the panel came in was lost (#127
+            // review: the preview opened on the page's top). Padding, not
+            // offset, so VoiceOver's frames move with it.
+            StaticPageView(memory: memory, showsSound: false)
+                .scaleEffect(scale, anchor: .topLeading)
+                .padding(.top, -scroll.offset * scale)
+                .frame(width: max(0, cardWidth), height: geo.size.height, alignment: .topLeading)
+                .canvasCard()
+                .contentShape(Rectangle())
+                .onTapGesture(coordinateSpace: .local) { point in
+                    let left = (geo.size.width - cardWidth) / 2
+                    guard point.x >= left, point.x <= left + cardWidth else { return }
+                    onTapPage()
+                }
         }
     }
 }

@@ -20,10 +20,10 @@ struct CanvasScene: View {
     var actions = EditorActions()
     /// A tool requested from another scene (consumed on appear/change).
     @Binding var pendingTool: EditorMode?
-    /// A generated picture or sticker handed back by the Image or Sticker
-    /// panel, waiting for the tap
-    /// that says where it goes.
+    /// A made sticker the Sticker panel's Add sent, landing on arrival.
     @Binding var pendingPlacement: PendingPlacement?
+    /// Where the page stands, kept across the Sticker panel's round trip.
+    var scrollMemory = CanvasScrollMemory()
     /// The photo editors' state (tile, words, compare, a running edit kept
     /// with Done), one per photo. Held by the flow: the Sticker scene
     /// rebuilds this one, and a kept edit must find its editor after it.
@@ -64,9 +64,16 @@ struct CanvasScene: View {
     @State private var textToolsTop: CGFloat?
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
-    @FocusState private var applyFocus: Bool
+    @FocusState var applyFocus: Bool
+    /// Apply's painting is on its way: the Background sheet shows the work
+    /// and stays up until it lands.
+    @State var applyingBackground = false
+    /// Why Apply's painting did not come, shown in the Background sheet.
+    @State var backgroundNotice: String?
     /// The photo editor's AI prompt, lowered by a tap on the photo or page.
     @FocusState private var photoPromptFocus: Bool
+    /// The Edit sticker instruction, lowered by a tap on the page.
+    @FocusState private var stickerPromptFocus: Bool
     /// A short line over the tool bar (the gesture hint, a dictation that
     /// could not land), gone after a few seconds.
     @State private var gestureHint: String?
@@ -86,6 +93,9 @@ struct CanvasScene: View {
     /// The photos this Image visit placed: its Cancel takes them back.
     @State private var placedThisVisit: [CanvasItem.ID] = []
     @State private var imageNotice: String?
+    /// The Image tool's AI Image words, paintings and their guard.
+    @State private var aiImage = AIImageDraft()
+    @FocusState private var aiPromptFocused: Bool
     @State private var showsCamera = false
     /// The photo editing session: which photo, how it looked when editing
     /// began, and whether it has been edited since. It outlives the panel
@@ -100,6 +110,8 @@ struct CanvasScene: View {
     @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
     @State private var dropToDelete: DropToDelete?
+    /// The sticker the Sticker panel's Add just placed.
+    @State private var landing: Landing?
     @State private var lift = LiftTracker()
     /// The delete zone's top edge (global) while it shows.
     @State private var deleteZoneTop: CGFloat?
@@ -172,6 +184,7 @@ struct CanvasScene: View {
             }
             Task { await lookAtUnseenPhotos() }
             consumePendingTool()
+            placeArrivingSticker()
         }
     }
 
@@ -228,7 +241,12 @@ struct CanvasScene: View {
             }
         }
         .onChange(of: backgroundPanelOpen) { _, open in
-            if !open { closePageColorSheet(keeping: false) }
+            if !open {
+                closePageColorSheet(keeping: false)
+                // Closed mid-painting: the turn runs on in the Mira strip.
+                applyingBackground = false
+                backgroundNotice = nil
+            }
             // Opening Background moves on from a waiting result (Keep):
             // its sheet would draw over the tool's sets and layout.
             if open, receipt != nil { mira.dismiss() }
@@ -279,6 +297,9 @@ struct CanvasScene: View {
                             onRevert: { mira.revert(editor: editor) },
                             onKeep: { mira.dismiss() }
                         )
+                        // Inside the card, as every sheet over it.
+                        .padding(.horizontal, Metrics.chromeInset)
+                        .padding(.bottom, Metrics.sheetInCard)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -307,12 +328,13 @@ struct CanvasScene: View {
                             .transition(.opacity)
                     }
                 }
-                // Screen 09: the result sheet floats over the canvas card's
-                // foot, its bottom 20 above the tool bar.
+                // Screen 09: the result sheet floats inside the canvas
+                // card's foot, as every sheet over it.
                 .overlay(alignment: .top) {
                     if attachedSound != nil, dropToDelete == nil {
                         soundAttachedSheet
-                            .offset(y: -(ResultSheet.height + Metrics.canvasToToolBar))
+                            .padding(.horizontal, Metrics.chromeInset)
+                            .offset(y: -(ResultSheet.height + Metrics.canvasToToolBar + Metrics.sheetInCard))
                             .transition(.opacity)
                     }
                 }
@@ -459,8 +481,14 @@ struct CanvasScene: View {
             #endif
         }
         .onChange(of: mira.isWorking) { _, working in
-            // A running turn owns the strip (Stop, then the receipt).
-            if working { backgroundPanelOpen = false }
+            // A running turn owns the strip (Stop, then the receipt) --
+            // except the Background tool's own Apply, which shows its work
+            // in the sheet and closes it once the painting lands.
+            if working {
+                if !applyingBackground { backgroundPanelOpen = false }
+            } else if applyingBackground {
+                finishBackgroundApply()
+            }
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
@@ -481,7 +509,7 @@ struct CanvasScene: View {
             workingItemIDs: mira.workingItemIDs,
             onEditImage: openPhotoEditor,
             onEditSticker: { id in
-                guard !mira.isWorking else { return }
+                guard !mira.isWorking, !refusedForAIImage() else { return }
                 cancelRecording()
                 cancelDictationIfNeeded()
                 backgroundPanelOpen = false
@@ -496,6 +524,10 @@ struct CanvasScene: View {
                 // and the Image tool before anything is picked.
                 backgroundPanelOpen = false
                 if imagePhase == .choose { endImageVisit() }
+                // Edit sticker and AI Image stay open; the tap only lowers
+                // their keyboards.
+                stickerPromptFocus = false
+                aiPromptFocused = false
             },
             onFavorite: { item in
                 switch item.content {
@@ -512,7 +544,6 @@ struct CanvasScene: View {
                     break
                 }
             },
-            onPlaceTap: pendingPlacement == nil ? nil : { placePending(at: $0) },
             // Ending the writing then waits for the words, as Done does.
             onEndWritingThen: writingDown || dictating ? { then in
                 afterWritingDown = then
@@ -522,8 +553,23 @@ struct CanvasScene: View {
             dropToDelete: $dropToDelete,
             lift: lift,
             pendingSoundMarker: pendingSoundMarker,
-            textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop
+            textToolsTop: editor.editingTextItemID == nil ? nil : textToolsTop,
+            landing: landing,
+            scrollMemory: scrollMemory
         )
+    }
+
+    /// The sticker the panel's Add sent, landing where its hop ended:
+    /// one undo step, selected so it moves at once, announced with Undo.
+    private func placeArrivingSticker() {
+        guard let pending = pendingPlacement else { return }
+        pendingPlacement = nil
+        let id = editor.addSticker(
+            GeneratedSticker(prompt: pending.prompt, symbolName: "sparkles", fileName: pending.fileName),
+            at: pending.at
+        )
+        editor.select(id)
+        landing = Landing(itemID: id)
     }
 
     // MARK: Bottom cluster (instrument panel + context bar)
@@ -564,25 +610,7 @@ struct CanvasScene: View {
                 onOpenChat: openMiraChat
             )
         } else {
-            if pendingPlacement != nil {
-                HStack(spacing: 8) {
-                    Text("Tap where it should go.")
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
-                        .accessibilityIdentifier("canvas.place.hint")
-                    Spacer(minLength: 0)
-                    Button("Cancel") { pendingPlacement = nil }
-                        .font(.miraCaption.weight(.semibold))
-                        .foregroundStyle(Palette.ink)
-                        // 44 pt to the finger without moving the row.
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                        .padding(.vertical, -16)
-                        .accessibilityIdentifier("canvas.place.cancel")
-                }
-                .padding(.horizontal, Metrics.chromeInset)
-                .transition(.opacity)
-            } else if let gestureHint {
+            if let gestureHint {
                 Text(gestureHint)
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
@@ -600,10 +628,12 @@ struct CanvasScene: View {
                     editor: editor,
                     itemID: editingStickerItem,
                     studio: imageStudio,
+                    focus: $stickerPromptFocus,
                     onClose: {
                         revealItem = editingStickerItem
                         self.editingStickerItem = nil
-                    }
+                    },
+                    onSelectTool: handleTool
                 )
             } else if backgroundPanelOpen {
                 // The tool's sheet lies over the canvas; the composer below
@@ -612,8 +642,9 @@ struct CanvasScene: View {
                 BackgroundApplyBar(
                     words: $applyWords,
                     focus: $applyFocus,
-                    canApply: !mira.isWorking,
-                    onApply: { mira.askBackground($0, editor: editor) }
+                    painting: applyingBackground,
+                    onApply: applyBackground,
+                    onStop: { mira.stop() }
                 )
             } else {
                 recorderCluster
@@ -684,7 +715,17 @@ struct CanvasScene: View {
         CGPoint(x: 209, y: min(max(190, editor.contentBottom + 60), 4000))
     }
 
+    /// An AI image on its way or waiting to be picked took seconds and real
+    /// credits: no tool tap or element editor drops or hides it, only Cancel
+    /// (as stickers). True after saying so in its sheet.
+    private func refusedForAIImage() -> Bool {
+        guard imagePhase == .generate, aiImage.holdsWork else { return false }
+        aiImage.notice = Self.aiImageWaiting
+        return true
+    }
+
     private func handleTool(_ mode: EditorMode) {
+        guard !refusedForAIImage() else { return }
         // Any tool tap closes the edit panels first -- one owner of
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
@@ -733,7 +774,7 @@ struct CanvasScene: View {
             case .library:
                 cancelImport()
                 imagePhase = .choose
-            case .placed: imagePhase = .choose
+            case .placed, .generate: imagePhase = .choose
             }
         case .sticker:
             cancelRecording()
@@ -758,6 +799,39 @@ struct CanvasScene: View {
         if let id = editingStickerItem {
             revealItem = id
             editingStickerItem = nil
+        }
+    }
+
+    /// The Background tool's Apply (owner, TestFlight 1.0(6)). With no words
+    /// the sheet's choices are already on the page: back to the canvas.
+    /// With words Mira paints a backdrop; the sheet shows the work.
+    private func applyBackground(_ words: String) {
+        guard !words.isEmpty else {
+            backgroundPanelOpen = false
+            return
+        }
+        guard !mira.isWorking else { return }
+        backgroundNotice = nil
+        applyingBackground = true
+        mira.askBackground(words, editor: editor)
+    }
+
+    /// Apply's turn ended: landed, the canvas with its result sheet; failed,
+    /// the sheet says why (once -- not again in the strip) with the words
+    /// back; stopped, the words back.
+    private func finishBackgroundApply() {
+        applyingBackground = false
+        let refill = mira.refillPrompt
+        mira.refillPrompt = nil
+        switch mira.phase {
+        case .failure(let failure):
+            backgroundNotice = failure.message
+            applyWords = refill ?? applyWords
+            mira.dismiss()
+        case .idle:
+            applyWords = refill ?? applyWords
+        default:
+            backgroundPanelOpen = false
         }
     }
 
@@ -793,6 +867,18 @@ struct CanvasScene: View {
         case .placed:
             return Header(leading: "Cancel", trailing: "Add",
                           onLeading: cancelImageVisit, onTrailing: endImageVisit)
+        case .generate:
+            // Cancel lets the paintings go; Add waits for a pick.
+            return Header(leading: "Cancel", trailing: "Add", onLeading: {
+                aiImage.discard()
+                imagePhase = placedThisVisit.isEmpty ? .choose : .placed
+            }, onTrailing: {
+                if aiImage.holdsWork {
+                    aiImage.notice = Self.aiImageWaiting
+                } else {
+                    endImageVisit()
+                }
+            })
         case .choose, nil:
             return Header(leading: toolOpen ? "Canvas" : "Home", trailing: "Save",
                           onLeading: toolOpen ? closeTool : actions.leading, onTrailing: actions.done)
@@ -829,12 +915,27 @@ struct CanvasScene: View {
     }
 
     /// Closes the Image tool keeping what it placed (Add, another tool).
+    /// Never with an AI image waiting: those paths are guarded first.
     private func endImageVisit() {
         imagePhase = nil
         libraryPicks = []
         placedThisVisit = []
         imageNotice = nil
+        aiImage.discard()
         cancelImport()
+    }
+
+    static let aiImageWaiting = "Pick an image first, or Cancel to let it go."
+
+    /// A candidate tapped: it lands like a library photo (aspect-true, one
+    /// undo step, looked at by vision) and the tool shows it placed (25).
+    private func placeAIImage(_ index: Int) {
+        let placed = aiImage.pick(index) { data, prompt in
+            guard let id = placer.place(data, name: prompt) else { return false }
+            placedThisVisit.append(id)
+            return true
+        }
+        if placed { imagePhase = .placed }
     }
 
     /// A slow import (iCloud originals) still loading belongs to a visit,
@@ -875,9 +976,18 @@ struct CanvasScene: View {
                             imageNotice = "The camera isn't available here."
                         }
                     },
+                    onGenerate: {
+                        aiImage.notice = nil
+                        imagePhase = .generate
+                    },
                     onSamples: placeSamples
                 )
                 .transition(.opacity)
+            case .generate:
+                AIImageSheet(draft: aiImage, onPick: placeAIImage)
+                    // A tap on the sheet lowers the prompt's keyboard (#120).
+                    .onTapGesture { aiPromptFocused = false }
+                    .transition(.opacity)
             case .library:
                 RecentsSheet(
                     library: recentPhotos,
@@ -904,6 +1014,21 @@ struct CanvasScene: View {
                 fieldID: "image.composer",
                 actionID: "image.composer.go",
                 onAction: { imagePhase = .library }
+            )
+        case .generate:
+            ToolComposer(
+                placeholder: "Describe an image",
+                text: Binding(get: { aiImage.prompt }, set: { aiImage.prompt = $0 }),
+                action: "Generate",
+                actionWidth: 74,
+                actionEnabled: aiImage.canGenerate,
+                fieldID: "image.prompt",
+                actionID: "image.generate.run",
+                focus: $aiPromptFocused,
+                onAction: {
+                    aiPromptFocused = false
+                    aiImage.generate(with: imageStudio)
+                }
             )
         case .library, .placed:
             ToolComposer(
@@ -993,6 +1118,7 @@ struct CanvasScene: View {
     /// mic stops first.
     private func openPhotoEditor(_ id: CanvasItem.ID) {
         guard !mira.isWorking, case .image(let ref) = editor.item(id)?.content else { return }
+        guard !refusedForAIImage() else { return }
         cancelRecording()
         cancelDictationIfNeeded()
         backgroundPanelOpen = false
@@ -1221,30 +1347,6 @@ extension CanvasScene {
         handleTool(tool)
     }
 
-    /// The canvas half of "generate, then say where it goes". The picture lands
-    /// centred on the tap and arrives selected, so it is already under the
-    /// thumb for a nudge instead of parked at the bottom of the page.
-    private func placePending(at point: CGPoint) -> CanvasItem.ID? {
-        guard let pending = pendingPlacement else { return nil }
-        pendingPlacement = nil
-        let id: CanvasItem.ID?
-        if pending.isSticker {
-            id = editor.addSticker(
-                GeneratedSticker(
-                    prompt: pending.prompt, symbolName: "sparkles", fileName: pending.fileName
-                ),
-                at: point
-            )
-        } else {
-            id = editor.addImages(
-                [ImageRef(displayName: pending.prompt, fileName: pending.fileName)],
-                around: point
-            ).first
-        }
-        if let id { editor.select(id) }
-        return id
-    }
-
     static func timestamp(_ duration: TimeInterval) -> String {
         let total = max(0, Int(duration.rounded()))
         return String(format: "%d:%02d", total / 60, total % 60)
@@ -1273,10 +1375,13 @@ extension CanvasScene {
             "photoEditing": editingImageItem?.uuidString ?? "",
             "photoEditors": photoEditors.debugList,
             "undoDepth": editor.undoDepth,
+            "selected": editor.selectedItemID?.uuidString ?? "",
             "importing": importingPicks,
             "pageWidth": editor.canvasWidth ?? MiraNoteConfig.pageWidth,
             "backdrop": editor.memory.backgroundFileName,
+            "backdropDescribes": editor.memory.backgroundSummary,
             "pageColor": editor.memory.pageColorName,
+            "paper": editor.memory.paper.rawValue,
             "elements": editor.items.map(Self.debugElement)
         ]
     }

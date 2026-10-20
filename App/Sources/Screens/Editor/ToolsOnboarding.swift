@@ -31,7 +31,7 @@ struct ToolsOnboarding: View {
         // gaps below are the frame gaps.
         VStack(alignment: .leading, spacing: 0) {
             Text("FIVE CREATIVE TOOLS")
-                .font(Sans.font(size: 10, weight: 600))
+                .font(Sans.font(size: 12, weight: 600))
                 .foregroundStyle(Color(hex: 0x877862))
                 .padding(.bottom, 17)
             Text("Create your way")
@@ -39,13 +39,13 @@ struct ToolsOnboarding: View {
                 .foregroundStyle(Palette.ink)
                 .padding(.bottom, 7)
             Text("These icons stay with you on every page.")
-                .font(Sans.font(size: 12, weight: 500))
+                .font(Sans.font(size: 14, weight: 500))
                 .foregroundStyle(Self.secondary)
                 .padding(.bottom, 22)
             strip
                 .padding(.bottom, 19)
             Text("Tap an icon to switch tools")
-                .font(Sans.font(size: 12, weight: 600))
+                .font(Sans.font(size: 14, weight: 600))
                 .foregroundStyle(Palette.ink)
                 .padding(.bottom, 14)
             VStack(spacing: 6) {
@@ -103,10 +103,10 @@ struct ToolsOnboarding: View {
                     .padding(.top, 7)
                 VStack(alignment: .leading, spacing: 8) {
                     Text(mode.title)
-                        .font(Sans.font(size: 12, weight: 600))
+                        .font(Sans.font(size: 14, weight: 600))
                         .foregroundStyle(Palette.ink)
                     Text(detail)
-                        .font(Sans.font(size: 10, weight: 500))
+                        .font(Sans.font(size: 12, weight: 500))
                         .foregroundStyle(Self.secondary)
                 }
                 .padding(.top, 6)
@@ -171,10 +171,10 @@ private extension View {
     /// The canvas card's frame and shadow, filled white@0.64 as on screen 03.
     func onboardingCard() -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.canvasCorner)
-        return background(shape.fill(Color.white.opacity(0.64)))
+        return frame(maxWidth: .infinity)
+            .background(shape.fill(Color.white.opacity(0.64)))
             .overlay(shape.strokeBorder(Palette.ink.opacity(0.06), lineWidth: Metrics.hairline))
             .background(shape.fill(Palette.paper).shadow(color: Palette.ink.opacity(0.08), radius: 19, y: 16))
-            .frame(width: MiraNoteConfig.pageWidth)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Metrics.canvasInset)
     }
 }

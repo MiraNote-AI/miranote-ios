@@ -61,11 +61,58 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Cleared the background."].waitForExistence(timeout: 8))
     }
 
+    private var probe: XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+    }
+
+    private func probeShows(_ fragment: String, timeout: TimeInterval = 5) -> Bool {
+        let shows = NSPredicate(format: "label CONTAINS %@", fragment)
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shows, object: probe)],
+                                timeout: timeout) == .completed
+    }
+
+    /// The canvas is back: the sheet is gone and the Mira composer shows.
+    private func assertBackOnTheCanvas(_ message: String) {
+        XCTAssertTrue(app.staticTexts["background.title"].waitForNonExistence(timeout: 5), message)
+        XCTAssertTrue(app.buttons["mira.go"].waitForExistence(timeout: 5), "the canvas composer is back")
+        XCTAssertFalse(app.buttons["mode.background"].isSelected, "the tool is closed")
+    }
+
+    // Owner, TestFlight 1.0(6): Apply with nothing typed was a dead button.
+    // It closes the sheet and keeps everything the sheet applied.
+    func testApplyWithNoWordsReturnsToTheCanvasKeepingThePicks() {
+        startMemory()
+        openTool()
+        app.buttons["background.paper.grid"].tap()
+        app.buttons["background.color.#E6D9F0"].tap()
+        let apply = app.buttons["background.apply"]
+        XCTAssertTrue(apply.isEnabled, "Apply is never dead while the sheet is open")
+        apply.tap()
+
+        assertBackOnTheCanvas("Apply closed the sheet")
+        XCTAssertTrue(probeShows("\"pageColor\":\"#E6D9F0\""), "the color stays: \(probe.label)")
+        XCTAssertTrue(probeShows("\"paper\":\"grid\""), "the paper stays: \(probe.label)")
+    }
+
+    // A hex typed but not yet confirmed is still the user's pick.
+    func testApplyKeepsATypedHex() {
+        startMemory()
+        openTool()
+        let hex = app.textFields["background.hex"]
+        hex.tap()
+        hex.typeText("d1e0f0")
+        app.buttons["background.apply"].tap()
+        assertBackOnTheCanvas("Apply closed the sheet")
+        XCTAssertTrue(probeShows("\"pageColor\":\"#D1E0F0\""), "the typed hex applied: \(probe.label)")
+    }
+
     // The tool's composer is "Apply to this page": the typed words ask Mira
-    // to paint a backdrop, the sheet steps aside for the turn, and Apply
-    // applies it. Owner, TestFlight 1.0(5): Apply did nothing visible --
-    // the painting waited as thumbnails for a second pick. With the
-    // painting taking its time, as the live backend does.
+    // to paint a backdrop, the sheet shows the work, and when the painting
+    // lands it is on the page and the canvas is back with its result sheet.
+    // Owner, TestFlight 1.0(5): Apply did nothing visible -- the painting
+    // waited as thumbnails for a second pick. With the painting taking its
+    // time, as the live backend does.
     func testApplyToThisPagePaintsThePage() {
         app.terminate()
         app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "3000"]
@@ -74,20 +121,126 @@ final class BackgroundUITests: XCTestCase {
         openTool()
         let words = app.textFields["background.apply.input"]
         XCTAssertTrue(words.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["background.apply"].isEnabled, "nothing to apply yet")
         words.tap()
         words.typeText("a soft sunset glow")
         app.buttons["background.apply"].tap()
 
+        let status = app.staticTexts["background.status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 3), "the sheet shows the work")
+        XCTAssertTrue(app.staticTexts["background.title"].exists, "the sheet stays up while painting")
+        XCTAssertEqual(app.buttons["background.apply"].label, "Stop", "the work can be stopped")
+
         XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 12),
                       "Apply's painting landed")
-        XCTAssertFalse(app.staticTexts["background.title"].exists, "the sheet stepped aside for the turn")
+        assertBackOnTheCanvas("the sheet closed once the painting landed")
         XCTAssertFalse(app.buttons["mira.imageChoice.0"].exists, "no second pick")
-        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
-            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
-        let painted = NSPredicate(format: "NOT (label CONTAINS '\"backdrop\":\"\"')")
-        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: painted, object: probe)],
-                                        timeout: 5), .completed, "the page wears no backdrop: \(probe.label)")
+        XCTAssertTrue(probeShows("\"backdropDescribes\":\"a soft sunset glow\""),
+                      "the page wears the new painting: \(probe.label)")
+        XCTAssertTrue(app.buttons["mira.revert"].exists, "Revert / Keep on the canvas")
+    }
+
+    // While Apply paints, the page color controls rest: a color picked or a
+    // hex typed then would wipe the paid painting when it lands (#127
+    // review). The painting lands on the page all the same.
+    func testColorControlsRestWhileApplyPaints() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "4000"]
+        app.launch()
+        startMemory()
+        openTool()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
+        XCTAssertTrue(app.staticTexts["background.status"].waitForExistence(timeout: 3))
+
+        for id in ["background.color.custom", "background.color.pick",
+                   "background.color.#E6D9F0", "background.layout"] {
+            XCTAssertFalse(app.buttons[id].isEnabled, "\(id) rests while painting")
+        }
+        XCTAssertFalse(app.textFields["background.hex"].isEnabled, "the hex field rests while painting")
+        app.buttons["background.color.custom"].tap()
+        XCTAssertFalse(app.buttons["Cancel"].waitForExistence(timeout: 1), "no color sheet opens")
+
+        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 12))
+        XCTAssertTrue(probeShows("\"backdropDescribes\":\"a soft sunset glow\""),
+                      "the painting stays on the page: \(probe.label)")
+    }
+
+    // Stop takes Apply's spot: a double tap on Apply still paints.
+    func testADoubleTapOnApplyDoesNotStopThePainting() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "3000"]
+        app.launch()
+        startMemory()
+        openTool()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.staticTexts["background.title"].tap()
+        app.buttons["background.apply"].doubleTap()
+        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 12),
+                      "the painting landed")
+    }
+
+    // The color dots tap as 44 x 44 boxes.
+    func testColorDotsHaveFullTapTargets() {
+        startMemory()
+        openTool()
+        for id in ["background.color.#E6D9F0", "background.color.custom", "background.color.pick"] {
+            let dot = app.buttons[id]
+            XCTAssertTrue(dot.waitForExistence(timeout: 5))
+            XCTAssertEqual(dot.frame.width, 44, accuracy: 0.5, id)
+            XCTAssertEqual(dot.frame.height, 44, accuracy: 0.5, id)
+        }
+    }
+
+    // Stop gives the words back, the sheet stays and nothing is painted.
+    func testStopKeepsTheWordsAndPaintsNothing() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "4000"]
+        app.launch()
+        startMemory()
+        openTool()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        let apply = app.buttons["background.apply"]
+        apply.tap()
+        XCTAssertTrue(app.staticTexts["background.status"].waitForExistence(timeout: 3))
+        XCTAssertEqual(apply.label, "Stop")
+        apply.tap()
+
+        XCTAssertEqual(words.value as? String, "a soft sunset glow", "the words are back")
+        XCTAssertTrue(app.staticTexts["background.title"].exists, "the sheet stays")
+        sleep(5)
+        XCTAssertFalse(app.staticTexts["Set the page background."].exists, "nothing landed")
+        XCTAssertTrue(probeShows("\"backdrop\":\"\""), "the page is untouched: \(probe.label)")
+    }
+
+    // A painting that does not come stays in the sheet and says so, with
+    // the words back for another try; the page is untouched.
+    func testApplyFailureStaysInTheSheetWithANotice() {
+        startMemory()
+        openTool()
+        let words = app.textFields["background.apply.input"]
+        words.tap()
+        words.typeText("fail this one")
+        app.buttons["background.apply"].tap()
+
+        let notice = app.staticTexts["background.notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 8), "the failure is said in the sheet")
+        XCTAssertTrue(app.staticTexts["background.title"].exists, "the sheet stays")
+        XCTAssertEqual(words.value as? String, "fail this one", "the words are back")
+        XCTAssertTrue(probeShows("\"backdrop\":\"\""), "the page is untouched: \(probe.label)")
+        // The strip's failure shows only on the bare canvas: leave the tool
+        // so this check could fail.
+        app.buttons["Canvas"].tap()
+        assertBackOnTheCanvas("Canvas closed the tool")
+        XCTAssertFalse(app.staticTexts["mira.failure"].waitForExistence(timeout: 2), "said once, in the sheet")
     }
 
     // The handoff draws nothing between the tool bar and the composer on the

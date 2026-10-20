@@ -2,21 +2,29 @@ import MiraNoteKit
 import SwiftUI
 
 /// The element being moved, as the board measured it: its look, its box on
-/// screen (global, unrotated -- the element's own size -- the drag's
-/// translation included), its tilt and the finger (global).
+/// screen (global, unrotated -- the element's own size on the scaled card --
+/// the drag's translation included), its tilt and the finger (global).
 struct LiftedElement: Equatable {
     let item: CanvasItem
     let frame: CGRect
+    /// The element's size in page points: the copy is laid out at it (text
+    /// wraps as on the page), then scaled by `scale` to `frame`.
+    let pageSize: CGSize
+    let scale: CGFloat
     let rotation: Double
     let finger: CGPoint
 
     /// `measured` is the element's box as read on screen, tilt included --
     /// for a tilted element its larger bounding box. The copy is drawn at
-    /// the element's own `size` around that box's centre, then tilted.
-    init(item: CanvasItem, measured: CGRect, size: CGSize, rotation: Double, finger: CGPoint) {
+    /// the element's own `size` (page points) times the card's `scale`
+    /// around that box's centre, then tilted.
+    init(item: CanvasItem, measured: CGRect, size: CGSize, scale: CGFloat, rotation: Double, finger: CGPoint) {
         self.item = item
-        frame = CGRect(x: measured.midX - size.width / 2, y: measured.midY - size.height / 2,
-                       width: size.width, height: size.height)
+        let shown = CGSize(width: size.width * scale, height: size.height * scale)
+        frame = CGRect(x: measured.midX - shown.width / 2, y: measured.midY - shown.height / 2,
+                       width: shown.width, height: shown.height)
+        pageSize = size
+        self.scale = scale
         self.rotation = rotation
         self.finger = finger
     }
@@ -67,7 +75,12 @@ struct LiftedElementLayer: View {
             GeometryReader { geo in
                 let bounds = geo.frame(in: .global)
                 let full = lifted.frame
-                LiftedElementView(item: lifted.item, size: full.size, textFocus: textFocus)
+                #if DEBUG
+                let _ = (RenderCounters.liftedCopyWidth = full.width)
+                #endif
+                LiftedElementView(item: lifted.item, size: lifted.pageSize, textFocus: textFocus)
+                    .scaleEffect(lifted.scale)
+                    .frame(width: full.width, height: full.height)
                     .overlay { SelectionChrome(size: full.size, armed: false) }
                     .rotationEffect(.degrees(lifted.rotation))
                     .position(x: full.midX - bounds.minX, y: full.midY - bounds.minY)
@@ -173,7 +186,7 @@ private struct CompactLift: View {
     @ViewBuilder private func content(size: CGSize) -> some View {
         if let block = textCard {
             Text(block.text)
-                .font(Sans.font(size: 16, weight: 700))
+                .font(Sans.font(size: 17, weight: 700))
                 .foregroundStyle(Palette.warmWhite)
                 .multilineTextAlignment(.center)
                 .lineLimit(4)
@@ -182,8 +195,8 @@ private struct CompactLift: View {
                 .background(RoundedRectangle(cornerRadius: 20).fill(Palette.ink.opacity(0.77)))
                 .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Palette.warmWhite.opacity(0.65), lineWidth: 1))
         } else {
-            LiftedElementView(item: lifted.item, size: lifted.frame.size, textFocus: textFocus)
-                .scaleEffect(size.width / lifted.frame.width)
+            LiftedElementView(item: lifted.item, size: lifted.pageSize, textFocus: textFocus)
+                .scaleEffect(size.width / lifted.pageSize.width)
                 .frame(width: size.width, height: size.height)
         }
     }

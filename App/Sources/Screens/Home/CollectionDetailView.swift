@@ -145,7 +145,7 @@ struct CollectionDetailView: View {
     @ViewBuilder private func section(_ group: MonthGroup) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(group.label)
-                .font(Sans.font(size: 11, weight: 500))
+                .font(Sans.font(size: 13, weight: 500))
                 .kerning(1.6)
                 .foregroundStyle(Palette.textSecondary)
 

@@ -2,24 +2,24 @@ import MiraNoteKit
 import PhotosUI
 import SwiftUI
 
-/// A made sticker the user has picked but not yet placed. The Sticker panel
-/// hands it back to the canvas, where the next tap on the paper decides where
-/// it lands -- on a tall journal, the page bottom meant scrolling down to find
-/// it and dragging all the way back up.
+/// A made sticker on its way from the Sticker panel's Add to the canvas,
+/// with the free spot in view it lands on (page points, `StickerSpot`).
 struct PendingPlacement: Equatable {
     let prompt: String
     let fileName: String
-    let isSticker: Bool
+    let at: CGPoint
 }
 
 /// Where the Image tool stands. It opens in place over the live canvas
 /// (handoff screens 23-29), so placed photos land on the page the user is
 /// looking at and stay editable there.
 enum ImagePhase: Equatable {
-    /// "Choose photos": Photo Library / Camera / AI Sticker (screen 23).
+    /// "Choose photos": Photo Library / Camera / AI Image (screen 23).
     case choose
     /// The in-sheet Recents grid (screens 24, 26).
     case library
+    /// AI Image: the composer takes words, the sheet shows the paintings.
+    case generate
     /// Photos placed with the tool still open (screens 25, 29): Cancel takes
     /// them back, Add keeps them.
     case placed
@@ -144,12 +144,13 @@ struct PhotoPlacer {
 // MARK: - Sheets
 
 /// Screen 23: the "Choose photos" glass sheet over the canvas -- fixed
-/// 94.55 x 30 pills, Photo Library filled ink. No AI Sticker pill: stickers
-/// are the fifth tool (owner, 2026-10-17).
+/// 94.55 x 30 pills, Photo Library filled ink. The third pill paints an AI
+/// image (owner, 2026-10-18); stickers stay the fifth tool.
 struct ChoosePhotosSheet: View {
     var notice: String?
     var onLibrary: () -> Void
     var onCamera: () -> Void
+    var onGenerate: () -> Void
     var onSamples: () -> Void
 
     var body: some View {
@@ -157,23 +158,24 @@ struct ChoosePhotosSheet: View {
             title: "Choose photos",
             // The design's "imported media, or a link" names sources the
             // app does not have.
-            subtitle: "Start from camera roll or camera.",
-            titleSize: 20
+            subtitle: "Start from camera roll, camera, or AI.",
+            titleSize: 22
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 5.67) {
                     pill("Photo Library", filled: true, id: "image.library.open", action: onLibrary)
                     pill("Camera", filled: false, id: "image.camera.open", action: onCamera)
+                    pill("AI Image", filled: false, id: "image.source.generate", action: onGenerate)
                 }
                 #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("-UITEST")
-                    || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES") {
+                if (ProcessInfo.processInfo.arguments.contains("-UITEST")
+                    || ProcessInfo.processInfo.arguments.contains("-DEMO-SAMPLES")) && !OwnerShots.on {
                     pill("Samples", filled: false, id: "image.library.samples", action: onSamples)
                 }
                 #endif
                 if let notice {
                     Text(notice)
-                        .font(.miraComposer)
+                        .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
                         .accessibilityIdentifier("image.notice")
                 }
@@ -184,7 +186,7 @@ struct ChoosePhotosSheet: View {
     private func pill(_ label: String, filled: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(Sans.font(size: 10, weight: 700))
+                .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(filled ? Palette.onInk : Palette.ink)
                 .frame(width: 94.55, height: 30)
                 .background(Capsule().fill(filled ? Palette.ink : Palette.paper))
@@ -267,7 +269,7 @@ struct RecentsSheet: View {
     private var denied: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("MiraNote can't see your photos. Allow access in Settings, or pick a few here.")
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
             HStack(spacing: 8) {
                 Button("Open Settings") {
@@ -287,7 +289,7 @@ struct RecentsSheet: View {
     private var limitedBar: some View {
         HStack(spacing: 8) {
             Text("Only the photos you shared show here.")
-                .font(.miraComposer)
+                .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -327,7 +329,7 @@ struct RecentsSheet: View {
     private var header: some View {
         HStack {
             Text("Recents")
-                .font(Sans.font(size: 18, weight: 700))
+                .font(Sans.font(size: 20, weight: 700))
                 .foregroundStyle(Palette.ink)
             Spacer()
             if selection.count == 1 {
@@ -338,7 +340,7 @@ struct RecentsSheet: View {
                     .accessibilityIdentifier("image.library.editing")
             } else if selection.count > 1 {
                 Text("\(selection.count) selected")
-                    .font(Sans.font(size: 12, weight: 700))
+                    .font(Sans.font(size: 14, weight: 700))
                     .foregroundStyle(Palette.forest)
                     .padding(.trailing, 6)
                     .accessibilityIdentifier("image.library.count")
@@ -376,7 +378,7 @@ private struct RecentCell: View {
             .overlay(alignment: .topTrailing) {
                 if let order {
                     Text("\(order)")
-                        .font(Sans.font(size: 10, weight: 700))
+                        .font(Sans.font(size: 12, weight: 700))
                         .foregroundStyle(Palette.onInk)
                         .frame(width: 22, height: 22)
                         .background(Circle().fill(Palette.ink))

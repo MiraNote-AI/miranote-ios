@@ -10,8 +10,9 @@ extension CanvasScene {
         return nil
     }
 
-    /// Screen 05: the tool's glass sheet over the canvas card, 7 pt taller
-    /// than the card (it ends 13 above the tool bar).
+    /// Screen 05: the tool's glass sheet floating inside the canvas card,
+    /// `Metrics.sheetInCard` from its top and sides (the board spans the
+    /// card's row, its insets included, so the sides sit on the chrome line).
     var backgroundSheet: some View {
         BackgroundToolSheet(
             editor: editor,
@@ -21,10 +22,14 @@ extension CanvasScene {
                 mira.ask(words, editor: editor)
             },
             onClose: { backgroundPanelOpen = false },
-            onCustomColor: openPageColorSheet
+            onCustomColor: openPageColorSheet,
+            painting: applyingBackground,
+            notice: backgroundNotice,
+            folded: applyFocus
         )
-        .frame(width: MiraNoteConfig.pageWidth)
-        .padding(.bottom, -7)
+        .animation(.easeOut(duration: 0.2), value: applyFocus)
+        .padding(.horizontal, Metrics.chromeInset)
+        .padding(.vertical, Metrics.sheetInCard)
         .transition(.opacity)
     }
 

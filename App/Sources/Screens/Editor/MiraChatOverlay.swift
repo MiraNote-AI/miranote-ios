@@ -76,7 +76,7 @@ struct MiraChatOverlay: View {
 
     // MARK: Question
 
-    /// The live question: Medium 12 white words on ink, 253 wide against
+    /// The live question: Medium 17 white words on ink, 253 wide against
     /// the trailing inset. Return sends.
     private var questionCapsule: some View {
         HStack {
@@ -120,17 +120,19 @@ struct MiraChatOverlay: View {
                 .padding(.top, 24)
             VStack(alignment: .leading, spacing: 0) {
                 Text("Mira can edit this canvas directly.")
-                    .font(Sans.font(size: 14, weight: 700))
+                    .font(Sans.font(size: 16, weight: 700))
                     .foregroundStyle(Palette.ink)
-                    .frame(height: 18)
+                    // Wraps rather than truncates on a narrow phone.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 18)
                     .padding(.top, 17)
                 Text("The current page stays attached, so Mira can change color, layout, copy, "
                      + "stickers, or image treatment without starting over.")
-                    .font(Sans.font(size: 11, weight: 700))
+                    .font(Sans.font(size: 13, weight: 700))
                     .foregroundStyle(Self.warmGrey)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
-                    // lh15 on an 11 pt, 1.0 em line box: 2 pt each side.
+                    // The handoff's lh15 on 11 pt: 2 pt each side (the text is 13 pt now).
                     .padding(.vertical, 2)
                     .padding(.top, 12)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 11), GridItem(.flexible())], spacing: 8) {
@@ -163,9 +165,11 @@ struct MiraChatOverlay: View {
             onQuickAction(action)
         } label: {
             Text(action)
-                .font(Sans.font(size: 10, weight: 700))
+                .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(primary ? Color.white : Palette.ink)
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
                 .background(

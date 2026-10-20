@@ -135,8 +135,8 @@ final class CanvasEditorUITests: XCTestCase {
     }
 
     // The bar carries the handoff's five tools; the Image sheet offers
-    // Photo Library / Camera (screen 23) and no generate styles; no AI
-    // Sticker pill -- stickers are the fifth tool (owner, 2026-10-17).
+    // Photo Library / Camera / AI Image (screen 23) and no generate styles;
+    // no AI Sticker pill -- stickers are the fifth tool (owner, 2026-10-17).
     func testFiveToolsAndImageHasNoStickerStyle() {
         app.buttons["Start a memory"].tap()
         for tool in ["background", "voice", "text", "image", "sticker"] {
@@ -147,15 +147,17 @@ final class CanvasEditorUITests: XCTestCase {
         app.buttons["mode.image"].tap()
         XCTAssertTrue(app.buttons["image.library.open"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["image.camera.open"].exists)
+        XCTAssertEqual(app.buttons["image.source.generate"].label, "AI Image")
         XCTAssertFalse(app.buttons["image.style.photo"].exists)
         XCTAssertFalse(app.buttons["image.style.sticker"].exists)
         XCTAssertFalse(app.buttons["image.source.sticker"].exists, "no AI Sticker pill on the Image sheet")
         XCTAssertFalse(app.buttons["AI Sticker"].exists)
     }
 
-    // Stickers are made in the Sticker tool. Add does not place the showing
-    // result and does not file it in Favorites: the canvas asks where it
-    // goes, and the next tap on the paper lands it there.
+    // Stickers are made in the Sticker tool. "Add to page" under the result
+    // (the header has no Add while one shows) puts it straight on the page,
+    // selected, with an Undo toast -- no tap asked for, nothing filed in
+    // Favorites.
     func testGenerateStickerPlacesElement() {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
@@ -169,20 +171,13 @@ final class CanvasEditorUITests: XCTestCase {
 
         let firstResult = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
-        let add = app.buttons["nav.trailing"]
-        XCTAssertEqual(add.label, "Add")
-        add.tap()
+        XCTAssertFalse(app.buttons["nav.trailing"].exists, "no header Add while a result shows")
+        app.buttons["sticker.addToPage"].tap()
 
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
-        let hint = app.staticTexts["canvas.place.hint"]
-        XCTAssertTrue(hint.waitForExistence(timeout: 5), "the canvas asks where it should go")
-
-        // The paper carries no accessibility identifier on purpose (a container
-        // id cascades onto the elements), so the placing tap goes by coordinate.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
-
         let sticker = app.descendants(matching: .any).matching(identifier: "element.sticker").firstMatch
-        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "the tap placed the sticker on the canvas")
+        XCTAssertTrue(sticker.waitForExistence(timeout: 5), "Add put the sticker on the canvas")
+        XCTAssertTrue(app.buttons["toast.undo"].waitForExistence(timeout: 3), "the toast offers Undo")
     }
 
     // Save round-trip (the save-does-not-wipe regression under autosave
@@ -357,8 +352,10 @@ final class CanvasEditorUITests: XCTestCase {
 
         // The portrait sample gets an aspect-true box AND renders inside
         // it: 8x16 -> 170-wide box capped at 260 tall. A fill that leaks
-        // its frame (the scaledToFill trap) would report ~340.
-        XCTAssertEqual(second.frame.height, 260, accuracy: 8,
+        // its frame (the scaledToFill trap) would report ~340. The card
+        // shows the 360 pt page scaled to the screen less 8 pt a side.
+        let pageScale = (app.windows.firstMatch.frame.width - 16) / 360
+        XCTAssertEqual(second.frame.height, 260 * pageScale, accuracy: 8,
                        "portrait photos arrive tall and stay inside their box")
 
         photo.press(forDuration: 0.9)

@@ -159,7 +159,7 @@ struct MiraChatView: View {
     private var quickStarts: some View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Quick starts")
-                .font(Sans.font(size: 16, weight: 700))
+                .font(Sans.font(size: 17, weight: 700))
                 .foregroundStyle(Palette.ink)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
@@ -188,7 +188,7 @@ struct MiraChatView: View {
             Task { await viewModel.send(label) }
         } label: {
             Text(label)
-                .font(Sans.font(size: 10, weight: 700))
+                .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
                 .frame(width: width, height: 24)
@@ -216,7 +216,7 @@ struct MiraChatView: View {
     private func hitsRow(_ pageHits: [PageHit]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("From your pages")
-                .font(Sans.font(size: 11, weight: 500))
+                .font(Sans.font(size: 13, weight: 500))
                 .kerning(1.4)
                 .foregroundStyle(Palette.textSecondary)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -333,11 +333,11 @@ private struct MiraBubbleRow: View {
             // y61 (Josefin's iOS line box is shorter than the mock's).
             VStack(alignment: .leading, spacing: 15) {
                 Text(markdown ? ChatMarkdown.attributed(text) : AttributedString(text))
-                    .font(Sans.font(size: 14, weight: 400))
+                    .font(Sans.font(size: 16, weight: 400))
                     .foregroundStyle(Palette.ink)
                 if let secondary {
                     Text(secondary)
-                        .font(Sans.font(size: 11, weight: 400))
+                        .font(Sans.font(size: 13, weight: 400))
                         .lineSpacing(2)
                         .foregroundStyle(ChatMetrics.muted)
                 }
@@ -367,7 +367,7 @@ private struct UserBubbleRow: View {
                 }
                 if !message.text.isEmpty {
                     Text(message.text)
-                        .font(Sans.font(size: 13, weight: 400))
+                        .font(Sans.font(size: 15, weight: 400))
                         .foregroundStyle(Palette.onInk)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 16)
@@ -471,11 +471,11 @@ private struct TypingBubble: View {
 }
 
 /// Mira's mark beside everything she says (handoff screens 02 and 06):
-/// a 36 pt ink circle, "M" in Josefin Bold 13.
+/// a 36 pt ink circle, "M" in Josefin Bold 15.
 struct MiraMark: View {
     var body: some View {
         Text("M")
-            .font(Sans.font(size: 13, weight: 700))
+            .font(Sans.font(size: 15, weight: 700))
             .foregroundStyle(Palette.onInk)
             .frame(width: 36, height: 36)
             .background(Circle().fill(Palette.ink))

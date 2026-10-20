@@ -14,69 +14,39 @@ struct StickerEditPanel: View {
     @Bindable var editor: CanvasViewModel
     let itemID: CanvasItem.ID
     var studio: ImageStudioService
+    /// The instruction's keyboard; a tap on the page lowers it.
+    var focus: FocusState<Bool>.Binding
     var onClose: () -> Void
+    /// The tool bar's taps, as on every other tool.
+    var onSelectTool: (EditorMode) -> Void = { _ in }
 
     @State private var instruction = ""
     @State private var editing = false
     @State private var notice: String?
-    /// A tap on the card lowers the instruction's keyboard.
-    @FocusState private var instructionFocused: Bool
 
     private let imageStore = ImageFileStore()
 
+    /// The shared tool chrome (owner, 2026-10-19: one edge, one height for
+    /// every tool): a line for the notice, the tool bar with Sticker lit,
+    /// and the composer taking the words. The header's Canvas closes it.
     var body: some View {
-        ContextCard(title: "Edit sticker") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    TextField("Tell AI what to change", text: $instruction)
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.ink)
-                        .tint(Palette.forest)
-                        .focused($instructionFocused)
-                        .accessibilityIdentifier("sticker.ai.instruction")
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule()
-                                .fill(Palette.paper)
-                                .overlay(Capsule().strokeBorder(
-                                    Palette.hairline, lineWidth: Metrics.hairline))
-                        )
-                        // The capsule is the field's, not the card's tap
-                        // that lowers the keyboard.
-                        .contentShape(Capsule())
-                        .onTapGesture { instructionFocused = true }
-
-                    Button {
-                        runEdit()
-                    } label: {
-                        Text(editing ? "Working..." : "Go")
-                            .font(.miraLabel)
-                            .foregroundStyle(Palette.onInk)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(Palette.ink))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(editing || instruction.trimmingCharacters(
-                        in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityIdentifier("sticker.ai.run")
-
-                    Button("Done") { onClose() }
-                        .font(.miraLabel)
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize()
-                        .accessibilityIdentifier("sticker.done")
-                }
-
-                if let notice {
-                    Text(notice)
-                        .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
-                }
-            }
+        if let notice {
+            Text(notice)
+                .font(.miraCaption)
+                .foregroundStyle(Palette.textSecondary)
+                .padding(.horizontal, Metrics.chromeInset)
         }
-        .onTapGesture { instructionFocused = false }
+        InputModeBar(active: .sticker, onSelect: onSelectTool)
+        ToolComposer(
+            placeholder: "Tell Mira what to change",
+            text: $instruction,
+            action: editing ? "Working..." : "Go",
+            actionEnabled: !editing && !instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            fieldID: "sticker.ai.instruction",
+            actionID: "sticker.ai.run",
+            focus: focus,
+            onAction: runEdit
+        )
     }
 
     private var currentSticker: GeneratedSticker? {

@@ -2,6 +2,13 @@ import AVFoundation
 import MiraNoteKit
 import SwiftUI
 
+/// Where the canvas page stands (page points from its top), kept by the
+/// editor flow across the Sticker panel's round trip. A plain box: written
+/// on every scroll frame without re-rendering anything.
+final class CanvasScrollMemory {
+    var offset: CGFloat = 0
+}
+
 /// The v2.1 infinite canvas: a vertically scrolling page of freely placed
 /// elements. Gesture grammar ("press to drag, long-press for menu"):
 /// press-and-drag moves any element directly (and selects it), tap selects,
@@ -24,8 +31,6 @@ struct CanvasBoardView: View {
     var onPaperTap: () -> Void = {}
     /// Long-press "Favorite": saves the image/sticker to the Favorites shelf.
     var onFavorite: (CanvasItem) -> Void = { _ in }
-    /// Non-nil while a picture waits to be placed: the tap places it there.
-    var onPlaceTap: ((CGPoint) -> CanvasItem.ID?)?
     /// Non-nil while dictated words are on their way to the block being
     /// written: a tap or drag that would end the writing hands over what it
     /// does next, and the scene ends the writing (as Done, waiting for the
@@ -46,6 +51,11 @@ struct CanvasBoardView: View {
     /// While writing: the top of the text tools (or the color sheet) over
     /// the keyboard, global; the block being written stays above it.
     var textToolsTop: CGFloat?
+    /// A sticker the Sticker panel's Add just placed: it settles, and the
+    /// toast offers Undo.
+    var landing: Landing?
+    /// Where the page stands, kept across the Sticker panel's round trip.
+    var scrollMemory = CanvasScrollMemory()
 
     @State private var player = SoundPlayer()
     /// The visible canvas, in global coordinates: releasing below it deletes.
@@ -59,7 +69,6 @@ struct CanvasBoardView: View {
     @GestureState private var activeRotation: ActiveRotation?
     @State private var noteDraft = ""
     @State private var noteEditingItem: CanvasItem.ID?
-    @State private var scrollTarget: CanvasItem.ID?
     /// Where the reveal anchor sits while a reveal is in flight.
     @State private var revealFrame: CGRect?
     /// The spot of the block being written to scroll into view, and the
@@ -70,14 +79,27 @@ struct CanvasBoardView: View {
     /// scroll back is in flight, the spot to scroll the page's top to.
     @State private var restoreAnchor: CGPoint?
     @State private var scrollMemo = ScrollMemo()
+    /// The page is back where it stood (`scrollMemory`): from here on its
+    /// scroll is the one to keep.
+    @State private var resumed = false
     @State private var toast: Toast?
     @State private var toastDismiss: Task<Void, Never>?
+    /// Screen points per page point: the card fills the screen less its
+    /// insets (the visible frame is the card's row, insets included).
+    private var pageScale: CGFloat { CanvasCard.pageScale(rowWidth: visibleFrame.width) }
 
-    /// Bottom-edge receipts; deleted carries the one-tap Undo, good while
-    /// the delete is still the page's newest change (`changeCount`).
+    /// Bottom-edge receipts; deleted and added carry the one-tap Undo, good
+    /// while that change is still the page's newest (`changeCount`).
     enum Toast {
         case deleted(changeCount: Int)
         case favorited
+        /// The Sticker panel's Add just placed a sticker.
+        case added(changeCount: Int)
+
+        var isAdded: Bool {
+            if case .added = self { return true }
+            return false
+        }
     }
 
     private let minBoardHeight: CGFloat = 620
@@ -98,18 +120,27 @@ struct CanvasBoardView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
-                // The page is a fixed-width column, centred in whatever
-                // room the device has -- not the screen minus padding,
-                // which made the same page a different width on every
-                // phone and disagree with its own export.
+                // The page is a fixed 360 pt column -- the same page on
+                // every phone, and the same as its export -- scaled up to
+                // fill the card.
                 board
+                    .scaleEffect(pageScale, anchor: .topLeading)
+                    .frame(
+                        width: MiraNoteConfig.pageWidth * pageScale,
+                        height: boardHeight * pageScale,
+                        alignment: .topLeading
+                    )
                     // Read on every scroll frame into a plain box: no
                     // re-render while the page scrolls.
                     .onGeometryChange(for: CGFloat.self) {
                         $0.frame(in: .named(Self.scrollSpace)).minY
-                    } action: { scrollMemo.offset = -$0 }
+                    } action: {
+                        scrollMemo.offset = -$0
+                        if resumed { scrollMemory.offset = max(0, -$0 / pageScale) }
+                    }
             }
             .coordinateSpace(name: Self.scrollSpace)
+            .onAppear { returnToKeptScroll(proxy) }
             // The card holds still; the page scrolls inside it.
             .canvasCard()
             // The page keeps its full height under the keyboard while
@@ -135,7 +166,6 @@ struct CanvasBoardView: View {
                     editAnchor = nil
                 }
             }
-            .onChange(of: scrollTarget) { _, id in bring(id, into: proxy) }
             .onChange(of: revealItem.wrappedValue) { _, id in
                 guard let id, let item = editor.item(id) else { return }
                 revealFrame = CGRect(
@@ -171,6 +201,9 @@ struct CanvasBoardView: View {
         .onChange(of: dropPhase) { _, phase in
             dropToDelete = phase
             if phase == nil { lift.lifted = nil }
+        }
+        .onChange(of: landing, initial: true) { _, landing in
+            if landing != nil { show(toast: .added(changeCount: editor.changeCount)) }
         }
         // A take that leaves the page (Revert, undo, delete) stops playing.
         .onChange(of: editor.changeCount) {
@@ -294,8 +327,9 @@ struct CanvasBoardView: View {
     /// while writing, a card's height below the content, so the block being
     /// written can always scroll up clear of the keyboard and its tools.
     private var boardHeight: CGFloat {
-        max(minBoardHeight, visibleFrame.height,
-            editor.contentBottom + (writing ? max(240, visibleFrame.height) : 240))
+        let cardHeight = visibleFrame.height / pageScale
+        return max(minBoardHeight, cardHeight,
+                   editor.contentBottom + (writing ? max(240, cardHeight) : 240))
     }
 
     /// Keeps the block being written between the card's top and the text
@@ -308,7 +342,9 @@ struct CanvasBoardView: View {
         let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
         guard shown.minY < bandTop - 0.5 || shown.maxY > bandBottom + 0.5 else { return }
         let top = item.position.y - item.size.height / 2
-        let fits = item.size.height <= bandBottom - bandTop
+        // The band is screen points; the block's height is the page's, shown
+        // scaled.
+        let fits = item.size.height * pageScale <= bandBottom - bandTop
         editAnchor = CGPoint(x: item.position.x, y: fits ? top - 16 : top + item.size.height + 8)
         let anchorY = fits ? 0 : min(1, max(0, (toolsTop - visibleFrame.minY) / visibleFrame.height))
         scrollMemo.scrolledForWriting = true
@@ -336,7 +372,9 @@ struct CanvasBoardView: View {
             let bottom = shown.maxY - visibleFrame.minY + scrollMemo.offset + 16
             target = min(scrollMemo.offset, max(target, bottom - scrollMemo.cardHeight))
         }
-        restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target))
+        // The offsets are screen points; the anchor sits on the page, which
+        // the card shows scaled.
+        restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target) / pageScale)
         // Once the keyboard is down and the page has given back the room
         // it grew for the writing (its 0.2 s shrink in flight cut the
         // scroll 50 pt short).
@@ -352,20 +390,12 @@ struct CanvasBoardView: View {
         }
     }
 
-    private func bring(_ id: CanvasItem.ID?, into proxy: ScrollViewProxy, anchor: UnitPoint = .center) {
-        guard let id else { return }
-        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: anchor) }
-    }
-
     /// The page itself -- its backdrop stretches with the content, so the
     /// background never "runs out".
     private var paper: some View {
         PageBackdrop(memory: editor.memory)
-            // One tap path, so placing and deselecting can never both fire.
-            .onTapGesture(coordinateSpace: .local) { point in
-                if let onPlaceTap {
-                    scrollTarget = onPlaceTap(point)
-                } else if let onEndWritingThen {
+            .onTapGesture {
+                if let onEndWritingThen {
                     onEndWritingThen {
                         editor.select(nil)
                         onPaperTap()
@@ -414,6 +444,9 @@ struct CanvasBoardView: View {
         }
         // Drawn by the scene while lifted; the gesture stays with this view.
         .opacity(isLifted ? 0 : 1)
+        // Before `.position`, which stretches the frame to the board: the
+        // landing sticker scales about its own centre.
+        .modifier(Settle(active: landing?.itemID == item.id))
         .rotationEffect(.degrees(geometry.rotation))
         .position(geometry.position)
         .id(item.id)
@@ -442,8 +475,8 @@ struct CanvasBoardView: View {
         // The drop's own frame change can land after the move ended: never
         // bring the copy back then.
         guard let activeMove, activeMove.itemID == item.id else { return }
-        lift.lifted = LiftedElement(item: item, measured: frame, size: size, rotation: rotation,
-                                    finger: activeMove.location)
+        lift.lifted = LiftedElement(item: item, measured: frame, size: size, scale: pageScale,
+                                    rotation: rotation, finger: activeMove.location)
     }
 
     /// Model geometry plus any in-flight gesture translation for this item.
@@ -454,8 +487,8 @@ struct CanvasBoardView: View {
         var size = item.size
         var rotation = item.rotation
         if let move = activeMove, move.itemID == item.id {
-            position.x += move.translation.width
-            position.y += move.translation.height
+            position.x += move.translation.width / pageScale
+            position.y += move.translation.height / pageScale
         }
         if let resize = activeResize, resize.itemID == item.id {
             size.width = max(44, size.width + resize.corner.sign.x * resize.translation.width)
@@ -487,6 +520,29 @@ struct CanvasBoardView: View {
 // MARK: - Gestures, menu, toast, sound
 
 extension CanvasBoardView {
+    // MARK: Kept scroll
+
+    /// Back from the Sticker panel the page returns to where it stood, so
+    /// what was added while looking further down lands in view.
+    private func returnToKeptScroll(_ proxy: ScrollViewProxy) {
+        let kept = scrollMemory.offset
+        guard kept > 0 else {
+            resumed = true
+            return
+        }
+        restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: kept)
+        Task { @MainActor in
+            // Once the card has measured itself and the board its height.
+            try? await Task.sleep(for: .milliseconds(60))
+            proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
+            // The anchor holds the scroll open (a selected element -- the
+            // sticker just added -- disables it) until the scroll has run.
+            try? await Task.sleep(for: .milliseconds(300))
+            restoreAnchor = nil
+            resumed = true
+        }
+    }
+
     // MARK: Gestures
 
     private func handleTap(_ item: CanvasItem, isSelected: Bool) {
@@ -545,8 +601,8 @@ extension CanvasBoardView {
                 }
                 editor.beginChange()
                 editor.move(itemID: item.id, to: CGPoint(
-                    x: item.position.x + value.translation.width,
-                    y: item.position.y + value.translation.height
+                    x: item.position.x + value.translation.width / pageScale,
+                    y: item.position.y + value.translation.height / pageScale
                 ))
             }
     }
@@ -664,8 +720,8 @@ extension CanvasBoardView {
     @ViewBuilder private func toastView(_ kind: Toast) -> some View {
         HStack(spacing: 14) {
             switch kind {
-            case .deleted(let changeCount):
-                Text("Deleted")
+            case .deleted(let changeCount), .added(let changeCount):
+                Text(kind.isAdded ? "Added - drag to move" : "Deleted")
                     .font(.miraLabel)
                     .foregroundStyle(Palette.onInk)
                 // Only the delete: once something newer is on the page, the

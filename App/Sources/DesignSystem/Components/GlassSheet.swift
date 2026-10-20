@@ -5,8 +5,8 @@ import SwiftUI
 /// a soft drop shadow, with an optional Josefin Bold title at (21, 17).
 ///
 /// The sheet does not inset itself from the screen edge: chrome sheets sit
-/// at `Metrics.chromeInset`, the Background panel over the canvas card at
-/// `Metrics.canvasInset`, so the caller pads.
+/// at `Metrics.chromeInset`, sheets over the canvas card float
+/// `Metrics.sheetInCard` inside the card, so the caller pads.
 struct GlassSheet<Content: View>: View {
     /// The two drop shadows the handoff draws on sheets.
     enum Elevation {
@@ -18,8 +18,9 @@ struct GlassSheet<Content: View>: View {
 
     var title: String?
     var subtitle: String?
-    /// 18 on most sheets; 20 (at y 19) on Choose photos, Export, Background.
-    var titleSize: CGFloat = 18
+    /// 20 on most sheets; 22 (at y 19) on Choose photos, Export, Background
+    /// (the handoff's 18 and 20 on the iOS-standard scale, 2026-10-19).
+    var titleSize: CGFloat = 20
     /// Paper over the blur: 0.56 on most sheets, 0.50 on the photo grid.
     var fillOpacity: Double = 0.56
     /// White@0.46 on most sheets; Photo Editing and Sticker draw #EEEEE9.
@@ -42,7 +43,7 @@ struct GlassSheet<Content: View>: View {
                     }
                     if let subtitle {
                         Text(subtitle)
-                            .font(.miraComposer)
+                            .font(.miraLabel)
                             .foregroundStyle(Palette.muted)
                     }
                 }
@@ -50,7 +51,7 @@ struct GlassSheet<Content: View>: View {
             content()
         }
         .padding(.horizontal, 21)
-        .padding(.top, titleSize > 18 ? 19 : 17)
+        .padding(.top, titleSize > 20 ? 19 : 17)
         .padding(.bottom, bottomPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(background)

@@ -26,9 +26,11 @@ struct UITestScriptedStudio: ImageStudioService {
     private let mock = MockImageStudioService()
 
     /// Slower by `-GENERATE_DELAY <ms>`: a picture or backdrop being painted.
+    /// A prompt with "fail" throws, as an unreachable backend does.
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
         let delay = UserDefaults.standard.integer(forKey: "GENERATE_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
+        if prompt.lowercased().contains("fail") { throw URLError(.notConnectedToInternet) }
         return try await mock.generate(kind: kind, prompt: prompt)
     }
 
@@ -38,7 +40,38 @@ struct UITestScriptedStudio: ImageStudioService {
         }
         // Two, like the mock (and the backend on most days).
         let count = try await mock.generate(kind: .sticker, prompt: prompt).count
-        return StickerGeneration(images: Array(repeating: Self.roundSticker, count: count))
+        return StickerGeneration(images: Array(repeating: Self.sampleSticker ?? Self.roundSticker, count: count))
+    }
+
+    /// `-STICKER_SAMPLE <SF Symbol>`: a die-cut sticker of that symbol (warm
+    /// brown, thick white rim, soft shadow) stands in for the made one, for
+    /// screenshots that should look like a real result. The bundled Food
+    /// set is 50 px art, too small to show at the preview's 232 pt.
+    private static var sampleSticker: Data? {
+        guard let name = UserDefaults.standard.string(forKey: "STICKER_SAMPLE"),
+              let symbol = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 300))
+        else { return nil }
+        let side: CGFloat = 480, rim: CGFloat = 16
+        let fit = min((side - 4 * rim) / symbol.size.width, (side - 4 * rim) / symbol.size.height)
+        let size = CGSize(width: symbol.size.width * fit, height: symbol.size.height * fit)
+        let origin = CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2)
+        let white = symbol.withTintColor(.white, renderingMode: .alwaysOriginal)
+        let brown = symbol.withTintColor(UIColor(red: 0.62, green: 0.40, blue: 0.27, alpha: 1),
+                                         renderingMode: .alwaysOriginal)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).pngData { context in
+            context.cgContext.setShadow(offset: CGSize(width: 0, height: 6), blur: 14,
+                                        color: UIColor.black.withAlphaComponent(0.22).cgColor)
+            context.cgContext.beginTransparencyLayer(auxiliaryInfo: nil)
+            for step in 0..<24 {
+                let angle = Double(step) / 24 * 2 * .pi
+                let offset = CGPoint(x: origin.x + rim * cos(angle), y: origin.y + rim * sin(angle))
+                white.draw(in: CGRect(origin: offset, size: size))
+            }
+            context.cgContext.endTransparencyLayer()
+            brown.draw(in: CGRect(origin: origin, size: size))
+        }
     }
 
     func cutout(image: Data, target: String?) async throws -> Data {
@@ -147,6 +180,13 @@ struct UITestCameraStub: View {
     }
 }
 
+/// `-OWNER_SHOTS`: screenshots for the owner keep the -UITEST mock services
+/// but none of its test-only controls (the Samples pill), so frames match a
+/// Release build.
+enum OwnerShots {
+    static let on = ProcessInfo.processInfo.arguments.contains("-OWNER_SHOTS")
+}
+
 /// -UITEST probe counters for render cost: how often the canvas scene's
 /// body ran, and how often an on-screen image was decoded. A drag must not
 /// move either per frame.
@@ -155,6 +195,8 @@ enum RenderCounters {
     // main-thread callers); a test counter, not state.
     nonisolated(unsafe) static var canvasSceneBodies = 0
     nonisolated(unsafe) static var displayImageDecodes = 0
+    /// The last lifted copy's width on screen: it must match the element's.
+    nonisolated(unsafe) static var liftedCopyWidth = 0.0
 }
 
 /// -UITEST only: a scene's state as JSON on an invisible element, for the
@@ -186,6 +228,7 @@ struct DebugStateProbe: View {
         state["micLive"] = MockAudioRecorder.liveCount
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
+        state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10
         guard let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }

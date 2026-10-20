@@ -67,19 +67,22 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
                     if scrimmed {
                         RoundedRectangle(cornerRadius: Metrics.canvasCorner)
                             .fill(Palette.scrim)
-                            .frame(width: MiraNoteConfig.pageWidth)
                             .contentShape(Rectangle())
                             .onTapGesture(perform: onScrimTap)
+                            .padding(.horizontal, Metrics.canvasInset)
                             .accessibilityHidden(true)
                     }
                 }
                 .overlay(alignment: .bottom) {
+                    // Sheets float inside the card, as far from its foot as
+                    // from its sides.
                     sheet()
                         .padding(.horizontal, Metrics.chromeInset)
+                        .padding(.bottom, Metrics.sheetInCard)
                 }
-            // Handoff rhythm: canvas card, 20, tool bar, 16, composer, and
-            // the composer's bottom 36 above the screen edge (2 above the
-            // home-indicator inset).
+            // Canvas card, 6, tool bar, 16, composer, and the composer's
+            // bottom 36 above the screen edge (2 above the home-indicator
+            // inset).
             Spacer(minLength: Metrics.canvasToToolBar)
             VStack(spacing: 16) {
                 bottom()
@@ -142,7 +145,7 @@ struct StickerBlob: View {
                 .font(.system(size: 23, weight: .regular))
                 .foregroundStyle(Palette.taupe)
             Text(label)
-                .font(Sans.font(size: 11, weight: 500))
+                .font(Sans.font(size: 13, weight: 500))
                 .foregroundStyle(Palette.textSecondary)
         }
         .frame(width: size, height: size)

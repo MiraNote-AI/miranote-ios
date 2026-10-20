@@ -219,7 +219,9 @@ final class KeyboardDismissUITests: XCTestCase {
         waitUntilGone(app.buttons["photo.tile.ai"], "the photo editor is closed, not only its prompt")
     }
 
-    func testATapOnTheEditStickerCardLowersTheInstructionKeyboard() {
+    /// Edit sticker sits on the shared tool chrome: a tap on the paper
+    /// lowers its keyboard and the editor stays.
+    func testATapOnThePaperLowersTheEditStickerKeyboard() {
         startMemory()
         placeOneSticker()
         app.descendants(matching: .any).matching(identifier: "element.sticker").firstMatch.press(forDuration: 1.1)
@@ -237,9 +239,11 @@ final class KeyboardDismissUITests: XCTestCase {
             .withOffset(CGVector(dx: 14, dy: 0)).tap()
         field.typeText("X")
         XCTAssertEqual(field.value as? String, "Xmake it blue", "a tap in the field still moves the caret")
-        app.staticTexts["Edit sticker"].tap()
-        waitUntilGone(keyboard, "a tap on the Edit sticker card lowers the keyboard")
+        let board = app.scrollViews.containing(.any, identifier: "element.sticker").firstMatch
+        board.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.1)).tap()
+        waitUntilGone(keyboard, "a tap on the paper lowers the keyboard")
         XCTAssertEqual(field.value as? String, "Xmake it blue", "the words stay")
+        XCTAssertTrue(field.exists, "Edit sticker stays open")
     }
 
     // MARK: Setup

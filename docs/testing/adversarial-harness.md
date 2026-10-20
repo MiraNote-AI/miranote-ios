@@ -95,13 +95,17 @@ element `debug.state` whose label is JSON, refreshed four times a second:
   chat composer show: `text`, `mira`, `voice`, `starting`, `chat`);
 - canvas: `recorderHeld`, `writing` (block id), `writingDown`,
   `pendingTakes`, `photoEditing`, `photoEditors` (id, working),
-  `undoDepth`, `importing`, `pageWidth`, `backdrop`, `pageColor`,
-  `elements` (id, kind, text, x, y, w, h);
-- sticker: `busy`, `drafts`, `undoDepth`, `writing`;
+  `undoDepth`, `selected` (the selected element's id), `importing`,
+  `pageWidth`, `backdrop`, `backdropDescribes` (the backdrop's stored
+  description), `pageColor`, `paper` (the paper kind), `elements` (id,
+  kind, text, x, y, w, h);
+- sticker: `busy`, `drafts`, `undoDepth`, `writing`, `scrollOffset` (the
+  canvas scroll the page preview opens on, page points);
 - chat: `staged`, `loading`, `responding`;
 - render cost: `sceneBodies` (times the canvas scene's body ran) and
   `imageDecodes` (display images decoded), both since launch --
-  `DragRenderUITests` reads them before and after a drag.
+  `DragRenderUITests` reads them before and after a drag; `liftedWidth`
+  (the last dragged copy's on-screen width: it must match the element's).
 
 Delay hooks (launch arguments, `-UITEST` only): `-TRANSCRIBE_DELAY <ms>`,
 `-TRANSCRIBE_FIRST_DELAY <ms>`, `-MIC_START_DELAY <ms>`, `-AI_EDIT_DELAY
@@ -109,7 +113,10 @@ Delay hooks (launch arguments, `-UITEST` only): `-TRANSCRIBE_DELAY <ms>`,
 `-GENERATE_DELAY <ms>`, `-TEXT_MODE_BEAT <ms>`, `-HOLD_INTERRUPT_AFTER
 <ms>`. Transcript hooks: `-NUMBER_TAKES` (each take's words end with its
 number, in the order the takes were let go) and `-FAIL_FIRST_TAKE` (the
-first take fails).
+first take fails). Screenshot hooks: `-STICKER_SAMPLE <SF Symbol>` (a
+die-cut sticker of that symbol stands in for the made one) and
+`-OWNER_SHOTS` (keeps the mock services but hides test-only controls such
+as the Samples pill, so frames match a Release build).
 
 ## 4. Simulator monkey
 

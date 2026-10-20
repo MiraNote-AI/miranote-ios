@@ -53,17 +53,27 @@ struct PageBackdrop: View {
 }
 
 extension View {
-    /// The handoff's canvas card (screens 04-07, 22): a page-wide window
-    /// onto the page, r30, a 1 pt ink@0.06 rim and the `0 16 38 ink@0.08`
-    /// shadow. The page keeps its fixed design width, so on a 402 pt phone
-    /// the card sits 21 in from each edge (the design's 20 on 374).
+    /// The canvas card (screens 04-07, 22): a window onto the page across
+    /// the screen less `Metrics.canvasInset` each side, r24, a 1 pt
+    /// ink@0.06 rim and the `0 16 38 ink@0.08` shadow. The page inside keeps
+    /// its 360 pt design width and is scaled to fill the card.
     func canvasCard() -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.canvasCorner)
-        return frame(width: MiraNoteConfig.pageWidth)
+        return frame(maxWidth: .infinity)
             .clipShape(shape)
             .overlay(shape.strokeBorder(Palette.ink.opacity(0.06), lineWidth: Metrics.hairline))
             .background(shape.fill(Palette.paper).shadow(color: Palette.ink.opacity(0.08), radius: 19, y: 16))
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Metrics.canvasInset)
+    }
+}
+
+enum CanvasCard {
+    /// Screen points per page point for a card row `rowWidth` wide (the
+    /// card's insets included): the page fills the card. 1 before the row
+    /// has measured.
+    static func pageScale(rowWidth: CGFloat) -> CGFloat {
+        let card = rowWidth - 2 * Metrics.canvasInset
+        return card > 0 ? card / MiraNoteConfig.pageWidth : 1
     }
 }
 
