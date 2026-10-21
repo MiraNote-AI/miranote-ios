@@ -1,5 +1,6 @@
 import XCTest
 @testable import MiraNoteKit
+@testable import StickerEdgeCore
 
 /// StickerEdge on drawn inputs whose right answer is known by construction:
 /// a red disc with a white rim on a flat backdrop, and a "Vision" alpha that

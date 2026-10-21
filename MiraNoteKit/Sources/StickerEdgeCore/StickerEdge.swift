@@ -370,70 +370,98 @@ public enum StickerEdge {
     // MARK: - Image primitives
 
     /// 4-connected component labels (0 = background) and the label count.
+    /// Raw pointers throughout: in a debug build Array subscripts cost ~50x,
+    /// and this runs three times per sticker.
     static func label(_ m: [Bool], _ w: Int, _ h: Int) -> ([Int32], Int) {
-        var labels = [Int32](repeating: 0, count: m.count)
-        var next: Int32 = 0
-        var stack: [Int] = []
-        for start in 0..<m.count where m[start] && labels[start] == 0 {
-            next += 1
-            labels[start] = next
-            stack.append(start)
-            while let i = stack.popLast() {
-                let x = i % w, y = i / w
-                if x > 0, m[i - 1], labels[i - 1] == 0 { labels[i - 1] = next; stack.append(i - 1) }
-                if x < w - 1, m[i + 1], labels[i + 1] == 0 { labels[i + 1] = next; stack.append(i + 1) }
-                if y > 0, m[i - w], labels[i - w] == 0 { labels[i - w] = next; stack.append(i - w) }
-                if y < h - 1, m[i + w], labels[i + w] == 0 { labels[i + w] = next; stack.append(i + w) }
+        let n = m.count
+        var labels = [Int32](repeating: 0, count: n)
+        var count: Int32 = 0
+        let stack = UnsafeMutablePointer<Int>.allocate(capacity: max(1, n))
+        defer { stack.deallocate() }
+        m.withUnsafeBufferPointer { mb in
+            labels.withUnsafeMutableBufferPointer { lb in
+                let mp = mb.baseAddress!, lp = lb.baseAddress!
+                var next: Int32 = 0
+                for start in 0..<n where mp[start] && lp[start] == 0 {
+                    next += 1
+                    lp[start] = next
+                    var top = 0
+                    stack[top] = start; top += 1
+                    while top > 0 {
+                        top -= 1
+                        let i = stack[top]
+                        let x = i % w
+                        if x > 0, mp[i - 1], lp[i - 1] == 0 { lp[i - 1] = next; stack[top] = i - 1; top += 1 }
+                        if x < w - 1, mp[i + 1], lp[i + 1] == 0 { lp[i + 1] = next; stack[top] = i + 1; top += 1 }
+                        if i >= w, mp[i - w], lp[i - w] == 0 { lp[i - w] = next; stack[top] = i - w; top += 1 }
+                        if i + w < n, mp[i + w], lp[i + w] == 0 { lp[i + w] = next; stack[top] = i + w; top += 1 }
+                    }
+                }
+                count = next
             }
         }
-        return (labels, Int(next))
+        return (labels, Int(count))
     }
 
     /// Exact Euclidean distance from every pixel to the nearest `feature` pixel
     /// (Felzenszwalb & Huttenlocher, two separable passes). Matches
-    /// scipy.ndimage.distance_transform_edt(~feature).
+    /// scipy.ndimage.distance_transform_edt(~feature). Raw pointers for the
+    /// same debug-build reason as `label`.
     static func distance(to feature: [Bool], _ w: Int, _ h: Int) -> [Double] {
         let inf = 1e20
-        var grid = feature.map { $0 ? 0.0 : inf }
         let longest = max(w, h)
-        var f = [Double](repeating: 0, count: longest)
-        var d = [Double](repeating: 0, count: longest)
-        var v = [Int](repeating: 0, count: longest)
-        var z = [Double](repeating: 0, count: longest + 1)
-        func pass(_ count: Int) {
-            var k = 0
-            v[0] = 0; z[0] = -inf; z[1] = inf
-            if count > 1 {
-                for q in 1..<count {
-                    var s: Double
-                    repeat {
-                        let r = v[k]
-                        s = ((f[q] + Double(q * q)) - (f[r] + Double(r * r))) / Double(2 * q - 2 * r)
-                        if s <= z[k] { k -= 1 } else { break }
-                    } while k >= 0
-                    if k < 0 { k = 0 }
-                    k += 1
-                    v[k] = q; z[k] = s; z[k + 1] = inf
+        var grid = [Double](repeating: 0, count: w * h)
+        let f = UnsafeMutablePointer<Double>.allocate(capacity: longest)
+        let d = UnsafeMutablePointer<Double>.allocate(capacity: longest)
+        let v = UnsafeMutablePointer<Int>.allocate(capacity: longest)
+        let z = UnsafeMutablePointer<Double>.allocate(capacity: longest + 1)
+        defer { f.deallocate(); d.deallocate(); v.deallocate(); z.deallocate() }
+        feature.withUnsafeBufferPointer { fb in
+            grid.withUnsafeMutableBufferPointer { gb in
+                let fp = fb.baseAddress!, g = gb.baseAddress!
+                for i in 0..<(w * h) { g[i] = fp[i] ? 0 : inf }
+                for x in 0..<w {
+                    for y in 0..<h { f[y] = g[y * w + x] }
+                    edt1D(f, d, v, z, h, inf)
+                    for y in 0..<h { g[y * w + x] = d[y] }
+                }
+                for y in 0..<h {
+                    let row = g + y * w
+                    for x in 0..<w { f[x] = row[x] }
+                    edt1D(f, d, v, z, w, inf)
+                    for x in 0..<w { row[x] = d[x].squareRoot() }
                 }
             }
-            k = 0
-            for q in 0..<count {
-                while z[k + 1] < Double(q) { k += 1 }
-                let dq = Double(q - v[k])
-                d[q] = dq * dq + f[v[k]]
-            }
-        }
-        for x in 0..<w {
-            for y in 0..<h { f[y] = grid[y * w + x] }
-            pass(h)
-            for y in 0..<h { grid[y * w + x] = d[y] }
-        }
-        for y in 0..<h {
-            for x in 0..<w { f[x] = grid[y * w + x] }
-            pass(w)
-            for x in 0..<w { grid[y * w + x] = d[x].squareRoot() }
         }
         return grid
+    }
+
+    /// One squared-distance pass over `n` samples of `f` into `d`.
+    private static func edt1D(_ f: UnsafeMutablePointer<Double>, _ d: UnsafeMutablePointer<Double>,
+                              _ v: UnsafeMutablePointer<Int>, _ z: UnsafeMutablePointer<Double>,
+                              _ n: Int, _ inf: Double) {
+        var k = 0
+        v[0] = 0; z[0] = -inf; z[1] = inf
+        var q = 1
+        while q < n {
+            let fq = f[q] + Double(q * q)
+            var r = v[k]
+            var s = (fq - (f[r] + Double(r * r))) / Double(2 * (q - r))
+            while s <= z[k] {
+                k -= 1
+                r = v[k]
+                s = (fq - (f[r] + Double(r * r))) / Double(2 * (q - r))
+            }
+            k += 1
+            v[k] = q; z[k] = s; z[k + 1] = inf
+            q += 1
+        }
+        k = 0
+        for q in 0..<n {
+            while z[k + 1] < Double(q) { k += 1 }
+            let dq = Double(q - v[k])
+            d[q] = dq * dq + f[v[k]]
+        }
     }
 
     /// Separable Gaussian, truncated at 4 sigma like scipy, edges replicated

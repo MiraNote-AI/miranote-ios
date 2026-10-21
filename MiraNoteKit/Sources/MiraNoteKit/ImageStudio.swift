@@ -1,4 +1,5 @@
 import Foundation
+import StickerEdgeCore
 
 /// What the image-generation POC can produce from a prompt.
 public enum GeneratedImageKind: String, Sendable {
