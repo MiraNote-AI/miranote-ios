@@ -127,6 +127,9 @@ public enum StickerEdge {
         let (backdrop, spread) = Self.backdrop(rgb, w, h, p.corner)
         let keyed = spread <= p.uniformMax
         let mask = keyed ? subjectMask(rgb, w, h, vis, backdrop, p) : vis
+        // keyed away entirely (a Vision cut thinner than trustInset, all of it
+        // backdrop-coloured): throwing keeps Vision's cut instead of a blank
+        guard mask.contains(true) else { throw Failure.nothingLifted }
 
         // Subject size and the model's own rim
         var minX = w, maxX = 0, minY = h, maxY = 0
@@ -178,9 +181,12 @@ public enum StickerEdge {
         }
         let maskP = padded(mask), artP = padded(art)
 
-        // Outline: open (drops 1-3 px protrusions), round dilation, blur, steep ramp
+        // Outline: open (drops 1-3 px shadow protrusions), round dilation, blur,
+        // steep ramp. The art is added back after the opening so a thin part
+        // of it -- a stem, a string, an antenna -- still gets its rim.
         let eroded = distance(to: maskP.map { !$0 }, pw, ph).map { $0 > 3 }
-        let opened = distance(to: eroded, pw, ph).map { $0 <= 3 }
+        var opened = distance(to: eroded, pw, ph).map { $0 <= 3 }
+        for i in 0..<pn where artP[i] { opened[i] = true }
         let outside = distance(to: opened, pw, ph)
         var rimAlpha = outside.map { Float($0 <= Double(rim) ? 1 : 0) }
         rimAlpha = gaussian(rimAlpha, pw, ph, sigma: Float(sigma))
@@ -197,7 +203,7 @@ public enum StickerEdge {
                 let i = y * pw + x
                 let sx = min(w - 1, max(0, x - pad))
                 let s = (sy * w + sx) * 4
-                let a = Double(artP[i] ? artAlpha[i] : min(artAlpha[i], 1))
+                let a = Double(artAlpha[i])
                 for c in 0..<3 {
                     let value = artP[i] ? Double(raw.pixels[s + c]) : 255
                     out.pixels[i * 4 + c] = UInt8((value * a + 255 * (1 - a)).rounded())

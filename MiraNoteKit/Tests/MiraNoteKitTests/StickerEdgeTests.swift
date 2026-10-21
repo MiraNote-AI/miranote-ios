@@ -132,6 +132,21 @@ final class StickerEdgeTests: XCTestCase {
         XCTAssertEqual(at(out, report, 120 - 85, 120)[3], 255, "the rim still goes round it")
     }
 
+    func testAThinPartFarFromTheBodyKeepsItsRim() throws {
+        // Art drawn with no model rim (the swan case): a 5 px dark string hangs
+        // below a bare disc, thinner than the outline's opening. It is art, so
+        // it stays and gets a rim of its own. (With a model rim the model wraps
+        // thin parts inside it, as it did the balloon's ropes on the bench.)
+        let string: (Double, Double) -> Bool = { x, y in abs(x - 120) <= 2 && y > 60 && y < 220 }
+        let raw = picture { x, y in
+            self.r(x, y) <= 60 ? (210, 40, 40) : (string(x, y) ? (40, 30, 30) : nil)
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 60 || string(x, y) })
+        XCTAssertEqual(report.modelRimWidth, 0)
+        XCTAssertEqual(at(out, report, 120, 205), [40, 30, 30, 255], "the string is still drawn")
+        XCTAssertEqual(at(out, report, 120 + 6, 205)[3], 255, "and has white round it")
+    }
+
     func testUnreadableInputThrows() {
         XCTAssertThrowsError(try StickerEdge.rebuild(raw: Data("x".utf8), lifted: Data("y".utf8))) {
             XCTAssertEqual($0 as? StickerEdge.Failure, .undecodable)
