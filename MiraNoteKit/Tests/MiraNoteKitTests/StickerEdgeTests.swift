@@ -176,7 +176,7 @@ final class StickerEdgeTests: XCTestCase {
         let d = StickerEdge.distance(to: feature, 15, 11)
         for y in 0..<11 { for x in 0..<15 {
             let expected = (Double((x - 7) * (x - 7) + (y - 5) * (y - 5))).squareRoot()
-            XCTAssertEqual(d[y * 15 + x], expected, accuracy: 1e-9)
+            XCTAssertEqual(Double(d[y * 15 + x]), expected, accuracy: 1e-5)
         } }
     }
 }
@@ -278,5 +278,34 @@ final class StickerEdgeBenchTests: XCTestCase {
         }
         let json = try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
         try json.write(to: outDir.appendingPathComponent("report.json"))
+    }
+}
+
+/// Peak memory one StickerEdge call adds, from the process's physical-footprint
+/// high-water mark. Run one image per process (the mark only goes up).
+/// Skipped unless STICKER_EDGE_MEM_RAW and STICKER_EDGE_MEM_LIFTED are set;
+final class StickerEdgeMemoryBenchTests: XCTestCase {
+    private func peakFootprint() -> UInt64 {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS ? UInt64(max(0, info.ledger_phys_footprint_peak)) : 0
+    }
+
+    func testPeak() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let rawPath = env["STICKER_EDGE_MEM_RAW"], let liftedPath = env["STICKER_EDGE_MEM_LIFTED"] else {
+            throw XCTSkip("set STICKER_EDGE_MEM_RAW / STICKER_EDGE_MEM_LIFTED to measure peak memory")
+        }
+        let raw = try Data(contentsOf: URL(fileURLWithPath: rawPath))
+        let lifted = try Data(contentsOf: URL(fileURLWithPath: liftedPath))
+        let before = peakFootprint()
+        _ = try StickerEdge.rebuild(raw: raw, lifted: lifted)
+        let after = peakFootprint()
+        print(String(format: "[mem] peak added: %.1f MB", Double(after - before) / 1_048_576))
     }
 }

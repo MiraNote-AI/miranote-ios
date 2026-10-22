@@ -118,12 +118,9 @@ public enum StickerEdge {
         let w = raw.width, h = raw.height, n = w * h
         let vis = liftedAlpha.map { $0 > 127 }
         guard vis.contains(true) else { throw Failure.nothingLifted }
-        var rgb = [Double](repeating: 0, count: n * 3)
-        for i in 0..<n {
-            rgb[i * 3] = Double(raw.pixels[i * 4])
-            rgb[i * 3 + 1] = Double(raw.pixels[i * 4 + 1])
-            rgb[i * 3 + 2] = Double(raw.pixels[i * 4 + 2])
-        }
+        // A view, not a copy: a Double copy of the image was 24 bytes a pixel,
+        // the largest single buffer here.
+        let rgb = RGB(pixels: raw.pixels)
         let (backdrop, spread) = Self.backdrop(rgb, w, h, p.corner)
         let keyed = spread <= p.uniformMax
         let mask = keyed ? subjectMask(rgb, w, h, vis, backdrop, p) : vis
@@ -154,16 +151,17 @@ public enum StickerEdge {
         let sigma = max(1.0, sigmaFraction * Double(rim))
 
         // Art: what keeps its colours
-        var art = (0..<n).map { i in mask[i] && !(light[i] && depth[i] <= Double(modelRim + 1)) }
+        let seamBand = Float(p.seamBand)
+        var art = (0..<n).map { i in mask[i] && !(light[i] && depth[i] <= Float(modelRim + 1)) }
         if modelRim > 0 {
             // with a model rim, the outermost px are its grey stroke or shadow
-            for i in 0..<n where depth[i] <= p.seamBand { art[i] = false }
+            for i in 0..<n where depth[i] <= seamBand { art[i] = false }
         }
         dropSlivers(&art, depth: depth, w, h, limit: Double(modelRim) + p.seamBand, p)
         // art drawn straight onto the backdrop: its outermost px are backdrop blends
         let axis = (255 - backdrop.0, 255 - backdrop.1, 255 - backdrop.2)
         let axisLength2 = max(1e-6, axis.0 * axis.0 + axis.1 * axis.1 + axis.2 * axis.2)
-        for i in 0..<n where art[i] && depth[i] <= p.seamBand {
+        for i in 0..<n where art[i] && depth[i] <= seamBand {
             let d0 = rgb[i * 3] - backdrop.0, d1 = rgb[i * 3 + 1] - backdrop.1,
                 d2 = rgb[i * 3 + 2] - backdrop.2
             let t = min(1, max(0, (d0 * axis.0 + d1 * axis.1 + d2 * axis.2) / axisLength2))
@@ -187,13 +185,7 @@ public enum StickerEdge {
         let eroded = distance(to: maskP.map { !$0 }, pw, ph).map { $0 > 3 }
         var opened = distance(to: eroded, pw, ph).map { $0 <= 3 }
         for i in 0..<pn where artP[i] { opened[i] = true }
-        let outside = distance(to: opened, pw, ph)
-        var rimAlpha = outside.map { Float($0 <= Double(rim) ? 1 : 0) }
-        rimAlpha = gaussian(rimAlpha, pw, ph, sigma: Float(sigma))
-        for i in 0..<pn {
-            let ramped = min(1, max(0, (rimAlpha[i] - 0.5) * 8 + 0.5))
-            rimAlpha[i] = opened[i] ? 1 : ramped
-        }
+        let rimAlpha = Self.rimAlpha(around: opened, pw, ph, rim: rim, sigma: sigma)
         let artAlpha = gaussian(artP.map { $0 ? 1 : 0 }, pw, ph, sigma: 0.8)
 
         var out = Bitmap(width: pw, height: ph)
@@ -214,8 +206,22 @@ public enum StickerEdge {
         return (out, Report(keyed: keyed, modelRimWidth: modelRim, rimWidth: rim, padding: pad))
     }
 
+    /// The rim's alpha: everything within `rim` px of `base` (a round, Euclidean
+    /// dilation), Gaussian-blurred and pulled back through a steep ramp so the
+    /// edge is smooth but crisp, with `base` itself always opaque.
+    static func rimAlpha(around base: [Bool], _ w: Int, _ h: Int,
+                         rim: Int, sigma: Double) -> [Float] {
+        let outside = distance(to: base, w, h)
+        var alpha = outside.map { Float($0 <= Float(rim) ? 1 : 0) }
+        alpha = gaussian(alpha, w, h, sigma: Float(sigma))
+        for i in 0..<alpha.count {
+            alpha[i] = base[i] ? 1 : min(1, max(0, (alpha[i] - 0.5) * 8 + 0.5))
+        }
+        return alpha
+    }
+
     /// Median of the four corner patches, and their mean per-channel std.
-    static func backdrop(_ rgb: [Double], _ w: Int, _ h: Int,
+    static func backdrop(_ rgb: RGB, _ w: Int, _ h: Int,
                          _ corner: Int) -> ((Double, Double, Double), Double) {
         let c = max(1, min(corner, w / 4, h / 4))
         var channels: [[Double]] = [[], [], []]
@@ -237,7 +243,7 @@ public enum StickerEdge {
     }
 
     /// Vision picks the parts, the backdrop key places their edge.
-    static func subjectMask(_ rgb: [Double], _ w: Int, _ h: Int, _ vis: [Bool],
+    static func subjectMask(_ rgb: RGB, _ w: Int, _ h: Int, _ vis: [Bool],
                             _ bg: (Double, Double, Double), _ p: Parameters) -> [Bool] {
         let n = w * h
         let toWhite = ((255 - bg.0) * (255 - bg.0) + (255 - bg.1) * (255 - bg.1)
@@ -287,7 +293,7 @@ public enum StickerEdge {
             let l = labels[i]
             let hole = l > 0 && holeLabels.contains(l)
             let exterior = l > 0 && border.contains(l)
-            candidate[i] = (!exterior && !hole) || (inside[i] > p.trustInset && !hole)
+            candidate[i] = (!exterior && !hole) || (inside[i] > Float(p.trustInset) && !hole)
         }
 
         let (parts, partCount) = label(candidate, w, h)
@@ -334,7 +340,7 @@ public enum StickerEdge {
     /// Width of the white rim the model drew itself, 0 if none: read from
     /// depth 4 inward (the outermost px are anti-aliasing or shadow), the first
     /// depth where near-white stops being the majority.
-    static func modelRimWidth(light: [Bool], mask: [Bool], depth: [Double],
+    static func modelRimWidth(light: [Bool], mask: [Bool], depth: [Float],
                               side: Double, _ p: Parameters) -> Int {
         let cap = max(6, Int(p.rimWidthCapFraction * side))
         var inRing = [Int](repeating: 0, count: cap + 1)
@@ -354,12 +360,12 @@ public enum StickerEdge {
 
     /// Shadow slivers and dashes clinging to the outside of the model's rim:
     /// small art components that never reach deeper than `limit`.
-    static func dropSlivers(_ art: inout [Bool], depth: [Double], _ w: Int, _ h: Int,
+    static func dropSlivers(_ art: inout [Bool], depth: [Float], _ w: Int, _ h: Int,
                             limit: Double, _ p: Parameters) {
         let (labels, count) = label(art, w, h)
         guard count > 0 else { return }
         var size = [Int](repeating: 0, count: count + 1)
-        var deepest = [Double](repeating: 0, count: count + 1)
+        var deepest = [Float](repeating: 0, count: count + 1)
         for i in 0..<art.count where labels[i] > 0 {
             let l = Int(labels[i])
             size[l] += 1
@@ -367,7 +373,7 @@ public enum StickerEdge {
         }
         let total = Double(size.reduce(0, +))
         var junk = [Bool](repeating: false, count: count + 1)
-        for l in 1...count where Double(size[l]) < p.sliverFraction * total && deepest[l] <= limit {
+        for l in 1...count where Double(size[l]) < p.sliverFraction * total && Double(deepest[l]) <= limit {
             junk[l] = true
         }
         for i in 0..<art.count where labels[i] > 0 && junk[Int(labels[i])] { art[i] = false }
@@ -413,10 +419,12 @@ public enum StickerEdge {
     /// (Felzenszwalb & Huttenlocher, two separable passes). Matches
     /// scipy.ndimage.distance_transform_edt(~feature). Raw pointers for the
     /// same debug-build reason as `label`.
-    static func distance(to feature: [Bool], _ w: Int, _ h: Int) -> [Double] {
+    static func distance(to feature: [Bool], _ w: Int, _ h: Int) -> [Float] {
         let inf = 1e20
         let longest = max(w, h)
-        var grid = [Double](repeating: 0, count: w * h)
+        // Float storage, half of Double: squared distances on a sticker stay far
+        // below 2^24, so they are exact; the per-row scratch keeps Double.
+        var grid = [Float](repeating: 0, count: w * h)
         let f = UnsafeMutablePointer<Double>.allocate(capacity: longest)
         let d = UnsafeMutablePointer<Double>.allocate(capacity: longest)
         let v = UnsafeMutablePointer<Int>.allocate(capacity: longest)
@@ -425,17 +433,17 @@ public enum StickerEdge {
         feature.withUnsafeBufferPointer { fb in
             grid.withUnsafeMutableBufferPointer { gb in
                 let fp = fb.baseAddress!, g = gb.baseAddress!
-                for i in 0..<(w * h) { g[i] = fp[i] ? 0 : inf }
+                for i in 0..<(w * h) { g[i] = fp[i] ? 0 : Float(inf) }
                 for x in 0..<w {
-                    for y in 0..<h { f[y] = g[y * w + x] }
+                    for y in 0..<h { f[y] = Double(g[y * w + x]) }
                     edt1D(f, d, v, z, h, inf)
-                    for y in 0..<h { g[y * w + x] = d[y] }
+                    for y in 0..<h { g[y * w + x] = Float(d[y]) }
                 }
                 for y in 0..<h {
                     let row = g + y * w
-                    for x in 0..<w { f[x] = row[x] }
+                    for x in 0..<w { f[x] = Double(row[x]) }
                     edt1D(f, d, v, z, w, inf)
-                    for x in 0..<w { row[x] = d[x].squareRoot() }
+                    for x in 0..<w { row[x] = Float(d[x].squareRoot()) }
                 }
             }
         }
@@ -504,6 +512,16 @@ public enum StickerEdge {
         let horizontal = blurRows(src, w, h)
         let vertical = blurRows(transpose(horizontal, w, h), h, w)
         return transpose(vertical, h, w)
+    }
+}
+
+/// An RGBA8 buffer read as interleaved RGB doubles -- `rgb[i * 3 + c]` -- without
+/// copying it: the pipeline's colour tests index pixels that way.
+struct RGB {
+    let pixels: [UInt8]
+
+    @inline(__always) subscript(index: Int) -> Double {
+        Double(pixels[(index / 3) * 4 + index % 3])
     }
 }
 
