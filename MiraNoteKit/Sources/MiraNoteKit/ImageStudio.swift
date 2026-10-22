@@ -1,4 +1,5 @@
 import Foundation
+import StickerEdgeCore
 
 /// What the image-generation POC can produce from a prompt.
 public enum GeneratedImageKind: String, Sendable {
@@ -139,7 +140,8 @@ public struct LiveImageStudioService: ImageStudioService {
         var unmatted: [Int] = []
         for (index, image) in raw.enumerated() {
             do {
-                images.append(try await Self.lift(image, with: matte))
+                let lifted = try await Self.lift(image, with: matte)
+                images.append(await Self.redrawEdge(raw: image, lifted: lifted))
             } catch {
                 // The picture is already here and already paid for. Keep it,
                 // background and all, and let the caller say so.
@@ -198,6 +200,15 @@ public struct LiveImageStudioService: ImageStudioService {
     private static func lift(_ image: Data, with matte: ForegroundMatte) async throws -> Data {
         try await Task.detached(priority: .userInitiated) {
             try matte.removeBackground(image)
+        }.value
+    }
+
+    /// A generated sticker's white die-cut edge, redrawn by code (see
+    /// StickerEdge): Vision drops stretches of a pale rim the model drew. If the
+    /// redraw cannot read the images, Vision's cut is kept as it was.
+    private static func redrawEdge(raw: Data, lifted: Data) async -> Data {
+        await Task.detached(priority: .userInitiated) {
+            (try? StickerEdge.rebuild(raw: raw, lifted: lifted)) ?? lifted
         }.value
     }
 
