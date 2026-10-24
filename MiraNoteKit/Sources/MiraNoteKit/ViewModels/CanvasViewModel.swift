@@ -51,6 +51,10 @@ public final class CanvasViewModel {
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
 
+    /// The page as a filing keeps it, from just before the first recorded
+    /// change: what `hasEdits` measures against.
+    private var pageBeforeEdits: Memory?
+
     /// The page as it was before a live page color preview, while one is
     /// shown: the autosave files this, not a color nobody applied.
     var pagePreviewOrigin: PageLook?
@@ -151,6 +155,7 @@ public final class CanvasViewModel {
     public var canRedo: Bool { !future.isEmpty }
 
     public func beginChange() {
+        if pageBeforeEdits == nil { pageBeforeEdits = filedContent }
         changeCount += 1
         future.removeAll()
         pushHistory(currentSnapshot)
@@ -622,6 +627,29 @@ extension CanvasViewModel {
 
     public func save() {
         memory.savedAt = .now
+    }
+
+    /// The page differs from how it opened. A text session that typed
+    /// nothing, steps all undone and the opening re-measure are no edits.
+    public var hasEdits: Bool {
+        guard let before = pageBeforeEdits else { return false }
+        return filedContent != before
+    }
+
+    /// The page as leaving files it (#137): Save makes it saved; Home and
+    /// the background autosave keep a draft -- a saved page left
+    /// unchanged stays saved.
+    public func filedMemory(saving: Bool) -> Memory {
+        var filed = composedMemory()
+        filed.isDraft = !saving && (memory.isDraft || hasEdits)
+        return filed
+    }
+
+    /// What a filing keeps, without the moment it was filed.
+    private var filedContent: Memory {
+        var content = composedMemory()
+        content.savedAt = nil
+        return content
     }
 
     /// Filed-on-Done shape: title = most prominent text (v2.1 "the visual

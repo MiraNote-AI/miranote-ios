@@ -28,4 +28,77 @@ final class DraftPageTests: XCTestCase {
     func testANewMemoryIsSavedUnlessMarked() {
         XCTAssertFalse(Memory(title: "seeded").isDraft, "seeds and old call sites stay saved")
     }
+
+    // MARK: An edit, or just a look
+
+    func testOpeningAPageIsNoEdit() {
+        XCTAssertFalse(CanvasViewModel(memory: savedPage()).hasEdits)
+    }
+
+    func testTheOpeningRemeasureIsNoEdit() {
+        let editor = CanvasViewModel(memory: savedPage())
+        editor.fitTextHeights { _ in 120 }
+        XCTAssertFalse(editor.hasEdits, "the app fitting its text boxes is not the user's edit")
+    }
+
+    func testTappingIntoWordsWithoutTypingIsNoEdit() {
+        let page = savedPage()
+        let editor = CanvasViewModel(memory: page)
+        editor.startEditingText(page.items[0].id)
+        editor.endEditingText()
+        XCTAssertFalse(editor.hasEdits)
+    }
+
+    func testTypingIsAnEdit() {
+        let page = savedPage()
+        let editor = CanvasViewModel(memory: page)
+        let id = page.items[0].id
+        editor.startEditingText(id)
+        editor.setText(itemID: id, to: "Lunch by the sea")
+        editor.endEditingText()
+        XCTAssertTrue(editor.hasEdits)
+    }
+
+    func testAnEditUndoneIsNoEdit() {
+        let editor = CanvasViewModel(memory: savedPage())
+        editor.addText("a second coffee", at: CGPoint(x: 100, y: 500))
+        XCTAssertTrue(editor.hasEdits)
+        editor.undo()
+        XCTAssertFalse(editor.hasEdits, "back to the page as it was")
+    }
+
+    // MARK: What leaving files
+
+    func testSaveFilesASavedPage() {
+        let editor = CanvasViewModel(memory: Memory(isDraft: true))
+        editor.addText("picnic", at: CGPoint(x: 100, y: 100))
+        XCTAssertFalse(editor.filedMemory(saving: true).isDraft)
+    }
+
+    func testLeavingANewPageKeepsItADraft() {
+        let editor = CanvasViewModel(memory: Memory(isDraft: true))
+        editor.addText("picnic", at: CGPoint(x: 100, y: 100))
+        XCTAssertTrue(editor.filedMemory(saving: false).isDraft)
+    }
+
+    func testLeavingASavedPageUnchangedKeepsItSaved() {
+        let editor = CanvasViewModel(memory: savedPage())
+        XCTAssertFalse(editor.filedMemory(saving: false).isDraft)
+    }
+
+    func testLeavingAChangedSavedPageMakesItADraft() {
+        let editor = CanvasViewModel(memory: savedPage())
+        editor.addText("a second coffee", at: CGPoint(x: 100, y: 500))
+        XCTAssertTrue(editor.filedMemory(saving: false).isDraft)
+    }
+
+    func testLeavingADraftUnchangedKeepsItADraft() {
+        var page = savedPage()
+        page.isDraft = true
+        XCTAssertTrue(CanvasViewModel(memory: page).filedMemory(saving: false).isDraft)
+    }
+
+    private func savedPage() -> Memory {
+        Memory(title: "Lunch by the river", items: Memory.starterDraft())
+    }
 }
