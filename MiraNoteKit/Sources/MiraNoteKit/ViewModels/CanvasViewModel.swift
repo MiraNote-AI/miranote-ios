@@ -51,6 +51,13 @@ public final class CanvasViewModel {
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
 
+    /// The page as a filing keeps it, from just before the first recorded
+    /// change: what `hasEdits` measures against.
+    private var pageBeforeEdits: UndoSnapshot?
+
+    /// Save or Home has filed the page and the editor is closing.
+    private var isClosing = false
+
     /// The page as it was before a live page color preview, while one is
     /// shown: the autosave files this, not a color nobody applied.
     var pagePreviewOrigin: PageLook?
@@ -151,6 +158,7 @@ public final class CanvasViewModel {
     public var canRedo: Bool { !future.isEmpty }
 
     public func beginChange() {
+        if pageBeforeEdits == nil { pageBeforeEdits = filedSnapshot }
         changeCount += 1
         future.removeAll()
         pushHistory(currentSnapshot)
@@ -622,6 +630,46 @@ extension CanvasViewModel {
 
     public func save() {
         memory.savedAt = .now
+    }
+
+    /// The page differs from how it opened. A text session that typed
+    /// nothing, steps all undone, the opening re-measure and a photo
+    /// description landing late are no edits.
+    public var hasEdits: Bool {
+        guard let before = pageBeforeEdits else { return false }
+        return !filedSnapshot.sameEdits(as: before)
+    }
+
+    /// The page as leaving files it (#137): Save makes it saved; Home and
+    /// the background autosave keep a draft -- a saved page left
+    /// unchanged stays saved.
+    public func filedMemory(saving: Bool) -> Memory {
+        var filed = composedMemory()
+        filed.isDraft = !saving && (memory.isDraft || hasEdits)
+        return filed
+    }
+
+    /// The page Save or Home files on the way out.
+    public func leave(saving: Bool) -> Memory {
+        isClosing = true
+        return filedMemory(saving: saving)
+    }
+
+    /// The page the background autosave files -- none once Save or Home
+    /// has: a background reached while the editor is still closing must
+    /// not refile a saved page as a draft.
+    public var autosavedMemory: Memory? {
+        isClosing ? nil : filedMemory(saving: false)
+    }
+
+    /// What a filing keeps, as an undo step holds it. An empty block is
+    /// nothing kept: the scene sweeps one away when a session ends.
+    private var filedSnapshot: UndoSnapshot {
+        let filed = composedMemory()
+        return UndoSnapshot(items: filed.items.filter { !$0.isEmptyText },
+                            backgroundFileName: filed.backgroundFileName,
+                            backgroundSummary: filed.backgroundSummary,
+                            paper: filed.paper, pageColorName: filed.pageColorName)
     }
 
     /// Filed-on-Done shape: title = most prominent text (v2.1 "the visual

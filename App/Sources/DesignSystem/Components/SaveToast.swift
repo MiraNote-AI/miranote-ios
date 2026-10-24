@@ -2,12 +2,13 @@ import SwiftUI
 
 /// The handoff's save receipt (screen 38): a 222 x 38 near-black capsule
 /// with a check and "Saved to Files" in Bold 14 white; a failed save
-/// takes the same capsule in #8C4A3A.
+/// takes the same capsule in #8C4A3A. Home borrows it for a page kept
+/// as a draft (#137).
 struct SaveToast: View {
     enum Message: Equatable {
         /// `photosFailed`: denied Photos access is the usual cause, so the
         /// toast names the remedy.
-        case savedToFiles, savedToPhotos, failed, photosFailed
+        case savedToFiles, savedToPhotos, failed, photosFailed, keptAsDraft
 
         var text: String {
             switch self {
@@ -15,6 +16,7 @@ struct SaveToast: View {
             case .savedToPhotos: return "Saved to Photos"
             case .failed: return "Couldn't save -- try again"
             case .photosFailed: return "Couldn't save -- allow Photos access in Settings."
+            case .keptAsDraft: return "Kept as draft"
             }
         }
 
@@ -44,7 +46,7 @@ struct SaveToast: View {
             )
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isStaticText)
-            .accessibilityIdentifier("export.toast")
+            .accessibilityIdentifier(message == .keptAsDraft ? "draft.toast" : "export.toast")
             .onAppear { AccessibilityNotification.Announcement(message.text).post() }
     }
 }

@@ -39,6 +39,11 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// A solid page color as a palette name or "#RRGGBB"; "" is the default
     /// gradient. A painted backdrop (`backgroundFileName`) draws over it.
     public var pageColorName: String
+    /// Left without Save (#137): Home and the background autosave keep a
+    /// page as a draft; only Save makes it saved. A draft never starts what
+    /// follows a Save -- but a page that is not one may not have been
+    /// saved this visit (an old page, a saved page left unchanged).
+    public var isDraft: Bool
 
     public init(
         id: UUID = UUID(),
@@ -51,7 +56,8 @@ public struct Memory: Identifiable, Equatable, Sendable {
         backgroundFileName: String = "",
         backgroundSummary: String = "",
         paper: PaperKind = .blank,
-        pageColorName: String = ""
+        pageColorName: String = "",
+        isDraft: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -64,6 +70,7 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.backgroundSummary = backgroundSummary
         self.paper = paper
         self.pageColorName = pageColorName
+        self.isDraft = isDraft
     }
 }
 
@@ -83,7 +90,7 @@ extension Memory: Hashable {
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
-        case backgroundSummary, paper, pageColorName
+        case backgroundSummary, paper, pageColorName, isDraft
     }
 
     public init(from decoder: Decoder) throws {
@@ -106,7 +113,9 @@ extension Memory: Codable {
             // would fail the whole library.
             paper: (try container.decodeIfPresent(String.self, forKey: .paper))
                 .flatMap(PaperKind.init(rawValue:)) ?? .blank,
-            pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? ""
+            pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? "",
+            // Saves before drafts existed: every page then was saved.
+            isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft) ?? false
         )
     }
 
@@ -123,6 +132,7 @@ extension Memory: Codable {
         try container.encode(backgroundSummary, forKey: .backgroundSummary)
         try container.encode(paper, forKey: .paper)
         try container.encode(pageColorName, forKey: .pageColorName)
+        try container.encode(isDraft, forKey: .isDraft)
     }
 }
 

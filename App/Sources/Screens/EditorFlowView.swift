@@ -8,7 +8,7 @@ struct EditorFlowView: View {
     var onExit: () -> Void = {}
     var onComplete: (Memory) -> Void = { _ in }
     /// Files the page quietly WITHOUT leaving the editor -- the autosave
-    /// half of "editing autosaves, so Done never says Save".
+    /// half of "editing autosaves"; like Home, it keeps a draft (#137).
     var onAutosave: (Memory) -> Void = { _ in }
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var services: ServiceContainer = .mock
@@ -42,10 +42,11 @@ struct EditorFlowView: View {
         self.onAutosave = onAutosave
         self.recorderFactory = recorderFactory
         self.services = services
-        // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
-        // the recorded D3 backend gap and takes over here when it lands.
+        // A fresh memory starts BLANK (v2.1) and unsaved (#137); the
+        // Mira-generated draft is the recorded D3 backend gap and takes
+        // over here when it lands.
         _editor = State(initialValue: CanvasViewModel(
-            memory: memory?.materializedForEditing() ?? Memory()
+            memory: memory?.materializedForEditing() ?? Memory(isDraft: true)
         ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
@@ -62,21 +63,22 @@ struct EditorFlowView: View {
                 // Autosave against app death: words survive a backgrounded
                 // app being jettisoned. file() replaces by id, so the later
                 // Done/Home filing never duplicates this one.
-                if scenePhase == .background && !editor.isBlankPage {
-                    onAutosave(editor.composedMemory())
+                if scenePhase == .background && !editor.isBlankPage,
+                   let page = editor.autosavedMemory {
+                    onAutosave(page)
                 }
             }
     }
 
-    /// Leaving keeps the words (autosave semantics): Done and Home both
+    /// Leaving keeps the words (autosave semantics): Save and Home both
     /// file a page with anything on it -- a background alone counts; only
     /// an untouched blank page keeps nothing -- no junk "New memory"
-    /// entries in the journal.
-    private func finish() {
+    /// entries in the journal. Only Save files it saved (#137).
+    private func finish(saving: Bool) {
         if editor.isBlankPage {
             onExit()
         } else {
-            onComplete(editor.composedMemory())
+            onComplete(editor.leave(saving: saving))
         }
     }
 
@@ -87,7 +89,7 @@ struct EditorFlowView: View {
                 editor: editor,
                 mira: mira,
                 imageStudio: services.imageStudio,
-                actions: actions(back: finish, done: finish),
+                actions: actions(back: { finish(saving: false) }, done: { finish(saving: true) }),
                 pendingTool: $pendingTool,
                 pendingPlacement: $pendingPlacement,
                 scrollMemory: scrollMemory,
@@ -150,6 +152,11 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
+    /// Home left a page without Save (#137): a toast says it was kept,
+    /// once the editor is gone.
+    @State private var draftToastPending = false
+    @State private var draftToastShown = false
+    @State private var draftToastDismiss: Task<Void, Never>?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -276,12 +283,20 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
         }
+        .overlay(alignment: .bottom) {
+            if draftToastShown {
+                SaveToast(message: .keptAsDraft)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+        }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
-        .fullScreenCover(item: $route) { presented in
+        .fullScreenCover(item: $route, onDismiss: showPendingDraftToast) { presented in
             switch presented {
             case .editor, .editorIn:
                 let journal = presented.journal
@@ -289,6 +304,7 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { memory in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
+                        draftToastPending = memory.isDraft
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
@@ -301,6 +317,7 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { edited in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
+                        draftToastPending = edited.isDraft
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
@@ -339,11 +356,31 @@ struct HomeFlow: View {
                         // Same dance: swap covers only after this one is gone.
                         Task { @MainActor in
                             try? await Task.sleep(for: .milliseconds(300))
-                            route = .draft(Memory(title: draft.title, body: draft.body))
+                            route = .draft(Memory(title: draft.title, body: draft.body, isDraft: true))
                         }
                     }
                 )
             }
+        }
+    }
+
+    /// Not under the editor as it slides away: the toast's two seconds,
+    /// and its spoken line, start once it is gone.
+    private func showPendingDraftToast() {
+        guard draftToastPending else { return }
+        draftToastPending = false
+        showDraftToast()
+    }
+
+    /// The export toast's look for two seconds; taps go through to the
+    /// screen under it.
+    private func showDraftToast() {
+        draftToastDismiss?.cancel()
+        withAnimation(.spring(duration: 0.3)) { draftToastShown = true }
+        draftToastDismiss = Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.2)) { draftToastShown = false }
         }
     }
 }
