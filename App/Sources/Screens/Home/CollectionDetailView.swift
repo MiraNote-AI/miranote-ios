@@ -166,11 +166,15 @@ struct CollectionDetailView: View {
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 PageCoverView(memory: memory, coverWidth: 164, coverHeight: 190)
-                // The cover already says the title; the caption says when.
-                Text(CaptionDate.string(for: memory.memoryDate))
-                    .font(.miraCaption)
-                    .foregroundStyle(Palette.textSecondary)
-                    .lineLimit(1)
+                // The cover already says the title; the caption says when,
+                // and whether the page still waits for Save (#137).
+                HStack(spacing: 6) {
+                    Text(CaptionDate.string(for: memory.memoryDate))
+                        .font(.miraCaption)
+                        .foregroundStyle(Palette.textSecondary)
+                        .lineLimit(1)
+                    if memory.isDraft { DraftTag() }
+                }
             }
             // The cover itself ignores touches (Color.clear + hit-disabled
             // page), so give the whole label a tappable shape.
@@ -178,6 +182,7 @@ struct CollectionDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("note.\(memory.title)")
+        .accessibilityValue(memory.isDraft ? "Draft" : "")
         .contextMenu {
             Button {
                 pickedDate = memory.memoryDate
@@ -202,5 +207,20 @@ struct CollectionDetailView: View {
 
     private var otherCollections: [MemoryCollection] {
         viewModel.collections.filter { $0.id != collectionID }
+    }
+}
+
+/// A page left without Save (#137): the SoftPill's paper capsule at
+/// caption size. VoiceOver hears it as the cover's value instead.
+private struct DraftTag: View {
+    var body: some View {
+        Text("Draft")
+            .font(.miraCaption)
+            .foregroundStyle(Palette.ink)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 1)
+            .background(Palette.paper, in: Capsule())
+            .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+            .accessibilityHidden(true)
     }
 }
