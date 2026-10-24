@@ -53,7 +53,7 @@ public final class CanvasViewModel {
 
     /// The page as a filing keeps it, from just before the first recorded
     /// change: what `hasEdits` measures against.
-    private var pageBeforeEdits: Memory?
+    private var pageBeforeEdits: UndoSnapshot?
 
     /// The page as it was before a live page color preview, while one is
     /// shown: the autosave files this, not a color nobody applied.
@@ -155,7 +155,7 @@ public final class CanvasViewModel {
     public var canRedo: Bool { !future.isEmpty }
 
     public func beginChange() {
-        if pageBeforeEdits == nil { pageBeforeEdits = filedContent }
+        if pageBeforeEdits == nil { pageBeforeEdits = filedSnapshot }
         changeCount += 1
         future.removeAll()
         pushHistory(currentSnapshot)
@@ -630,10 +630,11 @@ extension CanvasViewModel {
     }
 
     /// The page differs from how it opened. A text session that typed
-    /// nothing, steps all undone and the opening re-measure are no edits.
+    /// nothing, steps all undone, the opening re-measure and a photo
+    /// description landing late are no edits.
     public var hasEdits: Bool {
         guard let before = pageBeforeEdits else { return false }
-        return filedContent != before
+        return !filedSnapshot.sameEdits(as: before)
     }
 
     /// The page as leaving files it (#137): Save makes it saved; Home and
@@ -645,11 +646,12 @@ extension CanvasViewModel {
         return filed
     }
 
-    /// What a filing keeps, without the moment it was filed.
-    private var filedContent: Memory {
-        var content = composedMemory()
-        content.savedAt = nil
-        return content
+    /// What a filing keeps, as an undo step holds it.
+    private var filedSnapshot: UndoSnapshot {
+        let filed = composedMemory()
+        return UndoSnapshot(items: filed.items, backgroundFileName: filed.backgroundFileName,
+                            backgroundSummary: filed.backgroundSummary,
+                            paper: filed.paper, pageColorName: filed.pageColorName)
     }
 
     /// Filed-on-Done shape: title = most prominent text (v2.1 "the visual

@@ -67,6 +67,27 @@ final class DraftPageTests: XCTestCase {
         XCTAssertFalse(editor.hasEdits, "back to the page as it was")
     }
 
+    // A photo saved before its description came back is described again
+    // when the page opens; that landing is no edit (as for undo, #101).
+    func testAPhotoDescriptionLandingAfterALookIsNoEdit() {
+        let (page, photo) = savedPageWithPhoto()
+        let editor = CanvasViewModel(memory: page)
+        editor.startEditingText(page.items[0].id)
+        editor.endEditingText()
+        editor.setImageSummary(itemID: photo, to: "a bowl of noodles")
+        XCTAssertFalse(editor.hasEdits)
+        XCTAssertFalse(editor.filedMemory(saving: false).isDraft)
+    }
+
+    func testAPhotoDescriptionLandingAfterAnUndoneEditIsNoEdit() {
+        let (page, photo) = savedPageWithPhoto()
+        let editor = CanvasViewModel(memory: page)
+        editor.addText("a second coffee", at: CGPoint(x: 100, y: 800))
+        editor.undo()
+        editor.setImageSummary(itemID: photo, to: "a bowl of noodles")
+        XCTAssertFalse(editor.hasEdits)
+    }
+
     // MARK: What leaving files
 
     func testSaveFilesASavedPage() {
@@ -100,5 +121,18 @@ final class DraftPageTests: XCTestCase {
 
     private func savedPage() -> Memory {
         Memory(title: "Lunch by the river", items: Memory.starterDraft())
+    }
+
+    /// A saved page holding a photo that has no description yet.
+    private func savedPageWithPhoto() -> (Memory, CanvasItem.ID) {
+        var page = savedPage()
+        let photo = CanvasItem(
+            content: .image(ImageRef(displayName: "noodles", fileName: "noodles.jpg")),
+            position: CGPoint(x: 180, y: 600),
+            size: CGSize(width: 170, height: 150),
+            zIndex: 9
+        )
+        page.items.append(photo)
+        return (page, photo.id)
     }
 }
