@@ -35,6 +35,23 @@ final class DraftPagesUITests: XCTestCase {
         keepScreenshot("draft tag")
     }
 
+    // Started from a journal's "+ New memory": the draft stays in that
+    // journal, and the toast shows over its bottom bar (kept for review).
+    func testAPageStartedInAJournalStaysThereAsADraft() {
+        app.buttons["collection.Travel Scrapbook"].tap()
+        app.buttons["note.add"].tap()
+        addTextBlock("ferry at dawn")
+        // The journal's own Home button is still there under the editor:
+        // tap the editor's by its id.
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(draftToast.waitForExistence(timeout: 5))
+        keepScreenshot("draft toast in a journal")
+
+        let cover = app.buttons["note.ferry at dawn"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        XCTAssertEqual(cover.value as? String, "Draft")
+    }
+
     func testSaveTurnsADraftIntoASavedPage() {
         app.buttons["Start a memory"].tap()
         addTextBlock("picnic under the plane trees")

@@ -88,6 +88,41 @@ final class DraftPageTests: XCTestCase {
         XCTAssertFalse(editor.hasEdits)
     }
 
+    // An empty block an older build filed is swept when a text session
+    // ends (the scene's clean-up); the app tidying it is no edit.
+    func testSweepingAnOldEmptyBlockIsNoEdit() {
+        var page = savedPage()
+        let husk = CanvasItem(
+            content: .text(TextBlock(text: " ")),
+            position: CGPoint(x: 100, y: 700),
+            size: CGSize(width: 200, height: 40),
+            zIndex: 9
+        )
+        page.items.append(husk)
+        let editor = CanvasViewModel(memory: page)
+        editor.startEditingText(page.items[0].id)
+        editor.endEditingText()
+        editor.discardAbandonedText(itemID: husk.id)
+        XCTAssertFalse(editor.hasEdits)
+    }
+
+    // MARK: The way out
+
+    // Save files the page and the editor starts closing; the app reaching
+    // the background before it is gone must not refile it as a draft.
+    func testTheAutosaveFilesNothingOnceTheEditorIsLeft() {
+        let editor = CanvasViewModel(memory: Memory(isDraft: true))
+        editor.addText("picnic", at: CGPoint(x: 100, y: 100))
+        XCTAssertFalse(editor.leave(saving: true).isDraft)
+        XCTAssertNil(editor.autosavedMemory)
+    }
+
+    func testTheAutosaveKeepsADraftWhileTheEditorIsOpen() {
+        let editor = CanvasViewModel(memory: Memory(isDraft: true))
+        editor.addText("picnic", at: CGPoint(x: 100, y: 100))
+        XCTAssertEqual(editor.autosavedMemory?.isDraft, true)
+    }
+
     // MARK: What leaving files
 
     func testSaveFilesASavedPage() {

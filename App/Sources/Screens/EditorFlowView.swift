@@ -63,8 +63,9 @@ struct EditorFlowView: View {
                 // Autosave against app death: words survive a backgrounded
                 // app being jettisoned. file() replaces by id, so the later
                 // Done/Home filing never duplicates this one.
-                if scenePhase == .background && !editor.isBlankPage {
-                    onAutosave(editor.filedMemory(saving: false))
+                if scenePhase == .background && !editor.isBlankPage,
+                   let page = editor.autosavedMemory {
+                    onAutosave(page)
                 }
             }
     }
@@ -77,7 +78,7 @@ struct EditorFlowView: View {
         if editor.isBlankPage {
             onExit()
         } else {
-            onComplete(editor.filedMemory(saving: saving))
+            onComplete(editor.leave(saving: saving))
         }
     }
 
@@ -151,7 +152,9 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
-    /// Home left a page without Save (#137): a toast says it was kept.
+    /// Home left a page without Save (#137): a toast says it was kept,
+    /// once the editor is gone.
+    @State private var draftToastPending = false
     @State private var draftToastShown = false
     @State private var draftToastDismiss: Task<Void, Never>?
 
@@ -293,7 +296,7 @@ struct HomeFlow: View {
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
-        .fullScreenCover(item: $route) { presented in
+        .fullScreenCover(item: $route, onDismiss: showPendingDraftToast) { presented in
             switch presented {
             case .editor, .editorIn:
                 let journal = presented.journal
@@ -301,8 +304,8 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { memory in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
+                        draftToastPending = memory.isDraft
                         route = nil
-                        if memory.isDraft { showDraftToast() }
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
@@ -314,8 +317,8 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { edited in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
+                        draftToastPending = edited.isDraft
                         route = nil
-                        if edited.isDraft { showDraftToast() }
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
@@ -359,6 +362,14 @@ struct HomeFlow: View {
                 )
             }
         }
+    }
+
+    /// Not under the editor as it slides away: the toast's two seconds,
+    /// and its spoken line, start once it is gone.
+    private func showPendingDraftToast() {
+        guard draftToastPending else { return }
+        draftToastPending = false
+        showDraftToast()
     }
 
     /// The export toast's look for two seconds; taps go through to the

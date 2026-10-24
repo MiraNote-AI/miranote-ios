@@ -40,8 +40,9 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// gradient. A painted backdrop (`backgroundFileName`) draws over it.
     public var pageColorName: String
     /// Left without Save (#137): Home and the background autosave keep a
-    /// page as a draft; only Save makes it saved -- the signal anything
-    /// that follows a Save will wait for.
+    /// page as a draft; only Save makes it saved. A draft never starts what
+    /// follows a Save -- but a page that is not one may not have been
+    /// saved this visit (an old page, a saved page left unchanged).
     public var isDraft: Bool
 
     public init(

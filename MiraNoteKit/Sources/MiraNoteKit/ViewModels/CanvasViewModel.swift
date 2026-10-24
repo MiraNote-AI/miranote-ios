@@ -55,6 +55,9 @@ public final class CanvasViewModel {
     /// change: what `hasEdits` measures against.
     private var pageBeforeEdits: UndoSnapshot?
 
+    /// Save or Home has filed the page and the editor is closing.
+    private var isClosing = false
+
     /// The page as it was before a live page color preview, while one is
     /// shown: the autosave files this, not a color nobody applied.
     var pagePreviewOrigin: PageLook?
@@ -646,10 +649,25 @@ extension CanvasViewModel {
         return filed
     }
 
-    /// What a filing keeps, as an undo step holds it.
+    /// The page Save or Home files on the way out.
+    public func leave(saving: Bool) -> Memory {
+        isClosing = true
+        return filedMemory(saving: saving)
+    }
+
+    /// The page the background autosave files -- none once Save or Home
+    /// has: a background reached while the editor is still closing must
+    /// not refile a saved page as a draft.
+    public var autosavedMemory: Memory? {
+        isClosing ? nil : filedMemory(saving: false)
+    }
+
+    /// What a filing keeps, as an undo step holds it. An empty block is
+    /// nothing kept: the scene sweeps one away when a session ends.
     private var filedSnapshot: UndoSnapshot {
         let filed = composedMemory()
-        return UndoSnapshot(items: filed.items, backgroundFileName: filed.backgroundFileName,
+        return UndoSnapshot(items: filed.items.filter { !$0.isEmptyText },
+                            backgroundFileName: filed.backgroundFileName,
                             backgroundSummary: filed.backgroundSummary,
                             paper: filed.paper, pageColorName: filed.pageColorName)
     }
