@@ -124,6 +124,27 @@ public final class HomeViewModel {
         store.save(library)
     }
 
+    /// A page on the shelf by id, wherever it is filed.
+    public func memory(_ noteID: Memory.ID) -> Memory? {
+        for collection in collections {
+            if let memory = collection.memories.first(where: { $0.id == noteID }) { return memory }
+        }
+        return nil
+    }
+
+    /// Writes a judged mood onto the page as it is NOW: only the mood
+    /// changes, so an edit filed while the mood was on its way is kept. A
+    /// page binned meanwhile is left alone.
+    public func setMood(_ mood: Mood, for noteID: Memory.ID) {
+        for index in library.collections.indices {
+            if let note = library.collections[index].memories.firstIndex(where: { $0.id == noteID }) {
+                library.collections[index].memories[note].mood = mood
+                store.save(library)
+                return
+            }
+        }
+    }
+
     // MARK: Recently deleted (30-day bin) and moving
 
     /// Deleting a page moves it to the bin -- never straight to oblivion.
