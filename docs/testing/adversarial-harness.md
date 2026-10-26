@@ -112,8 +112,9 @@ Delay hooks (launch arguments, `-UITEST` only): `-TRANSCRIBE_DELAY <ms>`,
 <ms>`, `-CHAT_DELAY <ms>`, `-IMPORT_DELAY <ms>`, `-EXPORT_DELAY <ms>`,
 `-GENERATE_DELAY <ms>`, `-TEXT_MODE_BEAT <ms>`, `-HOLD_INTERRUPT_AFTER
 <ms>`. Transcript hooks: `-NUMBER_TAKES` (each take's words end with its
-number, in the order the takes were let go) and `-FAIL_FIRST_TAKE` (the
-first take fails). Screenshot hooks: `-STICKER_SAMPLE <SF Symbol>` (a
+number, in the order the takes were let go), `-TIME_TAKES` (each take's
+words end with how long it recorded, in whole seconds) and
+`-FAIL_FIRST_TAKE` (the first take fails). Screenshot hooks: `-STICKER_SAMPLE <SF Symbol>` (a
 die-cut sticker of that symbol stands in for the made one) and
 `-OWNER_SHOTS` (keeps the mock services but hides test-only controls such
 as the Samples pill, so frames match a Release build).

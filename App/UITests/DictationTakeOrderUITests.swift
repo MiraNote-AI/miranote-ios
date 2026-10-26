@@ -44,6 +44,24 @@ final class DictationTakeOrderUITests: XCTestCase {
         XCTAssertFalse(app.buttons["keyboard.done"].exists, "the tap ended the writing after both")
     }
 
+    /// A hold still down when the earlier take's words land keeps recording
+    /// until the finger lifts: its words are the whole hold, in the same
+    /// block, and the tap ends the writing after them.
+    func testAHoldStillDownWhenTheWordsLandIsKeptWhole() {
+        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "3000", "-TIME_TAKES"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.press(forDuration: 0.8)
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5)).tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
+        strip.press(forDuration: 5)
+        let whole = app.staticTexts["Lunch Transcribed voice note (mock) (1 s) Transcribed voice note (mock) (5 s)"]
+        let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Lunch'")).firstMatch
+        XCTAssertTrue(whole.waitForExistence(timeout: 10), "the held take was cut short: \(block.label)")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "the tap ended the writing after both")
+    }
+
     /// Two holds on the Mira strip, the first written down slowly: the
     /// question reads them in the order spoken.
     func testMiraStripTakesLandInTheOrderSpoken() {

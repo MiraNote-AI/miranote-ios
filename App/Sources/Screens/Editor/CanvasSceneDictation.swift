@@ -97,6 +97,12 @@ extension CanvasScene {
         // written down queues behind it: both land, in the order spoken.
         let take = UUID()
         pendingTakes.append(take)
+        // The writing's end waited for this take to be let go of: its words
+        // get the whole wait from here.
+        if doneWaiting != nil {
+            doneWaiting = nil
+            waitForWordsThenEnd()
+        }
         let earlier = lastTake
         lastTake = Task {
             let words = await transcribe(recorder, for: id)
@@ -158,6 +164,14 @@ extension CanvasScene {
     /// Ends the writing, then does what the tap that asked for it does
     /// (deselect, select another element), if a tap did.
     private func finishWaitingDone(caught: Bool) {
+        // A take still held (a hold during the wait) keeps recording: the
+        // writing ends once it is let go of and its words land. No cap runs
+        // while the finger is down.
+        if dictating || startingMic == .text {
+            doneWaiting = UUID()
+            if !caught { flashHint("Couldn't catch those words.") }
+            return
+        }
         doneWaiting = nil
         let then = afterWritingDown
         afterWritingDown = nil
