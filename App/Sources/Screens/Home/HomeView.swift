@@ -13,6 +13,8 @@ struct HomeView: View {
     var onQuickCapture: (String) -> Void = { _ in }
     var onOpenCollection: (MemoryCollection) -> Void = { _ in }
     var onOpenTrash: () -> Void = {}
+    var onOpenSettings: () -> Void = {}
+    var onOpenProfile: () -> Void = {}
 
     @State private var prompt = ""
     /// The ask bar's keyboard: a tap on the page or a scroll lowers it.
@@ -86,8 +88,9 @@ struct HomeView: View {
         }
     }
 
-    /// Wordmark (Bold 15, #25231F) and the 38 pt glass profile circle. The
-    /// design's bell is left out: nothing stands behind it yet.
+    /// Wordmark (Bold 15, #25231F), then the 38 pt glass settings and
+    /// profile circles, 8 apart (handoff 2026-10-24, screens 01-02). The
+    /// 2026-10-07 design's bell is left out: nothing stands behind it yet.
     private var header: some View {
         HStack(alignment: .top) {
             Text("MiraNote")
@@ -95,20 +98,26 @@ struct HomeView: View {
                 .foregroundStyle(Color(hex: 0x25231F))
                 .padding(.top, 9)
             Spacer()
-            Image("home.profile")
+            HStack(spacing: 8) {
+                headerCircle("home.settings", label: "Settings", action: onOpenSettings)
+                headerCircle("home.profile", label: "Profile", action: onOpenProfile)
+            }
+        }
+    }
+
+    private func headerCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(icon)
                 .renderingMode(.template)
                 .resizable()
                 .frame(width: 20, height: 20)
                 .foregroundStyle(Color(hex: 0x635B50))
-                .frame(width: 38, height: 38)
-                .background(
-                    Circle()
-                        .fill(Color.white.opacity(0.58))
-                        .overlay(Circle().strokeBorder(Color(hex: 0x48433B).opacity(0.12), lineWidth: 1))
-                        .shadow(color: Color(hex: 0x544738).opacity(0.025), radius: 8, y: 6)
-                )
-                .accessibilityHidden(true)
+                .glassCircle()
         }
+        .buttonStyle(.plain)
+        .circleHitTarget()
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(icon)
     }
 
     /// "MONDAY," over an indented "JUNE 22", Josefin Bold 24 in #8F8477.

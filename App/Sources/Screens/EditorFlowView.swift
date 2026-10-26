@@ -150,6 +150,8 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
+    @State private var settings = AppSettings()
+    @State private var profile = LocalProfile()
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -237,6 +239,11 @@ struct HomeFlow: View {
     /// Navigation token for the recently-deleted bin.
     struct TrashRoute: Hashable {}
 
+    /// Navigation tokens for the Settings and Profile screens.
+    enum AccountRoute: Hashable {
+        case settings, appearance, language, profile
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             HomeView(
@@ -244,7 +251,9 @@ struct HomeFlow: View {
                 onStart: { route = .editor },
                 onQuickCapture: { route = .chat($0) },
                 onOpenCollection: { path.append($0) },
-                onOpenTrash: { path.append(TrashRoute()) }
+                onOpenTrash: { path.append(TrashRoute()) },
+                onOpenSettings: { path.append(AccountRoute.settings) },
+                onOpenProfile: { path.append(AccountRoute.profile) }
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -273,6 +282,26 @@ struct HomeFlow: View {
                     viewModel: viewModel,
                     onBack: { path.removeLast() }
                 )
+                .navigationBarHidden(true)
+            }
+            .navigationDestination(for: AccountRoute.self) { route in
+                Group {
+                    switch route {
+                    case .settings:
+                        SettingsView(
+                            settings: settings,
+                            onBack: { path.removeLast() },
+                            onOpenAppearance: { path.append(AccountRoute.appearance) },
+                            onOpenLanguage: { path.append(AccountRoute.language) }
+                        )
+                    case .appearance:
+                        AppearanceView(settings: settings, onBack: { path.removeLast() })
+                    case .language:
+                        LanguageView(settings: settings, onBack: { path.removeLast() })
+                    case .profile:
+                        ProfileView(profile: profile, onBack: { path.removeLast() })
+                    }
+                }
                 .navigationBarHidden(true)
             }
         }
