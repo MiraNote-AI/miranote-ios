@@ -448,12 +448,20 @@ struct CanvasBoardView: View {
         // landing sticker scales about its own centre.
         .modifier(Settle(active: landing?.itemID == item.id))
         .rotationEffect(.degrees(geometry.rotation))
+        // The menu's press preview draws the view it is on without the
+        // page's scale around it (#132: after `.position`, the whole board
+        // box unscaled -- the element 182 -> 171 pt on 17 Pro, and lower).
+        // So the menu goes on a box laid out at the element's size on the
+        // card, then scaled back down for the page.
+        .scaleEffect(pageScale)
+        .frame(width: geometry.size.width * pageScale, height: geometry.size.height * pageScale)
+        .contextMenu { contextMenu(for: item) }
+        .scaleEffect(1 / pageScale)
         .position(geometry.position)
         .id(item.id)
         .onTapGesture { handleTap(item, isSelected: isSelected) }
         .gesture(isEditing ? nil : moveGesture(item))
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
-        .contextMenu { contextMenu(for: item) }
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
     }
 
