@@ -7,16 +7,18 @@ struct RecentlyDeletedView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
         Group {
             if viewModel.trash.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "tray")
                         .font(.system(size: 26))
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                     Text("Nothing waiting here.")
                         .font(.miraBody)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -27,7 +29,7 @@ struct RecentlyDeletedView: View {
                         }
                         Text("Pages leave for good after 30 days.")
                             .font(.miraCaption)
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(theme.muted(Palette.textSecondary))
                             .padding(.top, 8)
                     }
                     .padding(.horizontal, Metrics.screenPadding)
@@ -49,13 +51,13 @@ struct RecentlyDeletedView: View {
                 Spacer()
                 Text("Recently deleted")
                     .font(.miraScreenTitle)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(theme.ink)
                 Spacer()
                 Color.clear.frame(width: 64, height: 1)
             }
             .padding(.horizontal, Metrics.screenPadding)
             .padding(.vertical, 8)
-            .background(Palette.paper.opacity(0.94))
+            .background(theme.background.opacity(0.94))
         }
     }
 
@@ -75,10 +77,10 @@ struct RecentlyDeletedView: View {
                 viewModel.restore(entry.id)
             }
             .font(.miraLabel)
-            .foregroundStyle(Palette.onInk)
+            .foregroundStyle(theme.onButton(Palette.onInk))
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Capsule().fill(Palette.ink))
+            .background(Capsule().fill(theme.button))
             .buttonStyle(.plain)
             .accessibilityIdentifier("trash.restore.\(entry.memory.title)")
         }

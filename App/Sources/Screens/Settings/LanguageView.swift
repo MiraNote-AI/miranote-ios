@@ -8,13 +8,15 @@ struct LanguageView: View {
     var settings: AppSettings
     var onBack: () -> Void = {}
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 SettingsEyebrow(text: "APP LANGUAGE")
                 Text("Choose the language used in MiraNote.")
                     .font(Sans.font(size: 15, weight: 500))
-                    .foregroundStyle(SettingsStyle.intro)
+                    .foregroundStyle(theme.muted(SettingsStyle.intro))
                     .padding(.top, 9)
                 VStack(spacing: 14) {
                     ForEach(LanguageChoice.allCases, id: \.self) { choice in
@@ -24,7 +26,7 @@ struct LanguageView: View {
                 .padding(.top, 26)
                 Text("You can change this anytime in Settings.")
                     .font(Sans.font(size: 13, weight: 500))
-                    .foregroundStyle(SettingsStyle.note)
+                    .foregroundStyle(theme.muted(SettingsStyle.note))
                     .padding(.top, 39)
             }
             .padding(.horizontal, SettingsStyle.inset)

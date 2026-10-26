@@ -305,6 +305,8 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
         }
+        // The Appearance setting, applied live (a choice redraws at once).
+        .environment(\.theme, Theme(appearance: settings.appearance))
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
         // Under a cover the scene's own probe shows too; nothing here listens.
@@ -324,6 +326,8 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+                // The editor, its tools and Mira chat stay on System.
+                .environment(\.theme, Theme(appearance: .system))
             case .editMemory(let memory), .draft(let memory):
                 EditorFlowView(
                     memory: memory,
@@ -336,6 +340,7 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+                .environment(\.theme, Theme(appearance: .system))
             case .chat(let seed):
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
@@ -372,6 +377,7 @@ struct HomeFlow: View {
                         }
                     }
                 )
+                .environment(\.theme, Theme(appearance: .system))
             }
         }
     }

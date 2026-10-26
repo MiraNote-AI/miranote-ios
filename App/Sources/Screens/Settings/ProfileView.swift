@@ -10,6 +10,7 @@ struct ProfileView: View {
     var profile: LocalProfile
     var onBack: () -> Void = {}
 
+    @Environment(\.theme) private var theme
     @State private var editing = false
     @State private var avatar: UIImage?
 
@@ -95,9 +96,9 @@ struct ProfileView: View {
             Button { editing = true } label: {
                 Text("Edit Profile")
                     .font(Sans.font(size: 17, weight: 600))
-                    .foregroundStyle(Color(hex: 0xFFFAF3))
+                    .foregroundStyle(theme.onButton(Color(hex: 0xFFFAF3)))
                     .frame(maxWidth: .infinity, minHeight: 46)
-                    .background(Capsule().fill(Palette.ink))
+                    .background(Capsule().fill(theme.button))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.edit")
