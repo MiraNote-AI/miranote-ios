@@ -74,6 +74,27 @@ final class TextVisibilityUITests: XCTestCase {
                              "the page went back after the drag (block bottom \(before) -> \(field.frame.maxY))")
     }
 
+    /// A drag takes the block under the text tools and the page stays
+    /// there; a word typed on the same line (the block's height unchanged)
+    /// brings the block back above the tools.
+    func testTypingOnTheSameLineBringsTheBlockBack() {
+        fillThePage()
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lunch by the river ")
+        assertClearOfTheTools("a new block")
+        let height = field.frame.height
+        let toolsTop = any("style.mic").frame.minY
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)))
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertGreaterThan(field.frame.minY, toolsTop,
+                             "the page stays where the drag left it (block \(field.frame), tools top \(toolsTop))")
+        app.typeText("so")
+        XCTAssertEqual(field.frame.height, height, accuracy: 0.5, "the words stayed on the same line")
+        assertClearOfTheTools("a word typed on the same line")
+    }
+
     func testTheBlockBeingWrittenStaysAboveTheTextTools() {
         fillThePage()
         app.buttons["mode.text"].tap()

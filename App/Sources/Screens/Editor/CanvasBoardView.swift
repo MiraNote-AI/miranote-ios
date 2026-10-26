@@ -236,15 +236,23 @@ struct CanvasBoardView: View {
     /// (screens 11-20): everything but the edited block blurs and dims.
     private var writing: Bool { editor.editingTextItemID != nil }
 
-    /// The block being written and its height: what keeps it clear of the
-    /// text tools when it changes (its first frame, its growth).
+    /// The block being written, its height and its words: what keeps it
+    /// clear of the text tools when it changes (its first frame, its growth,
+    /// a word typed on the same line). The height is rounded: read off the
+    /// moving frame, it jitters in its last digits while the page scrolls.
     private var writtenKey: WrittenKey? {
-        writtenFrame.map { WrittenKey(id: editor.editingTextItemID, height: $0.height) }
+        writtenFrame.map {
+            let id = editor.editingTextItemID
+            var text: String?
+            if let id, case .text(let block) = editor.item(id)?.content { text = block.text }
+            return WrittenKey(id: id, height: $0.height.rounded(), text: text)
+        }
     }
 
     private struct WrittenKey: Equatable {
         let id: CanvasItem.ID?
         let height: CGFloat
+        let text: String?
     }
 
     private var board: some View {
