@@ -14,6 +14,7 @@ struct StarJarView: View {
     var onShow: ([Memory.ID]) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.theme) private var theme
     @State private var period: JarPeriod = .month
     @State private var interval = JarPeriod.month.interval(containing: .now)
     /// Stars dropping in on this visit, in drop order; set once.
@@ -43,7 +44,7 @@ struct StarJarView: View {
                 if !stars.isEmpty {
                     Text(summary)
                         .font(Sans.font(size: 16, weight: 600))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(theme.ink)
                         .multilineTextAlignment(.center)
                         .accessibilityIdentifier("jar.summary")
                         .padding(.bottom, 14)
@@ -77,14 +78,14 @@ struct StarJarView: View {
             Spacer()
             Text("Star jar")
                 .font(.miraScreenTitle)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             Color.clear.frame(width: 64, height: 1)
         }
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 8)
-        .background(Palette.paper.opacity(0.94))
+        .background(theme.background.opacity(0.94))
     }
 
     private var periodPicker: some View {
@@ -110,7 +111,7 @@ struct StarJarView: View {
             Spacer()
             Text(period.label(for: interval, locale: AppSettings.shared.language.locale))
                 .font(.miraCardTitle)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(theme.ink)
                 .accessibilityIdentifier("jar.period")
             Spacer()
             stepButton("chevron.right", label: period == .week ? String(appCopy: "Next week") : String(appCopy: "Next month"),
@@ -118,7 +119,8 @@ struct StarJarView: View {
                 interval = period.interval(shifting: interval, by: 1)
             }
             .disabled(isCurrent)
-            .opacity(isCurrent ? 0.35 : 1)
+            // On Forest's dark green a fainter paper circle loses its arrow.
+            .opacity(isCurrent ? (theme.appearance == .forest ? 0.5 : 0.35) : 1)
         }
     }
 
@@ -172,7 +174,7 @@ struct StarJarView: View {
                 if stars.isEmpty {
                     Text(emptyLine)
                         .font(.miraBody)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                         .multilineTextAlignment(.center)
                         .frame(width: geometry.interior.width - 80)
                         .accessibilityIdentifier("jar.empty")
@@ -229,7 +231,7 @@ struct StarJarView: View {
                         .accessibilityHidden(true)
                     Text(mood.displayName)
                         .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                 }
             }
         }
@@ -419,16 +421,22 @@ struct JarGeometry {
     }
 }
 
-/// Clear glass: a faint white body behind the stars, an ink hairline.
+/// Clear glass: a faint white body behind the stars, an ink hairline. On
+/// Forest's dark green the white is fainter (at 0.3 it read as grey) and
+/// the hairline is the theme's light ink.
 private struct JarGlass: View {
     let geometry: JarGeometry
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
+        let dark = theme.appearance == .forest
         ZStack(alignment: .topLeading) {
             geometry.body(closed: true)
-                .fill(Color.white.opacity(0.3))
+                .fill(Color.white.opacity(dark ? 0.08 : 0.3))
             geometry.body(closed: false)
-                .stroke(Palette.ink.opacity(0.18), style: StrokeStyle(lineWidth: JarGeometry.stroke, lineJoin: .round))
+                .stroke(dark ? theme.ink.opacity(0.32) : Palette.ink.opacity(0.18),
+                        style: StrokeStyle(lineWidth: JarGeometry.stroke, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }
