@@ -95,7 +95,7 @@ struct StarJarView: View {
                     period = option
                     interval = option.interval(containing: isCurrent ? .now : interval.start)
                 }
-                .buttonStyle(SoftPill(selected: option == period))
+                .buttonStyle(SoftPill(selected: option == period, theme: theme))
                 .accessibilityAddTraits(option == period ? .isSelected : [])
                 .accessibilityIdentifier("jar.period.\(option.rawValue)")
             }
