@@ -65,7 +65,7 @@ struct AppearanceView: View {
                         .padding(.top, 8)
                     Text(isOn ? "Selected" : "Tap to select")
                         .font(Sans.font(size: 12, weight: 500))
-                        .foregroundStyle(isOn ? SettingsStyle.intro : Color(hex: 0xA49A8C))
+                        .foregroundStyle(isOn ? SettingsStyle.intro : SettingsStyle.hint)
                         .frame(minHeight: 18)
                         .padding(.top, 23)
                 }
