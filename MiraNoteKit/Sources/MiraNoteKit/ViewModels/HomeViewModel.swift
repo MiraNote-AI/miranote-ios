@@ -82,6 +82,12 @@ public final class HomeViewModel {
         for index in library.collections.indices {
             if let existing = library.collections[index].memories
                 .firstIndex(where: { $0.id == memory.id }) {
+                // The mood is the judge's to write: a copy filed from an
+                // editor opened before the answer landed keeps the shelf's.
+                let shelved = library.collections[index].memories[existing]
+                var memory = memory
+                memory.mood = shelved.mood
+                memory.moodTextHash = shelved.moodTextHash
                 library.collections[index].memories[existing] = memory
                 store.save(library)
                 return
@@ -132,13 +138,15 @@ public final class HomeViewModel {
         return nil
     }
 
-    /// Writes a judged mood onto the page as it is NOW: only the mood
-    /// changes, so an edit filed while the mood was on its way is kept. A
-    /// page binned meanwhile is left alone.
-    public func setMood(_ mood: Mood, for noteID: Memory.ID) {
+    /// Writes a judged mood, and the hash of the words it was judged from,
+    /// onto the page as it is NOW: only those change, so an edit filed
+    /// while the mood was on its way is kept (and, its words differing, is
+    /// asked again). A page binned meanwhile is left alone.
+    public func setMood(_ mood: Mood, judgedFrom textHash: String, for noteID: Memory.ID) {
         for index in library.collections.indices {
             if let note = library.collections[index].memories.firstIndex(where: { $0.id == noteID }) {
                 library.collections[index].memories[note].mood = mood
+                library.collections[index].memories[note].moodTextHash = textHash
                 store.save(library)
                 return
             }

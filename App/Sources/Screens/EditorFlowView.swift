@@ -281,9 +281,18 @@ struct HomeFlow: View {
     /// colors); made on first use, then one queue for the whole app.
     private func judgeMoods(_ noteIDs: [Memory.ID]) {
         guard !noteIDs.isEmpty else { return }
+        makeMoodJudge().judge(noteIDs)
+    }
+
+    /// The pages the star jar shows (`[]`: it closed): asked after saves.
+    private func showMoods(_ noteIDs: [Memory.ID]) {
+        if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
+    }
+
+    private func makeMoodJudge() -> MoodJudge {
         let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
         moodJudge = judge
-        judge.judge(noteIDs)
+        return judge
     }
 
     var body: some View {
@@ -325,7 +334,7 @@ struct HomeFlow: View {
                     viewModel: viewModel,
                     onBack: { path.removeLast() },
                     onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) },
-                    onJudge: judgeMoods
+                    onShow: showMoods
                 )
                 .navigationBarHidden(true)
             }
