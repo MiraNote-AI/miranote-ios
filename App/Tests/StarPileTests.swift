@@ -26,18 +26,56 @@ final class StarPileTests: XCTestCase {
     }
 
     func testStarsStayInsideTheJarOnLargeAndSmallPhones() {
-        for count in [0, 1, 5, 12, 30, 60, 90] {
+        for count in 0...120 {
             assertInside(count, jar: CGSize(width: 320, height: 400))
             assertInside(count, jar: CGSize(width: 240, height: 300))
         }
     }
 
-    func testACrowdShrinksTheStars() {
+    func testAFewStarsAreAsLargeAsAllowed() {
+        for jar in [CGSize(width: 320, height: 400), CGSize(width: 240, height: 300)] {
+            let interior = JarGeometry(size: jar).interior
+            for count in [1, 3, 5] {
+                XCTAssertEqual(StarPile.layout((0..<count).map { _ in UUID() }, in: interior).starSize,
+                               StarPile.largest, "\(count) stars in \(jar)")
+            }
+        }
+    }
+
+    /// iPhone 17 Pro's jar (interior 313 x 310 pt): 8 stars at the cap, 30 at 42.
+    func testTheSizeShrinksAsTheJarFills() {
+        let interior = JarGeometry(size: CGSize(width: 320, height: 400)).interior
+        XCTAssertEqual(StarPile.starSize(8, in: interior), 64)
+        XCTAssertEqual(StarPile.starSize(30, in: interior), 42)
+        var previous = StarPile.largest
+        for count in 1...120 {
+            let size = StarPile.starSize(count, in: interior)
+            XCTAssertLessThanOrEqual(size, previous, "\(count) stars grow the stars")
+            previous = size
+        }
+        XCTAssertLessThan(StarPile.starSize(90, in: interior), StarPile.starSize(5, in: interior))
+    }
+
+    func testThePileFillsAtMostTwoThirdsOfTheJar() {
+        for jar in [CGSize(width: 320, height: 400), CGSize(width: 240, height: 300)] {
+            let interior = JarGeometry(size: jar).interior
+            for count in 1...120 {
+                let size = StarPile.starSize(count, in: interior)
+                // Past the crowd floor a full jar may fill more, to fit at all.
+                guard size > StarPile.crowdLargest else { continue }
+                XCTAssertLessThanOrEqual(StarPile.pileHeight(count, size: size, width: interior.width),
+                                         interior.rect.height * StarPile.fillShare, "\(count) stars in \(jar)")
+            }
+        }
+    }
+
+    func testACrowdStillFits() {
         let interior = JarGeometry(size: CGSize(width: 240, height: 300)).interior
-        let few = StarPile.layout((0..<5).map { _ in UUID() }, in: interior)
-        let crowd = StarPile.layout((0..<90).map { _ in UUID() }, in: interior)
-        XCTAssertEqual(few.starSize, StarPile.largest)
-        XCTAssertLessThan(crowd.starSize, few.starSize)
+        for count in [90, 120] {
+            let size = StarPile.starSize(count, in: interior)
+            XCTAssertLessThanOrEqual(StarPile.pileHeight(count, size: size, width: interior.width),
+                                     interior.rect.height * 0.9, "\(count) stars overfill the jar")
+        }
     }
 
     func testTheSamePagesLieTheSameWay() {

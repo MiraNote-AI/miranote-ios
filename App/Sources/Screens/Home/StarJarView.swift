@@ -457,22 +457,24 @@ struct JarInterior {
 
 /// A settled pile: rows from the bottom up, every other row offset half a
 /// star, each star nudged and turned by its page's id -- the same jar
-/// looks the same every time. Stars shrink when a crowd would overfill it.
+/// looks the same every time. Stars are as large as fits with the pile
+/// filling at most two thirds of the jar; a crowd shrinks them further
+/// only as far as it must to fit at all.
 enum StarPile {
     struct Spot {
         let center: CGPoint
         let rotation: Double
     }
 
-    static let largest: CGFloat = 26
+    static let largest: CGFloat = 64
+    /// The size a crowd shrinks from to fit the whole jar.
+    static let crowdLargest: CGFloat = 26
     static let smallest: CGFloat = 10
+    /// The share of the jar's height a pile may fill.
+    static let fillShare: CGFloat = 2.0 / 3.0
 
     static func layout(_ ids: [UUID], in interior: JarInterior) -> (starSize: CGFloat, spots: [Spot]) {
-        var size = largest
-        while size > smallest, rowsNeeded(ids.count, size: size, width: interior.width) * size * 0.84
-                > interior.rect.height * 0.9 {
-            size -= 1
-        }
+        let size = starSize(ids.count, in: interior)
         let perRow = slots(size: size, width: interior.width)
         var spots: [Spot] = []
         var row = 0
@@ -497,6 +499,27 @@ enum StarPile {
             row += 1
         }
         return (size, spots)
+    }
+
+    /// The largest size whose pile fills no more than `fillShare` of the
+    /// jar, up to `largest`; never below what a crowd needs to fit at all.
+    static func starSize(_ count: Int, in interior: JarInterior) -> CGFloat {
+        var size = largest
+        while size > smallest, pileHeight(count, size: size, width: interior.width)
+                > interior.rect.height * fillShare {
+            size -= 1
+        }
+        var crowd = crowdLargest
+        while crowd > smallest, pileHeight(count, size: crowd, width: interior.width)
+                > interior.rect.height * 0.9 {
+            crowd -= 1
+        }
+        return max(size, crowd)
+    }
+
+    /// How tall the rows of `count` stars of `size` stand.
+    static func pileHeight(_ count: Int, size: CGFloat, width: CGFloat) -> CGFloat {
+        rowsNeeded(count, size: size, width: width) * size * 0.84
     }
 
     /// Stars in a full (even) row: the width less a margin, a star apiece.
