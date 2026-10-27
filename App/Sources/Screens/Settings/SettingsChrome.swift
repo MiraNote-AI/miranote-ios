@@ -91,7 +91,9 @@ struct SettingsRadio: View {
 extension View {
     /// The handoff's card: #FFFDF8 at 82%, r22, a #D8D5CA@0.8 hairline
     /// (or the 1.5 pt ink border of a selected option) and a soft warm
-    /// shadow.
+    /// shadow. The shadow is cast by an opaque paper card underneath: cast
+    /// by the translucent fill, it showed through it, and the contrast
+    /// audit read the top row's text against it (QA pass 2026-10-27).
     func settingsCard(selected: Bool = false) -> some View {
         background(
             RoundedRectangle(cornerRadius: SettingsStyle.cardCorner)
@@ -101,6 +103,10 @@ extension View {
                         .strokeBorder(selected ? SettingsStyle.selected : Palette.hairline.opacity(0.8),
                                       lineWidth: selected ? 1.5 : 1)
                 )
+        )
+        .background(
+            RoundedRectangle(cornerRadius: SettingsStyle.cardCorner)
+                .fill(Palette.paper)
                 .shadow(color: Color(hex: 0x544738).opacity(0.07), radius: 12, y: 10)
         )
     }
