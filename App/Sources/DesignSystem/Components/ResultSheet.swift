@@ -25,12 +25,12 @@ struct ResultSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title)
+            Text(copy: title)
                 .font(Sans.font(size: 15, weight: 700))
                 .foregroundStyle(Palette.ink)
                 .padding(.top, 13)
                 .accessibilityIdentifier(titleID ?? "")
-            Text(detail)
+            Text(copy: detail)
                 .font(Sans.font(size: 12, weight: 400))
                 .foregroundStyle(Self.warmGrey)
                 .padding(.top, 5)

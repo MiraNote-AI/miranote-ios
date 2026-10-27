@@ -30,7 +30,7 @@ extension BackendError: LocalizedError {
         case .server(let status, _):
             return Self.message(for: status)
         case .decoding:
-            return "The server sent an unexpected response."
+            return String(appCopy: "The server sent an unexpected response.")
         }
     }
 
@@ -74,7 +74,7 @@ extension BackendError: LocalizedError {
                 its Mac is asleep or off the network. Let the team know.
                 """
         default:
-            return "The server returned an error (status \(status))."
+            return String(appCopy: "The server returned an error (status \(status)).")
         }
     }
 }

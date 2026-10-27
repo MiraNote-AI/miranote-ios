@@ -16,7 +16,7 @@ struct ComposerCapsule<Leading: View>: View {
         HStack(spacing: 8) {
             leading()
             Button(action: onAct) {
-                Text(action)
+                Text(copy: action)
                     .font(.miraComposerAction)
                     .foregroundStyle(Palette.onInk)
                     // A margin inside the pill for the 16 pt label.

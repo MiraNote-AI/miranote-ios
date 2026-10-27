@@ -135,11 +135,11 @@ struct TextToolBar: View {
 
     private func label(_ tool: TextTool) -> String {
         switch tool {
-        case .font: return "Font and size"
-        case .color: return "Text color"
-        case .ai: return "Rewrite"
-        case .align: return "Alignment"
-        case .background: return "Text background"
+        case .font: return String(appCopy: "Font and size")
+        case .color: return String(appCopy: "Text color")
+        case .ai: return String(appCopy: "Rewrite")
+        case .align: return String(appCopy: "Alignment")
+        case .background: return String(appCopy: "Text background")
         }
     }
 
@@ -277,7 +277,7 @@ struct ColorSwatchRow: View {
                                darkMark: !RowColor.isDark(swatch.hex))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(swatch.name)
+                .accessibilityLabel(Text(copy: swatch.name))
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .accessibilityIdentifier("style.color.\(swatch.hex)")
             }
@@ -413,9 +413,9 @@ struct RewriteRow: View {
 
     private func title(_ choice: TextRewriteSession.Choice) -> String {
         switch choice {
-        case .original: return "Original"
-        case .clean: return "Clean up"
-        case .expand: return "Expand"
+        case .original: return String(appCopy: "Original")
+        case .clean: return String(appCopy: "Clean up")
+        case .expand: return String(appCopy: "Expand")
         }
     }
 }
@@ -485,7 +485,7 @@ struct TextBackgroundRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(Text(copy: label))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("style.highlight.\(id)")
     }

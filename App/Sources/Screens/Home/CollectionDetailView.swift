@@ -125,20 +125,13 @@ struct CollectionDetailView: View {
         let memories: [Memory]
     }
 
-    private static let monthFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter
-    }()
-
     private var monthGroups: [MonthGroup] {
         guard let memories = collection?.memories else { return [] }
-        let formatter = Self.monthFormatter
         let sorted = memories.sorted { $0.memoryDate > $1.memoryDate }
         var order: [String] = []
         var buckets: [String: [Memory]] = [:]
         for memory in sorted {
-            let label = formatter.string(from: memory.memoryDate).uppercased()
+            let label = AppDateFormat.string(from: memory.memoryDate, template: "MMMMyyyy").uppercased()
             if buckets[label] == nil { order.append(label) }
             buckets[label, default: []].append(memory)
         }

@@ -150,7 +150,7 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
-    @State private var settings = AppSettings()
+    @State private var settings = AppSettings.shared
     @State private var profile = LocalProfile()
     @State private var moodJudge: MoodJudge?
 

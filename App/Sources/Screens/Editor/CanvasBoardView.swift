@@ -721,7 +721,7 @@ extension CanvasBoardView {
         HStack(spacing: 14) {
             switch kind {
             case .deleted(let changeCount), .added(let changeCount):
-                Text(kind.isAdded ? "Added - drag to move" : "Deleted")
+                Text(kind.isAdded ? "Added - drag to move" as LocalizedStringKey : "Deleted")
                     .font(.miraLabel)
                     .foregroundStyle(Palette.onInk)
                 // Only the delete: once something newer is on the page, the

@@ -43,7 +43,7 @@ struct SettingsView: View {
 
     /// A 60 pt row: SemiBold 16 label, then the Medium 14 value and a 16 pt
     /// chevron, 8 apart.
-    private func row(_ label: String, value: String, action: @escaping () -> Void) -> some View {
+    private func row(_ label: LocalizedStringKey, value: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Text(label)

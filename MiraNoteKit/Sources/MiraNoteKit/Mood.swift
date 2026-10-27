@@ -5,7 +5,17 @@ import Foundation
 public enum Mood: String, Codable, CaseIterable, Sendable {
     case joyful, calm, tender, low, tense, neutral
 
-    public var displayName: String { rawValue.capitalized }
+    /// The mood's name in the app's language.
+    public var displayName: String {
+        switch self {
+        case .joyful: return String(appCopy: "Joyful")
+        case .calm: return String(appCopy: "Calm")
+        case .tender: return String(appCopy: "Tender")
+        case .low: return String(appCopy: "Low")
+        case .tense: return String(appCopy: "Tense")
+        case .neutral: return String(appCopy: "Neutral")
+        }
+    }
 }
 
 /// Backend mapping: text-clean-expand POC, `POST /mood`.

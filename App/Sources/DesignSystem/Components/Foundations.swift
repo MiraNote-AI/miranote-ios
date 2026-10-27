@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 
 /// The bottom tool bar's five tools (2026-10-07 handoff). Sticker is a tool
@@ -7,7 +8,15 @@ enum EditorMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .background: return String(appCopy: "Background")
+        case .voice: return String(appCopy: "Voice")
+        case .text: return String(appCopy: "Text")
+        case .image: return String(appCopy: "Image")
+        case .sticker: return String(appCopy: "Sticker")
+        }
+    }
 
     /// The handoff's tool-bar glyph, a template vector in Assets.xcassets.
     var iconAsset: String { "tool.\(rawValue)" }

@@ -185,7 +185,7 @@ public final class MiraCanvasCoordinator {
                     try? await Task.sleep(for: workingDelay)
                     guard !Task.isCancelled, self.turnGeneration == generation else { return }
                     if case .idle = self.phase {
-                        self.phase = .working(verb: "Looking at the page...")
+                        self.phase = .working(verb: String(appCopy: "Looking at the page..."))
                     }
                 }
                 await prepareTurn()
@@ -224,8 +224,8 @@ public final class MiraCanvasCoordinator {
             size: CGSize(width: 320, height: 60)
         )
         showReceipt(MiraReceipt(
-            changed: "Added a few words.",
-            kept: "Everything else stayed put."
+            changed: String(appCopy: "Added a few words."),
+            kept: String(appCopy: "Everything else stayed put.")
         ), editor: editor)
     }
 
@@ -344,8 +344,8 @@ public final class MiraCanvasCoordinator {
                 // is exactly this one.
                 editor.quickOrganize(canvasWidth: MiraNoteConfig.pageWidth)
                 showReceipt(MiraReceipt(
-                    changed: "Tidied the layout.",
-                    kept: "Your words and photos are unchanged."
+                    changed: String(appCopy: "Tidied the layout."),
+                    kept: String(appCopy: "Your words and photos are unchanged.")
                 ), editor: editor)
                 return
             }
@@ -363,7 +363,7 @@ public final class MiraCanvasCoordinator {
                 refillPrompt = lastPrompt
                 phase = .failure(MiraFailure(
                     kind: .retry,
-                    message: "The text I was working on is gone, so I left everything as is.",
+                    message: String(appCopy: "The text I was working on is gone, so I left everything as is."),
                     chips: ["Try again"]
                 ))
                 return
@@ -470,7 +470,7 @@ public final class MiraCanvasCoordinator {
         if error is MiraTimeoutError {
             return MiraFailure(
                 kind: .retry,
-                message: "This was taking too long, so I stopped. Try again?",
+                message: String(appCopy: "This was taking too long, so I stopped. Try again?"),
                 chips: ["Try again", "Rephrase"]
             )
         }
@@ -479,7 +479,7 @@ public final class MiraCanvasCoordinator {
         }
         return MiraFailure(
             kind: .retry,
-            message: "That one did not go through. Try again, or say it differently?",
+            message: String(appCopy: "That one did not go through. Try again, or say it differently?"),
             chips: ["Try again", "Rephrase"]
         )
     }

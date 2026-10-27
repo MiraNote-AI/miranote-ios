@@ -20,10 +20,17 @@ public struct ChatHint: Equatable, Sendable {
         self.opensSettings = opensSettings
     }
 
-    public static let noWords = ChatHint(text: "I couldn't catch any words -- try again?")
-    public static let transcriberUnreachable = ChatHint(text: "Couldn't reach the transcriber -- try again?")
-    public static let photoUnseen = ChatHint(text: "Mira couldn't look at that photo -- she answered from your words.")
-    public static let photoNotLoaded = ChatHint(text: "That photo couldn't be loaded. Try another?")
+    // Computed, so each hint reads in the language chosen when it shows.
+    public static var noWords: ChatHint { ChatHint(text: String(appCopy: "I couldn't catch any words -- try again?")) }
+    public static var transcriberUnreachable: ChatHint {
+        ChatHint(text: String(appCopy: "Couldn't reach the transcriber -- try again?"))
+    }
+    public static var photoUnseen: ChatHint {
+        ChatHint(text: String(appCopy: "Mira couldn't look at that photo -- she answered from your words."))
+    }
+    public static var photoNotLoaded: ChatHint {
+        ChatHint(text: String(appCopy: "That photo couldn't be loaded. Try another?"))
+    }
 }
 
 /// A photo staged in the composer; the id lets the view decode its
@@ -159,7 +166,7 @@ public final class ChatViewModel {
             ))
         } catch {
             let detail = (error as? LocalizedError)?.errorDescription
-                ?? "Something went wrong. Try again in a moment."
+                ?? String(appCopy: "Something went wrong. Try again in a moment.")
             messages.append(ChatMessage(role: .assistant, text: detail))
         }
     }

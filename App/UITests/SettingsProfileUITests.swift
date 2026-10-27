@@ -88,20 +88,54 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertEqual(home.value as? String, "system", "System restores the original Home")
     }
 
-    func testLanguageChoicePersistsAfterRelaunch() {
-        openSettings()
-        app.buttons["settings.language"].tap()
-        let picked = choose(otherThanSelectedAmong: ["language.en-US", "language.zh-CN"])
-        let title = picked == "language.en-US" ? "English" : "\u{4E2D}\u{6587}"
+    /// Chinese applies at once (no relaunch) and stays after one; English
+    /// brings the English copy back. Reached by identifiers only, so it
+    /// reads the same in either language; ends on English for the next run
+    /// (every other UI test finds elements by their English labels).
+    func testChineseAppliesLiveAndPersistsThenEnglishRestores() {
+        addTeardownBlock { [app] in
+            guard let app else { return }
+            app.launch()
+            app.buttons["home.settings"].tap()
+            app.buttons["settings.language"].tap()
+            app.buttons["language.en-US"].tap()
+        }
+        // "Start a memory" and "Chinese" in Chinese, escaped: committed
+        // text stays ASCII.
+        let chineseStart = "\u{5F00}\u{59CB}\u{8BB0}\u{5F55}"
+        let chineseName = "\u{4E2D}\u{6587}"
+        let start = app.buttons["Start a memory"]
 
+        setLanguage("language.zh-CN")
+        XCTAssertEqual(app.buttons["settings.language"].value as? String, chineseName)
         app.buttons["settings.back"].tap()
-        XCTAssertEqual(app.buttons["settings.language"].value as? String, title)
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertEqual(start.label, chineseStart, "Home switches without a relaunch")
 
         relaunch()
-        openSettings()
+        XCTAssertTrue(start.waitForExistence(timeout: 8))
+        XCTAssertEqual(start.label, chineseStart, "the language survives a relaunch")
+
+        setLanguage("language.en-US")
+        XCTAssertEqual(app.buttons["settings.language"].value as? String, "English")
+        app.buttons["settings.back"].tap()
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertEqual(start.label, "Start a memory", "English restores the English copy")
+    }
+
+    /// Opens Settings > Language from Home, picks `id` and returns to the
+    /// Settings overview.
+    private func setLanguage(_ id: String) {
+        let gear = app.buttons["home.settings"]
+        XCTAssertTrue(gear.waitForExistence(timeout: 8))
+        gear.tap()
         app.buttons["settings.language"].tap()
-        XCTAssertTrue(app.buttons[picked].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons[picked].isSelected)
+        let option = app.buttons[id]
+        XCTAssertTrue(option.waitForExistence(timeout: 5))
+        option.tap()
+        XCTAssertTrue(option.isSelected)
+        app.buttons["settings.back"].tap()
+        XCTAssertTrue(app.buttons["settings.language"].waitForExistence(timeout: 5))
     }
 
     func testTextSizeAdjustsAndPersists() {

@@ -185,7 +185,7 @@ struct ChoosePhotosSheet: View {
 
     private func pill(_ label: String, filled: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(label)
+            Text(copy: label)
                 .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(filled ? Palette.onInk : Palette.ink)
                 .frame(width: 94.55, height: 30)

@@ -88,7 +88,7 @@ struct StarJarView: View {
     private var periodPicker: some View {
         HStack(spacing: 6) {
             ForEach(JarPeriod.allCases, id: \.self) { option in
-                Button(option == .week ? "Week" : "Month") {
+                Button(option == .week ? "Week" as LocalizedStringKey : "Month") {
                     period = option
                     interval = option.interval(containing: isCurrent ? .now : interval.start)
                 }
@@ -101,16 +101,18 @@ struct StarJarView: View {
 
     private var periodStepper: some View {
         HStack {
-            stepButton("chevron.left", label: "Previous \(period.rawValue)", id: "jar.previous") {
+            stepButton("chevron.left", label: period == .week ? String(appCopy: "Previous week") : String(appCopy: "Previous month"),
+                       id: "jar.previous") {
                 interval = period.interval(shifting: interval, by: -1)
             }
             Spacer()
-            Text(period.label(for: interval))
+            Text(period.label(for: interval, locale: AppSettings.shared.language.locale))
                 .font(.miraCardTitle)
                 .foregroundStyle(Palette.ink)
                 .accessibilityIdentifier("jar.period")
             Spacer()
-            stepButton("chevron.right", label: "Next \(period.rawValue)", id: "jar.next") {
+            stepButton("chevron.right", label: period == .week ? String(appCopy: "Next week") : String(appCopy: "Next month"),
+                       id: "jar.next") {
                 interval = period.interval(shifting: interval, by: 1)
             }
             .disabled(isCurrent)
@@ -183,13 +185,22 @@ struct StarJarView: View {
     }
 
     private var emptyLine: String {
-        isCurrent ? "No memories yet this \(period.rawValue)." : "No memories that \(period.rawValue)."
+        switch (period, isCurrent) {
+        case (.week, true): return String(appCopy: "No memories yet this week.")
+        case (.month, true): return String(appCopy: "No memories yet this month.")
+        case (.week, false): return String(appCopy: "No memories that week.")
+        case (.month, false): return String(appCopy: "No memories that month.")
+        }
     }
 
     private var summary: String {
         let count = stars.count
-        let noun = count == 1 ? "memory" : "memories"
-        return "\(count) \(noun) \(isCurrent ? "this" : "that") \(period.rawValue)"
+        switch (period, isCurrent) {
+        case (.week, true): return String(appCopy: "\(count) memories this week")
+        case (.month, true): return String(appCopy: "\(count) memories this month")
+        case (.week, false): return String(appCopy: "\(count) memories that week")
+        case (.month, false): return String(appCopy: "\(count) memories that month")
+        }
     }
 
     private var legend: some View {
@@ -289,7 +300,7 @@ private struct StarButton: View {
 
     private var accessibilityText: String {
         let title = star.memory.title.isEmpty ? CaptionDate.string(for: star.memory.memoryDate) : star.memory.title
-        return "\(title), \(star.memory.mood?.displayName ?? "mood not read yet")"
+        return String(appCopy: "\(title), \(star.memory.mood?.displayName ?? String(appCopy: "mood not read yet"))")
     }
 }
 

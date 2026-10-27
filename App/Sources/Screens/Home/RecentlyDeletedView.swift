@@ -64,11 +64,11 @@ struct RecentlyDeletedView: View {
     private func row(_ entry: TrashedMemory) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.memory.title.isEmpty ? "Untitled" : entry.memory.title)
+                Text(entry.memory.title.isEmpty ? String(appCopy: "Untitled") : entry.memory.title)
                     .font(.miraCardTitle)
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
-                Text("from \(entry.collectionTitle) \u{00B7} \(daysLeft(entry)) days left")
+                Text("from \(entry.collectionTitle) \u{00B7} \(String(appCopy: "\(daysLeft(entry)) days left"))")
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
             }

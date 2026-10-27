@@ -10,14 +10,43 @@ public enum AppearanceChoice: String, CaseIterable, Sendable {
 public enum LanguageChoice: String, CaseIterable, Sendable {
     case english = "en-US"
     case simplifiedChinese = "zh-CN"
+
+    /// The app bundle's localization for this language.
+    public var localization: String {
+        switch self {
+        case .english: return "en"
+        case .simplifiedChinese: return "zh-Hans"
+        }
+    }
+
+    /// The locale the app's copy, dates and numbers use: its language picks
+    /// the catalog's localization (`zh-Hans`), its region the formats.
+    public var locale: Locale {
+        switch self {
+        case .english: return Locale(identifier: "en-US")
+        case .simplifiedChinese: return Locale(identifier: "zh-Hans-CN")
+        }
+    }
+
+    /// What the device asks for when nothing is chosen yet, matched the way
+    /// iOS matches an app's localizations: a Simplified Chinese device gets
+    /// Chinese, everything else English.
+    public static func matching(preferredLanguages: [String]) -> LanguageChoice {
+        let best = Bundle.preferredLocalizations(from: ["en", "zh-Hans"], forPreferences: preferredLanguages)
+        return best.first == "zh-Hans" ? .simplifiedChinese : .english
+    }
 }
 
 /// The Settings screens' preferences, persisted in UserDefaults under
-/// `miranote.settings.*`. The app draws its theme from the appearance;
-/// applying the language (zh-CN copy) and the text scale app-wide comes in
-/// follow-up PRs.
+/// `miranote.settings.*`. The app draws its theme from the appearance and
+/// its copy's language from `language` (see `String(appCopy:)`); applying
+/// the text scale app-wide comes in a follow-up PR.
 @Observable
 public final class AppSettings {
+    /// The app's preferences. String lookups outside the view tree read the
+    /// language here, so there is one instance for the whole app.
+    public static let shared = AppSettings()
+
     /// The text-size slider's range: 1.0 sits where the handoff draws the
     /// thumb (106 of 238 pt along the rail).
     public static let textScaleRange: ClosedRange<Double> = 0.8...1.25
@@ -27,6 +56,7 @@ public final class AppSettings {
         static let appearance = "miranote.settings.appearance"
         static let language = "miranote.settings.language"
         static let textScale = "miranote.settings.textScale"
+        static let appleLanguages = "AppleLanguages"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -35,18 +65,27 @@ public final class AppSettings {
         didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
     }
 
+    /// The app's copy follows at once. A pick also becomes the app's
+    /// preferred language, so what iOS draws for the app -- permission
+    /// prompts, the photo picker, system buttons -- follows from the next
+    /// launch.
     public var language: LanguageChoice {
-        didSet { defaults.set(language.rawValue, forKey: Key.language) }
+        didSet {
+            defaults.set(language.rawValue, forKey: Key.language)
+            defaults.set([language.localization], forKey: Key.appleLanguages)
+        }
     }
 
     /// Always inside `textScaleRange`; set it with `setTextScale(_:)`.
     public private(set) var textScale: Double
 
-    /// Unknown stored values read as the defaults: system, en-US, 1.0.
-    public init(defaults: UserDefaults = .standard) {
+    /// Unknown stored values read as the defaults: system, the device's
+    /// language (until one is picked, nothing is stored), 1.0.
+    public init(defaults: UserDefaults = .standard, preferredLanguages: [String] = Locale.preferredLanguages) {
         self.defaults = defaults
         appearance = defaults.string(forKey: Key.appearance).flatMap(AppearanceChoice.init) ?? .system
-        language = defaults.string(forKey: Key.language).flatMap(LanguageChoice.init) ?? .english
+        language = defaults.string(forKey: Key.language).flatMap(LanguageChoice.init)
+            ?? LanguageChoice.matching(preferredLanguages: preferredLanguages)
         textScale = Self.clamped((defaults.object(forKey: Key.textScale) as? Double) ?? 1)
     }
 

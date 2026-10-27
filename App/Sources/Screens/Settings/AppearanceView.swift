@@ -63,7 +63,7 @@ struct AppearanceView: View {
                         .foregroundStyle(SettingsStyle.note)
                         .frame(minHeight: 20)
                         .padding(.top, 8)
-                    Text(isOn ? "Selected" : "Tap to select")
+                    Text(isOn ? "Selected" as LocalizedStringKey : "Tap to select")
                         .font(Sans.font(size: 12, weight: 500))
                         .foregroundStyle(isOn ? SettingsStyle.intro : Color(hex: 0xA49A8C))
                         .frame(minHeight: 18)
@@ -92,9 +92,9 @@ struct AppearanceView: View {
 private extension AppearanceChoice {
     var blurb: String {
         switch self {
-        case .system: return "Original MiraNote"
-        case .forest: return "Forest green \u{00B7} warm gold"
-        case .sunlitPop: return "Peach \u{00B7} coral \u{00B7} lilac"
+        case .system: return String(appCopy: "Original MiraNote")
+        case .forest: return String(appCopy: "Forest green \u{00B7} warm gold")
+        case .sunlitPop: return String(appCopy: "Peach \u{00B7} coral \u{00B7} lilac")
         }
     }
 }

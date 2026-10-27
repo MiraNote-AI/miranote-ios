@@ -69,7 +69,7 @@ public final class HomeViewModel {
                 .firstIndex(where: { $0.id == noteID })
         else { return }
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        library.collections[collectionIndex].memories[noteIndex].title = name.isEmpty ? "Untitled" : name
+        library.collections[collectionIndex].memories[noteIndex].title = name.isEmpty ? String(appCopy: "Untitled") : name
         library.collections[collectionIndex].memories[noteIndex].body = body
         library.collections[collectionIndex].memories[noteIndex].savedAt = .now
         store.save(library)

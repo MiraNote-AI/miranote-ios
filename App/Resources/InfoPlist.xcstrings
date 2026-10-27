@@ -1,0 +1,78 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSCameraUsageDescription" : {
+      "comment" : "Permission prompt; English must match project.yml's Info.plist value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote uses the camera to add photos to your memory pages."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 使用相机为你的记忆页面添加照片。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Permission prompt; English must match project.yml's Info.plist value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote uses the microphone to turn your voice into notes."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 使用麦克风把你的声音变成笔记。"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryAddUsageDescription" : {
+      "comment" : "Permission prompt; English must match project.yml's Info.plist value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote saves your exported memory pages to your photo library."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 会把你导出的记忆页面存到照片图库。"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "comment" : "Permission prompt; English must match project.yml's Info.plist value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote shows your recent photos so you can add them to your memory pages."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 会显示你最近的照片，方便你添加到记忆页面。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

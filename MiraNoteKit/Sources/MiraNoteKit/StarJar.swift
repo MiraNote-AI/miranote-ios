@@ -34,22 +34,22 @@ public enum JarPeriod: String, CaseIterable, Sendable {
         return self.interval(containing: moved, calendar: calendar)
     }
 
-    /// "Oct 20 - 26", "Sep 29 - Oct 5" or "October 2026" (en dashes).
-    /// Pinned to English, as all of the app's copy is.
-    public func label(for interval: DateInterval, calendar: Calendar = .current) -> String {
+    /// "Oct 20 - 26", "Sep 29 - Oct 5" or "October 2026" (en dashes), each
+    /// date laid out the way `locale` writes it.
+    public func label(for interval: DateInterval, locale: Locale, calendar: Calendar = .current) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
+        formatter.locale = locale
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         if self == .month {
-            formatter.dateFormat = "MMMM yyyy"
+            formatter.setLocalizedDateFormatFromTemplate("MMMMyyyy")
             return formatter.string(from: interval.start)
         }
         let last = interval.end.addingTimeInterval(-1)
         let sameMonth = calendar.isDate(interval.start, equalTo: last, toGranularity: .month)
-        formatter.dateFormat = "MMM d"
+        formatter.setLocalizedDateFormatFromTemplate("MMMd")
         let start = formatter.string(from: interval.start)
-        formatter.dateFormat = sameMonth ? "d" : "MMM d"
+        formatter.setLocalizedDateFormatFromTemplate(sameMonth ? "d" : "MMMd")
         return "\(start) \u{2013} \(formatter.string(from: last))"
     }
 }

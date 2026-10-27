@@ -137,7 +137,7 @@ struct BackgroundToolSheet: View {
     }
 
     private func label(_ text: String) -> some View {
-        Text(text)
+        Text(copy: text)
             .font(Sans.font(size: 13, weight: 500))
             .foregroundStyle(Palette.ink)
             .frame(height: 15)
@@ -175,8 +175,8 @@ struct BackgroundToolSheet: View {
     }
 
     private var previewLabel: String {
-        if !editor.memory.backgroundFileName.isEmpty { return "PAINTED" }
-        return editor.memory.pageColorName.isEmpty ? "DEFAULT" : editor.memory.pageColorName.uppercased()
+        if !editor.memory.backgroundFileName.isEmpty { return String(appCopy: "PAINTED") }
+        return editor.memory.pageColorName.isEmpty ? String(appCopy: "DEFAULT") : editor.memory.pageColorName.uppercased()
     }
 
     // MARK: Paper
@@ -192,7 +192,7 @@ struct BackgroundToolSheet: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(kind.rawValue.capitalized) paper")
+                .accessibilityLabel(String(appCopy: "\(kind.title) paper"))
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .accessibilityIdentifier("background.paper.\(kind.rawValue)")
             }
@@ -237,8 +237,8 @@ struct BackgroundToolSheet: View {
                 .dotHitTarget()
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(swatch.name)
-        .accessibilityHint(chosen ? "Returns the page to its default backdrop" : "")
+        .accessibilityLabel(Text(copy: swatch.name))
+        .accessibilityHint(chosen ? Text("Returns the page to its default backdrop") : Text(verbatim: ""))
         .accessibilityAddTraits(chosen ? .isSelected : [])
         .accessibilityIdentifier("background.color.\(swatch.hex)")
     }
@@ -251,7 +251,7 @@ struct BackgroundToolSheet: View {
             dot().dotHitTarget()
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(request == .custom ? "Custom page color" : "Pick a page color")
+        .accessibilityLabel(request == .custom ? Text("Custom page color") : Text("Pick a page color"))
         .accessibilityIdentifier("background.color.\(request.rawValue)")
     }
 

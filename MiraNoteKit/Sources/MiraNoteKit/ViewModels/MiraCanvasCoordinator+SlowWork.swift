@@ -16,13 +16,13 @@ extension MiraCanvasCoordinator {
             // The same settle as the keyword route: page color too, one
             // step, and an honest no-op on a default page.
             settleBackgroundCleared(MiraReceipt(
-                changed: "Cleared the backdrop.",
-                kept: "Your words and photos are unchanged."
+                changed: String(appCopy: "Cleared the backdrop."),
+                kept: String(appCopy: "Your words and photos are unchanged.")
             ), editor: editor)
         case .set(let prompt):
             startSlowTurn(
                 .setBackground(prompt: prompt),
-                verb: "Painting the backdrop...",
+                verb: String(appCopy: "Painting the backdrop..."),
                 editor: editor
             )
         }
@@ -57,7 +57,7 @@ extension MiraCanvasCoordinator {
         // for missing pixels and settles as an atomic photo replacement.
         startSlowTurn(
             .editPhoto(id, imageData: data, instruction: request.instruction),
-            verb: "Restyling the photo...",
+            verb: String(appCopy: "Restyling the photo..."),
             editor: editor
         )
     }

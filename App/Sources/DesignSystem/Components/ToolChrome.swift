@@ -22,14 +22,14 @@ struct ToolComposer: View {
         ) {
             Group {
                 if let text {
-                    TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(Palette.muted))
+                    TextField(placeholder, text: text, prompt: Text(copy: placeholder).foregroundStyle(Palette.muted))
                         .foregroundStyle(Palette.ink)
                         .tint(Palette.forest)
                         .submitLabel(.go)
                         .onSubmit { if actionEnabled { onAction() } }
                         .modifier(OptionalFocus(focus: focus))
                 } else {
-                    Text(placeholder)
+                    Text(copy: placeholder)
                         .foregroundStyle(Palette.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -68,7 +68,7 @@ struct EditTile: View {
 
     var body: some View {
         Button(action: action) {
-            Text(label)
+            Text(copy: label)
                 .font(Sans.font(size: 13, weight: 700))
                 .foregroundStyle(selected ? Palette.ink : Palette.muted)
                 // One line at 13 pt: the tile grows with its word ("AI

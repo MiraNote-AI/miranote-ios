@@ -86,12 +86,25 @@ final class StarJarTests: XCTestCase {
     }
 
     func testPeriodLabels() {
+        let english = Locale(identifier: "en_US")
         let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)
-        XCTAssertEqual(JarPeriod.month.label(for: october, calendar: calendar), "October 2026")
+        XCTAssertEqual(JarPeriod.month.label(for: october, locale: english, calendar: calendar), "October 2026")
         let week = JarPeriod.week.interval(containing: date(2026, 10, 22), calendar: calendar)
-        XCTAssertEqual(JarPeriod.week.label(for: week, calendar: calendar), "Oct 19 \u{2013} 25")
+        XCTAssertEqual(JarPeriod.week.label(for: week, locale: english, calendar: calendar), "Oct 19 \u{2013} 25")
         let straddling = JarPeriod.week.interval(containing: date(2026, 10, 1), calendar: calendar)
-        XCTAssertEqual(JarPeriod.week.label(for: straddling, calendar: calendar), "Sep 28 \u{2013} Oct 4")
+        XCTAssertEqual(JarPeriod.week.label(for: straddling, locale: english, calendar: calendar), "Sep 28 \u{2013} Oct 4")
+    }
+
+    /// Chinese writes the dates its own way: "2026 year 10 month",
+    /// "10 month 19 day - 25 day" (escaped: committed text stays ASCII).
+    func testPeriodLabelsInChinese() {
+        let chinese = Locale(identifier: "zh-Hans-CN")
+        let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)
+        XCTAssertEqual(JarPeriod.month.label(for: october, locale: chinese, calendar: calendar),
+                       "2026\u{5E74}10\u{6708}")
+        let week = JarPeriod.week.interval(containing: date(2026, 10, 22), calendar: calendar)
+        XCTAssertEqual(JarPeriod.week.label(for: week, locale: chinese, calendar: calendar),
+                       "10\u{6708}19\u{65E5} \u{2013} 25\u{65E5}")
     }
 
     // MARK: Text to judge

@@ -13,7 +13,7 @@ extension CanvasScene {
         // it over (or its release would transcribe the take into the block).
         // An armed Voice tool holds nothing yet.
         if case .recording = recorderState {
-            dictationHint = "Stop the voice recording first."
+            dictationHint = String(appCopy: "Stop the voice recording first.")
             return
         }
         dictationPress = (start: .now, wasLive: dictating || recorder != nil)
@@ -116,20 +116,20 @@ extension CanvasScene {
     /// return looked like a dead feature.
     private func transcribe(_ recorder: AudioRecording, for id: CanvasItem.ID?) async -> String? {
         guard let data = try? await recorder.stop(), !data.isEmpty else {
-            dictationHint = "I couldn't catch any words -- try again?"
+            dictationHint = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         guard id != nil else {
-            dictationHint = "Tap a text block first, then dictate."
+            dictationHint = String(appCopy: "Tap a text block first, then dictate.")
             return nil
         }
         guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
-            dictationHint = "Couldn't reach the transcriber -- try again?"
+            dictationHint = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty else {
-            dictationHint = "I couldn't catch any words -- try again?"
+            dictationHint = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         return words
@@ -169,7 +169,7 @@ extension CanvasScene {
         } else {
             then?()
         }
-        if !caught { flashHint("Couldn't catch those words.") }
+        if !caught { flashHint(String(appCopy: "Couldn't catch those words.")) }
     }
 
     private func append(_ words: String, to id: CanvasItem.ID) {
