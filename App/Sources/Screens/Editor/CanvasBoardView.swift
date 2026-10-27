@@ -238,14 +238,16 @@ struct CanvasBoardView: View {
 
     /// The block being written, its height and its words: what keeps it
     /// clear of the text tools when it changes (its first frame, its growth,
-    /// a word typed on the same line). The height is rounded: read off the
-    /// moving frame, it jitters in its last digits while the page scrolls.
+    /// a word typed on the same line). The height is the block's own, in
+    /// page points: the moving frame's jitters in its last digits while the
+    /// page scrolls, and is scaled by the phone's page scale.
     private var writtenKey: WrittenKey? {
-        writtenFrame.map {
+        writtenFrame.map { _ in
             let id = editor.editingTextItemID
+            let item = id.flatMap { editor.item($0) }
             var text: String?
-            if let id, case .text(let block) = editor.item(id)?.content { text = block.text }
-            return WrittenKey(id: id, height: $0.height.rounded(), text: text)
+            if case .text(let block) = item?.content { text = block.text }
+            return WrittenKey(id: id, height: item?.size.height ?? 0, text: text)
         }
     }
 
