@@ -1,9 +1,9 @@
 import XCTest
 
 /// Handoff 2026-10-24 screens 01-07: Home's settings and profile circles,
-/// the Settings screens' persisted choices and the Edit Profile sheet. The
-/// preferences live in the simulator's defaults across runs, so each test
-/// picks a choice that is not the current one rather than assuming a start.
+/// the Settings screens' persisted choices and the Edit Profile sheet.
+/// Under -UITEST every launch starts from the default settings and no
+/// profile; a test's own relaunch passes `-KEEP_SETTINGS`.
 final class SettingsProfileUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -28,6 +28,7 @@ final class SettingsProfileUITests: XCTestCase {
 
     private func relaunch() {
         app.terminate()
+        app.launchArguments = ["-UITEST", "-KEEP_SETTINGS"]
         app.launch()
     }
 
@@ -104,6 +105,36 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertTrue(app.buttons[picked].isSelected)
     }
 
+    /// A later run never sees an earlier one's choices (a test changing
+    /// the appearance left the next suite themed).
+    func testANewLaunchStartsFromTheDefaults() {
+        openSettings()
+        app.buttons["settings.appearance"].tap()
+        XCTAssertTrue(app.buttons["appearance.system"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["appearance.system"].isSelected, "a fresh launch is on System")
+        app.buttons["appearance.forest"].tap()
+        app.buttons["settings.back"].tap()
+        app.buttons["settings.back"].tap()
+        app.buttons["home.profile"].tap()
+        app.buttons["profile.edit"].tap()
+        let field = app.textFields["profile.sheet.name"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Ada")
+        app.buttons["profile.sheet.save"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments = ["-UITEST"]
+        app.launch()
+        openSettings()
+        XCTAssertEqual(app.buttons["settings.appearance"].value as? String, "System")
+        app.buttons["settings.back"].tap()
+        app.buttons["home.profile"].tap()
+        XCTAssertTrue(app.buttons["profile.name"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["profile.name"].label, "Add your name")
+    }
+
     func testTextSizeAdjustsAndPersists() {
         openSettings()
         let slider = app.otherElements["settings.textSize"]
@@ -139,6 +170,8 @@ final class SettingsProfileUITests: XCTestCase {
 
         clear(field)
         XCTAssertFalse(save.isEnabled, "a name is required")
+        field.typeText("A" + XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(app.staticTexts["profile.sheet.helper"].label, "Name can't be empty.")
         let name = "Ada \(Int.random(in: 1000...9999))"
         field.typeText(name)
         XCTAssertTrue(save.isEnabled)
@@ -159,9 +192,11 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText(" unsaved")
+        XCTAssertFalse(app.buttons["profile.edit"].exists, "the card behind the sheet is hidden from VoiceOver")
         app.buttons["profile.sheet.close"].tap()
 
         XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["profile.edit"].exists)
         XCTAssertEqual(nameButton.label, saved, "Close keeps the saved name")
     }
 

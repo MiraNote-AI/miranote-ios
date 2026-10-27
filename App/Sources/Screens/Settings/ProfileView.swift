@@ -13,6 +13,8 @@ struct ProfileView: View {
     @Environment(\.theme) private var theme
     @State private var editing = false
     @State private var avatar: UIImage?
+    /// VoiceOver goes back to Edit Profile when the sheet closes.
+    @AccessibilityFocusState private var editFocused: Bool
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -25,16 +27,19 @@ struct ProfileView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             SettingsHeader(title: "Profile", onBack: onBack)
         }
+        // The sheet is modal: VoiceOver cannot wander onto the card behind
+        // it (as Reading's export sheet).
+        .accessibilityHidden(editing)
         .overlay(alignment: .bottom) {
             ZStack(alignment: .bottom) {
                 if editing {
                     // The handoff's modal scrim: #201E1C at 38%.
                     Color(hex: 0x201E1C).opacity(0.38)
                         .ignoresSafeArea()
-                        .onTapGesture { editing = false }
+                        .onTapGesture(perform: closeSheet)
                         .accessibilityHidden(true)
                         .transition(.opacity)
-                    EditProfileSheet(profile: profile, avatar: avatar) { editing = false }
+                    EditProfileSheet(profile: profile, avatar: avatar, onClose: closeSheet)
                         .transition(.move(edge: .bottom))
                 }
             }
@@ -43,6 +48,12 @@ struct ProfileView: View {
         .task(id: profile.avatarFileName) {
             avatar = profile.loadAvatar().flatMap(UIImage.init(data:))
         }
+    }
+
+    private func closeSheet() {
+        editing = false
+        // Once the card is back in the accessibility tree.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { editFocused = true }
     }
 
     /// 342 wide: the 76 pt avatar 17 from the top, the name (SemiBold 23)
@@ -102,6 +113,7 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.edit")
+            .accessibilityFocused($editFocused)
             .padding(.top, 19.5)
             .padding(.horizontal, 18)
             .padding(.bottom, 18)
