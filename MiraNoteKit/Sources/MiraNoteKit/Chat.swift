@@ -15,16 +15,20 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public var pageDraft: ChatPageDraft?
     /// Photos the user sent with this turn, as `ImageFileStore` file names.
     public var imageFileNames: [String]
+    /// The turn's words are the app's own (a tapped chip), shown in the
+    /// app's language; typed words show exactly as typed.
+    public var isAppCopy: Bool
 
     public init(
         id: UUID = UUID(), role: Role, text: String,
-        pageDraft: ChatPageDraft? = nil, imageFileNames: [String] = []
+        pageDraft: ChatPageDraft? = nil, imageFileNames: [String] = [], isAppCopy: Bool = false
     ) {
         self.id = id
         self.role = role
         self.text = text
         self.pageDraft = pageDraft
         self.imageFileNames = imageFileNames
+        self.isAppCopy = isAppCopy
     }
 }
 

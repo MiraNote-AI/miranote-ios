@@ -123,7 +123,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "那个月有 %lld 段记忆"
+                  "value" : "那个月有 %lld 段回忆"
                 }
               }
             }
@@ -158,7 +158,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "那一周有 %lld 段记忆"
+                  "value" : "那一周有 %lld 段回忆"
                 }
               }
             }
@@ -193,7 +193,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "这个月有 %lld 段记忆"
+                  "value" : "这个月有 %lld 段回忆"
                 }
               }
             }
@@ -228,7 +228,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "这周有 %lld 段记忆"
+                  "value" : "这周有 %lld 段回忆"
                 }
               }
             }
@@ -301,7 +301,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "+ 新记忆"
+            "value" : "+ 新的回忆"
           }
         }
       }
@@ -676,7 +676,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "问问 Mira"
+            "value" : "有什么都可以问 Mira"
           }
         }
       }
@@ -687,7 +687,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "问问 Mira…"
+            "value" : "有什么都可以问 Mira…"
           }
         }
       }
@@ -790,18 +790,19 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "腮红粉"
+            "value" : "淡粉"
           }
         }
       }
     },
     "Bring to front" : {
+      "comment" : "Element menu. Glossary: front/back = 顶层/底层.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "移到最前"
+            "value" : "置于顶层"
           }
         }
       }
@@ -961,7 +962,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选一个色调，或从你的记忆里取色。"
+            "value" : "选一个色调，或从你的回忆里取色。"
           }
         }
       }
@@ -1023,12 +1024,13 @@
       }
     },
     "Clean up" : {
+      "comment" : "Rewrite choice. Glossary: Clean up = 清理; Tidy (the layout) = 整理.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "整理"
+            "value" : "清理"
           }
         }
       }
@@ -1040,7 +1042,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已整理文字。"
+            "value" : "已清理文字。"
           }
         }
       }
@@ -1052,7 +1054,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在整理文字…"
+            "value" : "正在清理文字…"
           }
         }
       }
@@ -1328,7 +1330,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "装点你的记忆"
+            "value" : "装点你的回忆"
           }
         }
       }
@@ -1434,12 +1436,13 @@
       }
     },
     "Display Name" : {
+      "comment" : "Profile field. Glossary: display name = 昵称; your name = 名字.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "显示名称"
+            "value" : "昵称"
           }
         }
       }
@@ -1512,12 +1515,13 @@
       }
     },
     "Duplicate" : {
+      "comment" : "Element menu. Glossary: Duplicate = 创建副本.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "复制"
+            "value" : "创建副本"
           }
         }
       }
@@ -2265,7 +2269,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "做一页治愈的页面"
+            "value" : "做一个治愈的页面"
           }
         }
       }
@@ -2345,7 +2349,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "记忆日期"
+            "value" : "回忆日期"
           }
         }
       }
@@ -2520,6 +2524,18 @@
         }
       }
     },
+    "Name can't be empty." : {
+      "comment" : "Edit Profile helper when the name field is emptied.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名字不能为空。"
+          }
+        }
+      }
+    },
     "Name your new notebook." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2562,7 +2578,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新记忆"
+            "value" : "新的回忆"
           }
         }
       }
@@ -2640,7 +2656,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "那个月没有记忆。"
+            "value" : "那个月没有回忆。"
           }
         }
       }
@@ -2651,7 +2667,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "那一周没有记忆。"
+            "value" : "那一周没有回忆。"
           }
         }
       }
@@ -2662,7 +2678,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这个月还没有记忆。"
+            "value" : "这个月还没有回忆。"
           }
         }
       }
@@ -2673,7 +2689,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这周还没有记忆。"
+            "value" : "这周还没有回忆。"
           }
         }
       }
@@ -2815,13 +2831,13 @@
       }
     },
     "Original" : {
-      "comment" : "Rewrite choice, photo filter and export quality: the untouched version.",
+      "comment" : "Photo treatment and export quality: the untouched photo (原图). The text rewrite's untouched words are \"Original text\".",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "原始"
+            "value" : "原图"
           }
         }
       }
@@ -2833,6 +2849,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "经典 MiraNote"
+          }
+        }
+      }
+    },
+    "Original text" : {
+      "comment" : "Text rewrite choice: the words as written. Shown in English as \"Original\".",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原文"
           }
         }
       }
@@ -3592,12 +3626,13 @@
       }
     },
     "Revert" : {
+      "comment" : "Glossary: Revert = 还原 (take back the last change).",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "撤回"
+            "value" : "还原"
           }
         }
       }
@@ -3788,7 +3823,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "移到最后"
+            "value" : "置于底层"
           }
         }
       }
@@ -3988,7 +4023,7 @@
       }
     },
     "Start a memory" : {
-      "comment" : "Home's main button. Glossary: memory = 记忆; 'start a memory' reads as 'start recording'.",
+      "comment" : "Home's main button. Glossary: memory = 回忆 (a journal memory; never 记忆); 'start a memory' reads as 'start recording'.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -4610,7 +4645,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "写下或润色你的记忆"
+            "value" : "写下或润色你的回忆"
           }
         }
       }
@@ -4817,7 +4852,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这段记忆发生在什么时候？"
+            "value" : "这段回忆发生在什么时候？"
           }
         }
       }
@@ -4978,7 +5013,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的记忆，"
+            "value" : "你的回忆，"
           }
         }
       }
@@ -5072,7 +5107,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "美好成篇。"
+            "value" : "精心成篇。"
           }
         }
       }

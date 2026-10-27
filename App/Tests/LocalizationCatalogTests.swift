@@ -76,6 +76,58 @@ final class LocalizationCatalogTests: XCTestCase {
         }
     }
 
+    /// Copy written into the code as a literal -- `Text("...")`,
+    /// `Button("...")`, `Label("...", ...)`, `Text(copy: "...")`,
+    /// `String(appCopy: "...")` -- has its catalog entry, so no screen shows
+    /// English words in Chinese. Best effort: literals with interpolation
+    /// are left out (their keys take format specifiers), as are glyphs and
+    /// names that are not copy, and the UI test services.
+    func testEveryLiteralCopyInTheSourceIsInTheCatalog() throws {
+        let strings = try catalog("Localizable")
+        let repository = Self.resources.deletingLastPathComponent().deletingLastPathComponent()
+        let call = try NSRegularExpression(
+            pattern: #"(?:\bText\(|\bButton\(|\bLabel\(|String\(appCopy:\s*|Text\(copy:\s*)"((?:[^"\\]|\\.)*)""#
+        )
+        let notCopy: Set<String> = ["A", "Aa", "M", "MiraNote", "#RRGGBB"]
+        var missing: [String] = []
+        var checked = 0
+        for folder in ["App/Sources", "MiraNoteKit/Sources"] {
+            let root = repository.appendingPathComponent(folder)
+            let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }
+                .filter { $0.pathExtension == "swift" && $0.lastPathComponent != "UITestServices.swift" } ?? []
+            for file in files {
+                let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: .newlines)
+                for (number, line) in lines.enumerated()
+                where !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
+                    let range = NSRange(line.startIndex..., in: line)
+                    for match in call.matches(in: line, range: range) {
+                        guard let literal = Range(match.range(at: 1), in: line).map({ String(line[$0]) }),
+                              !literal.contains("\\("), literal.contains(where: \.isLetter) else { continue }
+                        let key = Self.unescaped(literal)
+                        guard !notCopy.contains(key) else { continue }
+                        checked += 1
+                        if strings[key] == nil { missing.append("\(file.lastPathComponent):\(number + 1) \(key)") }
+                    }
+                }
+            }
+        }
+        XCTAssertGreaterThan(checked, 200, "the scan found the code's copy")
+        XCTAssertEqual(missing, [], "copy with no catalog entry")
+    }
+
+    /// A Swift string literal's text: `\u{...}`, `\"` and `\\` resolved.
+    private static func unescaped(_ literal: String) -> String {
+        var result = literal.replacingOccurrences(of: #"\""#, with: "\"")
+        let scalar = try! NSRegularExpression(pattern: #"\\u\{([0-9A-Fa-f]+)\}"#)
+        for match in scalar.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed() {
+            guard let whole = Range(match.range, in: result), let hex = Range(match.range(at: 1), in: result),
+                  let value = UInt32(result[hex], radix: 16), let character = Unicode.Scalar(value) else { continue }
+            result.replaceSubrange(whole, with: String(character))
+        }
+        return result.replacingOccurrences(of: #"\\"#, with: "\\")
+    }
+
     /// The permission prompts' English in the catalog is Info.plist's own.
     func testInfoPlistCatalogMatchesInfoPlist() throws {
         for (key, entry) in try catalog("InfoPlist") {
@@ -105,12 +157,10 @@ final class LocalizationCatalogTests: XCTestCase {
     /// the language picked in Settings. Restores the simulator's choice.
     func testKitCopyFollowsTheChosenLanguage() throws {
         let settings = AppSettings.shared
-        let stored = UserDefaults.standard.object(forKey: "miranote.settings.language")
-        let storedLanguages = UserDefaults.standard.object(forKey: "AppleLanguages")
+        let storedLanguages = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier!)?["AppleLanguages"]
         let before = settings.language
         defer {
             settings.language = before
-            UserDefaults.standard.set(stored, forKey: "miranote.settings.language")
             UserDefaults.standard.set(storedLanguages, forKey: "AppleLanguages")
         }
 

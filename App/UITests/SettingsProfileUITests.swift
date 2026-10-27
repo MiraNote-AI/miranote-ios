@@ -89,22 +89,16 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertEqual(home.value as? String, "system", "System restores the original Home")
     }
 
+    // "Start a memory" and "Chinese" in Chinese, escaped: committed text
+    // stays ASCII.
+    private let chineseStart = "\u{5F00}\u{59CB}\u{8BB0}\u{5F55}"
+    private let chineseName = "\u{4E2D}\u{6587}"
+
     /// Chinese applies at once (no relaunch) and stays after one; English
     /// brings the English copy back. Reached by identifiers only, so it
-    /// reads the same in either language; ends on English for the next run
-    /// (every other UI test finds elements by their English labels).
+    /// reads the same in either language. The next run starts in English
+    /// whatever this one leaves (`testALaunchInChineseSwitchesLive`).
     func testChineseAppliesLiveAndPersistsThenEnglishRestores() {
-        addTeardownBlock { [app] in
-            guard let app else { return }
-            app.launch()
-            app.buttons["home.settings"].tap()
-            app.buttons["settings.language"].tap()
-            app.buttons["language.en-US"].tap()
-        }
-        // "Start a memory" and "Chinese" in Chinese, escaped: committed
-        // text stays ASCII.
-        let chineseStart = "\u{5F00}\u{59CB}\u{8BB0}\u{5F55}"
-        let chineseName = "\u{4E2D}\u{6587}"
         let start = app.buttons["Start a memory"]
 
         setLanguage("language.zh-CN")
@@ -122,6 +116,32 @@ final class SettingsProfileUITests: XCTestCase {
         app.buttons["settings.back"].tap()
         XCTAssertTrue(start.waitForExistence(timeout: 5))
         XCTAssertEqual(start.label, "Start a memory", "English restores the English copy")
+    }
+
+    /// A launch in Chinese (the app's language in iOS Settings, here the
+    /// launch argument) shows Chinese, and the in-app pick still switches
+    /// live. A later launch that asks for no language is English, whatever
+    /// was picked before: a Chinese simulator or an aborted language test
+    /// never turns the English-label suite Chinese.
+    func testALaunchInChineseSwitchesLive() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let start = app.buttons["Start a memory"]
+        XCTAssertTrue(start.waitForExistence(timeout: 8))
+        XCTAssertEqual(start.label, chineseStart, "iOS's language for the app is the app's")
+
+        setLanguage("language.en-US")
+        app.buttons["settings.back"].tap()
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertEqual(start.label, "Start a memory", "the pick applies live")
+
+        setLanguage("language.zh-CN")
+        app.terminate()
+        app.launchArguments = ["-UITEST"]
+        app.launch()
+        XCTAssertTrue(start.waitForExistence(timeout: 8))
+        XCTAssertEqual(start.label, "Start a memory", "a test asking for no language runs in English")
     }
 
     /// Opens Settings > Language from Home, picks `id` and returns to the

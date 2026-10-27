@@ -151,7 +151,7 @@ struct HomeFlow: View {
     @State private var route: Route?
     @State private var path = NavigationPath()
     @State private var settings = AppSettings.shared
-    @State private var profile = LocalProfile(defaults: HomeFlow.settingsDefaults, images: HomeFlow.profileImages)
+    @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
     @State private var moodJudge: MoodJudge?
 
     /// Where a newly finished memory is filed by default.
@@ -173,22 +173,9 @@ struct HomeFlow: View {
         return FileCollectionStore()
     }
 
-    /// UI tests keep the settings and the profile in a suite and a folder
-    /// of their own, emptied at launch, so no run sees an earlier one's;
-    /// `-KEEP_SETTINGS` keeps them (a test's own relaunch).
-    private static let settingsDefaults: UserDefaults = {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            let suite = "MiraNote.UITest.settings"
-            if !ProcessInfo.processInfo.arguments.contains("-KEEP_SETTINGS") {
-                UserDefaults.standard.removePersistentDomain(forName: suite)
-            }
-            return UserDefaults(suiteName: suite) ?? .standard
-        }
-        #endif
-        return .standard
-    }()
-
+    /// UI tests keep the avatar in a folder of their own, emptied at launch
+    /// like the settings' suite (`AppSettings.storeDefaults`);
+    /// `-KEEP_SETTINGS` keeps it (a test's own relaunch).
     private static let profileImages: ImageFileStore = {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {

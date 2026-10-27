@@ -413,7 +413,7 @@ struct RewriteRow: View {
 
     private func title(_ choice: TextRewriteSession.Choice) -> String {
         switch choice {
-        case .original: return String(appCopy: "Original")
+        case .original: return String(appCopy: "Original text")
         case .clean: return String(appCopy: "Clean up")
         case .expand: return String(appCopy: "Expand")
         }

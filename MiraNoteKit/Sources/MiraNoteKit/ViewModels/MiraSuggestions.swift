@@ -43,7 +43,9 @@ extension MiraCanvasCoordinator {
     public func askSuggestion(_ chip: String, editor: CanvasViewModel) {
         let words = ask(forSuggestion: chip, editor: editor)
         let intent: MiraIntent? = chip == Self.changeBackgroundChip ? .setBackground(prompt: words) : nil
-        ask(words, editor: editor, as: intent)
+        // The background ask quoting the page's words is not app copy.
+        let quotesThePage = chip == Self.changeBackgroundChip && Self.pageSubject(editor) != nil
+        ask(words, editor: editor, as: intent, appCopy: !quotesThePage)
     }
 
     /// The Background tool's "Apply to this page": the typed words describe
@@ -71,13 +73,13 @@ extension MiraCanvasCoordinator {
         case "Change background":
             askSuggestion(Self.changeBackgroundChip, editor: editor)
         case "Re-layout photos":
-            ask(Self.tidyChip, editor: editor)
+            ask(Self.tidyChip, editor: editor, as: nil, appCopy: true)
         case "Make text warmer":
-            ask("Make the text warmer", editor: editor)
+            ask("Make the text warmer", editor: editor, as: nil, appCopy: true)
         case "Add soft title":
-            ask("Add a soft title", editor: editor)
+            ask("Add a soft title", editor: editor, as: nil, appCopy: true)
         default:
-            ask(action, editor: editor)
+            ask(action, editor: editor, as: nil, appCopy: true)
         }
     }
 

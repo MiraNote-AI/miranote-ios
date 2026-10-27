@@ -28,24 +28,57 @@ public enum LanguageChoice: String, CaseIterable, Sendable {
         }
     }
 
-    /// What the device asks for when nothing is chosen yet, matched the way
-    /// iOS matches an app's localizations: a Simplified Chinese device gets
-    /// Chinese, everything else English.
-    public static func matching(preferredLanguages: [String]) -> LanguageChoice {
-        let best = Bundle.preferredLocalizations(from: ["en", "zh-Hans"], forPreferences: preferredLanguages)
-        return best.first == "zh-Hans" ? .simplifiedChinese : .english
+    /// The language of the app's localization iOS resolved (from the app's
+    /// own language in iOS Settings, or the device's): Simplified Chinese,
+    /// or English for anything else.
+    public init(localization: String?) {
+        self = localization?.hasPrefix("zh-Hans") == true ? .simplifiedChinese : .english
     }
 }
 
 /// The Settings screens' preferences, persisted in UserDefaults under
-/// `miranote.settings.*`. The app draws its theme from the appearance and
-/// its copy's language from `language` (see `String(appCopy:)`); applying
-/// the text scale app-wide comes in a follow-up PR.
+/// `miranote.settings.*` -- but the language, which is the app's
+/// `AppleLanguages`: the one iOS Settings > MiraNote > Language writes too.
+/// The app draws its theme from the appearance and its copy's language from
+/// `language` (see `String(appCopy:)`); applying the text scale app-wide
+/// comes in a follow-up PR.
 @Observable
 public final class AppSettings {
     /// The app's preferences. String lookups outside the view tree read the
     /// language here, so there is one instance for the whole app.
-    public static let shared = AppSettings()
+    public static let shared: AppSettings = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            // English unless the test's launch asks for a language
+            // (`-AppleLanguages`), or picked one before its own relaunch:
+            // a Chinese simulator or an aborted language test never turns
+            // the English-label suite Chinese.
+            let picked = storeDefaults.persistentDomain(forName: uiTestSuite)?[Key.appleLanguages] as? [String]
+            let asked = ProcessInfo.processInfo.arguments.contains("-AppleLanguages")
+                ? Bundle.main.preferredLocalizations : nil
+            return AppSettings(defaults: storeDefaults, preferredLocalizations: picked ?? asked ?? ["en"])
+        }
+        #endif
+        return AppSettings(defaults: storeDefaults)
+    }()
+
+    /// Where the settings (and the profile) are kept: the app's defaults.
+    /// Under -UITEST, a suite of their own emptied at launch -- unless
+    /// `-KEEP_SETTINGS` (a test's own relaunch) -- so no run sees an
+    /// earlier one's choices.
+    public static let storeDefaults: UserDefaults = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            if !ProcessInfo.processInfo.arguments.contains("-KEEP_SETTINGS") {
+                UserDefaults.standard.removePersistentDomain(forName: uiTestSuite)
+            }
+            return UserDefaults(suiteName: uiTestSuite) ?? .standard
+        }
+        #endif
+        return .standard
+    }()
+
+    static let uiTestSuite = "MiraNote.UITest.settings"
 
     /// The text-size slider's range: 1.0 sits where the handoff draws the
     /// thumb (106 of 238 pt along the rail).
@@ -54,7 +87,6 @@ public final class AppSettings {
 
     enum Key {
         static let appearance = "miranote.settings.appearance"
-        static let language = "miranote.settings.language"
         static let textScale = "miranote.settings.textScale"
         static let appleLanguages = "AppleLanguages"
     }
@@ -65,27 +97,27 @@ public final class AppSettings {
         didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
     }
 
-    /// The app's copy follows at once. A pick also becomes the app's
+    /// The app's copy follows at once. A pick is stored as the app's
     /// preferred language, so what iOS draws for the app -- permission
     /// prompts, the photo picker, system buttons -- follows from the next
-    /// launch.
+    /// launch, and iOS Settings shows it.
     public var language: LanguageChoice {
-        didSet {
-            defaults.set(language.rawValue, forKey: Key.language)
-            defaults.set([language.localization], forKey: Key.appleLanguages)
-        }
+        didSet { defaults.set([language.localization], forKey: Key.appleLanguages) }
     }
 
     /// Always inside `textScaleRange`; set it with `setTextScale(_:)`.
     public private(set) var textScale: Double
 
-    /// Unknown stored values read as the defaults: system, the device's
-    /// language (until one is picked, nothing is stored), 1.0.
-    public init(defaults: UserDefaults = .standard, preferredLanguages: [String] = Locale.preferredLanguages) {
+    /// The language is the localization iOS resolved for the app at launch
+    /// (its `AppleLanguages`, else the device's languages). Unknown stored
+    /// values read as the defaults: system, 1.0.
+    public init(
+        defaults: UserDefaults = .standard,
+        preferredLocalizations: [String] = Bundle.main.preferredLocalizations
+    ) {
         self.defaults = defaults
         appearance = defaults.string(forKey: Key.appearance).flatMap(AppearanceChoice.init) ?? .system
-        language = defaults.string(forKey: Key.language).flatMap(LanguageChoice.init)
-            ?? LanguageChoice.matching(preferredLanguages: preferredLanguages)
+        language = LanguageChoice(localization: preferredLocalizations.first)
         textScale = Self.clamped((defaults.object(forKey: Key.textScale) as? Double) ?? 1)
     }
 

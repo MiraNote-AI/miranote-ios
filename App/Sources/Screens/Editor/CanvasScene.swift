@@ -668,7 +668,6 @@ struct CanvasScene: View {
                 MiraCard(
                     coordinator: mira,
                     editor: editor,
-                    onAsk: { mira.ask($0, editor: editor) },
                     onRephrase: openMiraChat,
                     onRetry: {
                         miraPrompt = ""

@@ -10,7 +10,6 @@ import SwiftUI
 struct MiraCard: View {
     @Bindable var coordinator: MiraCanvasCoordinator
     @Bindable var editor: CanvasViewModel
-    var onAsk: (String) -> Void
     var onRephrase: () -> Void
     var onRetry: () -> Void
 
@@ -142,8 +141,11 @@ struct MiraCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Spacer(minLength: 40)
-                // A tapped chip's words are app copy; typed words show as given.
-                Text(copy: turn.text)
+                // A tapped chip's words are app copy; typed words show as
+                // typed -- no catalog lookup, no Markdown.
+                Group {
+                    if turn.isAppCopy { Text(copy: turn.text) } else { Text(verbatim: turn.text) }
+                }
                     .font(.miraBody)
                     .foregroundStyle(Palette.onInk)
                     .padding(.horizontal, 16)
@@ -160,7 +162,8 @@ struct MiraCard: View {
         case "Rephrase":
             onRephrase()
         default:
-            onAsk(chip)
+            // A chip's words: app copy in the conversation.
+            coordinator.askSuggestion(chip, editor: editor)
         }
     }
 

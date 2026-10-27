@@ -14,7 +14,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "MiraNote 使用相机为你的记忆页面添加照片。"
+            "value" : "MiraNote 使用相机为你的回忆页面添加照片。"
           }
         }
       }
@@ -50,7 +50,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "MiraNote 会把你导出的记忆页面存到照片图库。"
+            "value" : "MiraNote 会把你导出的回忆页面存到照片图库。"
           }
         }
       }
@@ -68,7 +68,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "MiraNote 会显示你最近的照片，方便你添加到记忆页面。"
+            "value" : "MiraNote 会显示你最近的照片，方便你添加到回忆页面。"
           }
         }
       }

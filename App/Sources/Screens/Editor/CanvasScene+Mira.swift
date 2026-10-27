@@ -17,9 +17,10 @@ extension CanvasScene {
         BackgroundToolSheet(
             editor: editor,
             // Never cancel a running turn by starting another.
-            onAsk: { words in
+            // Its one ask is a chip (Tidy the layout): app copy.
+            onAsk: { chip in
                 guard !mira.isWorking else { return }
-                mira.ask(words, editor: editor)
+                mira.askSuggestion(chip, editor: editor)
             },
             onClose: { backgroundPanelOpen = false },
             onCustomColor: openPageColorSheet,
