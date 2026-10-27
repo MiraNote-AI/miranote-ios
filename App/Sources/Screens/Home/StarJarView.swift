@@ -223,11 +223,14 @@ struct StarJarView: View {
                     Circle()
                         .fill(Palette.mood(mood))
                         .frame(width: 10, height: 10)
+                        // The name alone is the element: framed with the
+                        // dot, the contrast audit read the grey text against
+                        // the light Calm and Low dots (6.1:1 on the paper).
+                        .accessibilityHidden(true)
                     Text(mood.displayName)
                         .font(.miraCaption)
                         .foregroundStyle(Palette.textSecondary)
                 }
-                .accessibilityElement(children: .combine)
             }
         }
         .frame(maxWidth: 300)
