@@ -9,8 +9,9 @@ struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
     var onOpenNote: (JarStar) -> Void = { _ in }
-    /// Asks the mood of pages not judged yet, one at a time.
-    var onJudge: ([Memory.ID]) -> Void = { _ in }
+    /// The shown pages not judged yet, to ask the mood of one at a time;
+    /// `[]` when the jar closes.
+    var onShow: ([Memory.ID]) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var period: JarPeriod = .month
@@ -58,8 +59,9 @@ struct StarJarView: View {
         .safeAreaInset(edge: .top) { header }
         .onAppear(perform: firstVisit)
         .task(id: interval) {
-            onJudge(stars.filter { $0.memory.mood == nil }.map(\.id))
+            onShow(stars.filter { $0.memory.mood == nil }.map(\.id))
         }
+        .onDisappear { onShow([]) }
     }
 
     private var header: some View {
@@ -174,6 +176,17 @@ struct StarJarView: View {
                         .accessibilityIdentifier("jar.empty")
                         .position(x: geometry.interior.midX, y: geometry.interior.midY + 20)
                 }
+            }
+            // Small stars hit-test at 1.3x: a tap between them opens the
+            // nearest within 17 pt, so even a crowd keeps a 34 pt target
+            // without one star covering another.
+            .contentShape(Rectangle())
+            .onTapGesture { point in
+                guard visited else { return }
+                let nearest = zip(stars, pile.spots)
+                    .map { (star: $0, distance: hypot($1.center.x - point.x, $1.center.y - point.y)) }
+                    .min { $0.distance < $1.distance }
+                if let nearest, nearest.distance <= 17 { onOpenNote(nearest.star) }
             }
         }
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)

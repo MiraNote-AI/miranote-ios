@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// One saved page as a star in the jar, with the journal it lives in (the
@@ -90,5 +91,11 @@ public extension Memory {
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
         return String(joined.prefix(2000))
+    }
+
+    /// A fingerprint of `text` that stays the same across launches (unlike
+    /// `hashValue`): SHA-256, in hex.
+    static func moodHash(of text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
