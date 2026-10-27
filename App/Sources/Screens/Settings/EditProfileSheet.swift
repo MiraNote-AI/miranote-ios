@@ -106,10 +106,8 @@ struct EditProfileSheet: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .background(Capsule().fill(Palette.ink))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(SaveStyle())
             .disabled(!canSave)
-            // Off still reads: its label at 5.1:1 (at 0.45 it read 2.8:1).
-            .opacity(canSave ? 1 : 0.65)
             .accessibilityIdentifier("profile.sheet.save")
             .padding(.top, 16.5)
         }
@@ -253,5 +251,17 @@ struct EditProfileSheet: View {
         } catch {
             problem = "Your changes could not be saved. Try again."
         }
+    }
+}
+
+/// Save's only dimming when off: 0.65, its label still at 5.1:1. The plain
+/// style dimmed a disabled button again on top of the screen's own
+/// opacity, down to 2:1.
+private struct SaveStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.65)
     }
 }
