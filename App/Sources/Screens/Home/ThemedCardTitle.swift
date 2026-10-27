@@ -35,8 +35,20 @@ struct ThemedCardTitle: View {
         return font.withSize(font.pointSize * max(0.8, width / widest))
     }
 
+    /// Wrapped titles by face, size, width and text: Home redraws its cards
+    /// often, the titles rarely change.
+    @MainActor private static var wrapped: [String: [String]] = [:]
+
     /// The lines `text` breaks into at `width`, as UIKit wraps them.
-    private static func wrap(_ text: String, font: UIFont, width: CGFloat) -> [String] {
+    @MainActor private static func wrap(_ text: String, font: UIFont, width: CGFloat) -> [String] {
+        let key = "\(font.fontName)|\(font.pointSize)|\(width)|\(text)"
+        if let lines = wrapped[key] { return lines }
+        let lines = layOut(text, font: font, width: width)
+        wrapped[key] = lines
+        return lines
+    }
+
+    private static func layOut(_ text: String, font: UIFont, width: CGFloat) -> [String] {
         let storage = NSTextStorage(string: text, attributes: [.font: font])
         let layout = NSLayoutManager()
         let container = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))

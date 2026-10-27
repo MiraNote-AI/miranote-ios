@@ -79,10 +79,13 @@ struct HomeView: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .screenBackground()
-        // UI tests read the theme Home is drawn in.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.root")
+        #if DEBUG
+        // UI tests read the theme Home is drawn in (VoiceOver users of a
+        // release build are not read it).
         .accessibilityValue(theme.appearance.rawValue)
+        #endif
         .alert("New collection", isPresented: $addingCollection) {
             TextField("Name", text: $newCollectionName)
             Button("Cancel", role: .cancel) { newCollectionName = "" }

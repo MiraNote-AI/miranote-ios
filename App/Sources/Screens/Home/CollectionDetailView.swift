@@ -78,10 +78,10 @@ struct CollectionDetailView: View {
             Button(action: onNewMemory) {
                 Text("+ New memory")
                     .font(.miraPill)
-                    .foregroundStyle(theme.onButton(Palette.onInk))
+                    .foregroundStyle(theme.onSmallButton(Palette.onInk))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
-                    .background(Capsule().fill(theme.button))
+                    .background(Capsule().fill(theme.smallButton))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("note.add")

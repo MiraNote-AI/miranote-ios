@@ -1,3 +1,4 @@
+import ImageIO
 import MiraNoteKit
 import PhotosUI
 import SwiftUI
@@ -23,6 +24,9 @@ struct EditProfileSheet: View {
     @State private var problem: String?
     @FocusState private var nameFocused: Bool
     @State private var drag: CGFloat = 0
+    /// The name was changed in this sheet (an empty one then says why
+    /// Save is off).
+    @State private var nameEdited = false
 
     private var canSave: Bool {
         !loadingPhoto && profile.canSave(name: name, hasNewAvatar: newAvatar != nil)
@@ -30,7 +34,9 @@ struct EditProfileSheet: View {
 
     private var helper: String {
         if let problem { return problem }
-        if name.trimmingCharacters(in: .whitespacesAndNewlines).count > LocalProfile.nameLimit {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if nameEdited, trimmed.isEmpty { return String(appCopy: "Name can't be empty.") }
+        if trimmed.count > LocalProfile.nameLimit {
             return String(appCopy: "Use \(LocalProfile.nameLimit) characters or fewer.")
         }
         return String(appCopy: "Your name appears on your profile.")
@@ -126,13 +132,19 @@ struct EditProfileSheet: View {
                     }
                 }
         )
+        .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape, onClose)
         .onAppear {
             name = profile.displayName
             UIAccessibility.post(notification: .screenChanged, argument: nil)
         }
         .onChange(of: pickerItem) { load(pickerItem) }
-        .onChange(of: name) { problem = nil }
+        .onChange(of: name) { old, new in
+            problem = nil
+            // Any change but the saved name filled in on appear.
+            if !(old.isEmpty && new == profile.displayName) { nameEdited = true }
+        }
     }
 
     /// The 64 pt avatar and "Change avatar" over its helper, 20 apart; the
@@ -203,17 +215,34 @@ struct EditProfileSheet: View {
         problem = nil
         Task {
             let data = try? await item.loadTransferable(type: Data.self)
+            let avatar = await Task.detached(priority: .userInitiated) {
+                data.flatMap(Self.avatar(from:))
+            }.value
             // A later pick took over while this one loaded.
             guard pickerItem == item else { return }
-            // Stored at 512 px: the largest avatar is drawn 76 pt.
-            if let scaled = data.flatMap(UIImage.init(data:))?.downscaled(maxDimension: 512),
-               let image = UIImage(data: scaled) {
-                newAvatar = (image, scaled)
+            if let avatar {
+                newAvatar = (UIImage(cgImage: avatar.image), avatar.png)
             } else {
                 problem = String(appCopy: "That photo could not be opened. Try another one.")
             }
             loadingPhoto = false
         }
+    }
+
+    /// The photo at most 512 px (the largest avatar is drawn 76 pt),
+    /// upright, and its PNG -- what the profile stores. ImageIO decodes
+    /// only the thumbnail, off the main thread: a 48 MP photo never is.
+    private nonisolated static func avatar(from data: Data) -> (image: CGImage, png: Data)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 512,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
+              let png = UIImage(cgImage: image).pngData() else { return nil }
+        return (image, png)
     }
 
     private func save() {
