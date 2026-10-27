@@ -452,9 +452,11 @@ struct CanvasBoardView: View {
         // page's scale around it (#132: after `.position`, the whole board
         // box unscaled -- the element 182 -> 171 pt on 17 Pro, and lower).
         // So the menu goes on a box laid out at the element's size on the
-        // card, then scaled back down for the page.
+        // card, then scaled back down for the page. The preview is clipped
+        // to that box: it is the tilted element's bounding box, out to the
+        // selection's frame and handles.
         .scaleEffect(pageScale)
-        .frame(width: geometry.size.width * pageScale, height: geometry.size.height * pageScale)
+        .frame(width: menuBox(geometry).width * pageScale, height: menuBox(geometry).height * pageScale)
         .contextMenu { contextMenu(for: item) }
         .scaleEffect(1 / pageScale)
         .position(geometry.position)
@@ -463,6 +465,16 @@ struct CanvasBoardView: View {
         .gesture(isEditing ? nil : moveGesture(item))
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
+    }
+
+    /// The element's bounding box once tilted, with room for the selection
+    /// frame (6 pt out) and its handles (10 pt dots on its corners).
+    private func menuBox(_ geometry: ElementGeometry) -> CGSize {
+        let reach: CGFloat = 12
+        let width = geometry.size.width + 2 * reach, height = geometry.size.height + 2 * reach
+        let angle = geometry.rotation * .pi / 180
+        let cosine = abs(cos(angle)), sine = abs(sin(angle))
+        return CGSize(width: width * cosine + height * sine, height: width * sine + height * cosine)
     }
 
     /// The moving element's box on screen, translation included: the scene

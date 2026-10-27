@@ -121,23 +121,53 @@ final class DragRenderUITests: XCTestCase {
         XCTAssertEqual(redBox(in: XCUIScreen.main.screenshot(), around: card)?.width ?? 0, card.width,
                        accuracy: 2, "the photo reads at rest")
 
-        // The press blocks this thread: the shot is taken beside it, after
-        // the touch is down and before the menu opens (about 0.7 s).
-        var pressed: XCUIScreenshot?
-        let shot = DispatchSemaphore(value: 0)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
-            pressed = XCUIScreen.main.screenshot()
-            shot.signal()
-        }
-        photo.press(forDuration: 1.2)
-        shot.wait()
-        let box = pressed.flatMap { redBox(in: $0, around: card) } ?? .zero
+        let box = redBox(in: screenshotMidPress(photo), around: card) ?? .zero
         // Never smaller; the system's own lift grows it a few percent about
         // its centre just before the menu opens.
         XCTAssertGreaterThan(box.width, card.width - 2, "pressed \(box), on the card \(card)")
         XCTAssertLessThan(box.width, card.width * 1.05, "pressed \(box), on the card \(card)")
         XCTAssertEqual(box.midX, card.midX, accuracy: 2, "pressed \(box), on the card \(card)")
         XCTAssertEqual(box.midY, card.midY, accuracy: 2, "pressed \(box), on the card \(card)")
+    }
+
+    /// A selected, tilted photo is pressed whole: its corners
+    /// and handles reach past its untilted box, which the press preview
+    /// clipped to.
+    func testAPressedTiltedPhotoIsDrawnWhole() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        app.buttons["image.library.open"].tap()
+        XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+        app.buttons["nav.trailing"].tap()
+        let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        photo.tap()
+        photo.rotate(0.6, withVelocity: 1)
+        Thread.sleep(forTimeInterval: 1)
+        let card = photo.frame
+        let rest = redBox(in: XCUIScreen.main.screenshot(), around: card) ?? .zero
+        XCTAssertGreaterThan(rest.width, rest.height * 0.9, "tilted at rest: \(rest)")
+        let box = redBox(in: screenshotMidPress(photo), around: card) ?? .zero
+        XCTAssertGreaterThan(box.width, rest.width - 2, "pressed \(box), at rest \(rest)")
+        XCTAssertGreaterThan(box.height, rest.height - 2, "pressed \(box), at rest \(rest)")
+    }
+
+    /// The press blocks this thread: the shot is taken beside it, 0.5 s in,
+    /// after the touch is down and before the menu opens (about 0.7 s).
+    private func screenshotMidPress(_ element: XCUIElement) -> XCUIScreenshot {
+        var pressed: XCUIScreenshot?
+        let shot = DispatchSemaphore(value: 0)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
+            pressed = XCUIScreen.main.screenshot()
+            shot.signal()
+        }
+        element.press(forDuration: 1.2)
+        shot.wait()
+        return pressed ?? XCUIScreen.main.screenshot()
     }
 
     /// The bounding box, in points, of the sample photo's red within 40 pt
