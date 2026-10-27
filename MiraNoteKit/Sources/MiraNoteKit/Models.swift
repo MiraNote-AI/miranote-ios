@@ -39,6 +39,9 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// A solid page color as a palette name or "#RRGGBB"; "" is the default
     /// gradient. A painted backdrop (`backgroundFileName`) draws over it.
     public var pageColorName: String
+    /// The page's mood, the color of its star in the star jar. Nil: not
+    /// judged yet (older pages, or the last ask failed).
+    public var mood: Mood?
 
     public init(
         id: UUID = UUID(),
@@ -51,7 +54,8 @@ public struct Memory: Identifiable, Equatable, Sendable {
         backgroundFileName: String = "",
         backgroundSummary: String = "",
         paper: PaperKind = .blank,
-        pageColorName: String = ""
+        pageColorName: String = "",
+        mood: Mood? = nil
     ) {
         self.id = id
         self.title = title
@@ -64,6 +68,7 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.backgroundSummary = backgroundSummary
         self.paper = paper
         self.pageColorName = pageColorName
+        self.mood = mood
     }
 }
 
@@ -83,7 +88,7 @@ extension Memory: Hashable {
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
-        case backgroundSummary, paper, pageColorName
+        case backgroundSummary, paper, pageColorName, mood
     }
 
     public init(from decoder: Decoder) throws {
@@ -106,7 +111,10 @@ extension Memory: Codable {
             // would fail the whole library.
             paper: (try container.decodeIfPresent(String.self, forKey: .paper))
                 .flatMap(PaperKind.init(rawValue:)) ?? .blank,
-            pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? ""
+            pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? "",
+            // Pages saved before the star jar, and a mood a later build
+            // added, read as not judged yet.
+            mood: (try container.decodeIfPresent(String.self, forKey: .mood)).flatMap(Mood.init(rawValue:))
         )
     }
 
@@ -123,6 +131,7 @@ extension Memory: Codable {
         try container.encode(backgroundSummary, forKey: .backgroundSummary)
         try container.encode(paper, forKey: .paper)
         try container.encode(pageColorName, forKey: .pageColorName)
+        try container.encodeIfPresent(mood, forKey: .mood)
     }
 }
 

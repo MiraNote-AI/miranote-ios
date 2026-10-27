@@ -14,6 +14,7 @@ struct HomeView: View {
     var onQuickCapture: (String) -> Void = { _ in }
     var onOpenCollection: (MemoryCollection) -> Void = { _ in }
     var onOpenTrash: () -> Void = {}
+    var onOpenStarJar: () -> Void = {}
     var onOpenSettings: () -> Void = {}
     var onOpenProfile: () -> Void = {}
 
@@ -105,6 +106,9 @@ struct HomeView: View {
                 .padding(.top, 9)
             Spacer()
             HStack(spacing: 8) {
+                // Not drawn by the handoff: the star jar, a twin of the
+                // circles beside it.
+                headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
                 headerCircle("home.settings", label: "Settings", action: onOpenSettings)
                 headerCircle("home.profile", label: "Profile", action: onOpenProfile)
             }

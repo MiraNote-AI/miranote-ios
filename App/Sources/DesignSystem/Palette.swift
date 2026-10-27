@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 
 /// Warm earthen palette. UI values follow DESIGN_TOKENS.md of the 2026-10-07
@@ -38,6 +39,19 @@ enum Palette {
     /// A selected Photo Editing tile (screen 27); the sticker style tiles
     /// keep `cardFill` when selected (screen 33).
     static let tileSelected = Color(hex: 0xE3DAC8)
+
+    /// A star's color in the star jar: the page's mood, in tones of the warm
+    /// paper. Not judged yet reads as neutral.
+    static func mood(_ mood: Mood?) -> Color {
+        switch mood {
+        case .joyful: return Color(hex: 0xE8B04B)
+        case .calm: return Color(hex: 0x8FB3A1)
+        case .tender: return Color(hex: 0xE59A8C)
+        case .low: return Color(hex: 0x8E9BC2)
+        case .tense: return Color(hex: 0xC46A5A)
+        case .neutral, nil: return Color(hex: 0xCFC6B6)
+        }
+    }
 
     /// Resolves the palette names persisted on canvas text blocks
     /// (`TextBlock.colorName`). Unknown names fall back to ink.
