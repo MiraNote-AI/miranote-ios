@@ -59,6 +59,21 @@ struct Theme: Equatable {
         }
     }
 
+    /// Fill of a smaller primary button (a 15-17 pt label, as "+ New
+    /// memory") on the theme's background: the theme's own only where its
+    /// label reads at AA (4.5:1). Sunlit Pop's white on coral reads 2.98:1
+    /// (its ink 4.29:1), so it keeps System's ink; the coral stays on Home's
+    /// large Start label, as designed. A button on a light card keeps
+    /// System's ink in every theme: a theme fill has almost no edge there.
+    var smallButton: Color {
+        appearance == .forest ? button : Palette.ink
+    }
+
+    /// Label of `smallButton`: System keeps each button's own.
+    func onSmallButton(_ systemLabel: Color) -> Color {
+        appearance == .forest ? onButton(systemLabel) : systemLabel
+    }
+
     /// The status bar and system controls: light content on Forest.
     var colorScheme: ColorScheme {
         appearance == .forest ? .dark : .light

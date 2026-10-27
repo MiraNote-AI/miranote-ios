@@ -10,7 +10,6 @@ struct ProfileView: View {
     var profile: LocalProfile
     var onBack: () -> Void = {}
 
-    @Environment(\.theme) private var theme
     @State private var editing = false
     @State private var avatar: UIImage?
     /// VoiceOver goes back to Edit Profile when the sheet closes.
@@ -107,9 +106,11 @@ struct ProfileView: View {
             Button { editing = true } label: {
                 Text("Edit Profile")
                     .font(Sans.font(size: 17, weight: 600))
-                    .foregroundStyle(theme.onButton(Color(hex: 0xFFFAF3)))
+                    .foregroundStyle(Color(hex: 0xFFFAF3))
                     .frame(maxWidth: .infinity, minHeight: 46)
-                    .background(Capsule().fill(theme.button))
+                    // On the light card: System's ink in every theme
+                    // (`Theme.smallButton`).
+                    .background(Capsule().fill(Palette.ink))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.edit")

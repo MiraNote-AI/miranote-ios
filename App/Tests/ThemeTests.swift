@@ -107,4 +107,24 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(ThemeFont.poppinsUIFont(size: 16, weight: 500).fontName, "Poppins-Medium")
         XCTAssertEqual(ThemeFont.dmSansUIFont(size: 16, weight: 500).familyName, "DM Sans")
     }
+
+    /// DM Sans is one variable font: the weight asked for is the instance
+    /// drawn (not the file's default 400).
+    func testDMSansResolvesTheWeightAskedFor() {
+        for weight in [500, 700] as [CGFloat] {
+            let font = ThemeFont.dmSansUIFont(size: 16, weight: weight) as CTFont
+            let variation = CTFontCopyVariation(font) as? [Int: CGFloat] ?? [:]
+            XCTAssertEqual(variation[0x77676874], weight, "wght of \(weight)")
+        }
+    }
+
+    /// Smaller primary buttons ("+ New memory") read at AA (4.5:1) and stand
+    /// out from the theme's background (3:1) in every theme.
+    func testSmallButtonsReadAtAA() {
+        for choice in AppearanceChoice.allCases {
+            let theme = Theme(appearance: choice)
+            XCTAssertGreaterThanOrEqual(contrast(theme.onSmallButton(Palette.onInk), theme.smallButton), 4.5, "\(choice)")
+            XCTAssertGreaterThanOrEqual(contrast(theme.smallButton, theme.background), 3, "\(choice) edge")
+        }
+    }
 }

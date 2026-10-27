@@ -77,10 +77,12 @@ struct RecentlyDeletedView: View {
                 viewModel.restore(entry.id)
             }
             .font(.miraLabel)
-            .foregroundStyle(theme.onButton(Palette.onInk))
+            // On the row's light card: System's ink in every theme
+            // (`Theme.smallButton`).
+            .foregroundStyle(Palette.onInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Capsule().fill(theme.button))
+            .background(Capsule().fill(Palette.ink))
             .buttonStyle(.plain)
             .accessibilityIdentifier("trash.restore.\(entry.memory.title)")
         }
