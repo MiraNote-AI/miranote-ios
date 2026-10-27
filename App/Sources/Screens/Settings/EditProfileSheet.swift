@@ -108,7 +108,8 @@ struct EditProfileSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSave)
-            .opacity(canSave ? 1 : 0.45)
+            // Off still reads: its label at 5.1:1 (at 0.45 it read 2.8:1).
+            .opacity(canSave ? 1 : 0.65)
             .accessibilityIdentifier("profile.sheet.save")
             .padding(.top, 16.5)
         }

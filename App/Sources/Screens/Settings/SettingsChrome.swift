@@ -7,8 +7,12 @@ import SwiftUI
 enum SettingsStyle {
     /// Section eyebrows (#8F8477, Home's date color).
     static let eyebrow = HomeView.dateColor
-    /// Row values and the text-size "A"s (#878476).
-    static let value = Palette.muted
+    /// Row values and the text-size "A"s: the handoff's #878476 darkened
+    /// along its hue to 4.9:1 on the card (it read 3.6:1).
+    static let value = Color(hex: 0x716E62)
+    /// An unselected card's "Tap to select": the handoff's #A49A8C darkened
+    /// along its hue to 4.9:1 on the card (it read 2.7:1).
+    static let hint = Color(hex: 0x776D5E)
     /// Card subtitles, helper lines and notes.
     static let note = Color(hex: 0x8A8476)
     /// The intro line under an eyebrow and a selected card's "Selected".
