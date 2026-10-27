@@ -37,6 +37,7 @@ extension CanvasScene {
         if startingMic == .text {
             startingMic = nil
             recorder = nil
+            endDeferredWriting()
             return
         }
         guard dictating else { return }
@@ -44,6 +45,15 @@ extension CanvasScene {
         recorder = nil
         dictating = false
         Task { _ = try? await abandoned?.stop() }
+        endDeferredWriting()
+    }
+
+    /// The writing's end waited for a held take that then ended without
+    /// words (cancelled, or its mic never came up): once the earlier words
+    /// have landed, the writing ends now -- still on their way, they end it.
+    private func endDeferredWriting() {
+        guard doneWaiting != nil, pendingTakes.isEmpty else { return }
+        finishWaitingDone(caught: true)
     }
 
     /// Whether `candidate` still holds the recorder slot (a cancel while it
@@ -74,6 +84,7 @@ extension CanvasScene {
                 startingMic = nil
                 recorder = nil
                 dictationHint = error.localizedDescription
+                endDeferredWriting()
             }
         }
     }

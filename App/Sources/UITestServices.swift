@@ -162,6 +162,35 @@ final class UITestTimedRecorder: AudioRecording {
     }
 }
 
+/// Under `-FAIL_LATER_MICS`: the process's first mic comes up; every later
+/// one takes 4 s and then fails, so a test can act while a mic is coming up
+/// and see what its failure leaves behind.
+@MainActor
+final class UITestFailingRecorder: AudioRecording {
+    private static var started = 0
+    private let mock: MockAudioRecorder
+
+    init(_ mock: MockAudioRecorder) {
+        self.mock = mock
+    }
+
+    var isRecording: Bool { mock.isRecording }
+    var level: Float { mock.level }
+
+    func start() async throws {
+        Self.started += 1
+        guard Self.started == 1 else {
+            try? await Task.sleep(for: .seconds(4))
+            throw URLError(.cannotConnectToHost)
+        }
+        try await mock.start()
+    }
+
+    func stop() async throws -> Data {
+        try await mock.stop()
+    }
+}
+
 /// "slowly" holds the turn long enough to show the working bar; "fail"
 /// throws; anything else replies instantly -- or after `-CHAT_DELAY <ms>`,
 /// so a test can act while a canvas ask (a title) is on its way.

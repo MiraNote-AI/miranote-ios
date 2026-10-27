@@ -62,6 +62,50 @@ final class DictationTakeOrderUITests: XCTestCase {
         XCTAssertFalse(app.buttons["keyboard.done"].exists, "the tap ended the writing after both")
     }
 
+    /// A take whose mic is still coming up when the earlier words land,
+    /// then fails to come up: the writing the tap asked to end ends, rather
+    /// than staying open with nothing left to land.
+    func testATakeWhoseMicFailsWhileTheWritingWaitsEndsTheWriting() {
+        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "3000", "-FAIL_LATER_MICS"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.press(forDuration: 0.8)
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5)).tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
+        strip.tap()
+        let typed = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
+        let inField = XCTNSPredicateExpectation(predicate: typed, object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [inField], timeout: 8), .completed, "the first words land")
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the mic coming up keeps the writing open")
+        let landed = app.staticTexts["Lunch Transcribed voice note (mock)"]
+        XCTAssertTrue(landed.waitForExistence(timeout: 8), "the writing stayed open")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "the writing stayed open")
+    }
+
+    /// A take still live when the earlier words land, then cut off by the
+    /// app leaving the foreground: the writing the tap asked to end ends,
+    /// rather than staying open with nothing left to land.
+    func testATakeCutOffWhileTheWritingWaitsEndsTheWriting() {
+        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "3000"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.press(forDuration: 0.8)
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5)).tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the tap waits while the words are on their way")
+        strip.tap()
+        let typed = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
+        let inField = XCTNSPredicateExpectation(predicate: typed, object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [inField], timeout: 8), .completed, "the first words land")
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the live take keeps the writing open")
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        let landed = app.staticTexts["Lunch Transcribed voice note (mock)"]
+        XCTAssertTrue(landed.waitForExistence(timeout: 5), "the writing stayed open")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "the writing stayed open")
+    }
+
     /// Two holds on the Mira strip, the first written down slowly: the
     /// question reads them in the order spoken.
     func testMiraStripTakesLandInTheOrderSpoken() {
