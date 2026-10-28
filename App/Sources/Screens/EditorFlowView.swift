@@ -152,6 +152,7 @@ struct HomeFlow: View {
     @State private var path = NavigationPath()
     @State private var settings = AppSettings(defaults: HomeFlow.settingsDefaults)
     @State private var profile = LocalProfile(defaults: HomeFlow.settingsDefaults, images: HomeFlow.profileImages)
+    @State private var moodJudge: MoodJudge?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -276,6 +277,27 @@ struct HomeFlow: View {
         case settings, appearance, language, profile
     }
 
+    /// Navigation token for the star jar.
+    struct StarJarRoute: Hashable {}
+
+    /// Asks the moods of saved pages in the background (the star jar's
+    /// colors); made on first use, then one queue for the whole app.
+    private func judgeMoods(_ noteIDs: [Memory.ID]) {
+        guard !noteIDs.isEmpty else { return }
+        makeMoodJudge().judge(noteIDs)
+    }
+
+    /// The pages the star jar shows (`[]`: it closed): asked after saves.
+    private func showMoods(_ noteIDs: [Memory.ID]) {
+        if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
+    }
+
+    private func makeMoodJudge() -> MoodJudge {
+        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
+        moodJudge = judge
+        return judge
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             HomeView(
@@ -284,6 +306,7 @@ struct HomeFlow: View {
                 onQuickCapture: { route = .chat($0) },
                 onOpenCollection: { path.append($0) },
                 onOpenTrash: { path.append(TrashRoute()) },
+                onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
                 onOpenProfile: { path.append(AccountRoute.profile) }
             )
@@ -308,6 +331,15 @@ struct HomeFlow: View {
                     )
                     .navigationBarHidden(true)
                 }
+            }
+            .navigationDestination(for: StarJarRoute.self) { _ in
+                StarJarView(
+                    viewModel: viewModel,
+                    onBack: { path.removeLast() },
+                    onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) },
+                    onShow: showMoods
+                )
+                .navigationBarHidden(true)
             }
             .navigationDestination(for: TrashRoute.self) { _ in
                 RecentlyDeletedView(
@@ -350,6 +382,7 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { memory in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
+                        judgeMoods([memory.id])
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
@@ -362,6 +395,7 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { edited in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
+                        judgeMoods([edited.id])
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
