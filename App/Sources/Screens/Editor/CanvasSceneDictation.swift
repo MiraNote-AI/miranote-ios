@@ -30,7 +30,7 @@ extension CanvasScene {
     }
 
     /// Ends a dictation that lost its editing session (keyboard dismissed,
-    /// editing finished, the app or the editor left): stop the mic quietly,
+    /// editing finished, the editor left): stop the mic quietly,
     /// keep nothing -- also one still coming up, which stops once it is.
     func cancelDictationIfNeeded() {
         dictationPress = nil
@@ -46,6 +46,14 @@ extension CanvasScene {
         dictating = false
         Task { _ = try? await abandoned?.stop() }
         endDeferredWriting()
+    }
+
+    /// The app leaves the foreground: a live take ends as if let go, so
+    /// what it recorded lands (or the strip says why not); a mic still
+    /// coming up has recorded nothing and is cancelled.
+    func stopDictationForBackground() {
+        dictationPress = nil
+        if dictating { stopDictation() } else { cancelDictationIfNeeded() }
     }
 
     /// The writing's end waited for a held take that then ended without

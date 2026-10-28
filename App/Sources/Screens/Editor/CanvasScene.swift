@@ -372,9 +372,9 @@ struct CanvasScene: View {
         }
         .onChange(of: scenePhase) { _, phase in
             // A hold the system interrupted never ends: the mic stops when
-            // the app leaves the foreground.
+            // the app leaves the foreground, the take kept as if let go.
             if phase != .active {
-                cancelDictationIfNeeded()
+                stopDictationForBackground()
                 cancelMiraDictation()
             }
         }
