@@ -344,24 +344,44 @@ struct CanvasBoardView: View {
 
     /// Keeps the block being written between the card's top and the text
     /// tools over the keyboard (owner, TestFlight 1.0(5): the tools covered
-    /// it): its top 16 below the card's top when it fits, else its bottom
-    /// just above the tools, where the words are typed.
+    /// it): its top 16 below the card's top when it fits. A block taller
+    /// than that band follows the caret's line instead -- just above the
+    /// tools when it went below them, 16 under the card's top when above --
+    /// and the page holds still while that line is in view.
     private func keepWrittenBlockClear(_ proxy: ScrollViewProxy) {
-        guard let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
-              let toolsTop = textToolsTop, visibleFrame.height > 0 else { return }
-        let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
-        guard shown.minY < bandTop - 0.5 || shown.maxY > bandBottom + 0.5 else { return }
-        let top = item.position.y - item.size.height / 2
-        // The band is screen points; the block's height is the page's, shown
-        // scaled.
-        let fits = item.size.height * pageScale <= bandBottom - bandTop
-        editAnchor = CGPoint(x: item.position.x, y: fits ? top - 16 : top + item.size.height + 8)
-        let anchorY = fits ? 0 : min(1, max(0, (toolsTop - visibleFrame.minY) / visibleFrame.height))
-        scrollMemo.scrolledForWriting = true
+        guard editor.editingTextItemID != nil, writtenFrame != nil else { return }
         // Once the twin is laid out and the page has grown its room below
-        // (writing has just begun): a scroll before that clamps short.
+        // (writing has just begun): a scroll before that clamps short. The
+        // caret is read then too, when the tap that placed it has landed.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(120))
+            guard let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
+                  let toolsTop = textToolsTop, visibleFrame.height > 0 else { return }
+            let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
+            // The band is screen points; the block's height is the page's,
+            // shown scaled.
+            let fits = item.size.height * pageScale <= bandBottom - bandTop
+            let top = item.position.y - item.size.height / 2
+            let anchorY: CGFloat
+            if fits {
+                guard shown.minY < bandTop - 0.5 || shown.maxY > bandBottom + 0.5 else { return }
+                editAnchor = CGPoint(x: item.position.x, y: top - 16)
+                anchorY = 0
+            } else {
+                // No caret yet: the bottom, where new words are typed.
+                let caret = WrittenCaret.frame ?? CGRect(x: shown.midX, y: shown.maxY - 1, width: 1, height: 1)
+                guard caret.minY < bandTop - 0.5 || caret.maxY > bandBottom + 0.5 else { return }
+                let caretTop = top + (caret.minY - shown.minY) / pageScale
+                let below = caret.maxY > bandBottom
+                editAnchor = CGPoint(
+                    x: item.position.x,
+                    y: below ? caretTop + caret.height / pageScale + 8 : caretTop - 16
+                )
+                anchorY = below ? min(1, max(0, (toolsTop - visibleFrame.minY) / visibleFrame.height)) : 0
+            }
+            scrollMemo.scrolledForWriting = true
+            // The twin moves first, then the page scrolls to it.
+            try? await Task.sleep(for: .milliseconds(20))
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))
             }
