@@ -101,6 +101,8 @@ public final class MiraCanvasCoordinator {
     var appliesFirstBackground = false
     private var sessionID: String?
     private var lastPrompt = ""
+    /// The last ask's words are the app's own (a chip), not typed.
+    private var lastPromptIsAppCopy = false
     /// The intent the last ask was given rather than read from its words.
     private var lastIntent: MiraIntent?
     /// The last ask was the Background tool's Apply (Retry applies too).
@@ -157,21 +159,26 @@ public final class MiraCanvasCoordinator {
     // MARK: Turn lifecycle
 
     public func ask(_ prompt: String, editor: CanvasViewModel) {
-        ask(prompt, editor: editor, as: nil)
+        // A chip's words given back by Stop or a failure and sent again are
+        // still the chip's: shown in the app's language, run as before.
+        let resent = lastPromptIsAppCopy && prompt.trimmingCharacters(in: .whitespacesAndNewlines) == lastPrompt
+        ask(prompt, editor: editor, as: resent ? lastIntent : nil, appCopy: resent)
     }
 
     /// Runs a turn. `intent` skips reading the words: a chip that already
     /// knows what it means (and quotes the user's own text, which may hold
-    /// router keywords) passes it, and Retry reuses it.
+    /// router keywords) passes it, and Retry reuses it. `appCopy`: the words
+    /// are a chip's, shown in the app's language in the conversation.
     func ask(
         _ prompt: String, editor: CanvasViewModel, as intent: MiraIntent?,
-        appliesFirstBackground applies: Bool = false
+        appliesFirstBackground applies: Bool = false, appCopy: Bool = false
     ) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         cancelTurn()
         phase = .idle
         lastPrompt = trimmed
+        lastPromptIsAppCopy = appCopy
         lastIntent = intent
         lastAppliesFirstBackground = applies
         appliesFirstBackground = applies
@@ -185,7 +192,7 @@ public final class MiraCanvasCoordinator {
                     try? await Task.sleep(for: workingDelay)
                     guard !Task.isCancelled, self.turnGeneration == generation else { return }
                     if case .idle = self.phase {
-                        self.phase = .working(verb: "Looking at the page...")
+                        self.phase = .working(verb: String(appCopy: "Looking at the page..."))
                     }
                 }
                 await prepareTurn()
@@ -208,7 +215,8 @@ public final class MiraCanvasCoordinator {
     /// Failure chip: run the same words again.
     public func retry(editor: CanvasViewModel) {
         guard !lastPrompt.isEmpty else { return }
-        ask(lastPrompt, editor: editor, as: lastIntent, appliesFirstBackground: lastAppliesFirstBackground)
+        ask(lastPrompt, editor: editor, as: lastIntent, appliesFirstBackground: lastAppliesFirstBackground,
+            appCopy: lastPromptIsAppCopy)
     }
 
     /// The reply's suggested words land on the page as a text block (under
@@ -224,8 +232,8 @@ public final class MiraCanvasCoordinator {
             size: CGSize(width: 320, height: 60)
         )
         showReceipt(MiraReceipt(
-            changed: "Added a few words.",
-            kept: "Everything else stayed put."
+            changed: String(appCopy: "Added a few words."),
+            kept: String(appCopy: "Everything else stayed put.")
         ), editor: editor)
     }
 
@@ -344,8 +352,8 @@ public final class MiraCanvasCoordinator {
                 // is exactly this one.
                 editor.quickOrganize(canvasWidth: MiraNoteConfig.pageWidth)
                 showReceipt(MiraReceipt(
-                    changed: "Tidied the layout.",
-                    kept: "Your words and photos are unchanged."
+                    changed: String(appCopy: "Tidied the layout."),
+                    kept: String(appCopy: "Your words and photos are unchanged.")
                 ), editor: editor)
                 return
             }
@@ -363,7 +371,7 @@ public final class MiraCanvasCoordinator {
                 refillPrompt = lastPrompt
                 phase = .failure(MiraFailure(
                     kind: .retry,
-                    message: "The text I was working on is gone, so I left everything as is.",
+                    message: String(appCopy: "The text I was working on is gone, so I left everything as is."),
                     chips: ["Try again"]
                 ))
                 return
@@ -390,7 +398,7 @@ public final class MiraCanvasCoordinator {
             startPhotoRestyleTurn(request, handles: handles, editor: editor)
         case .reply(let message, let newSessionID):
             sessionID = newSessionID ?? sessionID
-            conversation.append(ChatMessage(role: .user, text: lastPrompt))
+            conversation.append(ChatMessage(role: .user, text: lastPrompt, isAppCopy: lastPromptIsAppCopy))
             conversation.append(ChatMessage(role: .assistant, text: message))
             if conversation.count > 24 {
                 conversation.removeFirst(conversation.count - 24)
@@ -427,7 +435,7 @@ public final class MiraCanvasCoordinator {
                 return
             }
             // A receipt for a change that never landed would be a lie.
-            failClarify("I could not tell which piece you meant -- which one should I move?")
+            failClarify(String(appCopy: "I could not tell which piece you meant -- which one should I move?"))
             return
         }
         showReceipt(Self.receipt(for: resolved, editor: editor), editor: editor)
@@ -470,7 +478,7 @@ public final class MiraCanvasCoordinator {
         if error is MiraTimeoutError {
             return MiraFailure(
                 kind: .retry,
-                message: "This was taking too long, so I stopped. Try again?",
+                message: String(appCopy: "This was taking too long, so I stopped. Try again?"),
                 chips: ["Try again", "Rephrase"]
             )
         }
@@ -479,7 +487,7 @@ public final class MiraCanvasCoordinator {
         }
         return MiraFailure(
             kind: .retry,
-            message: "That one did not go through. Try again, or say it differently?",
+            message: String(appCopy: "That one did not go through. Try again, or say it differently?"),
             chips: ["Try again", "Rephrase"]
         )
     }

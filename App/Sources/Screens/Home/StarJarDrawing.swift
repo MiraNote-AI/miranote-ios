@@ -55,16 +55,22 @@ struct JarGeometry {
     }
 }
 
-/// Clear glass: a faint white body behind the stars, an ink hairline.
+/// Clear glass: a faint white body behind the stars, an ink hairline. On
+/// Forest's dark green the white is fainter (at 0.3 it read as grey) and
+/// the hairline is the theme's light ink.
 struct JarGlass: View {
     let geometry: JarGeometry
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
+        let dark = theme.appearance == .forest
         ZStack(alignment: .topLeading) {
             geometry.body(closed: true)
-                .fill(Color.white.opacity(0.3))
+                .fill(Color.white.opacity(dark ? 0.08 : 0.3))
             geometry.body(closed: false)
-                .stroke(Palette.ink.opacity(0.18), style: StrokeStyle(lineWidth: JarGeometry.stroke, lineJoin: .round))
+                .stroke(dark ? theme.ink.opacity(0.32) : Palette.ink.opacity(0.18),
+                        style: StrokeStyle(lineWidth: JarGeometry.stroke, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }

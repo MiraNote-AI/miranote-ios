@@ -2,8 +2,8 @@ import MiraNoteKit
 import SwiftUI
 
 /// Handoff screen 05: English and Simplified Chinese as single-choice cards
-/// with their flags. The choice is stored and shown here and on Settings;
-/// the zh-CN copy itself comes in a follow-up PR.
+/// with their flags. The choice is stored and applied at once: the app root
+/// reads it for its locale (`RootView`).
 struct LanguageView: View {
     var settings: AppSettings
     var onBack: () -> Void = {}
@@ -45,6 +45,9 @@ struct LanguageView: View {
     private func option(_ choice: LanguageChoice) -> some View {
         let isOn = settings.language == choice
         return Button {
+            // Tapping the current choice keeps following the device: only a
+            // real change pins AppleLanguages.
+            guard settings.language != choice else { return }
             settings.language = choice
         } label: {
             HStack(spacing: 17) {
@@ -90,8 +93,8 @@ private extension LanguageChoice {
     /// The flag for VoiceOver; the name and locale carry the meaning.
     var flagName: String {
         switch self {
-        case .english: return "United States flag"
-        case .simplifiedChinese: return "China flag"
+        case .english: return String(appCopy: "United States flag")
+        case .simplifiedChinese: return String(appCopy: "China flag")
         }
     }
 }

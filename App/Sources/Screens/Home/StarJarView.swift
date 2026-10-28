@@ -15,6 +15,7 @@ struct StarJarView: View {
     var onShow: ([Memory.ID]) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.theme) private var theme
     @State private var period: JarPeriod = .month
     @State private var interval = JarPeriod.month.interval(containing: .now)
     /// Stars dropping in on this visit, in drop order; set once.
@@ -52,7 +53,7 @@ struct StarJarView: View {
                 if !stars.isEmpty {
                     Text(summary)
                         .font(Sans.font(size: 16, weight: 600))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(theme.ink)
                         .multilineTextAlignment(.center)
                         .accessibilityIdentifier("jar.summary")
                         .padding(.bottom, 14)
@@ -86,24 +87,24 @@ struct StarJarView: View {
             Spacer()
             Text("Star jar")
                 .font(.miraScreenTitle)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             Color.clear.frame(width: 64, height: 1)
         }
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 8)
-        .background(Palette.paper.opacity(0.94))
+        .background(theme.background.opacity(0.94))
     }
 
     private var periodPicker: some View {
         HStack(spacing: 6) {
             ForEach(JarPeriod.allCases, id: \.self) { option in
-                Button(option == .week ? "Week" : "Month") {
+                Button(option == .week ? "Week" as LocalizedStringKey : "Month") {
                     period = option
                     interval = option.interval(containing: isCurrent ? .now : interval.start)
                 }
-                .buttonStyle(SoftPill(selected: option == period))
+                .buttonStyle(SoftPill(selected: option == period, theme: theme))
                 .accessibilityAddTraits(option == period ? .isSelected : [])
                 .accessibilityIdentifier("jar.period.\(option.rawValue)")
             }
@@ -112,20 +113,23 @@ struct StarJarView: View {
 
     private var periodStepper: some View {
         HStack {
-            stepButton("chevron.left", label: "Previous \(period.rawValue)", id: "jar.previous") {
+            let previous = period == .week ? String(appCopy: "Previous week") : String(appCopy: "Previous month")
+            stepButton("chevron.left", label: previous, id: "jar.previous") {
                 interval = period.interval(shifting: interval, by: -1)
             }
             Spacer()
-            Text(period.label(for: interval))
+            Text(period.label(for: interval, locale: AppSettings.shared.language.locale))
                 .font(.miraCardTitle)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(theme.ink)
                 .accessibilityIdentifier("jar.period")
             Spacer()
-            stepButton("chevron.right", label: "Next \(period.rawValue)", id: "jar.next") {
+            let next = period == .week ? String(appCopy: "Next week") : String(appCopy: "Next month")
+            stepButton("chevron.right", label: next, id: "jar.next") {
                 interval = period.interval(shifting: interval, by: 1)
             }
             .disabled(!canStepForward)
-            .opacity(canStepForward ? 1 : 0.35)
+            // On Forest's dark green a fainter paper circle loses its arrow.
+            .opacity(canStepForward ? 1 : (theme.appearance == .forest ? 0.5 : 0.35))
         }
     }
 
@@ -179,7 +183,7 @@ struct StarJarView: View {
                 if stars.isEmpty {
                     Text(emptyLine)
                         .font(.miraBody)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                         .multilineTextAlignment(.center)
                         .frame(width: geometry.interior.width - 80)
                         .accessibilityIdentifier("jar.empty")
@@ -205,13 +209,22 @@ struct StarJarView: View {
     }
 
     private var emptyLine: String {
-        isCurrent ? "No memories yet this \(period.rawValue)." : "No memories that \(period.rawValue)."
+        switch (period, isCurrent) {
+        case (.week, true): return String(appCopy: "No memories yet this week.")
+        case (.month, true): return String(appCopy: "No memories yet this month.")
+        case (.week, false): return String(appCopy: "No memories that week.")
+        case (.month, false): return String(appCopy: "No memories that month.")
+        }
     }
 
     private var summary: String {
         let count = stars.count
-        let noun = count == 1 ? "memory" : "memories"
-        return "\(count) \(noun) \(isCurrent ? "this" : "that") \(period.rawValue)"
+        switch (period, isCurrent) {
+        case (.week, true): return String(appCopy: "\(count) memories this week")
+        case (.month, true): return String(appCopy: "\(count) memories this month")
+        case (.week, false): return String(appCopy: "\(count) memories that week")
+        case (.month, false): return String(appCopy: "\(count) memories that month")
+        }
     }
 
     private var legend: some View {
@@ -227,7 +240,7 @@ struct StarJarView: View {
                         .accessibilityHidden(true)
                     Text(mood.displayName)
                         .font(.miraCaption)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                 }
             }
         }
@@ -314,7 +327,7 @@ private struct StarButton: View {
 
     private var accessibilityText: String {
         let title = star.memory.title.isEmpty ? CaptionDate.string(for: star.memory.memoryDate) : star.memory.title
-        return "\(title), \(star.memory.mood?.displayName ?? "mood not read yet")"
+        return String(appCopy: "\(title), \(star.memory.mood?.displayName ?? String(appCopy: "mood not read yet"))")
     }
 }
 

@@ -110,8 +110,8 @@ struct MiraChatView: View {
                 // quick-starts card.
                 VStack(alignment: .leading, spacing: 22) {
                     MiraBubbleRow(
-                        text: "Hi, I'm Mira. Tell me what you want to remember, change, or create.",
-                        secondary: "You can start with a mood, a photo, a voice note, or a messy idea."
+                        text: String(appCopy: "Hi, I'm Mira. Tell me what you want to remember, change, or create."),
+                        secondary: String(appCopy: "You can start with a mood, a photo, a voice note, or a messy idea.")
                     )
                     quickStarts
                         .padding(.bottom, 6)
@@ -183,8 +183,10 @@ struct MiraChatView: View {
         )
     }
 
-    private func quickChip(_ label: String, width: CGFloat) -> some View {
-        Button {
+    /// Sends its label in the app's language: it reads as the user's words.
+    private func quickChip(_ resource: LocalizedStringResource, width: CGFloat) -> some View {
+        let label = String(appCopy: resource)
+        return Button {
             Task { await viewModel.send(label) }
         } label: {
             Text(label)
@@ -203,7 +205,7 @@ struct MiraChatView: View {
         }
         .buttonStyle(.plain)
         .disabled(viewModel.isResponding)
-        .accessibilityIdentifier("chat.quick.\(label)")
+        .accessibilityIdentifier("chat.quick.\(resource.key)")
     }
 
     /// Search runs for each new user message exactly once.
@@ -255,7 +257,7 @@ struct MiraChatView: View {
                     .font(.system(size: 15))
                     .foregroundStyle(Palette.forest)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(draft.title.isEmpty ? "New page" : draft.title)
+                    Text(draft.title.isEmpty ? String(appCopy: "New page") : draft.title)
                         .font(.miraCardTitle)
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)

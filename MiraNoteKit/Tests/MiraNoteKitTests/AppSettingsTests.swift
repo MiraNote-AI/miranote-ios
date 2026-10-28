@@ -15,24 +15,40 @@ final class AppSettingsTests: XCTestCase {
     }
 
     func testDefaultsAreSystemEnglishAndOne() {
-        let settings = AppSettings(defaults: defaults)
+        let settings = AppSettings(defaults: defaults, preferredLocalizations: ["en"])
         XCTAssertEqual(settings.appearance, .system)
         XCTAssertEqual(settings.language, .english)
         XCTAssertEqual(settings.textScale, 1)
     }
 
+    /// The language is the localization iOS resolved for the app (its own
+    /// language in iOS Settings, else the device's): nothing else is stored.
+    func testTheLanguageIsTheAppsResolvedLocalization() {
+        XCTAssertEqual(AppSettings(defaults: defaults, preferredLocalizations: ["zh-Hans"]).language,
+                       .simplifiedChinese)
+        XCTAssertEqual(AppSettings(defaults: defaults, preferredLocalizations: ["en"]).language, .english)
+        XCTAssertEqual(AppSettings(defaults: defaults, preferredLocalizations: []).language, .english)
+        XCTAssertNil(defaults.persistentDomain(forName: suiteName)?["AppleLanguages"], "the device's list, not ours")
+    }
+
+    /// A pick is the app's AppleLanguages -- what iOS Settings > MiraNote >
+    /// Language shows and what the next launch resolves.
+    func testAPickIsTheAppsPreferredLanguage() {
+        AppSettings(defaults: defaults, preferredLocalizations: ["en"]).language = .simplifiedChinese
+        XCTAssertEqual(defaults.stringArray(forKey: "AppleLanguages"), ["zh-Hans"])
+        XCTAssertEqual(Array(defaults.persistentDomain(forName: suiteName)?.keys ?? [:].keys), ["AppleLanguages"],
+                       "no second copy of the language")
+    }
+
     func testChoicesPersistAcrossInstances() {
         let settings = AppSettings(defaults: defaults)
         settings.appearance = .sunlitPop
-        settings.language = .simplifiedChinese
         settings.setTextScale(1.15)
 
         let reloaded = AppSettings(defaults: defaults)
         XCTAssertEqual(reloaded.appearance, .sunlitPop)
-        XCTAssertEqual(reloaded.language, .simplifiedChinese)
         XCTAssertEqual(reloaded.textScale, 1.15, accuracy: 0.0001)
         XCTAssertEqual(defaults.string(forKey: "miranote.settings.appearance"), "sunlitPop")
-        XCTAssertEqual(defaults.string(forKey: "miranote.settings.language"), "zh-CN")
     }
 
     func testTextScaleIsClampedWhenSetAndWhenRead() {
@@ -50,12 +66,10 @@ final class AppSettingsTests: XCTestCase {
 
     func testUnknownStoredValuesReadAsDefaults() {
         defaults.set("midnightJournal", forKey: "miranote.settings.appearance")
-        defaults.set("fr-FR", forKey: "miranote.settings.language")
         defaults.set("big", forKey: "miranote.settings.textScale")
 
         let settings = AppSettings(defaults: defaults)
         XCTAssertEqual(settings.appearance, .system)
-        XCTAssertEqual(settings.language, .english)
         XCTAssertEqual(settings.textScale, 1)
     }
 }

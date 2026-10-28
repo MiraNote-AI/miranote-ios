@@ -35,11 +35,11 @@ struct EditProfileSheet: View {
     private var helper: String {
         if let problem { return problem }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if nameEdited, trimmed.isEmpty { return "Name can't be empty." }
+        if nameEdited, trimmed.isEmpty { return String(appCopy: "Name can't be empty.") }
         if trimmed.count > LocalProfile.nameLimit {
-            return "Use \(LocalProfile.nameLimit) characters or fewer."
+            return String(appCopy: "Use \(LocalProfile.nameLimit) characters or fewer.")
         }
-        return "Your name appears on your profile."
+        return String(appCopy: "Your name appears on your profile.")
     }
 
     var body: some View {
@@ -222,7 +222,7 @@ struct EditProfileSheet: View {
             if let avatar {
                 newAvatar = (UIImage(cgImage: avatar.image), avatar.png)
             } else {
-                problem = "That photo could not be opened. Try another one."
+                problem = String(appCopy: "That photo could not be opened. Try another one.")
             }
             loadingPhoto = false
         }
@@ -249,7 +249,7 @@ struct EditProfileSheet: View {
             try profile.save(name: name, avatar: newAvatar?.data)
             onClose()
         } catch {
-            problem = "Your changes could not be saved. Try again."
+            problem = String(appCopy: "Your changes could not be saved. Try again.")
         }
     }
 }

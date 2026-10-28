@@ -85,7 +85,7 @@ struct ProfileView: View {
             .padding(.top, 17)
 
             Button { editing = true } label: {
-                Text(profile.displayName.isEmpty ? "Add your name" : profile.displayName)
+                Text(profile.displayName.isEmpty ? String(appCopy: "Add your name") : profile.displayName)
                     .font(Sans.font(size: 23, weight: 600))
                     .foregroundStyle(profile.displayName.isEmpty ? SettingsStyle.note : Palette.ink)
                     .multilineTextAlignment(.center)

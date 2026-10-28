@@ -288,7 +288,7 @@ struct ExportSheet: View {
                 Button {
                     tile = option
                 } label: {
-                    Text(option.label)
+                    Text(copy: option.label)
                         .font(Sans.font(size: 13, weight: 700))
                         .foregroundStyle(option == tile ? Palette.onInk : Palette.ink)
                         .frame(maxWidth: .infinity)
@@ -319,7 +319,7 @@ struct ExportSheet: View {
                 Button {
                     choose(option)
                 } label: {
-                    Text(option.label)
+                    Text(copy: option.label)
                         .font(Sans.font(size: 13, weight: 700))
                         .foregroundStyle(option == selected ? Palette.onInk : Palette.muted)
                         .frame(maxWidth: .infinity)
@@ -361,7 +361,7 @@ struct ExportSheet: View {
 
     private func action(_ title: String, filled: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
+            Text(copy: title)
                 .font(Sans.font(size: 14, weight: 700))
                 .foregroundStyle(filled ? Palette.onInk : Palette.muted)
                 .frame(maxWidth: .infinity)
@@ -465,7 +465,7 @@ struct ExportSheet: View {
     private func printPage() {
         guard tile == .print, let pages = exportData else { return }
         let info = UIPrintInfo(dictionary: nil)
-        info.jobName = memory.title.isEmpty ? "MiraNote page" : memory.title
+        info.jobName = memory.title.isEmpty ? String(appCopy: "MiraNote page") : memory.title
         info.outputType = .general
         let controller = UIPrintInteractionController.shared
         controller.printInfo = info

@@ -37,12 +37,12 @@ struct GlassSheet<Content: View>: View {
             if title != nil || subtitle != nil {
                 VStack(alignment: .leading, spacing: 6) {
                     if let title {
-                        Text(title)
+                        Text(copy: title)
                             .font(Sans.font(size: titleSize, weight: 700))
                             .foregroundStyle(Palette.ink)
                     }
                     if let subtitle {
-                        Text(subtitle)
+                        Text(copy: subtitle)
                             .font(.miraLabel)
                             .foregroundStyle(Palette.muted)
                     }

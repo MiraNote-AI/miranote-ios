@@ -21,6 +21,8 @@ targets:
     platform: iOS
     sources:
       - App/Sources
+      # Holds the string catalogs (Localizable, InfoPlist): their zh-Hans
+      # entries make Simplified Chinese a known region of the project.
       - App/Resources
     dependencies:
       - package: MiraNoteKit
@@ -59,6 +61,8 @@ targets:
         # (TestFlight rejects a re-used build number).
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # The prompts' Chinese is in App/Resources/InfoPlist.xcstrings, whose
+        # English must match these.
         NSMicrophoneUsageDescription: MiraNote uses the microphone to turn your voice into notes.
         NSCameraUsageDescription: MiraNote uses the camera to add photos to your memory pages.
         NSPhotoLibraryUsageDescription: MiraNote shows your recent photos so you can add them to your memory pages.

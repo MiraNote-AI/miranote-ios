@@ -26,7 +26,7 @@ enum SettingsStyle {
 /// The 38 pt glass back circle and a SemiBold 26 title, 16 apart, pinned
 /// over the paper (the theme's background).
 struct SettingsHeader: View {
-    let title: String
+    let title: LocalizedStringKey
     let onBack: () -> Void
 
     @Environment(\.theme) private var theme
@@ -61,7 +61,7 @@ struct SettingsHeader: View {
 /// A section label above a card: "PREFERENCES" (Bold 12, 1.5 tracking) or
 /// "CHOOSE YOUR LOOK" (Bold 13).
 struct SettingsEyebrow: View {
-    let text: String
+    let text: LocalizedStringKey
     var size: CGFloat = 13
     var tracking: CGFloat = 0
 
@@ -148,28 +148,32 @@ private struct GlassCircle: ViewModifier {
 extension AppearanceChoice {
     var title: String {
         switch self {
-        case .system: return "System"
-        case .forest: return "Forest"
-        case .sunlitPop: return "Sunlit Pop"
+        case .system: return String(appCopy: "System")
+        case .forest: return String(appCopy: "Forest")
+        case .sunlitPop: return String(appCopy: "Sunlit Pop")
         }
     }
 }
 
 extension LanguageChoice {
-    /// The language in its own words. The Chinese strings are written as
-    /// escapes (committed text stays ASCII): they read "Chinese" and
-    /// "Simplified Chinese (China)".
+    /// The language in its own words, whatever the app's language: the
+    /// Chinese names come from the catalog's zh-Hans entries.
     var title: String {
         switch self {
         case .english: return "English"
-        case .simplifiedChinese: return "\u{4E2D}\u{6587}"
+        case .simplifiedChinese:
+            return String(localized: LocalizedStringResource("language.zh.title", defaultValue: "Chinese",
+                                                             locale: locale))
         }
     }
 
     var subtitle: String {
         switch self {
         case .english: return "English (United States)"
-        case .simplifiedChinese: return "\u{7B80}\u{4F53}\u{4E2D}\u{6587}\u{FF08}\u{4E2D}\u{56FD}\u{FF09}"
+        case .simplifiedChinese:
+            return String(localized: LocalizedStringResource("language.zh.subtitle",
+                                                             defaultValue: "Simplified Chinese (China)",
+                                                             locale: locale))
         }
     }
 }

@@ -109,7 +109,8 @@ struct HomeView: View {
                 .padding(.top, 9)
             Spacer()
             HStack(spacing: 8) {
-                // Not drawn by the handoff: the star jar.
+                // Not drawn by the handoff: the star jar, a twin of the
+                // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
                 headerCircle("home.settings", label: "Settings", action: onOpenSettings)
                 headerCircle("home.profile", label: "Profile", action: onOpenProfile)
@@ -117,7 +118,7 @@ struct HomeView: View {
         }
     }
 
-    private func headerCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func headerCircle(_ icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(icon)
                 .renderingMode(.template)
@@ -378,20 +379,12 @@ struct HomeCollectionCard: View {
 }
 
 extension HomeView {
-    private static func formatter(_ format: String) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.dateFormat = format
-        return formatter
-    }
-
-    private static let weekdayFormatter = formatter("EEEE,")
-    private static let dayFormatter = formatter("MMMM d")
-
-    /// The editorial dateline: "MONDAY," over "JUNE 22". Pinned to English
-    /// -- all of the app's copy is.
+    /// The editorial dateline: "MONDAY," over "JUNE 22", in the app's
+    /// language (Chinese drops the comma).
     static func dateLines(for date: Date) -> (weekday: String, day: String) {
-        (weekdayFormatter.string(from: date).uppercased(), dayFormatter.string(from: date).uppercased())
+        let weekday = AppDateFormat.string(from: date, template: "EEEE")
+        return (String(appCopy: "\(weekday),").uppercased(),
+                AppDateFormat.string(from: date, template: "MMMMd").uppercased())
     }
 }
 

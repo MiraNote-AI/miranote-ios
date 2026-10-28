@@ -32,7 +32,7 @@ struct TopBar: View {
     var body: some View {
         ZStack {
             if !title.isEmpty {
-                Text(title)
+                Text(copy: title)
                     .font(.miraScreenTitle)
                     .foregroundStyle(Palette.ink)
             } else if let onUndo {
@@ -65,7 +65,7 @@ struct TopBar: View {
                                     .font(.system(size: 10, weight: .semibold))
                                     .accessibilityHidden(true)
                             }
-                            Text(leading)
+                            Text(copy: leading)
                         }
                     }
                     .buttonStyle(NavPill(
@@ -80,7 +80,7 @@ struct TopBar: View {
                 Spacer()
 
                 if let trailing {
-                    Button(trailing, action: onTrailing)
+                    Button(action: onTrailing) { Text(copy: trailing) }
                         .buttonStyle(NavPill(prominent: true, fill: trailingFill, width: NavPill.trailingWidth))
                         .disabled(!trailingEnabled)
                         .opacity(trailingEnabled ? 1 : 0.35)
