@@ -221,6 +221,19 @@ enum DarkKeyboard {
     }
 }
 
+/// The caret of the text being written, in global (window) points: the
+/// first responder's insertion point. Nil when no text field has focus.
+enum WrittenCaret {
+    @MainActor
+    static var frame: CGRect? {
+        guard let input = UIResponder.currentFirstResponder as? UIView & UITextInput,
+              let end = input.selectedTextRange?.end else { return nil }
+        let caret = input.caretRect(for: end)
+        guard !caret.isNull, !caret.isInfinite else { return nil }
+        return input.convert(caret, to: nil)
+    }
+}
+
 private extension UIResponder {
     private static weak var found: UIResponder?
 
