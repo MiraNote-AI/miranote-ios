@@ -113,8 +113,8 @@ struct StarJarView: View {
 
     private var periodStepper: some View {
         HStack {
-            stepButton("chevron.left", label: period == .week ? String(appCopy: "Previous week") : String(appCopy: "Previous month"),
-                       id: "jar.previous") {
+            let previous = period == .week ? String(appCopy: "Previous week") : String(appCopy: "Previous month")
+            stepButton("chevron.left", label: previous, id: "jar.previous") {
                 interval = period.interval(shifting: interval, by: -1)
             }
             Spacer()
@@ -123,8 +123,8 @@ struct StarJarView: View {
                 .foregroundStyle(theme.ink)
                 .accessibilityIdentifier("jar.period")
             Spacer()
-            stepButton("chevron.right", label: period == .week ? String(appCopy: "Next week") : String(appCopy: "Next month"),
-                       id: "jar.next") {
+            let next = period == .week ? String(appCopy: "Next week") : String(appCopy: "Next month")
+            stepButton("chevron.right", label: next, id: "jar.next") {
                 interval = period.interval(shifting: interval, by: 1)
             }
             .disabled(!canStepForward)

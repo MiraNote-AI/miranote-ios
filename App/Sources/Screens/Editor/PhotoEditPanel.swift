@@ -594,7 +594,9 @@ private struct PhotoEditStage: View {
                 // VoiceOver cannot hold: activating toggles the comparison,
                 // and the value says what is showing.
                 .accessibilityAction { if looksEdited { controller.pinnedCompare.toggle() } }
-                .accessibilityValue(controller.comparing ? Text("Showing before and current") : Text("Showing your edit"))
+                .accessibilityValue(
+                    controller.comparing ? Text("Showing before and current") : Text("Showing your edit")
+                )
                 .accessibilityIdentifier("photo.compare")
 
             Button(action: controller.favorite) {

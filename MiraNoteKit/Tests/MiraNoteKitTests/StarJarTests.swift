@@ -94,7 +94,8 @@ final class StarJarTests: XCTestCase {
         let week = JarPeriod.week.interval(containing: date(2026, 10, 22), calendar: calendar)
         XCTAssertEqual(JarPeriod.week.label(for: week, locale: english, calendar: calendar), "Oct 19 \u{2013} 25")
         let straddling = JarPeriod.week.interval(containing: date(2026, 10, 1), calendar: calendar)
-        XCTAssertEqual(JarPeriod.week.label(for: straddling, locale: english, calendar: calendar), "Sep 28 \u{2013} Oct 4")
+        XCTAssertEqual(JarPeriod.week.label(for: straddling, locale: english, calendar: calendar),
+                       "Sep 28 \u{2013} Oct 4")
     }
 
     /// Chinese writes the dates its own way: "2026 year 10 month",

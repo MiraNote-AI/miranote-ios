@@ -321,7 +321,9 @@ struct MiraChatComposer: View {
 
     private var statusCaption: String? {
         guard isRecording else { return nil }
-        return releaseCancels ? String(appCopy: "Release to cancel") : String(appCopy: "Release to finish, slide up to cancel")
+        return releaseCancels
+            ? String(appCopy: "Release to cancel")
+            : String(appCopy: "Release to finish, slide up to cancel")
     }
 
     /// The words land in the field with the keyboard up, ready to fix.
@@ -459,7 +461,8 @@ struct MiraChatComposer: View {
                     .accessibilityAddTraits(.isImage)
                     .accessibilityIdentifier("chat.staged.\(index)")
 
-                    removeBadge(label: String(appCopy: "Remove photo \(index + 1)"), id: "chat.staged.\(index).remove") {
+                    let label = String(appCopy: "Remove photo \(index + 1)")
+                    removeBadge(label: label, id: "chat.staged.\(index).remove") {
                         viewModel.removeStagedImage(at: index)
                     }
                 }

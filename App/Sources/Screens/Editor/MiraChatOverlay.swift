@@ -127,6 +127,7 @@ struct MiraChatOverlay: View {
                     .frame(minHeight: 18)
                     .padding(.top, 17)
                 // One literal, so it is looked up in the string catalog.
+                // swiftlint:disable:next line_length
                 Text("The current page stays attached, so Mira can change color, layout, copy, stickers, or image treatment without starting over.")
                     .font(Sans.font(size: 13, weight: 700))
                     .foregroundStyle(Self.warmGrey)

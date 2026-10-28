@@ -176,7 +176,8 @@ struct BackgroundToolSheet: View {
 
     private var previewLabel: String {
         if !editor.memory.backgroundFileName.isEmpty { return String(appCopy: "PAINTED") }
-        return editor.memory.pageColorName.isEmpty ? String(appCopy: "DEFAULT") : editor.memory.pageColorName.uppercased()
+        let color = editor.memory.pageColorName
+        return color.isEmpty ? String(appCopy: "DEFAULT") : color.uppercased()
     }
 
     // MARK: Paper

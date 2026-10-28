@@ -33,7 +33,8 @@ extension MiraIntent {
         switch self {
         case .applyFilter(let id, let name):
             return .filterApplied(id, name: name, MiraReceipt(
-                changed: name.isEmpty ? String(appCopy: "Cleared the filter.") : String(appCopy: "Changed the photo's look."),
+                changed: name.isEmpty ? String(appCopy: "Cleared the filter.")
+                    : String(appCopy: "Changed the photo's look."),
                 kept: String(appCopy: "Undo restores it.")))
         case .applyFrame(let id, let name):
             return .frameApplied(id, name: name, MiraReceipt(
