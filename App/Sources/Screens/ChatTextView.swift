@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 import UIKit
 
@@ -31,7 +32,7 @@ struct ChatTextView: UIViewRepresentable {
         let inset = max(0, (Self.minHeight - font.lineHeight) / 2)
         view.textContainerInset = UIEdgeInsets(top: inset, left: 0, bottom: inset, right: 0)
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        view.accessibilityLabel = "Message Mira"
+        view.accessibilityLabel = String(appCopy: "Message Mira")
         view.accessibilityIdentifier = "chat.field"
         return view
     }

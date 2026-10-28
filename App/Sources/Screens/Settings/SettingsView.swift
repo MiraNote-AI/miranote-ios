@@ -21,8 +21,10 @@ struct SettingsView: View {
                     divider
                     row("Language", value: settings.language.title, action: onOpenLanguage)
                         .accessibilityIdentifier("settings.language")
-                    divider
-                    TextSizeControl(settings: settings)
+                    // Text size is hidden until a follow-up applies the
+                    // scale app-wide (owner): a slider that changes nothing
+                    // would surprise later. The stored preference and
+                    // TextSizeControl stay for that follow-up.
                 }
                 .padding(.horizontal, 19)
                 .settingsCard()
@@ -43,7 +45,7 @@ struct SettingsView: View {
 
     /// A 60 pt row: SemiBold 16 label, then the Medium 14 value and a 16 pt
     /// chevron, 8 apart.
-    private func row(_ label: String, value: String, action: @escaping () -> Void) -> some View {
+    private func row(_ label: LocalizedStringKey, value: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Text(label)

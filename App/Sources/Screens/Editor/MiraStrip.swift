@@ -10,7 +10,6 @@ import SwiftUI
 struct MiraCard: View {
     @Bindable var coordinator: MiraCanvasCoordinator
     @Bindable var editor: CanvasViewModel
-    var onAsk: (String) -> Void
     var onRephrase: () -> Void
     var onRetry: () -> Void
 
@@ -77,7 +76,7 @@ struct MiraCard: View {
                 }
                 HStack(spacing: 8) {
                     ForEach(failure.chips, id: \.self) { chip in
-                        Button(chip) { handleFailureChip(chip) }
+                        Button { handleFailureChip(chip) } label: { Text(copy: chip) }
                             .buttonStyle(SoftPill())
                             .accessibilityIdentifier(chip == "Try again" ? "mira.retry" : "mira.chip.\(chip)")
                     }
@@ -142,7 +141,11 @@ struct MiraCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Spacer(minLength: 40)
-                Text(turn.text)
+                // A tapped chip's words are app copy; typed words show as
+                // typed -- no catalog lookup, no Markdown.
+                Group {
+                    if turn.isAppCopy { Text(copy: turn.text) } else { Text(verbatim: turn.text) }
+                }
                     .font(.miraBody)
                     .foregroundStyle(Palette.onInk)
                     .padding(.horizontal, 16)
@@ -159,7 +162,8 @@ struct MiraCard: View {
         case "Rephrase":
             onRephrase()
         default:
-            onAsk(chip)
+            // A chip's words: app copy in the conversation.
+            coordinator.askSuggestion(chip, editor: editor)
         }
     }
 
@@ -190,7 +194,7 @@ struct MiraCard: View {
                             Image(systemName: "sparkle")
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(Palette.forest)
-                            Text(chip)
+                            Text(copy: chip)
                                 .font(.miraLabel)
                                 .lineLimit(1)
                         }
@@ -215,7 +219,7 @@ struct MiraCard: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(chips, id: \.self) { chip in
-                        Button(chip) { handleSuggestion(chip) }
+                        Button { handleSuggestion(chip) } label: { Text(copy: chip) }
                             .buttonStyle(SoftPill())
                             .accessibilityIdentifier("mira.suggestion.\(chip)")
                     }
@@ -280,7 +284,7 @@ struct MiraBar: View {
         // words are the draft left in the chat, or the placeholder.
         ComposerCapsule(action: "Go", actionID: "mira.go", canAct: canSend, onAct: submit) {
             Button(action: onOpenChat) {
-                Text(prompt.isEmpty ? placeholder : prompt)
+                (prompt.isEmpty ? Text(copy: placeholder) : Text(prompt))
                     .font(.miraComposer)
                     .foregroundStyle(prompt.isEmpty ? Palette.muted : Palette.ink)
                     .lineLimit(1)
@@ -288,7 +292,7 @@ struct MiraBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(prompt.isEmpty ? placeholder : prompt)
+            .accessibilityLabel(prompt.isEmpty ? Text(copy: placeholder) : Text(prompt))
             .accessibilityHint("Opens the Mira chat")
             .accessibilityIdentifier("mira.composer")
         }

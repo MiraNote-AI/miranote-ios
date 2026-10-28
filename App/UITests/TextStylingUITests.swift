@@ -38,9 +38,9 @@ final class TextStylingUITests: XCTestCase {
 
         // Alignment steps leading -> center -> trailing.
         let align = app.buttons["style.align"]
-        XCTAssertEqual(align.value as? String, "leading")
+        XCTAssertEqual(align.value as? String, "Left")
         align.tap()
-        XCTAssertEqual(align.value as? String, "center")
+        XCTAssertEqual(align.value as? String, "Centered")
 
         // Color: the picked swatch reads as selected.
         app.buttons["style.colors"].tap()
@@ -66,7 +66,7 @@ final class TextStylingUITests: XCTestCase {
         startEditingText("undo me")
         let align = app.buttons["style.align"]
         align.tap()
-        XCTAssertEqual(align.value as? String, "center")
+        XCTAssertEqual(align.value as? String, "Centered")
         app.buttons["keyboard.done"].tap()
 
         app.buttons["editor.undo"].tap()
@@ -76,6 +76,6 @@ final class TextStylingUITests: XCTestCase {
         let field = app.descendants(matching: .any)["canvas.textEditor"]
         if !field.exists { block.tap() }
         XCTAssertTrue(app.buttons["style.align"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["style.align"].value as? String, "leading", "back to leading")
+        XCTAssertEqual(app.buttons["style.align"].value as? String, "Left", "back to leading")
     }
 }

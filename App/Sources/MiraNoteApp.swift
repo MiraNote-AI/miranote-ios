@@ -25,6 +25,13 @@ struct MiraNoteApp: App {
 /// can snapshot each one deterministically; otherwise the app opens on Home.
 struct RootView: View {
     var body: some View {
+        content
+            // Settings > Language, applied live: `Text` looks its key up in
+            // this locale, and dates and numbers format in it.
+            .environment(\.locale, AppSettings.shared.language.locale)
+    }
+
+    @ViewBuilder private var content: some View {
         #if DEBUG
         if let scene = Self.requestedScene {
             if scene == .chat, Self.chatLive {

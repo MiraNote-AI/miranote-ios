@@ -150,8 +150,9 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
-    @State private var settings = AppSettings(defaults: HomeFlow.settingsDefaults)
-    @State private var profile = LocalProfile(defaults: HomeFlow.settingsDefaults, images: HomeFlow.profileImages)
+    @State private var settings = AppSettings.shared
+    @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
+    @State private var moodJudge: MoodJudge?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -172,22 +173,9 @@ struct HomeFlow: View {
         return FileCollectionStore()
     }
 
-    /// UI tests keep the settings and the profile in a suite and a folder
-    /// of their own, emptied at launch, so no run sees an earlier one's;
-    /// `-KEEP_SETTINGS` keeps them (a test's own relaunch).
-    private static let settingsDefaults: UserDefaults = {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            let suite = "MiraNote.UITest.settings"
-            if !ProcessInfo.processInfo.arguments.contains("-KEEP_SETTINGS") {
-                UserDefaults.standard.removePersistentDomain(forName: suite)
-            }
-            return UserDefaults(suiteName: suite) ?? .standard
-        }
-        #endif
-        return .standard
-    }()
-
+    /// UI tests keep the avatar in a folder of their own, emptied at launch
+    /// like the settings' suite (`AppSettings.storeDefaults`);
+    /// `-KEEP_SETTINGS` keeps it (a test's own relaunch).
     private static let profileImages: ImageFileStore = {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
@@ -276,6 +264,27 @@ struct HomeFlow: View {
         case settings, appearance, language, profile
     }
 
+    /// Navigation token for the star jar.
+    struct StarJarRoute: Hashable {}
+
+    /// Asks the moods of saved pages in the background (the star jar's
+    /// colors); made on first use, then one queue for the whole app.
+    private func judgeMoods(_ noteIDs: [Memory.ID]) {
+        guard !noteIDs.isEmpty else { return }
+        makeMoodJudge().judge(noteIDs)
+    }
+
+    /// The pages the star jar shows (`[]`: it closed): asked after saves.
+    private func showMoods(_ noteIDs: [Memory.ID]) {
+        if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
+    }
+
+    private func makeMoodJudge() -> MoodJudge {
+        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
+        moodJudge = judge
+        return judge
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             HomeView(
@@ -284,6 +293,7 @@ struct HomeFlow: View {
                 onQuickCapture: { route = .chat($0) },
                 onOpenCollection: { path.append($0) },
                 onOpenTrash: { path.append(TrashRoute()) },
+                onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
                 onOpenProfile: { path.append(AccountRoute.profile) }
             )
@@ -308,6 +318,15 @@ struct HomeFlow: View {
                     )
                     .navigationBarHidden(true)
                 }
+            }
+            .navigationDestination(for: StarJarRoute.self) { _ in
+                StarJarView(
+                    viewModel: viewModel,
+                    onBack: { path.removeLast() },
+                    onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) },
+                    onShow: showMoods
+                )
+                .navigationBarHidden(true)
             }
             .navigationDestination(for: TrashRoute.self) { _ in
                 RecentlyDeletedView(
@@ -337,6 +356,8 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
         }
+        // The Appearance setting, applied live (a choice redraws at once).
+        .environment(\.theme, Theme(appearance: settings.appearance))
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
         // Under a cover the scene's own probe shows too; nothing here listens.
@@ -350,24 +371,29 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { memory in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
+                        judgeMoods([memory.id])
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+                // The editor, its tools and Mira chat stay on System.
+                .environment(\.theme, Theme(appearance: .system))
             case .editMemory(let memory), .draft(let memory):
                 EditorFlowView(
                     memory: memory,
                     onExit: { route = nil },
                     onComplete: { edited in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
+                        judgeMoods([edited.id])
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+                .environment(\.theme, Theme(appearance: .system))
             case .chat(let seed):
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
@@ -404,6 +430,7 @@ struct HomeFlow: View {
                         }
                     }
                 )
+                .environment(\.theme, Theme(appearance: .system))
             }
         }
     }

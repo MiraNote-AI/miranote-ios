@@ -63,7 +63,7 @@ struct CustomColorSheet: View {
             let inner = width - 40
             ZStack(alignment: .topLeading) {
                 header(width: width)
-                Text(subtitle)
+                Text(copy: subtitle)
                     .font(Sans.font(size: 13, weight: 500))
                     .foregroundStyle(Color(hex: 0x777267))
                     .lineLimit(1)
@@ -113,7 +113,7 @@ struct CustomColorSheet: View {
                 .fill(Color(hex: 0xD7D1C5))
                 .frame(width: 40, height: 4)
                 .offset(x: (width - 40) / 2, y: 10)
-            Text(title)
+            Text(copy: title)
                 .font(Sans.font(size: 17, weight: 700))
                 .foregroundStyle(Palette.ink)
                 .offset(x: 19, y: 28)
@@ -146,7 +146,7 @@ struct CustomColorSheet: View {
     }
 
     private func label(_ text: String) -> some View {
-        Text(text)
+        Text(copy: text)
             .font(Sans.font(size: 12, weight: 600))
             .foregroundStyle(Color(hex: 0x777267))
     }

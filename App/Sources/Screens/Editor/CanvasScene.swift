@@ -388,7 +388,7 @@ struct CanvasScene: View {
             // selection ever, then graduates for good.
             guard selected != nil, HintCenter.shouldShow("gesture-basics") else { return }
             HintCenter.graduate("gesture-basics")
-            flashHint("Drag to move. Two fingers tilt. Long-press for more.")
+            flashHint(String(appCopy: "Drag to move. Two fingers tilt. Long-press for more."))
         }
         .onChange(of: editor.changeCount) {
             // A user edit while a receipt shows makes Revert dishonest: the
@@ -424,9 +424,9 @@ struct CanvasScene: View {
             // (Cancel, which drops them on purpose, let go of them first).
             if dictationTarget != nil {
                 if editing == nil {
-                    flashHint("Couldn't catch those words.")
+                    flashHint(String(appCopy: "Couldn't catch those words."))
                 } else {
-                    dictationHint = "Couldn't catch those words."
+                    dictationHint = String(appCopy: "Couldn't catch those words.")
                 }
             }
             dictationTarget = nil
@@ -464,7 +464,7 @@ struct CanvasScene: View {
         .sheet(isPresented: $showsCamera) {
             CameraCapture { image in
                 guard let data = image.downscaled(), let id = placer.place(data, name: "Camera photo") else {
-                    imageNotice = "That photo couldn't be saved. Try again?"
+                    imageNotice = String(appCopy: "That photo couldn't be saved. Try again?")
                     return
                 }
                 placedThisVisit.append(id)
@@ -672,7 +672,6 @@ struct CanvasScene: View {
                 MiraCard(
                     coordinator: mira,
                     editor: editor,
-                    onAsk: { mira.ask($0, editor: editor) },
                     onRephrase: openMiraChat,
                     onRetry: {
                         miraPrompt = ""
@@ -929,7 +928,7 @@ struct CanvasScene: View {
         cancelImport()
     }
 
-    static let aiImageWaiting = "Pick an image first, or Cancel to let it go."
+    static var aiImageWaiting: String { String(appCopy: "Pick an image first, or Cancel to let it go.") }
 
     /// A candidate tapped: it lands like a library photo (aspect-true, one
     /// undo step, looked at by vision) and the tool shows it placed (25).
@@ -977,7 +976,7 @@ struct CanvasScene: View {
                         if CameraCapture.isAvailable {
                             showsCamera = true
                         } else {
-                            imageNotice = "The camera isn't available here."
+                            imageNotice = String(appCopy: "The camera isn't available here.")
                         }
                     },
                     onGenerate: {
@@ -1095,7 +1094,7 @@ struct CanvasScene: View {
             importingPicks = false
             libraryPicks = []
             if ids.isEmpty {
-                imageNotice = "Those photos couldn't be imported. Try different ones?"
+                imageNotice = String(appCopy: "Those photos couldn't be imported. Try different ones?")
                 imagePhase = .choose
             } else {
                 placedThisVisit += ids

@@ -24,10 +24,12 @@ enum SettingsStyle {
 }
 
 /// The 38 pt glass back circle and a SemiBold 26 title, 16 apart, pinned
-/// over the paper.
+/// over the paper (the theme's background).
 struct SettingsHeader: View {
-    let title: String
+    let title: LocalizedStringKey
     let onBack: () -> Void
+
+    @Environment(\.theme) private var theme
 
     var body: some View {
         HStack(spacing: 16) {
@@ -36,7 +38,7 @@ struct SettingsHeader: View {
                     .renderingMode(.template)
                     .resizable()
                     .frame(width: 20, height: 20)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(theme.ink)
                     .glassCircle()
             }
             .buttonStyle(.plain)
@@ -46,28 +48,30 @@ struct SettingsHeader: View {
 
             Text(title)
                 .font(Sans.font(size: 26, weight: 600))
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, SettingsStyle.inset)
         .padding(.bottom, 8)
-        .background(Palette.paper)
+        .background(theme.background)
     }
 }
 
 /// A section label above a card: "PREFERENCES" (Bold 12, 1.5 tracking) or
 /// "CHOOSE YOUR LOOK" (Bold 13).
 struct SettingsEyebrow: View {
-    let text: String
+    let text: LocalizedStringKey
     var size: CGFloat = 13
     var tracking: CGFloat = 0
+
+    @Environment(\.theme) private var theme
 
     var body: some View {
         Text(text)
             .font(Sans.font(size: size, weight: 700))
             .tracking(tracking)
-            .foregroundStyle(SettingsStyle.eyebrow)
+            .foregroundStyle(theme.muted(SettingsStyle.eyebrow))
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -91,9 +95,11 @@ struct SettingsRadio: View {
 extension View {
     /// The handoff's card: #FFFDF8 at 82%, r22, a #D8D5CA@0.8 hairline
     /// (or the 1.5 pt ink border of a selected option) and a soft warm
-    /// shadow. The shadow is cast by an opaque paper card underneath: cast
-    /// by the translucent fill, it showed through it, and the contrast
-    /// audit read the top row's text against it (QA pass 2026-10-27).
+    /// shadow. Over the paper whatever the theme: the cards and their
+    /// contents keep the System colors. The shadow is cast by that opaque
+    /// paper card underneath: cast by the translucent fill, it showed
+    /// through it, and the contrast audit read the top row's text against
+    /// it (QA pass 2026-10-27).
     func settingsCard(selected: Bool = false) -> some View {
         background(
             RoundedRectangle(cornerRadius: SettingsStyle.cardCorner)
@@ -113,13 +119,7 @@ extension View {
 
     /// The 38 pt glass circle of Home's header and the back button.
     func glassCircle() -> some View {
-        frame(width: 38, height: 38)
-            .background(
-                Circle()
-                    .fill(Color.white.opacity(0.58))
-                    .overlay(Circle().strokeBorder(Color(hex: 0x48433B).opacity(0.12), lineWidth: 1))
-                    .shadow(color: Color(hex: 0x544738).opacity(0.025), radius: 8, y: 6)
-            )
+        modifier(GlassCircle())
     }
 
     /// A 38 pt circle taps as a 44 x 44 box without moving its neighbours.
@@ -130,31 +130,50 @@ extension View {
     }
 }
 
+private struct GlassCircle: ViewModifier {
+    @Environment(\.theme) private var theme
+
+    func body(content: Content) -> some View {
+        content
+            .frame(width: 38, height: 38)
+            .background(
+                Circle()
+                    .fill(theme.circleFill)
+                    .overlay(Circle().strokeBorder(theme.circleStroke, lineWidth: 1))
+                    .shadow(color: Color(hex: 0x544738).opacity(0.025), radius: 8, y: 6)
+            )
+    }
+}
+
 extension AppearanceChoice {
     var title: String {
         switch self {
-        case .system: return "System"
-        case .forest: return "Forest"
-        case .sunlitPop: return "Sunlit Pop"
+        case .system: return String(appCopy: "System")
+        case .forest: return String(appCopy: "Forest")
+        case .sunlitPop: return String(appCopy: "Sunlit Pop")
         }
     }
 }
 
 extension LanguageChoice {
-    /// The language in its own words. The Chinese strings are written as
-    /// escapes (committed text stays ASCII): they read "Chinese" and
-    /// "Simplified Chinese (China)".
+    /// The language in its own words, whatever the app's language: the
+    /// Chinese names come from the catalog's zh-Hans entries.
     var title: String {
         switch self {
         case .english: return "English"
-        case .simplifiedChinese: return "\u{4E2D}\u{6587}"
+        case .simplifiedChinese:
+            return String(localized: LocalizedStringResource("language.zh.title", defaultValue: "Chinese",
+                                                             locale: locale))
         }
     }
 
     var subtitle: String {
         switch self {
         case .english: return "English (United States)"
-        case .simplifiedChinese: return "\u{7B80}\u{4F53}\u{4E2D}\u{6587}\u{FF08}\u{4E2D}\u{56FD}\u{FF09}"
+        case .simplifiedChinese:
+            return String(localized: LocalizedStringResource("language.zh.subtitle",
+                                                             defaultValue: "Simplified Chinese (China)",
+                                                             locale: locale))
         }
     }
 }

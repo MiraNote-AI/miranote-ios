@@ -39,6 +39,10 @@ struct ProfileView: View {
                         .accessibilityHidden(true)
                         .transition(.opacity)
                     EditProfileSheet(profile: profile, avatar: avatar, onClose: closeSheet)
+                        // Light on every theme (as Reading's export sheet):
+                        // Forest asks the window for dark, which would turn
+                        // the placeholder near-white and the keyboard dark.
+                        .environment(\.colorScheme, .light)
                         .transition(.move(edge: .bottom))
                 }
             }
@@ -81,7 +85,7 @@ struct ProfileView: View {
             .padding(.top, 17)
 
             Button { editing = true } label: {
-                Text(profile.displayName.isEmpty ? "Add your name" : profile.displayName)
+                Text(profile.displayName.isEmpty ? String(appCopy: "Add your name") : profile.displayName)
                     .font(Sans.font(size: 23, weight: 600))
                     .foregroundStyle(profile.displayName.isEmpty ? SettingsStyle.note : Palette.ink)
                     .multilineTextAlignment(.center)
@@ -108,6 +112,8 @@ struct ProfileView: View {
                     .font(Sans.font(size: 17, weight: 600))
                     .foregroundStyle(Color(hex: 0xFFFAF3))
                     .frame(maxWidth: .infinity, minHeight: 46)
+                    // On the light card: System's ink in every theme
+                    // (`Theme.smallButton`).
                     .background(Capsule().fill(Palette.ink))
             }
             .buttonStyle(.plain)

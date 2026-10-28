@@ -29,7 +29,7 @@ struct Chip: View {
                 Image(systemName: systemImage)
                     .font(.system(size: compact ? 10 : 12, weight: .medium))
             }
-            Text(text)
+            Text(copy: text)
                 .font(compact ? Sans.font(size: 14, weight: 500) : .miraChip)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
