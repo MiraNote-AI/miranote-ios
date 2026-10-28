@@ -74,6 +74,60 @@ final class TextVisibilityUITests: XCTestCase {
                              "the page went back after the drag (block bottom \(before) -> \(field.frame.maxY))")
     }
 
+    /// A drag takes the block under the text tools and the page stays
+    /// there; a word typed on the same line (the block's height unchanged)
+    /// brings the block back above the tools.
+    func testTypingOnTheSameLineBringsTheBlockBack() {
+        fillThePage()
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lunch by the river ")
+        assertClearOfTheTools("a new block")
+        let height = field.frame.height
+        let toolsTop = any("style.mic").frame.minY
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)))
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertGreaterThan(field.frame.minY, toolsTop,
+                             "the page stays where the drag left it (block \(field.frame), tools top \(toolsTop))")
+        app.typeText("so")
+        XCTAssertEqual(field.frame.height, height, accuracy: 0.5, "the words stayed on the same line")
+        assertClearOfTheTools("a word typed on the same line")
+    }
+
+    /// A block taller than the band between the header and the tools
+    /// follows the caret's line: a letter typed on its first line, dragged
+    /// into view, keeps that line in view (it used to snap to the bottom).
+    func testTypingHighInATallBlockKeepsTheCaretLineInView() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText(String(repeating: "We walked down to the river after lunch and sat on the warm stones. ",
+                              count: 14))
+        Thread.sleep(forTimeInterval: 1.5)
+        let headerBottom = app.buttons["keyboard.done"].frame.maxY
+        // Drag the page down until the block's first line shows.
+        for _ in 0..<6 where field.frame.minY < headerBottom + 20 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.2))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)))
+            Thread.sleep(forTimeInterval: 1)
+        }
+        let firstLine = field.frame.minY
+        XCTAssertGreaterThan(firstLine, headerBottom, "the first line shows (block \(field.frame))")
+        field.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 30, dy: 12)).tap()
+        app.typeText("Q")
+        Thread.sleep(forTimeInterval: 1.5)
+
+        let text = field.value as? String ?? ""
+        XCTAssertTrue(text.prefix(30).contains("Q"), "the letter went into the first line: \(text.prefix(40))")
+        let toolsTop = any("style.mic").frame.minY
+        XCTAssertGreaterThanOrEqual(field.frame.minY, headerBottom - 0.5,
+                                    "the first line went under the header (block \(field.frame))")
+        XCTAssertLessThanOrEqual(field.frame.minY + 30, toolsTop,
+                                 "the first line went under the tools (block \(field.frame), tools \(toolsTop))")
+    }
+
     func testTheBlockBeingWrittenStaysAboveTheTextTools() {
         fillThePage()
         app.buttons["mode.text"].tap()
