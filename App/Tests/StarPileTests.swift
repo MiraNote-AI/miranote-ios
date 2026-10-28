@@ -19,8 +19,10 @@ final class StarPileTests: XCTestCase {
                 let inCorner = (cornerX < interior.midX ? point.x < cornerX : point.x > cornerX) && point.y > cornerY
                 guard inCorner else { continue }
                 let distance = hypot(point.x - cornerX, point.y - cornerY)
-                XCTAssertLessThanOrEqual(distance, interior.corner - radius + 0.01,
-                                         "\(count) stars: \(point) pokes through a bottom corner", file: file, line: line)
+                XCTAssertLessThanOrEqual(
+                    distance, interior.corner - radius + 0.01,
+                    "\(count) stars: \(point) pokes through a bottom corner", file: file, line: line
+                )
             }
         }
     }

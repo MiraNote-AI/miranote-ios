@@ -88,6 +88,11 @@ public final class HomeViewModel {
                 var memory = memory
                 memory.mood = shelved.mood
                 memory.moodTextHash = shelved.moodTextHash
+                // Opened and left without a change: still saved when it
+                // was, so the star jar drops in only pages that changed.
+                var unchanged = memory
+                unchanged.savedAt = shelved.savedAt
+                if unchanged == shelved { memory.savedAt = shelved.savedAt }
                 library.collections[index].memories[existing] = memory
                 store.save(library)
                 return
