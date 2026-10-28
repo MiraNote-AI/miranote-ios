@@ -110,7 +110,8 @@ struct UITestScriptedStudio: ImageStudioService {
 /// act while the words are on their way ("Writing it down..."), or with
 /// only the process's first take held (`-TRANSCRIBE_FIRST_DELAY <ms>`).
 /// `-NUMBER_TAKES` ends each take's words with its number, in the order
-/// the takes were let go; `-FAIL_FIRST_TAKE` fails the first take.
+/// the takes were let go; `-TIME_TAKES` with how long it recorded
+/// (`UITestTimedRecorder`); `-FAIL_FIRST_TAKE` fails the first take.
 struct UITestScriptedTranscription: VoiceTranscriptionService {
     private let mock = MockVoiceTranscriptionService()
     @MainActor private static var takes = 0
@@ -124,12 +125,69 @@ struct UITestScriptedTranscription: VoiceTranscriptionService {
         let arguments = ProcessInfo.processInfo.arguments
         if take == 1, arguments.contains("-FAIL_FIRST_TAKE") { throw URLError(.notConnectedToInternet) }
         let words = try await mock.transcribe(audio: audio, filename: filename)
+        if arguments.contains("-TIME_TAKES") {
+            return "\(words) (\(String(bytes: audio, encoding: .utf8) ?? "?") s)"
+        }
         return arguments.contains("-NUMBER_TAKES") ? "\(words) #\(take)" : words
     }
 
     @MainActor private static func countTake() -> Int {
         takes += 1
         return takes
+    }
+}
+
+/// Under `-TIME_TAKES`: a take's audio is how long it recorded, in whole
+/// seconds, so a test tells a take cut short from one kept whole.
+@MainActor
+final class UITestTimedRecorder: AudioRecording {
+    private let mock: MockAudioRecorder
+    private var started = Date.now
+
+    init(_ mock: MockAudioRecorder) {
+        self.mock = mock
+    }
+
+    var isRecording: Bool { mock.isRecording }
+    var level: Float { mock.level }
+
+    func start() async throws {
+        try await mock.start()
+        started = .now
+    }
+
+    func stop() async throws -> Data {
+        _ = try await mock.stop()
+        return Data("\(Int(Date.now.timeIntervalSince(started).rounded()))".utf8)
+    }
+}
+
+/// Under `-FAIL_LATER_MICS`: the process's first mic comes up; every later
+/// one takes 4 s and then fails, so a test can act while a mic is coming up
+/// and see what its failure leaves behind.
+@MainActor
+final class UITestFailingRecorder: AudioRecording {
+    private static var started = 0
+    private let mock: MockAudioRecorder
+
+    init(_ mock: MockAudioRecorder) {
+        self.mock = mock
+    }
+
+    var isRecording: Bool { mock.isRecording }
+    var level: Float { mock.level }
+
+    func start() async throws {
+        Self.started += 1
+        guard Self.started == 1 else {
+            try? await Task.sleep(for: .seconds(4))
+            throw URLError(.cannotConnectToHost)
+        }
+        try await mock.start()
+    }
+
+    func stop() async throws -> Data {
+        try await mock.stop()
     }
 }
 
