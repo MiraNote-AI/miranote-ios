@@ -37,6 +37,7 @@ extension CanvasScene {
         if startingMic == .text {
             startingMic = nil
             recorder = nil
+            endDeferredWriting()
             return
         }
         guard dictating else { return }
@@ -44,6 +45,15 @@ extension CanvasScene {
         recorder = nil
         dictating = false
         Task { _ = try? await abandoned?.stop() }
+        endDeferredWriting()
+    }
+
+    /// The writing's end waited for a held take that then ended without
+    /// words (cancelled, or its mic never came up): once the earlier words
+    /// have landed, the writing ends now -- still on their way, they end it.
+    private func endDeferredWriting() {
+        guard doneWaiting != nil, pendingTakes.isEmpty else { return }
+        finishWaitingDone(caught: true)
     }
 
     /// Whether `candidate` still holds the recorder slot (a cancel while it
@@ -74,6 +84,7 @@ extension CanvasScene {
                 startingMic = nil
                 recorder = nil
                 dictationHint = error.localizedDescription
+                endDeferredWriting()
             }
         }
     }
@@ -97,6 +108,12 @@ extension CanvasScene {
         // written down queues behind it: both land, in the order spoken.
         let take = UUID()
         pendingTakes.append(take)
+        // The writing's end waited for this take to be let go of: its words
+        // get the whole wait from here.
+        if doneWaiting != nil {
+            doneWaiting = nil
+            waitForWordsThenEnd()
+        }
         let earlier = lastTake
         lastTake = Task {
             let words = await transcribe(recorder, for: id)
@@ -158,6 +175,14 @@ extension CanvasScene {
     /// Ends the writing, then does what the tap that asked for it does
     /// (deselect, select another element), if a tap did.
     private func finishWaitingDone(caught: Bool) {
+        // A take still held (a hold during the wait) keeps recording: the
+        // writing ends once it is let go of and its words land. No cap runs
+        // while the finger is down.
+        if dictating || startingMic == .text {
+            doneWaiting = UUID()
+            if !caught { flashHint("Couldn't catch those words.") }
+            return
+        }
         doneWaiting = nil
         let then = afterWritingDown
         afterWritingDown = nil
