@@ -28,6 +28,9 @@ struct ToolComposer: View {
                         .submitLabel(.go)
                         .onSubmit { if actionEnabled { onAction() } }
                         .modifier(OptionalFocus(focus: focus))
+                        // VoiceOver names the field by its title, a plain
+                        // String: the prompt's words in the app's language.
+                        .accessibilityLabel(Text(copy: placeholder))
                 } else {
                     Text(copy: placeholder)
                         .foregroundStyle(Palette.muted)

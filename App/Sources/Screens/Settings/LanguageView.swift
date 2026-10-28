@@ -45,6 +45,9 @@ struct LanguageView: View {
     private func option(_ choice: LanguageChoice) -> some View {
         let isOn = settings.language == choice
         return Button {
+            // Tapping the current choice keeps following the device: only a
+            // real change pins AppleLanguages.
+            guard settings.language != choice else { return }
             settings.language = choice
         } label: {
             HStack(spacing: 17) {

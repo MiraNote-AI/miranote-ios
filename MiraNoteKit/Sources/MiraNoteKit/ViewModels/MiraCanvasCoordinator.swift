@@ -159,7 +159,10 @@ public final class MiraCanvasCoordinator {
     // MARK: Turn lifecycle
 
     public func ask(_ prompt: String, editor: CanvasViewModel) {
-        ask(prompt, editor: editor, as: nil)
+        // A chip's words given back by Stop or a failure and sent again are
+        // still the chip's: shown in the app's language, run as before.
+        let resent = lastPromptIsAppCopy && prompt.trimmingCharacters(in: .whitespacesAndNewlines) == lastPrompt
+        ask(prompt, editor: editor, as: resent ? lastIntent : nil, appCopy: resent)
     }
 
     /// Runs a turn. `intent` skips reading the words: a chip that already
@@ -432,7 +435,7 @@ public final class MiraCanvasCoordinator {
                 return
             }
             // A receipt for a change that never landed would be a lie.
-            failClarify("I could not tell which piece you meant -- which one should I move?")
+            failClarify(String(appCopy: "I could not tell which piece you meant -- which one should I move?"))
             return
         }
         showReceipt(Self.receipt(for: resolved, editor: editor), editor: editor)

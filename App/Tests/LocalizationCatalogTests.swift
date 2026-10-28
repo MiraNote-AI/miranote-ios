@@ -43,8 +43,8 @@ final class LocalizationCatalogTests: XCTestCase {
 
     /// The format arguments a string takes, in order of position: "%1$@"
     /// and "%@" both count as one object argument.
-    private func arguments(_ string: String) -> [String] {
-        let pattern = try! NSRegularExpression(pattern: "%(?:(\\d+)\\$)?(lld|@)")
+    private func arguments(_ string: String) throws -> [String] {
+        let pattern = try NSRegularExpression(pattern: "%(?:(\\d+)\\$)?(lld|@)")
         let matches = pattern.matches(in: string, range: NSRange(string.startIndex..., in: string))
         var byPosition: [Int: String] = [:]
         for (index, match) in matches.enumerated() {
@@ -65,29 +65,37 @@ final class LocalizationCatalogTests: XCTestCase {
                     for form in ["one", "other"] {
                         XCTAssertNotNil(value(entry, "en", plural: form), "\(name): \(key) lacks en \(form)")
                     }
-                    let chinese = try XCTUnwrap(value(entry, "zh-Hans", plural: "other"), "\(name): \(key) lacks zh-Hans")
-                    XCTAssertEqual(arguments(chinese), arguments(key), "\(name): \(key) arguments")
+                    let chinese = try XCTUnwrap(
+                        value(entry, "zh-Hans", plural: "other"), "\(name): \(key) lacks zh-Hans"
+                    )
+                    XCTAssertEqual(try arguments(chinese), try arguments(key), "\(name): \(key) arguments")
                 } else {
                     let chinese = try XCTUnwrap(value(entry, "zh-Hans"), "\(name): \(key) lacks zh-Hans")
                     XCTAssertFalse(chinese.isEmpty, "\(name): \(key)")
-                    XCTAssertEqual(arguments(chinese), arguments(value(entry, "en") ?? key), "\(name): \(key) arguments")
+                    let english = value(entry, "en") ?? key
+                    XCTAssertEqual(try arguments(chinese), try arguments(english), "\(name): \(key) arguments")
                 }
             }
         }
     }
 
     /// Copy written into the code as a literal -- `Text("...")`,
-    /// `Button("...")`, `Label("...", ...)`, `Text(copy: "...")`,
-    /// `String(appCopy: "...")` -- has its catalog entry, so no screen shows
-    /// English words in Chinese. Best effort: literals with interpolation
-    /// are left out (their keys take format specifiers), as are glyphs and
-    /// names that are not copy, and the UI test services.
+    /// `Button("...")`, `Label("...", ...)`, `TextField("...")`,
+    /// `.alert("...")`, `.accessibilityLabel/Hint/Value("...")`,
+    /// `Text(copy: "...")`, `String(appCopy: "...")` (one line or `"""`),
+    /// `GlassSheet(title: "...")`, `placeholder: "..."` -- has its catalog
+    /// entry, so no screen shows English words in Chinese. Best effort:
+    /// literals with interpolation are left out (their keys take format
+    /// specifiers), as are glyphs and names that are not copy, and the UI
+    /// test services.
     func testEveryLiteralCopyInTheSourceIsInTheCatalog() throws {
         let strings = try catalog("Localizable")
         let repository = Self.resources.deletingLastPathComponent().deletingLastPathComponent()
-        let call = try NSRegularExpression(
-            pattern: #"(?:\bText\(|\bButton\(|\bLabel\(|String\(appCopy:\s*|Text\(copy:\s*)"((?:[^"\\]|\\.)*)""#
-        )
+        let call = try NSRegularExpression(pattern: [
+            #"(?:\bText\(|\bButton\(|\bLabel\(|\bTextField\(|\.alert\("#,
+            #"|\.accessibility(?:Label|Hint|Value)\(|String\(appCopy:\s*|Text\(copy:\s*"#,
+            #"|GlassSheet\(title:\s*|\bplaceholder:\s*)"((?:[^"\\]|\\.)*)""#
+        ].joined())
         let notCopy: Set<String> = ["A", "Aa", "M", "MiraNote", "#RRGGBB"]
         var missing: [String] = []
         var checked = 0
@@ -101,10 +109,13 @@ final class LocalizationCatalogTests: XCTestCase {
                 for (number, line) in lines.enumerated()
                 where !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
                     let range = NSRange(line.startIndex..., in: line)
-                    for match in call.matches(in: line, range: range) {
-                        guard let literal = Range(match.range(at: 1), in: line).map({ String(line[$0]) }),
-                              !literal.contains("\\("), literal.contains(where: \.isLetter) else { continue }
-                        let key = Self.unescaped(literal)
+                    var literals = call.matches(in: line, range: range)
+                        .compactMap { Range($0.range(at: 1), in: line).map { String(line[$0]) } }
+                    if line.hasSuffix("String(appCopy: \"\"\"") {
+                        literals.append(Self.multiLineLiteral(after: number, in: lines))
+                    }
+                    for literal in literals where !literal.contains("\\(") && literal.contains(where: \.isLetter) {
+                        let key = try Self.unescaped(literal)
                         guard !notCopy.contains(key) else { continue }
                         checked += 1
                         if strings[key] == nil { missing.append("\(file.lastPathComponent):\(number + 1) \(key)") }
@@ -116,10 +127,24 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(missing, [], "copy with no catalog entry")
     }
 
+    /// The text of a `"""` literal opening at the end of line `start`: the
+    /// closing delimiter's indent stripped, a trailing `\` joining lines.
+    private static func multiLineLiteral(after start: Int, in lines: [String]) -> String {
+        let body = lines[(start + 1)...].prefix { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("\"\"\"") }
+        let closing = lines[min(start + 1 + body.count, lines.count - 1)]
+        let indent = closing.prefix { $0 == " " }.count
+        var text = ""
+        for line in body {
+            let content = String(line.dropFirst(indent))
+            text += content.hasSuffix("\\") ? String(content.dropLast()) : content + "\n"
+        }
+        return text.hasSuffix("\n") ? String(text.dropLast()) : text
+    }
+
     /// A Swift string literal's text: `\u{...}`, `\"` and `\\` resolved.
-    private static func unescaped(_ literal: String) -> String {
+    private static func unescaped(_ literal: String) throws -> String {
         var result = literal.replacingOccurrences(of: #"\""#, with: "\"")
-        let scalar = try! NSRegularExpression(pattern: #"\\u\{([0-9A-Fa-f]+)\}"#)
+        let scalar = try NSRegularExpression(pattern: #"\\u\{([0-9A-Fa-f]+)\}"#)
         for match in scalar.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed() {
             guard let whole = Range(match.range, in: result), let hex = Range(match.range(at: 1), in: result),
                   let value = UInt32(result[hex], radix: 16), let character = Unicode.Scalar(value) else { continue }
@@ -157,7 +182,8 @@ final class LocalizationCatalogTests: XCTestCase {
     /// the language picked in Settings. Restores the simulator's choice.
     func testKitCopyFollowsTheChosenLanguage() throws {
         let settings = AppSettings.shared
-        let storedLanguages = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier!)?["AppleLanguages"]
+        let domain = UserDefaults.standard.persistentDomain(forName: try XCTUnwrap(Bundle.main.bundleIdentifier))
+        let storedLanguages = domain?["AppleLanguages"]
         let before = settings.language
         defer {
             settings.language = before

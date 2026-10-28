@@ -68,6 +68,15 @@ struct TextToolBar: View {
     let alignment: TextAlign
     let onSelect: (TextTool) -> Void
 
+    /// The block's alignment as VoiceOver reads it, in the app's language.
+    private static func spoken(_ alignment: TextAlign) -> String {
+        switch alignment {
+        case .leading: return String(appCopy: "Left")
+        case .center: return String(appCopy: "Centered")
+        case .trailing: return String(appCopy: "Right")
+        }
+    }
+
     /// Tool centers as fractions of the drawn 342 pt bar.
     private static let centers: [TextTool: CGFloat] = [
         .font: 23.5 / 342, .color: 95.2 / 342, .ai: 168.8 / 342, .align: 245 / 342, .background: 309.9 / 342,
@@ -85,7 +94,7 @@ struct TextToolBar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(label(tool))
-                .accessibilityValue(tool == .align ? alignment.rawValue : "")
+                .accessibilityValue(tool == .align ? Self.spoken(alignment) : "")
                 .accessibilityAddTraits(tool == active ? .isSelected : [])
                 .accessibilityIdentifier(identifier(tool))
                 .position(x: geo.size.width * (Self.centers[tool] ?? 0), y: geo.size.height / 2)
@@ -196,7 +205,9 @@ struct FontChipRow: View {
                     ForEach(TextFace.choices, id: \.name) { face in
                         let selected = face.name == fontName
                         Button { onFont(face.name) } label: {
-                            Text(face.label)
+                            // Face names have no entry and show as given;
+                            // "Classic" is copy.
+                            Text(copy: face.label)
                                 .font(Font(TextFace.uiFont(name: face.name, size: 14.5, weight: 500)))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)

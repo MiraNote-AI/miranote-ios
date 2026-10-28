@@ -18,15 +18,15 @@ extension BackendError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .unreachable:
-            return """
+            return String(appCopy: """
                 Couldn't reach MiraNote's AI server. Check your connection -- \
                 if that is fine, the server is offline and the team needs to know.
-                """
+                """)
         case .timedOut:
-            return """
+            return String(appCopy: """
                 That took longer than the server allows. Try again once; \
                 if it fails a second time, tell the team rather than retrying.
-                """
+                """)
         case .server(let status, _):
             return Self.message(for: status)
         case .decoding:
@@ -48,31 +48,31 @@ extension BackendError: LocalizedError {
             // Covers both cases, because the first one to actually happen was
             // the one the earlier wording denied: a TestFlight build that was
             // never given a token at all, not one whose token was rotated.
-            return """
+            return String(appCopy: """
                 This build cannot get into the beta -- its access was never set \
                 up, or has since been replaced. Ask the team for an updated \
                 build; reinstalling this one will not help.
-                """
+                """)
         case 429:
-            return """
+            return String(appCopy: """
                 You are sending requests faster than the beta allows. \
                 Wait about a minute and it clears on its own.
-                """
+                """)
         case 502:
-            return """
+            return String(appCopy: """
                 MiraNote's AI server is not running. It lives on a Mac someone \
                 has to start -- let the team know.
-                """
+                """)
         case 503:
-            return """
+            return String(appCopy: """
                 The image service has used up its quota with the provider. \
                 Nothing on your phone can fix this one; try again later.
-                """
+                """)
         case 530:
-            return """
+            return String(appCopy: """
                 The link to MiraNote's AI server is down, most likely because \
                 its Mac is asleep or off the network. Let the team know.
-                """
+                """)
         default:
             return String(appCopy: "The server returned an error (status \(status)).")
         }

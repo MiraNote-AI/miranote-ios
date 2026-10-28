@@ -189,24 +189,11 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertEqual(app.buttons["profile.name"].label, "Add your name")
     }
 
-    func testTextSizeAdjustsAndPersists() {
+    /// Hidden until a follow-up applies the scale app-wide (owner).
+    func testTextSizeIsHiddenUntilItApplies() {
         openSettings()
-        let slider = app.otherElements["settings.textSize"]
-        XCTAssertTrue(slider.exists)
-        let before = slider.value as? String
-        // A tap on the rail moves the thumb there: a quarter of the way
-        // along (90%) unless it is already there, then three quarters.
-        let target = before == "90 percent" ? 0.75 : 0.25
-        let frame = slider.frame
-        let railStart = frame.minX + 30, railWidth = frame.width - 67
-        let point = CGVector(dx: railStart + railWidth * target, dy: frame.maxY - 36)
-        app.coordinate(withNormalizedOffset: .zero).withOffset(point).tap()
-        let after = slider.value as? String
-        XCTAssertNotEqual(before, after)
-
-        relaunch()
-        openSettings()
-        XCTAssertEqual(app.otherElements["settings.textSize"].value as? String, after)
+        XCTAssertTrue(app.buttons["settings.language"].exists)
+        XCTAssertFalse(app.otherElements["settings.textSize"].exists)
     }
 
     func testHomeProfileOpensProfileAndSaveShowsTheName() {

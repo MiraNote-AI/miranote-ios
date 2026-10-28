@@ -247,7 +247,9 @@ enum MiraIntent {
         case .addTitle: return String(appCopy: "Adding a title...")
         case .addCaption: return String(appCopy: "Writing a few words...")
         case .canvasTurn(let words, _, _):
-            return Self.isLayoutAsk(words) ? String(appCopy: "Tidying the layout...") : String(appCopy: "Working on the page...")
+            return Self.isLayoutAsk(words)
+                ? String(appCopy: "Tidying the layout...")
+                : String(appCopy: "Working on the page...")
         case .clarifyNoText, .clarifyNothingToArrange: return String(appCopy: "Thinking...")
         case .generateImage: return String(appCopy: "Painting...")
         case .editPhoto: return String(appCopy: "Restyling the photo...")
@@ -347,7 +349,7 @@ enum MiraIntent {
             notes: pageNotes
         )
         let title = MiraIntent.cleanTitle(reply.text)
-        return .titleAdded(title.isEmpty ? "A quiet moment" : title, MiraReceipt(
+        return .titleAdded(title.isEmpty ? String(appCopy: "A quiet moment") : title, MiraReceipt(
             changed: String(appCopy: "Added a soft title."),
             kept: String(appCopy: "Your words and photos are unchanged.")
         ))
@@ -365,7 +367,7 @@ enum MiraIntent {
         let words = MiraIntent.cleanPlacedText(reply.text)
         guard !words.isEmpty else {
             throw MiraClarifyError(
-                question: "I could not find words for this page -- try again?",
+                question: String(appCopy: "I could not find words for this page -- try again?"),
                 chips: ["Try again"]
             )
         }

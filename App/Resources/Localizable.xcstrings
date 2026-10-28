@@ -301,7 +301,19 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "+ 新的回忆"
+            "value" : "+ 新回忆"
+          }
+        }
+      }
+    },
+    "A quiet moment" : {
+      "comment" : "Page title Mira writes when the title reply comes back empty.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安静的片刻"
           }
         }
       }
@@ -876,6 +888,18 @@
         }
       }
     },
+    "Centered" : {
+      "comment" : "VoiceOver: the text block's alignment.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "居中"
+          }
+        }
+      }
+    },
     "Change avatar" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1011,6 +1035,18 @@
         }
       }
     },
+    "Classic" : {
+      "comment" : "Font chip: the original default face (not a font name).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经典"
+          }
+        }
+      }
+    },
     "Clay" : {
       "comment" : "Color swatch.",
       "extractionState" : "manual",
@@ -1024,13 +1060,13 @@
       }
     },
     "Clean up" : {
-      "comment" : "Rewrite choice. Glossary: Clean up = 清理; Tidy (the layout) = 整理.",
+      "comment" : "Rewrite choice. Glossary: Clean up = 纠错 (it corrects the text; 清理 read as \"clear\"); Tidy (the layout) = 整理.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "清理"
+            "value" : "纠错"
           }
         }
       }
@@ -1042,7 +1078,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已清理文字。"
+            "value" : "已纠错。"
           }
         }
       }
@@ -1054,7 +1090,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在清理文字…"
+            "value" : "正在纠错…"
           }
         }
       }
@@ -1143,6 +1179,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没能把它从背景中抠出来，这是原样。"
+          }
+        }
+      }
+    },
+    "Couldn't reach MiraNote's AI server. Check your connection -- if that is fine, the server is offline and the team needs to know." : {
+      "comment" : "Network error: no connection to the server.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连不上 MiraNote 的 AI 服务器。请检查网络；如果网络正常，就是服务器离线了，请告诉团队。"
           }
         }
       }
@@ -1984,6 +2032,42 @@
         }
       }
     },
+    "I could not find words for this page -- try again?" : {
+      "comment" : "Mira failure card: no caption came back.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没想出适合这一页的文字，再试一次？"
+          }
+        }
+      }
+    },
+    "I could not tell which picture you meant -- tap it and ask again?" : {
+      "comment" : "Mira failure card: the picture to change is unclear.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没看出你指的是哪张图片，点一下它再问一次？"
+          }
+        }
+      }
+    },
+    "I could not tell which piece you meant -- which one should I move?" : {
+      "comment" : "Mira failure card: the element to change is unclear.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没看出你指的是哪一个，要移动哪一个？"
+          }
+        }
+      }
+    },
     "I couldn't catch any words -- try again?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2096,6 +2180,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版面、照片和其他内容都保持不变。"
+          }
+        }
+      }
+    },
+    "Left" : {
+      "comment" : "VoiceOver: the text block's alignment.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左对齐"
           }
         }
       }
@@ -2451,6 +2547,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MiraNote 页面"
+          }
+        }
+      }
+    },
+    "MiraNote's AI server is not running. It lives on a Mac someone has to start -- let the team know." : {
+      "comment" : "Server error 502.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 的 AI 服务器没有运行。它在一台需要有人启动的 Mac 上，请告诉团队。"
           }
         }
       }
@@ -3660,6 +3768,18 @@
         }
       }
     },
+    "Right" : {
+      "comment" : "VoiceOver: the text block's alignment.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右对齐"
+          }
+        }
+      }
+    },
     "Rosewood" : {
       "comment" : "Color swatch.",
       "extractionState" : "manual",
@@ -3890,7 +4010,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "共享更多"
+            "value" : "选择更多照片"
           }
         }
       }
@@ -4337,6 +4457,18 @@
         }
       }
     },
+    "That took longer than the server allows. Try again once; if it fails a second time, tell the team rather than retrying." : {
+      "comment" : "Network error: the request timed out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "处理时间超出了服务器的上限。请再试一次；如果还是失败，请告诉团队，不要反复重试。"
+          }
+        }
+      }
+    },
     "The camera isn't available here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4355,6 +4487,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前页面会一并带上，Mira 可以直接调整颜色、布局、文字、贴纸或图片效果，无需从头再来。"
+          }
+        }
+      }
+    },
+    "The image service has used up its quota with the provider. Nothing on your phone can fix this one; try again later." : {
+      "comment" : "Server error 503: image quota.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片服务在供应商那里的额度已用完。手机上无法解决，请稍后再试。"
+          }
+        }
+      }
+    },
+    "The link to MiraNote's AI server is down, most likely because its Mac is asleep or off the network. Let the team know." : {
+      "comment" : "Server error 530: the tunnel is down.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到 MiraNote AI 服务器的连接断了，很可能是那台 Mac 在休眠或断网了。请告诉团队。"
           }
         }
       }
@@ -4455,6 +4611,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在思考…"
+          }
+        }
+      }
+    },
+    "This build cannot get into the beta -- its access was never set up, or has since been replaced. Ask the team for an updated build; reinstalling this one will not help." : {
+      "comment" : "Server error 401: the build's beta access.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个版本无法进入测试：它的访问权限没有设置，或已被更换。请向团队要一个新版本；重新安装这个版本没有用。"
           }
         }
       }
@@ -4922,7 +5090,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "书写、排版与布局"
+            "value" : "书写、样式与排版"
           }
         }
       }
@@ -4958,6 +5126,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在记下…"
+          }
+        }
+      }
+    },
+    "You are sending requests faster than the beta allows. Wait about a minute and it clears on its own." : {
+      "comment" : "Server error 429: rate limit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求发得太快，超出了测试版的限制。等一分钟左右就会自动恢复。"
           }
         }
       }
@@ -5107,7 +5287,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精心成篇。"
+            "value" : "用心成册。"
           }
         }
       }

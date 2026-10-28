@@ -21,8 +21,10 @@ struct SettingsView: View {
                     divider
                     row("Language", value: settings.language.title, action: onOpenLanguage)
                         .accessibilityIdentifier("settings.language")
-                    divider
-                    TextSizeControl(settings: settings)
+                    // Text size is hidden until a follow-up applies the
+                    // scale app-wide (owner): a slider that changes nothing
+                    // would surprise later. The stored preference and
+                    // TextSizeControl stay for that follow-up.
                 }
                 .padding(.horizontal, 19)
                 .settingsCard()

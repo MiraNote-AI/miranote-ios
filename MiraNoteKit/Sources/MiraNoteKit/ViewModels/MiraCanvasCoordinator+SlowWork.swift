@@ -50,7 +50,7 @@ extension MiraCanvasCoordinator {
             return nil
         }()
         guard let (id, data) = resolved else {
-            failClarify("I could not tell which picture you meant -- tap it and ask again?")
+            failClarify(String(appCopy: "I could not tell which picture you meant -- tap it and ask again?"))
             return
         }
         // Reuses the keyword path's intent wholesale: it already checks
