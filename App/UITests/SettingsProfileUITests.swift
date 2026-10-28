@@ -64,6 +64,31 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertTrue(app.buttons[picked].isSelected, "the choice survives a relaunch")
     }
 
+    /// Forest redraws Home at once (no relaunch) and stays after one;
+    /// System brings the original back. Ends on System for the next run.
+    func testForestThemeAppliesLiveAndPersists() {
+        let home = app.descendants(matching: .any)["home.root"]
+        openSettings()
+        app.buttons["settings.appearance"].tap()
+        app.buttons["appearance.forest"].tap()
+        app.buttons["settings.back"].tap()
+        app.buttons["settings.back"].tap()
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+        XCTAssertEqual(home.value as? String, "forest", "Home switches without a relaunch")
+
+        relaunch()
+        XCTAssertTrue(home.waitForExistence(timeout: 8))
+        XCTAssertEqual(home.value as? String, "forest", "the theme survives a relaunch")
+
+        openSettings()
+        app.buttons["settings.appearance"].tap()
+        app.buttons["appearance.system"].tap()
+        app.buttons["settings.back"].tap()
+        app.buttons["settings.back"].tap()
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+        XCTAssertEqual(home.value as? String, "system", "System restores the original Home")
+    }
+
     func testLanguageChoicePersistsAfterRelaunch() {
         openSettings()
         app.buttons["settings.language"].tap()

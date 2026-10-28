@@ -15,10 +15,20 @@ enum EditorMode: String, CaseIterable, Identifiable {
 
 extension View {
     /// Warm-paper full-bleed background, locked to the light appearance the
-    /// Flow 7 design assumes.
+    /// Flow 7 design assumes -- or the theme's background and scheme (dark
+    /// on Forest, for a light status bar).
     func screenBackground() -> some View {
-        background(Palette.paper.ignoresSafeArea())
-            .preferredColorScheme(.light)
+        modifier(ScreenBackground())
+    }
+}
+
+private struct ScreenBackground: ViewModifier {
+    @Environment(\.theme) private var theme
+
+    func body(content: Content) -> some View {
+        content
+            .background(theme.background.ignoresSafeArea())
+            .preferredColorScheme(theme.colorScheme)
     }
 }
 

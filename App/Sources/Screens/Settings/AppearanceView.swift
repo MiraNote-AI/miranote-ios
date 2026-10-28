@@ -2,12 +2,13 @@ import MiraNoteKit
 import SwiftUI
 
 /// Handoff screen 04: System, Forest and Sunlit Pop as single-choice cards
-/// with a Home thumbnail each. The choice is stored and shown here and on
-/// Settings; the Forest and Sunlit Pop themes themselves come in a
-/// follow-up PR.
+/// with a Home thumbnail each. The choice is stored and applied app-wide
+/// at once (`Theme`, from `HomeFlow`).
 struct AppearanceView: View {
     var settings: AppSettings
     var onBack: () -> Void = {}
+
+    @Environment(\.theme) private var theme
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -15,7 +16,7 @@ struct AppearanceView: View {
                 SettingsEyebrow(text: "CHOOSE YOUR LOOK")
                 Text("Make MiraNote feel like yours.")
                     .font(Sans.font(size: 15, weight: 500))
-                    .foregroundStyle(SettingsStyle.intro)
+                    .foregroundStyle(theme.muted(SettingsStyle.intro))
                     .padding(.top, 9)
                 VStack(spacing: 15) {
                     ForEach(AppearanceChoice.allCases, id: \.self) { choice in
@@ -25,7 +26,7 @@ struct AppearanceView: View {
                 .padding(.top, 26.5)
                 Text("Your choice sets the app\u{2019}s colors and typography.")
                     .font(Sans.font(size: 13, weight: 500))
-                    .foregroundStyle(SettingsStyle.note)
+                    .foregroundStyle(theme.muted(SettingsStyle.note))
                     .padding(.top, 35.5)
             }
             .padding(.horizontal, SettingsStyle.inset)

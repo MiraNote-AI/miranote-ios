@@ -13,6 +13,7 @@ struct ReadingView: View {
     var onEdit: () -> Void = {}
     var photoSaver: PhotoSaver = .library
 
+    @Environment(\.theme) private var theme
     @State private var player = SoundPlayer()
     @State private var showsExport = false
     @State private var toast: SaveToast.Message?
@@ -45,7 +46,7 @@ struct ReadingView: View {
                 Spacer()
                 Text(memory.title)
                     .font(.miraScreenTitle)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(theme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                 Spacer()
@@ -54,7 +55,7 @@ struct ReadingView: View {
             }
             .padding(.horizontal, Metrics.chromeInset)
             .padding(.vertical, 8)
-            .background(Palette.paper.opacity(0.94))
+            .background(theme.background.opacity(0.94))
         }
         // The export sheet is modal: VoiceOver cannot wander onto the page
         // or its header behind it.
@@ -88,6 +89,8 @@ struct ReadingView: View {
                     // On the chrome line: 8 inside the page, as sheets over
                     // the canvas card.
                     .containerRelativeFrame(.horizontal) { width, _ in width - 2 * Metrics.chromeInset }
+                    // Its light glass and ink under the Forest theme too.
+                    .environment(\.colorScheme, .light)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }

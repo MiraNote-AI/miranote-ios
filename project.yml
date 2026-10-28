@@ -48,6 +48,12 @@ targets:
           - PlayfairDisplay.ttf
           - Oswald.ttf
           - DarkerGrotesque.ttf
+          # The Forest and Sunlit Pop themes' Home (Playfair Display is
+          # above): DM Sans as its variable font, Poppins at the two weights
+          # the themes use.
+          - DMSans.ttf
+          - Poppins-Medium.ttf
+          - Poppins-SemiBold.ttf
         # Version and build number for TestFlight. Both read from build
         # settings so a new upload is a one-line bump of CURRENT_PROJECT_VERSION
         # (TestFlight rejects a re-used build number).

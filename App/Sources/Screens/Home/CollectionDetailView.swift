@@ -12,6 +12,7 @@ struct CollectionDetailView: View {
     /// "+ New memory": the editor on a blank page, filed in this journal.
     var onNewMemory: () -> Void = {}
 
+    @Environment(\.theme) private var theme
     @State private var datingNote: Memory?
     @State private var pickedDate = Date.now
 
@@ -26,10 +27,10 @@ struct CollectionDetailView: View {
                     VStack(spacing: 8) {
                         Image(systemName: "book.closed")
                             .font(.system(size: 24))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(theme.muted(Palette.textSecondary))
                         Text("This journal is still empty -- start a memory below.")
                             .font(.miraBody)
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(theme.muted(Palette.textSecondary))
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
@@ -70,15 +71,17 @@ struct CollectionDetailView: View {
             }
             .padding(18)
             .presentationDetents([.medium])
+            // A system sheet: light whatever the theme.
+            .preferredColorScheme(.light)
         }
         .safeAreaInset(edge: .bottom) {
             Button(action: onNewMemory) {
                 Text("+ New memory")
                     .font(.miraPill)
-                    .foregroundStyle(Palette.onInk)
+                    .foregroundStyle(theme.onSmallButton(Palette.onInk))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
-                    .background(Capsule().fill(Palette.ink))
+                    .background(Capsule().fill(theme.smallButton))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("note.add")
@@ -101,10 +104,10 @@ struct CollectionDetailView: View {
             VStack(spacing: 1) {
                 Text(collection?.title ?? "")
                     .font(.miraScreenTitle)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(theme.ink)
                 Text("\(collection?.memories.count ?? 0) pages")
                     .font(.miraCaption)
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(theme.muted(Palette.textSecondary))
             }
             Spacer()
             // Balances the leading pill so the title stays centered.
@@ -112,7 +115,7 @@ struct CollectionDetailView: View {
         }
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 8)
-        .background(Palette.paper.opacity(0.94))
+        .background(theme.background.opacity(0.94))
     }
 
     // MARK: Month groups (by memory date, newest first)
@@ -147,7 +150,7 @@ struct CollectionDetailView: View {
             Text(group.label)
                 .font(Sans.font(size: 13, weight: 500))
                 .kerning(1.6)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(theme.muted(Palette.textSecondary))
 
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
@@ -169,7 +172,7 @@ struct CollectionDetailView: View {
                 // The cover already says the title; the caption says when.
                 Text(CaptionDate.string(for: memory.memoryDate))
                     .font(.miraCaption)
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(theme.muted(Palette.textSecondary))
                     .lineLimit(1)
             }
             // The cover itself ignores touches (Color.clear + hit-disabled

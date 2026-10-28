@@ -13,9 +13,9 @@ public enum LanguageChoice: String, CaseIterable, Sendable {
 }
 
 /// The Settings screens' preferences, persisted in UserDefaults under
-/// `miranote.settings.*`. They are stored and shown only: applying the
-/// appearance (Forest, Sunlit Pop theming), the language (zh-CN copy) and
-/// the text scale app-wide comes in follow-up PRs.
+/// `miranote.settings.*`. The app draws its theme from the appearance;
+/// applying the language (zh-CN copy) and the text scale app-wide comes in
+/// follow-up PRs.
 @Observable
 public final class AppSettings {
     /// The text-size slider's range: 1.0 sits where the handoff draws the
