@@ -47,18 +47,19 @@ enum TextFace {
         "Oswald", "Darker Grotesque"
     ]
 
-    /// `weight` is a CSS weight. The bundled variable faces (Josefin,
-    /// Raleway, the curated-set faces) set it on their axis; Josefin and
-    /// Raleway body text is Medium as drawn. System faces go bold from 600.
+    /// Page content: the size is the block's own, never the text-size
+    /// setting's (`scaled: false`). `weight` is a CSS weight. The bundled
+    /// variable faces (Josefin, Raleway, the curated-set faces) set it on
+    /// their axis; Josefin and Raleway body text is Medium as drawn. System faces go bold from 600.
     static func uiFont(name: String, size: CGFloat, weight: CGFloat? = nil) -> UIFont {
         switch name {
         case "":
             // Larger blocks are display type and take the serif identity.
             return size >= CanvasViewModel.displayPointSize
-                ? Serif.uiFont(size: size, weight: weight ?? 560, optical: 72)
+                ? Serif.uiFont(size: size, weight: weight ?? 560, optical: 72, scaled: false)
                 : UIFont.systemFont(ofSize: size, weight: (weight ?? 400) >= 600 ? .bold : .regular)
         case "Josefin Sans":
-            return Sans.uiFont(size: size, weight: weight ?? 500)
+            return Sans.uiFont(size: size, weight: weight ?? 500, scaled: false)
         case "Raleway":
             return variable("Raleway", size: size, weight: weight ?? 500)
         default:

@@ -154,11 +154,11 @@ struct CanvasElementView: View {
                 Button(action: onEditNote) {
                     HStack(spacing: 6) {
                         Text(clip.note.isEmpty ? String(appCopy: "Add a note") : clip.note)
-                            .font(Sans.font(size: 13, weight: 500))
+                            .font(Sans.font(size: 13, weight: 500, scaled: false))
                             .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
                             .lineLimit(1)
                         Text(Self.timestamp(clip.duration))
-                            .font(Sans.font(size: 13, weight: 400))
+                            .font(Sans.font(size: 13, weight: 400, scaled: false))
                             .foregroundStyle(Palette.textSecondary)
                     }
                     .padding(.horizontal, 10)
@@ -173,7 +173,7 @@ struct CanvasElementView: View {
                 .accessibilityIdentifier("sound.note")
             } else {
                 Text("tap to play")
-                    .font(Sans.font(size: 12, weight: 700))
+                    .font(Sans.font(size: 12, weight: 700, scaled: false))
                     .foregroundStyle(Palette.forest)
                     .frame(width: 74, height: 24)
                     .background(

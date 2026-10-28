@@ -208,7 +208,7 @@ struct FontChipRow: View {
                             // Face names have no entry and show as given;
                             // "Classic" is copy.
                             Text(copy: face.label)
-                                .font(Font(TextFace.uiFont(name: face.name, size: 14.5, weight: 500)))
+                                .font(Font(TextFace.uiFont(name: face.name, size: TextScale.scaled(14.5), weight: 500)))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                                 .frame(width: 59)

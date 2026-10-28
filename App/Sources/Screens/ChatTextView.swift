@@ -21,16 +21,13 @@ struct ChatTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let view = ChatInputView()
         view.delegate = context.coordinator
-        view.font = font
+        apply(font, to: view)
         view.textColor = UIColor(Palette.ink)
         view.tintColor = UIColor(Palette.forest)
         view.backgroundColor = .clear
         // The Send key is on without words too: a staged photo goes alone.
         view.returnKeyType = .send
         view.textContainer.lineFragmentPadding = 0
-        // One line sits centred in the 34 pt row, as the single-line field did.
-        let inset = max(0, (Self.minHeight - font.lineHeight) / 2)
-        view.textContainerInset = UIEdgeInsets(top: inset, left: 0, bottom: inset, right: 0)
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.accessibilityLabel = String(appCopy: "Message Mira")
         view.accessibilityIdentifier = "chat.field"
@@ -39,6 +36,8 @@ struct ChatTextView: UIViewRepresentable {
 
     func updateUIView(_ view: UITextView, context: Context) {
         context.coordinator.parent = self
+        // The text-size setting changed the font.
+        if view.font != font { apply(font, to: view) }
         if view.text != text { view.text = text }
         if isFocused != view.isFirstResponder {
             // Not inside the view update: focus changes send their own. By
@@ -52,6 +51,13 @@ struct ChatTextView: UIViewRepresentable {
                 if wanted { view.becomeFirstResponder() } else { view.resignFirstResponder() }
             }
         }
+    }
+
+    private func apply(_ font: UIFont, to view: UITextView) {
+        view.font = font
+        // One line sits centred in the 34 pt row, as the single-line field did.
+        let inset = max(0, (Self.minHeight - font.lineHeight) / 2)
+        view.textContainerInset = UIEdgeInsets(top: inset, left: 0, bottom: inset, right: 0)
     }
 
     /// The words' height, one line to four; past four the view scrolls.

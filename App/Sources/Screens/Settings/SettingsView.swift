@@ -21,10 +21,8 @@ struct SettingsView: View {
                     divider
                     row("Language", value: settings.language.title, action: onOpenLanguage)
                         .accessibilityIdentifier("settings.language")
-                    // Text size is hidden until a follow-up applies the
-                    // scale app-wide (owner): a slider that changes nothing
-                    // would surprise later. The stored preference and
-                    // TextSizeControl stay for that follow-up.
+                    divider
+                    TextSizeControl(settings: settings)
                 }
                 .padding(.horizontal, 19)
                 .settingsCard()
@@ -74,8 +72,7 @@ struct SettingsView: View {
 /// "Text size" over a small "A", the slider and a large "A". The handoff's
 /// rail (4 pt, #D8D5CA) fills in ink up to an 18 pt paper thumb with a 2 pt
 /// ink ring. Steps of 5% from 80% to 125%; VoiceOver adjusts it by swiping.
-/// The scale is a persisted preference: the app's type is fixed-size
-/// (Typography.swift has no scale to hook), so applying it is a follow-up.
+/// The app's type follows it at once, this screen's too (`TextScale`).
 private struct TextSizeControl: View {
     var settings: AppSettings
 
@@ -90,13 +87,16 @@ private struct TextSizeControl: View {
                 .font(Sans.font(size: 16, weight: 600))
                 .foregroundStyle(Palette.ink)
                 .frame(minHeight: 20)
+            // The two "A"s are the rail's end marks, not copy: unscaled, so
+            // the rail keeps its length under the finger while the scale
+            // changes.
             HStack(spacing: 20) {
                 Text("A")
-                    .font(Sans.font(size: 14, weight: 500))
+                    .font(Sans.font(size: 14, weight: 500, scaled: false))
                     .foregroundStyle(SettingsStyle.value)
                 slider
                 Text("A")
-                    .font(Sans.font(size: 23, weight: 600))
+                    .font(Sans.font(size: 23, weight: 600, scaled: false))
                     .foregroundStyle(Palette.ink)
             }
             .frame(height: 34)
