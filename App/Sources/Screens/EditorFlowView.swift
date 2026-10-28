@@ -203,12 +203,15 @@ struct HomeFlow: View {
 
     /// UI tests record with a canned in-memory recorder (no mic permission),
     /// at full level so the live bars draw the handoff's pattern. A mic that
-    /// is slow to come up is `-MIC_START_DELAY <ms>`.
+    /// is slow to come up is `-MIC_START_DELAY <ms>`; `-TIME_TAKES` times
+    /// each take; `-FAIL_LATER_MICS` fails every mic after the first.
     @MainActor private static func makeRecorder() -> AudioRecording {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
             let delay = UserDefaults.standard.integer(forKey: "MIC_START_DELAY")
-            return MockAudioRecorder(recordingLevel: 1, startDelay: .milliseconds(delay))
+            let mock = MockAudioRecorder(recordingLevel: 1, startDelay: .milliseconds(delay))
+            if ProcessInfo.processInfo.arguments.contains("-FAIL_LATER_MICS") { return UITestFailingRecorder(mock) }
+            return ProcessInfo.processInfo.arguments.contains("-TIME_TAKES") ? UITestTimedRecorder(mock) : mock
         }
         #endif
         return AudioRecorder()
