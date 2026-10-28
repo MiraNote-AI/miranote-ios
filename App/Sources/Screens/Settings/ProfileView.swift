@@ -39,6 +39,10 @@ struct ProfileView: View {
                         .accessibilityHidden(true)
                         .transition(.opacity)
                     EditProfileSheet(profile: profile, avatar: avatar, onClose: closeSheet)
+                        // Light on every theme (as Reading's export sheet):
+                        // Forest asks the window for dark, which would turn
+                        // the placeholder near-white and the keyboard dark.
+                        .environment(\.colorScheme, .light)
                         .transition(.move(edge: .bottom))
                 }
             }
