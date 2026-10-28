@@ -123,8 +123,18 @@ final class ThemeTests: XCTestCase {
     func testSmallButtonsReadAtAA() {
         for choice in AppearanceChoice.allCases {
             let theme = Theme(appearance: choice)
-            XCTAssertGreaterThanOrEqual(contrast(theme.onSmallButton(Palette.onInk), theme.smallButton), 4.5, "\(choice)")
+            let label = theme.onSmallButton(Palette.onInk)
+            XCTAssertGreaterThanOrEqual(contrast(label, theme.smallButton), 4.5, "\(choice)")
             XCTAssertGreaterThanOrEqual(contrast(theme.smallButton, theme.background), 3, "\(choice) edge")
         }
+    }
+
+    /// A wrapped Chinese title gets no stray space where its lines rejoin;
+    /// Latin words, and Latin next to Chinese, keep theirs.
+    func testCardTitleLinesRejoinWithoutSpacesBetweenCJK() {
+        let travel = "\u{65C5}\u{884C}", notes = "\u{624B}\u{8D26}"  // two-character Chinese words
+        XCTAssertEqual(ThemedCardTitle.joined([travel, notes]), travel + notes)
+        XCTAssertEqual(ThemedCardTitle.joined(["Travel", "Scrapbook"]), "Travel Scrapbook")
+        XCTAssertEqual(ThemedCardTitle.joined(["Tokyo", travel]), "Tokyo " + travel)
     }
 }

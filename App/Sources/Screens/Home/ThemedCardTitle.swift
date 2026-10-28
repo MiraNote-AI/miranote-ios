@@ -5,7 +5,8 @@ import UIKit
 /// up to two lines at the design's 23-on-20 pitch. The face's own line box
 /// is taller and SwiftUI cannot tighten it, so the lines are wrapped here
 /// and stacked; a word too wide for the card shrinks the title (to 80% at
-/// most) rather than break.
+/// most) rather than break. Chinese and Japanese break between any two
+/// characters, so each character counts as a word there.
 struct ThemedCardTitle: View {
     let title: String
     let face: UIFont
@@ -17,9 +18,12 @@ struct ThemedCardTitle: View {
         VStack(alignment: .leading, spacing: fitted.pointSize * 23 / 20 - fitted.lineHeight) {
             Text(lines[0])
             if lines.count > 1 {
-                Text(lines.dropFirst().joined(separator: " "))
+                Text(Self.joined(lines.dropFirst()))
             }
         }
+        // One element for VoiceOver, read as typed, not line by line.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
         .font(Font(fitted))
         .lineLimit(1)
         .minimumScaleFactor(0.8)
@@ -29,10 +33,20 @@ struct ThemedCardTitle: View {
 
     private static func fitting(_ text: String, font: UIFont, width: CGFloat) -> UIFont {
         let widest = text.split(separator: " ")
-            .map { String($0).size(withAttributes: [.font: font]).width }
+            .flatMap { word in word.contains(where: \.isCJK) ? word.map { String($0) } : [String(word)] }
+            .map { $0.size(withAttributes: [.font: font]).width }
             .max() ?? 0
         guard widest > width else { return font }
         return font.withSize(font.pointSize * max(0.8, width / widest))
+    }
+
+    /// Lines rejoined with the space the wrap took out -- none between
+    /// two CJK characters.
+    static func joined(_ lines: ArraySlice<String>) -> String {
+        lines.reduce("") { text, line in
+            guard let last = text.last, let first = line.first else { return text + line }
+            return text + (last.isCJK && first.isCJK ? "" : " ") + line
+        }
     }
 
     /// Wrapped titles by face, size, width and text: Home redraws its cards
@@ -61,5 +75,20 @@ struct ThemedCardTitle: View {
             lines.append((text as NSString).substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return lines.isEmpty ? [text] : lines
+    }
+}
+
+private extension Character {
+    /// Han, kana, CJK punctuation and fullwidth forms: scripts written
+    /// without spaces between words.
+    var isCJK: Bool {
+        unicodeScalars.contains { scalar in
+            switch scalar.value {
+            case 0x3000...0x30FF, 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF, 0xFF00...0xFFEF:
+                return true
+            default:
+                return false
+            }
+        }
     }
 }
