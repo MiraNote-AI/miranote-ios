@@ -150,6 +150,8 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
+    @State private var settings = AppSettings(defaults: HomeFlow.settingsDefaults)
+    @State private var profile = LocalProfile(defaults: HomeFlow.settingsDefaults, images: HomeFlow.profileImages)
     @State private var moodJudge: MoodJudge?
 
     /// Where a newly finished memory is filed by default.
@@ -171,6 +173,35 @@ struct HomeFlow: View {
         return FileCollectionStore()
     }
 
+    /// UI tests keep the settings and the profile in a suite and a folder
+    /// of their own, emptied at launch, so no run sees an earlier one's;
+    /// `-KEEP_SETTINGS` keeps them (a test's own relaunch).
+    private static let settingsDefaults: UserDefaults = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            let suite = "MiraNote.UITest.settings"
+            if !ProcessInfo.processInfo.arguments.contains("-KEEP_SETTINGS") {
+                UserDefaults.standard.removePersistentDomain(forName: suite)
+            }
+            return UserDefaults(suiteName: suite) ?? .standard
+        }
+        #endif
+        return .standard
+    }()
+
+    private static let profileImages: ImageFileStore = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("UITestProfile", isDirectory: true)
+            if !ProcessInfo.processInfo.arguments.contains("-KEEP_SETTINGS") {
+                try? FileManager.default.removeItem(at: folder)
+            }
+            return ImageFileStore(directory: folder)
+        }
+        #endif
+        return LocalProfile.defaultImages
+    }()
+
     /// UI tests drive Mira with scripted services so working, stop, and
     /// failure states are deterministic; otherwise the app's own container
     /// is used unchanged.
@@ -185,12 +216,15 @@ struct HomeFlow: View {
 
     /// UI tests record with a canned in-memory recorder (no mic permission),
     /// at full level so the live bars draw the handoff's pattern. A mic that
-    /// is slow to come up is `-MIC_START_DELAY <ms>`.
+    /// is slow to come up is `-MIC_START_DELAY <ms>`; `-TIME_TAKES` times
+    /// each take; `-FAIL_LATER_MICS` fails every mic after the first.
     @MainActor private static func makeRecorder() -> AudioRecording {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
             let delay = UserDefaults.standard.integer(forKey: "MIC_START_DELAY")
-            return MockAudioRecorder(recordingLevel: 1, startDelay: .milliseconds(delay))
+            let mock = MockAudioRecorder(recordingLevel: 1, startDelay: .milliseconds(delay))
+            if ProcessInfo.processInfo.arguments.contains("-FAIL_LATER_MICS") { return UITestFailingRecorder(mock) }
+            return ProcessInfo.processInfo.arguments.contains("-TIME_TAKES") ? UITestTimedRecorder(mock) : mock
         }
         #endif
         return AudioRecorder()
@@ -238,6 +272,11 @@ struct HomeFlow: View {
     /// Navigation token for the recently-deleted bin.
     struct TrashRoute: Hashable {}
 
+    /// Navigation tokens for the Settings and Profile screens.
+    enum AccountRoute: Hashable {
+        case settings, appearance, language, profile
+    }
+
     /// Navigation token for the star jar.
     struct StarJarRoute: Hashable {}
 
@@ -267,7 +306,9 @@ struct HomeFlow: View {
                 onQuickCapture: { route = .chat($0) },
                 onOpenCollection: { path.append($0) },
                 onOpenTrash: { path.append(TrashRoute()) },
-                onOpenStarJar: { path.append(StarJarRoute()) }
+                onOpenStarJar: { path.append(StarJarRoute()) },
+                onOpenSettings: { path.append(AccountRoute.settings) },
+                onOpenProfile: { path.append(AccountRoute.profile) }
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -305,6 +346,26 @@ struct HomeFlow: View {
                     viewModel: viewModel,
                     onBack: { path.removeLast() }
                 )
+                .navigationBarHidden(true)
+            }
+            .navigationDestination(for: AccountRoute.self) { route in
+                Group {
+                    switch route {
+                    case .settings:
+                        SettingsView(
+                            settings: settings,
+                            onBack: { path.removeLast() },
+                            onOpenAppearance: { path.append(AccountRoute.appearance) },
+                            onOpenLanguage: { path.append(AccountRoute.language) }
+                        )
+                    case .appearance:
+                        AppearanceView(settings: settings, onBack: { path.removeLast() })
+                    case .language:
+                        LanguageView(settings: settings, onBack: { path.removeLast() })
+                    case .profile:
+                        ProfileView(profile: profile, onBack: { path.removeLast() })
+                    }
+                }
                 .navigationBarHidden(true)
             }
         }
