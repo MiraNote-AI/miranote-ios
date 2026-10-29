@@ -129,6 +129,16 @@ final class ThemeTests: XCTestCase {
         }
     }
 
+    /// At the largest text size a long word still fits the card whole
+    /// ("Scrapbook" in Sunlit Pop broke as "Scrapboo k" at 125%).
+    func testCardTitleWordFitsTheCardAtTheLargestTextSize() {
+        let scale: CGFloat = 1.25
+        let face = ThemeFont.poppinsUIFont(size: 22 * scale, weight: 500)
+        let fitted = ThemedCardTitle.fitting("Travel Scrapbook", font: face, width: 118, scale: scale)
+        let word = "Scrapbook".size(withAttributes: [.font: fitted]).width
+        XCTAssertLessThanOrEqual(word, 118.01)
+    }
+
     /// A wrapped Chinese title gets no stray space where its lines rejoin;
     /// Latin words, and Latin next to Chinese, keep theirs.
     func testCardTitleLinesRejoinWithoutSpacesBetweenCJK() {

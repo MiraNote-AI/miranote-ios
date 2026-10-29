@@ -4,8 +4,8 @@ import UIKit
 /// A Home card title in a theme face (handoff 2026-10-24, screens 01-02):
 /// up to two lines at the design's 23-on-20 pitch. The face's own line box
 /// is taller and SwiftUI cannot tighten it, so the lines are wrapped here
-/// and stacked; a word too wide for the card shrinks the title (to 80% at
-/// most) rather than break. Chinese and Japanese break between any two
+/// and stacked; a word too wide for the card shrinks the title (to 80% of
+/// the design size at most) rather than break. Chinese and Japanese break between any two
 /// characters, so each character counts as a word there.
 struct ThemedCardTitle: View {
     let title: String
@@ -13,7 +13,7 @@ struct ThemedCardTitle: View {
     let width: CGFloat
 
     var body: some View {
-        let fitted = Self.fitting(title, font: face, width: width)
+        let fitted = Self.fitting(title, font: face, width: width, scale: TextScale.current)
         let lines = Self.wrap(title, font: fitted, width: width)
         VStack(alignment: .leading, spacing: fitted.pointSize * 23 / 20 - fitted.lineHeight) {
             Text(lines[0])
@@ -31,13 +31,16 @@ struct ThemedCardTitle: View {
         .padding(.top, -4)
     }
 
-    private static func fitting(_ text: String, font: UIFont, width: CGFloat) -> UIFont {
+    /// `font` at the text-size setting `scale`, shrunk until its widest word
+    /// fits `width`. The floor is 80% of the design size, not of the scaled
+    /// one, so a larger text size never brings back a broken word.
+    static func fitting(_ text: String, font: UIFont, width: CGFloat, scale: CGFloat) -> UIFont {
         let widest = text.split(separator: " ")
             .flatMap { word in word.contains(where: \.isCJK) ? word.map { String($0) } : [String(word)] }
             .map { $0.size(withAttributes: [.font: font]).width }
             .max() ?? 0
         guard widest > width else { return font }
-        return font.withSize(font.pointSize * max(0.8, width / widest))
+        return font.withSize(font.pointSize * max(0.8 / scale, width / widest))
     }
 
     /// Lines rejoined with the space the wrap took out -- none between

@@ -39,9 +39,9 @@ public enum LanguageChoice: String, CaseIterable, Sendable {
 /// The Settings screens' preferences, persisted in UserDefaults under
 /// `miranote.settings.*` -- but the language, which is the app's
 /// `AppleLanguages`: the one iOS Settings > MiraNote > Language writes too.
-/// The app draws its theme from the appearance and its copy's language from
-/// `language` (see `String(appCopy:)`); applying the text scale app-wide
-/// comes in a follow-up PR.
+/// The app draws its theme from the appearance, its copy's language from
+/// `language` (see `String(appCopy:)`) and its chrome's type size from
+/// `textScale` (the app's `TextScale`).
 @Observable
 public final class AppSettings {
     /// The app's preferences. String lookups outside the view tree read the
