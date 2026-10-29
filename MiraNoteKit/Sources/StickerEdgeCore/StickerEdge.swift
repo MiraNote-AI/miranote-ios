@@ -4,28 +4,28 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// The white die-cut edge of a generated sticker, drawn by code.
+/// A generated sticker cut out without the model's white die-cut edge.
 ///
-/// The image model draws its sticker -- usually with a white rim of its own --
-/// on a flat backdrop, and Vision lifts it. Vision is good at *which* thing is
-/// the sticker and unreliable at *where* a pale rim ends: on the bench it
-/// dropped whole stretches of the model's rim on half the stickers, and on a
-/// repainted backdrop it took the model's drop shadow instead. So the roles are
-/// split here:
+/// The image model draws its sticker -- usually inside a white rim of its own --
+/// on a flat backdrop, and Vision lifts it. Stickers come out with no edge
+/// (team decision 2026-10-24; Outline adds one on request), so the rim has to
+/// go, and Vision cannot be asked to drop it: it is unreliable at where a pale
+/// rim ends. So the roles are split:
 ///
 /// - Vision picks the sticker (which connected parts count);
-/// - the backdrop colour decides where its edge is (the backdrop is flat, so
-///   its colour can be keyed, shadow tones included);
-/// - and the white rim is redrawn at a uniform width with a smoothed outline,
-///   so a rim Vision dropped or the model drew unevenly cannot show as a gap.
+/// - the backdrop colour places the sticker's outer edge (the backdrop is flat,
+///   so its colour can be keyed, shadow tones included);
+/// - and the rim is found by what it is: near-white, joined to that outer edge,
+///   and never further from the coloured art than the rim is wide. A white body
+///   behind an outline is not joined to it; one with no outline loses only a
+///   band the rim's width.
 ///
-/// Only the art keeps its colours. The model's own rim, its grey stroke, and
-/// any shadow sliver are painted over white, which is what removes the seam
-/// line where two whites of slightly different tone would otherwise meet.
+/// The art keeps its pixels; only its outermost 2 px are un-mixed from the
+/// white or backdrop they were blended with, so no pale fringe is left.
 ///
-/// Prototyped in Python against Vision on 14 generated stickers (see
-/// miranote-api docs/plans/2026-10-21-sticker-edge-and-speed.md); the
-/// constants below are the ones that bench settled on.
+/// Prototyped in Python against Vision on 24 generated stickers (miranote-api
+/// poc/image-generation/test_output/sticker_clean_cut_20261028/clean_cut.py);
+/// the constants below are the ones that bench settled on.
 public enum StickerEdge {
     public struct Parameters: Sendable {
         /// Corner patch size (px) the backdrop colour is read from.
@@ -52,23 +52,73 @@ public enum StickerEdge {
         public var rimLightMin = 238.0
         /// ...and channel spread below this (rims measure <= 3, a cream body ~19).
         public var rimLightSpread = 10.0
-        /// The model rim width estimate is capped at this share of the subject.
+        /// The first estimate of the model's rim width is capped at this share
+        /// of the subject...
         public var rimWidthCapFraction = 0.035
+        /// ...and the measured one at this.
+        public var rimWidthMaxFraction = 0.08
+        /// What the rim itself is made of: flat near-white, every channel at
+        /// least this and spread at most `rimLikeSpread` (rims measure >= 250,
+        /// spread <= 3; a white mug body is a shade off, 247/239).
+        public var rimLikeMin = 248.0
+        public var rimLikeSpread = 5.0
+        /// Rim pixels sit at most the rim width plus this share of it (min 4 px)
+        /// from coloured art.
+        public var rimToleranceFraction = 0.25
         /// Outermost px checked for backdrop blends and the model's grey stroke.
         public var seamBand = 4.0
         /// Distance from the backdrop-to-white line that counts as a blend.
         public var seamTolerance = 14.0
+        /// Non-rim px this close to the rim, in the seam band, are its stroke.
+        public var seamReach: Float = 3
+        /// A rim component must come this close (px) to the outside.
+        public var seedDepth: Float = 7
         /// Art components smaller than this share, at the edge, are shadow slivers.
         public var sliverFraction = 0.003
-        /// White rim width as a share of the subject's longer side, and its floor.
-        public var rimFraction = 0.022
-        public var rimMin = 9
-        /// Outline smoothing, as a share of the rim width.
-        public var smoothSigmaFraction = 0.35
-        /// When the model drew no rim the outline follows the art itself
-        /// (feathers, leaves), so it gets a wider rim and more smoothing.
-        public var bareRimScale = 1.3
-        public var bareSigmaFraction = 0.6
+        /// Light left behind the rim above this share of the subject is a white
+        /// body: only a band of the rim's width comes off it.
+        public var whiteBodyFraction = 0.01
+        /// A flat white backing joining several parts (the stars) is rim:
+        /// every channel at least `flatWhiteMin`, spread at most `flatWhiteSpread`,
+        /// over `backingFlatShare` of it, and no more than `backingMaxFraction`
+        /// of the subject.
+        public var flatWhiteMin = 250.0
+        public var flatWhiteSpread = 4.0
+        public var backingFlatShare = 0.85
+        public var backingMaxFraction = 0.15
+        /// White running deeper than the rim over more than this share of the
+        /// subject: drawn on white paper (bench: stars and sakura 0.14, a
+        /// flower card 0.35, a white mug 0.43).
+        public var paperDeepFraction = 0.25
+        /// Paler than any art: the rim's anti-aliasing and paper texture.
+        public var paleMin = 215.0
+        public var paleSpread = 12.0
+        /// Pockets -- rim-white areas thin art closes off (between ropes, legs,
+        /// stems): at least `pocketShare` of their edge lies within
+        /// max(`pocketGap`, `pocketGapFraction` x rim width) of the rim or the
+        /// outside. Above `smallPocketFraction` of the subject, at least
+        /// `pocketLightShare` of a pocket must be rim-light.
+        public var pocketGap: Float = 6
+        public var pocketGapFraction: Float = 0.2
+        public var pocketShare = 0.25
+        public var smallPocketFraction = 0.002
+        public var pocketLightShare = 0.6
+        /// Pocket area deeper than the rim above this share of the subject,
+        /// over at least `hatchedPocketCount` pockets, is hatching (a pencil
+        /// fox 4.8% over 874, a dandelion 2.9% over 231; every other sticker on
+        /// the bench under 0.9%, a balloon's 3 gaps 0.9%): a drawing on paper.
+        public var hatchedPocketFraction = 0.02
+        public var hatchedPocketCount = 20
+        /// Final parts smaller than this (px) are dropped.
+        public var minPartPixels = 20
+        /// Px from the art's edge that are un-mixed, and the depth of the art
+        /// that supplies their colour.
+        public var unmixBand: Float = 2.5
+        public var coreDepth: Float = 3
+        /// Colours closer than this to what they were blended with are left alone.
+        public var unmixMin = 40.0
+        /// Anti-aliasing of the art's edge.
+        public var antialiasSigma: Float = 0.8
 
         public init() {}
     }
@@ -80,25 +130,33 @@ public enum StickerEdge {
         case unencodable
     }
 
-    /// What the rebuild decided, for logs and the bench.
-    public struct Report: Sendable, Equatable {
+    /// What the cut decided, for logs and the bench.
+    public struct CleanReport: Sendable, Equatable {
         public var keyed: Bool
+        /// Width of the white rim the model drew, 0 if none.
         public var modelRimWidth: Int
-        public var rimWidth: Int
-        public var padding: Int
+        /// Where the cropped result sits in the generated image.
+        public var cropX: Int
+        public var cropY: Int
+        /// Pockets removed, and light pixels kept as a white body.
+        public var pockets: Int
+        public var whiteBodyPixels: Int
+        /// Drawn on white paper (a flower card, a pencil sketch): its white
+        /// cannot be told from the rim's, so only the rim's band came off.
+        public var drawnOnPaper: Bool
     }
 
     /// `raw` is the generated image as it came from the server, `lifted` the
-    /// Vision cut-out of it (only its alpha is read). Returns an RGBA PNG,
-    /// larger than `raw` by the rim on every side.
-    public static func rebuild(raw: Data, lifted: Data,
-                               parameters: Parameters = Parameters()) throws -> Data {
-        try rebuildReporting(raw: raw, lifted: lifted, parameters: parameters).png
+    /// Vision cut-out of it (only its alpha is read). Returns an RGBA PNG
+    /// cropped to the sticker.
+    public static func cleanCut(raw: Data, lifted: Data,
+                                parameters: Parameters = Parameters()) throws -> Data {
+        try cleanCutReporting(raw: raw, lifted: lifted, parameters: parameters).png
     }
 
-    public static func rebuildReporting(raw: Data, lifted: Data,
-                                        parameters: Parameters = Parameters()) throws
-        -> (png: Data, report: Report) {
+    public static func cleanCutReporting(raw: Data, lifted: Data,
+                                         parameters: Parameters = Parameters()) throws
+        -> (png: Data, report: CleanReport) {
         guard let source = Bitmap(data: raw), let cut = Bitmap(data: lifted) else {
             throw Failure.undecodable
         }
@@ -106,15 +164,15 @@ public enum StickerEdge {
             throw Failure.sizeMismatch
         }
         let alpha = (0..<(cut.width * cut.height)).map { cut.pixels[$0 * 4 + 3] }
-        let (out, report) = try rebuild(source, liftedAlpha: alpha, parameters)
+        let (out, report) = try cleanCut(source, liftedAlpha: alpha, parameters)
         guard let png = out.png() else { throw Failure.unencodable }
         return (png, report)
     }
 
     // MARK: - The pipeline
 
-    static func rebuild(_ raw: Bitmap, liftedAlpha: [UInt8],
-                        _ p: Parameters) throws -> (Bitmap, Report) {
+    static func cleanCut(_ raw: Bitmap, liftedAlpha: [UInt8],
+                         _ p: Parameters) throws -> (Bitmap, CleanReport) {
         let w = raw.width, h = raw.height, n = w * h
         let vis = liftedAlpha.map { $0 > 127 }
         guard vis.contains(true) else { throw Failure.nothingLifted }
@@ -127,37 +185,96 @@ public enum StickerEdge {
         // keyed away entirely (a Vision cut thinner than trustInset, all of it
         // backdrop-coloured): throwing keeps Vision's cut instead of a blank
         guard mask.contains(true) else { throw Failure.nothingLifted }
+        let maskCount = Double(mask.reduce(0) { $1 ? $0 + 1 : $0 })
 
-        // Subject size and the model's own rim
         var minX = w, maxX = 0, minY = h, maxY = 0
         for y in 0..<h { for x in 0..<w where mask[y * w + x] {
             minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
         } }
         let side = Double(max(maxX - minX, maxY - minY))
         let depth = distance(to: mask.map { !$0 }, w, h)
-        let light = (0..<n).map { i -> Bool in
+        // Float, not Double: these two are per pixel and live through the cut
+        var lo = [Float](repeating: 0, count: n), spreadOf = [Float](repeating: 0, count: n)
+        for i in 0..<n {
             let r = rgb[i * 3], g = rgb[i * 3 + 1], b = rgb[i * 3 + 2]
-            let lo = min(r, g, b), hi = max(r, g, b)
-            return mask[i] && lo > p.rimLightMin && hi - lo < p.rimLightSpread
+            lo[i] = Float(min(r, g, b))
+            spreadOf[i] = Float(max(r, g, b)) - lo[i]
         }
-        let modelRim = modelRimWidth(light: light, mask: mask, depth: depth, side: side, p)
-
-        var rim = max(p.rimMin, Int((p.rimFraction * side).rounded()))
-        var sigmaFraction = p.smoothSigmaFraction
-        if modelRim == 0 {
-            rim = Int((Double(rim) * p.bareRimScale).rounded())
-            sigmaFraction = p.bareSigmaFraction
+        let light = (0..<n).map {
+            mask[$0] && Double(lo[$0]) > p.rimLightMin && Double(spreadOf[$0]) < p.rimLightSpread
         }
-        let sigma = max(1.0, sigmaFraction * Double(rim))
 
-        // Art: what keeps its colours
+        // The model's rim is the art dilated by its width: every rim pixel lies
+        // within that width of coloured art. Measured that way -- outer edge to
+        // the nearest deep coloured pixel -- rather than by depth alone, which a
+        // white body or a shadow band skews.
         let seamBand = Float(p.seamBand)
-        var art = (0..<n).map { i in mask[i] && !(light[i] && depth[i] <= Float(modelRim + 1)) }
-        if modelRim > 0 {
-            // with a model rim, the outermost px are its grey stroke or shadow
-            for i in 0..<n where depth[i] <= seamBand { art[i] = false }
+        let coloured = (0..<n).map { mask[$0] && !light[$0] && depth[$0] > seamBand + 2 }
+        let toColoured = coloured.contains(true)
+            ? distance(to: coloured, w, h) : [Float](repeating: .greatestFiniteMagnitude, count: n)
+        var rimWidth = modelRimWidth(light: light, mask: mask, depth: depth, side: side, p)
+        var bandCount = 0
+        var litSums: [Float] = []
+        for i in 0..<n where mask[i] && depth[i] > seamBand - 1 && depth[i] <= seamBand + 2 {
+            bandCount += 1
+            if light[i] { litSums.append(depth[i] + toColoured[i]) }
         }
-        dropSlivers(&art, depth: depth, w, h, limit: Double(modelRim) + p.seamBand, p)
+        if rimWidth > 0 || (bandCount > 0 && Double(litSums.count) > 0.5 * Double(bandCount)), !litSums.isEmpty {
+            rimWidth = Int(median(litSums).rounded(.toNearestOrEven))
+            rimWidth = min(rimWidth, Int(p.rimWidthMaxFraction * side))
+        }
+
+        var art = mask
+        var pockets = 0, whiteBody = 0, drawnOnPaper = false
+        if rimWidth > 0 {
+            let W = Float(rimWidth)
+            let tol = max(4, Float(p.rimToleranceFraction) * W)
+            let rimLike = (0..<n).map {
+                mask[$0] && Double(lo[$0]) >= p.rimLikeMin && Double(spreadOf[$0]) <= p.rimLikeSpread
+            }
+            var rim = Self.rim(light: light, rimLike: rimLike, depth: depth, toColoured: toColoured,
+                               width: W, tolerance: tol, w, h, p)
+            let settled = settleWhiteRegions(&rim, light: light, rimLike: rimLike, lo: lo, spread: spreadOf,
+                                             depth: depth, width: W, tolerance: tol,
+                                             maskCount: maskCount, w, h, p)
+            whiteBody = settled.whiteBody
+            drawnOnPaper = settled.drawnOnPaper
+            // The rim's own anti-aliasing and paper texture: paler-than-art px
+            // that touch the rim and sit as close to the art as the rim does.
+            // Grown from the rim and kept to its band, so a white body behind
+            // an outline is never reached.
+            let pale = (0..<n).map {
+                mask[$0] && Double(lo[$0]) > p.paleMin && Double(spreadOf[$0]) < p.paleSpread
+                    && toColoured[$0] <= W + tol
+            }
+            let weak = (0..<n).map { pale[$0] && depth[$0] <= W + 2 }
+            let (grownLabels, grownCount) = label((0..<n).map { weak[$0] || rim[$0] }, w, h, eight: true)
+            var touchesRim = [Bool](repeating: false, count: grownCount + 1)
+            for i in 0..<n where rim[i] { touchesRim[Int(grownLabels[i])] = true }
+            for i in 0..<n where weak[i] && touchesRim[Int(grownLabels[i])] { rim[i] = true }
+            if !settled.drawnOnPaper {
+                let beforePockets = rim
+                let found = removePockets(&rim, mask: mask, light: light, pale: pale, depth: depth,
+                                          width: W, tolerance: tol, maskCount: maskCount, w, h, p)
+                pockets = found.count
+                // Hatching (a pencil fox, a dandelion's seeds): hundreds of white
+                // gaps deep inside the art look like pockets. That much pocket
+                // area that deep means a drawing on paper: no pockets, and only
+                // the rim's band.
+                if Double(found.deepPixels) > p.hatchedPocketFraction * maskCount
+                    && found.deepPockets >= p.hatchedPocketCount {
+                    rim = (0..<n).map { beforePockets[$0] && depth[$0] <= W + 2 }
+                    pockets = 0
+                    drawnOnPaper = true
+                }
+            }
+            // the model's grey stroke and shadow just outside the rim
+            let toRim = distance(to: rim, w, h)
+            for i in 0..<n where rim[i] || (toRim[i] <= p.seamReach && depth[i] <= seamBand + 1) {
+                art[i] = false
+            }
+        }
+
         // art drawn straight onto the backdrop: its outermost px are backdrop blends
         let axis = (255 - backdrop.0, 255 - backdrop.1, 255 - backdrop.2)
         let axisLength2 = max(1e-6, axis.0 * axis.0 + axis.1 * axis.1 + axis.2 * axis.2)
@@ -168,42 +285,256 @@ public enum StickerEdge {
             let e0 = d0 - t * axis.0, e1 = d1 - t * axis.1, e2 = d2 - t * axis.2
             if (e0 * e0 + e1 * e1 + e2 * e2).squareRoot() < p.seamTolerance { art[i] = false }
         }
+        dropSlivers(&art, depth: depth, w, h, limit: Double(rimWidth) + p.seamBand, p)
+        // crumbs a removed rim can leave (a rope's last px, a hair tip)
+        dropSmallParts(&art, w, h, below: p.minPartPixels)
+        guard art.contains(true) else { throw Failure.nothingLifted }
 
-        // Pad so a subject near the canvas edge still gets its whole rim
-        let pad = Int(Double(rim) + 3 * sigma + 2)
-        let pw = w + 2 * pad, ph = h + 2 * pad, pn = pw * ph
-        func padded(_ a: [Bool]) -> [Bool] {
-            var out = [Bool](repeating: false, count: pn)
-            for y in 0..<h { for x in 0..<w { out[(y + pad) * pw + x + pad] = a[y * w + x] } }
-            return out
+        var (out, alpha) = unmixed(raw, rgb, art: art, backdrop: backdrop, w, h, p)
+        // crumbs the un-mixing can split off a thin line
+        var solid = alpha.map { $0 > 0.5 }
+        let before = solid
+        dropSmallParts(&solid, w, h, below: p.minPartPixels)
+        var dropped = [Bool](repeating: false, count: n)
+        for i in 0..<n where before[i] && !solid[i] { dropped[i] = true }
+        if dropped.contains(true) {
+            let near = distance(to: dropped, w, h)
+            for i in 0..<n where dropped[i] || (near[i] <= 2 && alpha[i] <= 0.5) { alpha[i] = 0 }
         }
-        let maskP = padded(mask), artP = padded(art)
 
-        // Outline: open (drops 1-3 px shadow protrusions), round dilation, blur,
-        // steep ramp. The art is added back after the opening so a thin part
-        // of it -- a stem, a string, an antenna -- still gets its rim.
-        let eroded = distance(to: maskP.map { !$0 }, pw, ph).map { $0 > 3 }
-        var opened = distance(to: eroded, pw, ph).map { $0 <= 3 }
-        for i in 0..<pn where artP[i] { opened[i] = true }
-        let rimAlpha = Self.rimAlpha(around: opened, pw, ph, rim: rim, sigma: sigma)
-        let artAlpha = gaussian(artP.map { $0 ? 1 : 0 }, pw, ph, sigma: 0.8)
+        var cx0 = w, cx1 = -1, cy0 = h, cy1 = -1
+        for i in 0..<n {
+            out.pixels[i * 4 + 3] = UInt8((Double(alpha[i]) * 255).rounded())
+            guard out.pixels[i * 4 + 3] > 0 else { continue }
+            let x = i % w, y = i / w
+            cx0 = min(cx0, x); cx1 = max(cx1, x); cy0 = min(cy0, y); cy1 = max(cy1, y)
+        }
+        guard cx1 >= 0 else { throw Failure.nothingLifted }
+        let cropped = out.cropped(x: cx0, y: cy0, width: cx1 - cx0 + 1, height: cy1 - cy0 + 1)
+        return (cropped, CleanReport(keyed: keyed, modelRimWidth: rimWidth, cropX: cx0, cropY: cy0,
+                                     pockets: pockets, whiteBodyPixels: whiteBody,
+                                     drawnOnPaper: drawnOnPaper))
+    }
 
-        var out = Bitmap(width: pw, height: ph)
-        for y in 0..<ph {
-            let sy = min(h - 1, max(0, y - pad))
-            for x in 0..<pw {
-                let i = y * pw + x
-                let sx = min(w - 1, max(0, x - pad))
-                let s = (sy * w + sx) * 4
-                let a = Double(artAlpha[i])
-                for c in 0..<3 {
-                    let value = artP[i] ? Double(raw.pixels[s + c]) : 255
-                    out.pixels[i * 4 + c] = UInt8((value * a + 255 * (1 - a)).rounded())
+    /// The rim's flat white joined to the outside, no further from coloured
+    /// art than the rim is wide (or no deeper than it), plus the anti-aliasing
+    /// round it. Joined through any near-white: texture and anti-aliasing
+    /// bridge the rim's flat white.
+    static func rim(light: [Bool], rimLike: [Bool], depth: [Float], toColoured: [Float],
+                    width W: Float, tolerance tol: Float, _ w: Int, _ h: Int,
+                    _ p: Parameters) -> [Bool] {
+        let n = w * h
+        let eligible = (0..<n).map { light[$0] && (toColoured[$0] <= W + tol || depth[$0] <= W + 2) }
+        let (labels, count) = label(eligible, w, h, eight: true)
+        var seeded = [Bool](repeating: false, count: count + 1)
+        for i in 0..<n where eligible[i] && depth[i] <= p.seedDepth { seeded[Int(labels[i])] = true }
+        let joined = (0..<n).map { eligible[$0] && seeded[Int(labels[$0])] }
+        let flat = (0..<n).map { joined[$0] && rimLike[$0] }
+        let around = dilated(flat, w, h, by: 2)
+        return (0..<n).map { flat[$0] || (joined[$0] && around[$0]) }
+    }
+
+    /// 8-connected dilation, `by` steps (a (2 by + 1)-px square).
+    static func dilated(_ m: [Bool], _ w: Int, _ h: Int, by steps: Int) -> [Bool] {
+        var cur = m
+        for _ in 0..<steps {
+            var next = cur
+            for y in 0..<h { for x in 0..<w where !cur[y * w + x] {
+                search: for yy in max(0, y - 1)...min(h - 1, y + 1) {
+                    for xx in max(0, x - 1)...min(w - 1, x + 1) where cur[yy * w + xx] {
+                        next[y * w + x] = true
+                        break search
+                    }
                 }
-                out.pixels[i * 4 + 3] = UInt8((Double(rimAlpha[i]) * 255).rounded())
+            } }
+            cur = next
+        }
+        return cur
+    }
+
+    /// The light left behind the rim, region by region: a flat white backing
+    /// (the stars) joins the rim; a white body (a white mug) keeps all but the
+    /// rim's flat white in a band of its width. A sticker drawn on white paper
+    /// (a pencil fox, flowers on a card) has white running far inside it that
+    /// cannot be told from the rim's, so it gets the same band and no pockets
+    /// are guessed at (`drawnOnPaper`).
+    static func settleWhiteRegions(_ rim: inout [Bool], light: [Bool], rimLike: [Bool],
+                                   lo: [Float], spread: [Float], depth: [Float],
+                                   width W: Float, tolerance tol: Float, maskCount: Double,
+                                   _ w: Int, _ h: Int, _ p: Parameters)
+        -> (whiteBody: Int, drawnOnPaper: Bool) {
+        let n = w * h
+        let (labels, count) = label(light, w, h, eight: true)
+        var touching = [Bool](repeating: false, count: count + 1)
+        for i in 0..<n where rim[i] { touching[Int(labels[i])] = true }
+        var rest = [Int](repeating: 0, count: count + 1), flatRest = [Int](repeating: 0, count: count + 1)
+        var deep = [Int](repeating: 0, count: count + 1)
+        for i in 0..<n where light[i] {
+            let l = Int(labels[i])
+            guard touching[l] else { continue }
+            if depth[i] > W + tol + 2 { deep[l] += 1 }
+            guard !rim[i] else { continue }
+            rest[l] += 1
+            if Double(lo[i]) >= p.flatWhiteMin && Double(spread[i]) <= p.flatWhiteSpread { flatRest[l] += 1 }
+        }
+        enum Verdict { case keep, backing, band }
+        var verdict = [Verdict](repeating: .keep, count: count + 1)
+        var whiteBody = 0, drawnOnPaper = false
+        for l in 1..<(count + 1) where touching[l] {
+            if Double(deep[l]) > p.paperDeepFraction * maskCount {
+                verdict[l] = .band
+                whiteBody += rest[l]
+                drawnOnPaper = true
+            } else if rest[l] == 0 {
+                continue
+            } else if Double(flatRest[l]) / Double(rest[l]) >= p.backingFlatShare
+                && Double(rest[l]) <= p.backingMaxFraction * maskCount {
+                verdict[l] = .backing
+            } else if Double(rest[l]) > p.whiteBodyFraction * maskCount {
+                verdict[l] = .band
+                whiteBody += rest[l]
             }
         }
-        return (out, Report(keyed: keyed, modelRimWidth: modelRim, rimWidth: rim, padding: pad))
+        for i in 0..<n where labels[i] > 0 {
+            switch verdict[Int(labels[i])] {
+            case .keep: break
+            case .backing: rim[i] = true
+            case .band: rim[i] = rimLike[i] && depth[i] <= W + 2
+            }
+        }
+        return (whiteBody, drawnOnPaper)
+    }
+
+    /// Pockets: rim-white areas the rim filled but thin art closes off (the
+    /// balloon's ropes, a gap between stems or legs). Most of their edge sits a
+    /// line's width from the removed rim, or from the outside; an eye's white
+    /// is far from both. Returns how many were removed, and how many of
+    /// their pixels lie deeper than the rim.
+    static func removePockets(_ rim: inout [Bool], mask: [Bool], light: [Bool], pale: [Bool],
+                              depth: [Float], width W: Float, tolerance tol: Float, maskCount: Double,
+                              _ w: Int, _ h: Int, _ p: Parameters)
+        -> (count: Int, deepPixels: Int, deepPockets: Int) {
+        let n = w * h
+        guard rim.contains(true) else { return (0, 0, 0) }
+        let toRim = distance(to: (0..<n).map { rim[$0] || !mask[$0] }, w, h)
+        let candidate = (0..<n).map { (pale[$0] || light[$0]) && mask[$0] && !rim[$0] }
+        let (labels, count) = label(candidate, w, h, eight: true)
+        guard count > 0 else { return (0, 0, 0) }
+        var size = [Int](repeating: 0, count: count + 1), lit = [Int](repeating: 0, count: count + 1)
+        for i in 0..<n where labels[i] > 0 {
+            size[Int(labels[i])] += 1
+            if light[i] { lit[Int(labels[i])] += 1 }
+        }
+        // each pocket's ring: the px just outside it (8-neighbours)
+        let gap = max(p.pocketGap, p.pocketGapFraction * W)
+        var ring = [Int](repeating: 0, count: count + 1), near = [Int](repeating: 0, count: count + 1)
+        var seen: [Int32] = []
+        for y in 0..<h { for x in 0..<w {
+            let i = y * w + x
+            guard labels[i] == 0 else { continue }
+            seen.removeAll(keepingCapacity: true)
+            for dy in -1...1 { for dx in -1...1 where dx != 0 || dy != 0 {
+                let xx = x + dx, yy = y + dy
+                guard xx >= 0, xx < w, yy >= 0, yy < h else { continue }
+                let l = labels[yy * w + xx]
+                if l > 0, !seen.contains(l) { seen.append(l) }
+            } }
+            for l in seen {
+                ring[Int(l)] += 1
+                if toRim[i] <= gap { near[Int(l)] += 1 }
+            }
+        } }
+        var pocket = [Bool](repeating: false, count: count + 1)
+        var removed = 0
+        for l in 1..<(count + 1) where ring[l] > 0 {
+            let s = Double(size[l])
+            if s > p.backingMaxFraction * maskCount { continue }
+            if s > p.smallPocketFraction * maskCount && Double(lit[l]) / s < p.pocketLightShare { continue }
+            if Double(near[l]) / Double(ring[l]) >= p.pocketShare {
+                pocket[l] = true
+                removed += 1
+            }
+        }
+        var deepPixels = 0
+        var deepIn = [Bool](repeating: false, count: count + 1)
+        for i in 0..<n where labels[i] > 0 && pocket[Int(labels[i])] {
+            rim[i] = true
+            if depth[i] > W + tol + 2 { deepPixels += 1; deepIn[Int(labels[i])] = true }
+        }
+        return (removed, deepPixels, deepIn.reduce(0) { $1 ? $0 + 1 : $0 })
+    }
+
+    /// The art over transparency. Its outermost px are un-mixed: colour from
+    /// the nearest core pixel, alpha from where the pixel sits between that
+    /// colour and what it was blended with -- the white rim or the backdrop,
+    /// whichever explains it better.
+    static func unmixed(_ raw: Bitmap, _ rgb: RGB, art: [Bool], backdrop: (Double, Double, Double),
+                        _ w: Int, _ h: Int, _ p: Parameters) -> (Bitmap, [Float]) {
+        let n = w * h
+        var alpha = gaussian(art.map { $0 ? 1 : 0 }, w, h, sigma: p.antialiasSigma)
+        let artDepth = distance(to: art.map { !$0 }, w, h)
+        // core: deep art, plus the ridge of parts too thin to have any (ropes, whiskers)
+        let deep = artDepth.map { $0 >= p.coreDepth }
+        let far = deep.contains(true) ? distance(to: deep, w, h).map { $0 > 2 * p.coreDepth } : art
+        let peak = maximum3x3(artDepth, w, h)
+        var core = (0..<n).map { deep[$0] || (art[$0] && far[$0] && artDepth[$0] >= peak[$0]) }
+        if !core.contains(true) { core = art }
+        let source = nearest(to: core, w, h)
+
+        var out = Bitmap(width: w, height: h)
+        let backgrounds = [(255.0, 255.0, 255.0), backdrop]
+        for i in 0..<n {
+            let inBand = alpha[i] > 0 && artDepth[i] <= p.unmixBand
+            let take = inBand || !art[i]
+            let s = Int(source[i])
+            let f = (rgb[s * 3], rgb[s * 3 + 1], rgb[s * 3 + 2])
+            if inBand {
+                let c = (rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2])
+                var best = Double.infinity, bestAlpha = 1.0
+                for k in backgrounds {
+                    let d = (f.0 - k.0, f.1 - k.1, f.2 - k.2)
+                    let dd = d.0 * d.0 + d.1 * d.1 + d.2 * d.2
+                    guard dd > p.unmixMin * p.unmixMin else { continue }
+                    let a = min(1, max(0, ((c.0 - k.0) * d.0 + (c.1 - k.1) * d.1 + (c.2 - k.2) * d.2) / dd))
+                    let e = (c.0 - (k.0 + a * d.0), c.1 - (k.1 + a * d.1), c.2 - (k.2 + a * d.2))
+                    let res = (e.0 * e.0 + e.1 * e.1 + e.2 * e.2).squareRoot()
+                    if res < best { best = res; bestAlpha = a }
+                }
+                if best.isFinite { alpha[i] = min(alpha[i], Float(bestAlpha)) }
+            }
+            let c = take ? f : (rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2])
+            out.pixels[i * 4] = UInt8(c.0.rounded())
+            out.pixels[i * 4 + 1] = UInt8(c.1.rounded())
+            out.pixels[i * 4 + 2] = UInt8(c.2.rounded())
+        }
+        return (out, alpha)
+    }
+
+    static func median(_ values: [Float]) -> Float {
+        let s = values.sorted(), m = s.count / 2
+        return s.count % 2 == 1 ? s[m] : (s[m - 1] + s[m]) / 2
+    }
+
+    /// Drops 8-connected parts smaller than `below` px.
+    static func dropSmallParts(_ m: inout [Bool], _ w: Int, _ h: Int, below: Int) {
+        let (labels, count) = label(m, w, h, eight: true)
+        guard count > 0 else { return }
+        var size = [Int](repeating: 0, count: count + 1)
+        for l in labels where l > 0 { size[Int(l)] += 1 }
+        for i in 0..<m.count where labels[i] > 0 && size[Int(labels[i])] < below { m[i] = false }
+    }
+
+    /// 3x3 maximum, edges replicated.
+    static func maximum3x3(_ src: [Float], _ w: Int, _ h: Int) -> [Float] {
+        var out = src
+        for y in 0..<h { for x in 0..<w {
+            var m = src[y * w + x]
+            for yy in max(0, y - 1)...min(h - 1, y + 1) { for xx in max(0, x - 1)...min(w - 1, x + 1) {
+                m = max(m, src[yy * w + xx])
+            } }
+            out[y * w + x] = m
+        } }
+        return out
     }
 
     /// The rim's alpha: everything within `rim` px of `base` (a round, Euclidean
@@ -381,10 +712,11 @@ public enum StickerEdge {
 
     // MARK: - Image primitives
 
-    /// 4-connected component labels (0 = background) and the label count.
+    /// Connected component labels (0 = background) and the label count;
+    /// 4-connected, or 8-connected when `eight`.
     /// Raw pointers throughout: in a debug build Array subscripts cost ~50x,
-    /// and this runs three times per sticker.
-    static func label(_ m: [Bool], _ w: Int, _ h: Int) -> ([Int32], Int) {
+    /// and this runs several times per sticker.
+    static func label(_ m: [Bool], _ w: Int, _ h: Int, eight: Bool = false) -> ([Int32], Int) {
         let n = m.count
         var labels = [Int32](repeating: 0, count: n)
         var count: Int32 = 0
@@ -407,6 +739,19 @@ public enum StickerEdge {
                         if x < w - 1, mp[i + 1], lp[i + 1] == 0 { lp[i + 1] = next; stack[top] = i + 1; top += 1 }
                         if i >= w, mp[i - w], lp[i - w] == 0 { lp[i - w] = next; stack[top] = i - w; top += 1 }
                         if i + w < n, mp[i + w], lp[i + w] == 0 { lp[i + w] = next; stack[top] = i + w; top += 1 }
+                        guard eight else { continue }
+                        if x > 0, i >= w, mp[i - w - 1], lp[i - w - 1] == 0 {
+                            lp[i - w - 1] = next; stack[top] = i - w - 1; top += 1
+                        }
+                        if x < w - 1, i >= w, mp[i - w + 1], lp[i - w + 1] == 0 {
+                            lp[i - w + 1] = next; stack[top] = i - w + 1; top += 1
+                        }
+                        if x > 0, i + w < n, mp[i + w - 1], lp[i + w - 1] == 0 {
+                            lp[i + w - 1] = next; stack[top] = i + w - 1; top += 1
+                        }
+                        if x < w - 1, i + w < n, mp[i + w + 1], lp[i + w + 1] == 0 {
+                            lp[i + w + 1] = next; stack[top] = i + w + 1; top += 1
+                        }
                     }
                 }
                 count = next
@@ -450,10 +795,39 @@ public enum StickerEdge {
         return grid
     }
 
+    /// Index of the nearest `feature` pixel to every pixel (Euclidean, same
+    /// two separable passes as `distance`, keeping the argmin). `feature`
+    /// must not be empty.
+    static func nearest(to feature: [Bool], _ w: Int, _ h: Int) -> [Int32] {
+        let inf = 1e20
+        let longest = max(w, h)
+        var columnD = [Double](repeating: 0, count: w * h)
+        var columnRow = [Int32](repeating: 0, count: w * h)
+        var out = [Int32](repeating: 0, count: w * h)
+        let f = UnsafeMutablePointer<Double>.allocate(capacity: longest)
+        let d = UnsafeMutablePointer<Double>.allocate(capacity: longest)
+        let a = UnsafeMutablePointer<Int>.allocate(capacity: longest)
+        let v = UnsafeMutablePointer<Int>.allocate(capacity: longest)
+        let z = UnsafeMutablePointer<Double>.allocate(capacity: longest + 1)
+        defer { f.deallocate(); d.deallocate(); a.deallocate(); v.deallocate(); z.deallocate() }
+        for x in 0..<w {
+            for y in 0..<h { f[y] = feature[y * w + x] ? 0 : inf }
+            edt1D(f, d, v, z, h, inf, argmin: a)
+            for y in 0..<h { columnD[y * w + x] = d[y]; columnRow[y * w + x] = Int32(a[y]) }
+        }
+        for y in 0..<h {
+            for x in 0..<w { f[x] = columnD[y * w + x] }
+            edt1D(f, d, v, z, w, inf, argmin: a)
+            for x in 0..<w { out[y * w + x] = columnRow[y * w + a[x]] * Int32(w) + Int32(a[x]) }
+        }
+        return out
+    }
+
     /// One squared-distance pass over `n` samples of `f` into `d`.
+    /// With `argmin`, also the sample each distance was measured to.
     private static func edt1D(_ f: UnsafeMutablePointer<Double>, _ d: UnsafeMutablePointer<Double>,
                               _ v: UnsafeMutablePointer<Int>, _ z: UnsafeMutablePointer<Double>,
-                              _ n: Int, _ inf: Double) {
+                              _ n: Int, _ inf: Double, argmin: UnsafeMutablePointer<Int>? = nil) {
         var k = 0
         v[0] = 0; z[0] = -inf; z[1] = inf
         var q = 1
@@ -475,6 +849,7 @@ public enum StickerEdge {
             while z[k + 1] < Double(q) { k += 1 }
             let dq = Double(q - v[k])
             d[q] = dq * dq + f[v[k]]
+            argmin?[q] = v[k]
         }
     }
 
@@ -567,6 +942,16 @@ struct Bitmap {
         width = w
         height = h
         pixels = buffer
+    }
+
+    func cropped(x: Int, y: Int, width cw: Int, height ch: Int) -> Bitmap {
+        var out = Bitmap(width: cw, height: ch)
+        for row in 0..<ch {
+            let from = ((y + row) * width + x) * 4
+            out.pixels.replaceSubrange((row * cw * 4)..<((row + 1) * cw * 4),
+                                       with: pixels[from..<(from + cw * 4)])
+        }
+        return out
     }
 
     func png() -> Data? {

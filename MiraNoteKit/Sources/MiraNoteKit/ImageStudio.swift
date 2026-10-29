@@ -141,7 +141,7 @@ public struct LiveImageStudioService: ImageStudioService {
         for (index, image) in raw.enumerated() {
             do {
                 let lifted = try await Self.lift(image, with: matte)
-                images.append(await Self.redrawEdge(raw: image, lifted: lifted))
+                images.append(await Self.withoutModelEdge(raw: image, lifted: lifted))
             } catch {
                 // The picture is already here and already paid for. Keep it,
                 // background and all, and let the caller say so.
@@ -203,12 +203,13 @@ public struct LiveImageStudioService: ImageStudioService {
         }.value
     }
 
-    /// A generated sticker's white die-cut edge, redrawn by code (see
-    /// StickerEdge): Vision drops stretches of a pale rim the model drew. If the
-    /// redraw cannot read the images, Vision's cut is kept as it was.
-    private static func redrawEdge(raw: Data, lifted: Data) async -> Data {
+    /// A generated sticker without the white die-cut edge the model drew round
+    /// it (see StickerEdge): stickers come out bare, and Outline adds an edge on
+    /// request. If StickerEdge cannot read the images, Vision's cut is kept as
+    /// it was, model edge and all.
+    private static func withoutModelEdge(raw: Data, lifted: Data) async -> Data {
         await Task.detached(priority: .userInitiated) {
-            (try? StickerEdge.rebuild(raw: raw, lifted: lifted)) ?? lifted
+            (try? StickerEdge.cleanCut(raw: raw, lifted: lifted)) ?? lifted
         }.value
     }
 

@@ -2,13 +2,15 @@ import XCTest
 @testable import MiraNoteKit
 @testable import StickerEdgeCore
 
-/// StickerEdge on drawn inputs whose right answer is known by construction:
-/// a red disc with a white rim on a flat backdrop, and a "Vision" alpha that
-/// gets it wrong in the ways the bench saw Vision get it wrong.
+/// StickerEdge.cleanCut on drawn inputs whose right answer is known by
+/// construction: a red disc inside a white model rim on a flat backdrop, and a
+/// "Vision" alpha that gets it wrong in the ways the bench saw Vision get it wrong.
 final class StickerEdgeTests: XCTestCase {
     private let size = 240
     private let backdrop: (UInt8, UInt8, UInt8) = (120, 170, 200)
-    private let center = (120.0, 120.0)
+    private let rimWhite: (UInt8, UInt8, UInt8) = (253, 253, 253)
+    private let red: (UInt8, UInt8, UInt8) = (210, 40, 40)
+    private let ink: (UInt8, UInt8, UInt8) = (40, 30, 30)
 
     /// Paints every pixel by `colour(x, y)`; nil leaves the backdrop.
     private func picture(_ colour: (Double, Double) -> (UInt8, UInt8, UInt8)?) -> Bitmap {
@@ -30,53 +32,64 @@ final class StickerEdgeTests: XCTestCase {
         return b
     }
 
-    private func r(_ x: Double, _ y: Double) -> Double {
-        ((x - center.0) * (x - center.0) + (y - center.1) * (y - center.1)).squareRoot()
+    private func r(_ x: Double, _ y: Double, _ cx: Double = 120, _ cy: Double = 120) -> Double {
+        ((x - cx) * (x - cx) + (y - cy) * (y - cy)).squareRoot()
     }
 
-    /// A red disc of radius 60 inside a white model rim out to 80.
+    /// A red disc of radius 60 inside a white model rim out to 70 -- a rim
+    /// 7% of the sticker, as the model draws them (3.5-6% on the bench).
     private func sticker(_ x: Double, _ y: Double) -> (UInt8, UInt8, UInt8)? {
         let d = r(x, y)
-        if d <= 60 { return (210, 40, 40) }
-        if d <= 80 { return (253, 253, 253) }
+        if d <= 60 { return red }
+        if d <= 70 { return rimWhite }
         return nil
     }
 
-    private func run(_ raw: Bitmap, _ lifted: Bitmap) throws -> (Bitmap, StickerEdge.Report) {
-        let out = try StickerEdge.rebuildReporting(raw: raw.png()!, lifted: lifted.png()!)
+    private func run(_ raw: Bitmap, _ lifted: Bitmap) throws -> (Bitmap, StickerEdge.CleanReport) {
+        let out = try StickerEdge.cleanCutReporting(raw: raw.png()!, lifted: lifted.png()!)
         return (Bitmap(data: out.png)!, out.report)
     }
 
-    /// Pixel of `out` at raw coordinates (x, y).
-    private func at(_ out: Bitmap, _ report: StickerEdge.Report, _ x: Int, _ y: Int) -> [UInt8] {
-        let i = ((y + report.padding) * out.width + x + report.padding) * 4
+    /// Pixel of `out` at raw coordinates (x, y); transparent outside the crop.
+    private func at(_ out: Bitmap, _ report: StickerEdge.CleanReport, _ x: Int, _ y: Int) -> [UInt8] {
+        let ox = x - report.cropX, oy = y - report.cropY
+        guard ox >= 0, oy >= 0, ox < out.width, oy < out.height else { return [0, 0, 0, 0] }
+        let i = (oy * out.width + ox) * 4
         return Array(out.pixels[i..<(i + 4)])
     }
 
-    func testARimVisionDroppedComesBackWhite() throws {
-        // Vision keeps the disc but loses the rim on the whole left half.
-        let lifted = alpha { x, y in self.r(x, y) <= 60 || (self.r(x, y) <= 80 && x > 120) }
-
-        let (out, report) = try run(picture(sticker), lifted)
+    func testTheModelsRimIsRemoved() throws {
+        let (out, report) = try run(picture(sticker), alpha { x, y in self.r(x, y) <= 70 })
 
         XCTAssertTrue(report.keyed)
-        XCTAssertGreaterThan(report.modelRimWidth, 0, "the model's rim is recognised")
-        let leftRim = at(out, report, 120 - 70, 120)
-        XCTAssertEqual(leftRim[3], 255, "the dropped rim is opaque again")
-        XCTAssertTrue(leftRim[0..<3].allSatisfy { $0 >= 250 }, "and white: \(leftRim)")
-        let beyond = at(out, report, 120 - 80 - report.rimWidth - 8, 120)
-        XCTAssertEqual(beyond[3], 0, "and the sticker ends a rim's width further out")
+        XCTAssertEqual(report.modelRimWidth, 10, accuracy: 2, "the rim is measured")
+        XCTAssertEqual(at(out, report, 120 - 65, 120)[3], 0, "the rim is gone")
+        XCTAssertEqual(at(out, report, 120 + 68, 120)[3], 0)
+        XCTAssertEqual(at(out, report, 120 - 55, 120)[3], 255, "the art is not")
+    }
+
+    func testARimVisionDroppedIsRemovedToo() throws {
+        // Vision keeps the disc but loses the rim on the whole left half.
+        let lifted = alpha { x, y in self.r(x, y) <= 60 || (self.r(x, y) <= 70 && x > 120) }
+        let (out, report) = try run(picture(sticker), lifted)
+        XCTAssertEqual(at(out, report, 120 - 65, 120)[3], 0)
+        XCTAssertEqual(at(out, report, 120 + 65, 120)[3], 0)
     }
 
     func testTheArtKeepsItsColours() throws {
-        let (out, report) = try run(picture(sticker), alpha { x, y in self.r(x, y) <= 80 })
+        let (out, report) = try run(picture(sticker), alpha { x, y in self.r(x, y) <= 70 })
         XCTAssertEqual(at(out, report, 120, 120), [210, 40, 40, 255])
+        let edge = at(out, report, 120 - 59, 120)
+        // (a partly transparent px reads back +-1 through the PNG)
+        XCTAssertEqual(Int(edge[1]), 40, accuracy: 2, "no white fringe where the rim was: \(edge)")
+        XCTAssertEqual(Int(edge[2]), 40, accuracy: 2)
     }
 
-    func testTheOutputIsPaddedForTheRim() throws {
-        let (out, report) = try run(picture(sticker), alpha { x, y in self.r(x, y) <= 80 })
-        XCTAssertEqual(out.width, size + 2 * report.padding)
-        XCTAssertGreaterThan(report.padding, report.rimWidth)
+    func testTheOutputIsCroppedToTheArt() throws {
+        let (out, report) = try run(picture(sticker), alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertLessThanOrEqual(out.width, 126, "no padding, no rim (141 with it)")
+        XCTAssertGreaterThanOrEqual(out.width, 118)
+        XCTAssertEqual(report.cropX, 120 - out.width / 2, accuracy: 2)
     }
 
     func testAHoleRingedByWhiteStaysAHole() throws {
@@ -84,11 +97,12 @@ final class StickerEdgeTests: XCTestCase {
         let raw = picture { x, y in
             let d = self.r(x, y)
             if d <= 14 { return nil }
-            if d <= 26 { return (253, 253, 253) }
+            if d <= 24 { return self.rimWhite }
             return self.sticker(x, y)
         }
-        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) > 14 && self.r(x, y) <= 80 })
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) > 14 && self.r(x, y) <= 70 })
         XCTAssertEqual(at(out, report, 120, 120)[3], 0)
+        XCTAssertEqual(at(out, report, 120 + 19, 120)[3], 0, "and the rim round the hole goes too")
     }
 
     func testABackdropColouredFillInsideAnOutlineIsBody() throws {
@@ -100,26 +114,27 @@ final class StickerEdgeTests: XCTestCase {
             if d <= 36 { return (40, 60, 140) }
             return self.sticker(x, y)
         }
-        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) > 30 && self.r(x, y) <= 80 })
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) > 30 && self.r(x, y) <= 70 })
         XCTAssertEqual(at(out, report, 120, 120)[3], 255, "the fill is not punched out")
     }
 
     func testTheModelsDropShadowIsNotSticker() throws {
         // A darker-backdrop shadow under the sticker, which Vision took in.
         let shadow: (Double, Double) -> Bool = { x, y in
-            let dx = (x - 120) / 85, dy = (y - 160) / 60
+            let dx = (x - 120) / 75, dy = (y - 150) / 55
             return dx * dx + dy * dy <= 1
         }
         let raw = picture { x, y in
             self.sticker(x, y) ?? (shadow(x, y) ? (84, 119, 140) : nil)
         }
-        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 80 || shadow(x, y) })
-        let deepInShadow = at(out, report, 120, 218)
-        XCTAssertEqual(deepInShadow[3], 0, "the shadow below the rim is gone")
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 || shadow(x, y) })
+        XCTAssertEqual(at(out, report, 120, 202)[3], 0, "the shadow below the rim is gone")
+        XCTAssertEqual(at(out, report, 120, 120 + 55)[3], 255)
     }
 
-    func testABusyBackdropFallsBackToVisionsCut() throws {
-        // Not flat, so not keyable: the rim is drawn round what Vision kept.
+    func testABusyBackdropStillLosesTheRim() throws {
+        // Not flat, so not keyable: Vision's cut is the mask, and the rim inside
+        // it is still found by its colour.
         var seed: UInt64 = 7
         let raw = picture { x, y in
             if let s = self.sticker(x, y) { return s }
@@ -127,28 +142,118 @@ final class StickerEdgeTests: XCTestCase {
             let v = UInt8(truncatingIfNeeded: seed >> 56)
             return (v, 255 - v, v / 2)
         }
-        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 80 })
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
         XCTAssertFalse(report.keyed)
-        XCTAssertEqual(at(out, report, 120 - 85, 120)[3], 255, "the rim still goes round it")
+        XCTAssertEqual(at(out, report, 120 - 65, 120)[3], 0)
+        XCTAssertEqual(at(out, report, 120, 120)[3], 255)
     }
 
-    func testAThinPartFarFromTheBodyKeepsItsRim() throws {
+    func testAThinStringOnBareArtStays() throws {
         // Art drawn with no model rim (the swan case): a 5 px dark string hangs
-        // below a bare disc, thinner than the outline's opening. It is art, so
-        // it stays and gets a rim of its own. (With a model rim the model wraps
-        // thin parts inside it, as it did the balloon's ropes on the bench.)
+        // below a bare disc. Nothing is removed from bare art.
         let string: (Double, Double) -> Bool = { x, y in abs(x - 120) <= 2 && y > 60 && y < 220 }
         let raw = picture { x, y in
-            self.r(x, y) <= 60 ? (210, 40, 40) : (string(x, y) ? (40, 30, 30) : nil)
+            self.r(x, y) <= 60 ? self.red : (string(x, y) ? self.ink : nil)
         }
         let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 60 || string(x, y) })
         XCTAssertEqual(report.modelRimWidth, 0)
         XCTAssertEqual(at(out, report, 120, 205), [40, 30, 30, 255], "the string is still drawn")
-        XCTAssertEqual(at(out, report, 120 + 6, 205)[3], 255, "and has white round it")
+    }
+
+    func testAWhiteBodyBehindTheRimKeepsItsShape() throws {
+        // A white body with no outline of its own, touching the model's rim:
+        // only a band the rim's width comes off, the body stays.
+        let body: (UInt8, UInt8, UInt8) = (244, 244, 244)
+        let raw = picture { x, y in
+            let d = self.r(x, y)
+            if d <= 8 { return self.ink }
+            if d <= 60 { return body }
+            if d <= 70 { return self.rimWhite }
+            return nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertGreaterThan(report.whiteBodyPixels, 0)
+        XCTAssertEqual(at(out, report, 120 - 40, 120)[3], 255, "the body stays")
+        XCTAssertEqual(at(out, report, 120, 120), [40, 30, 30, 255])
+        XCTAssertEqual(at(out, report, 120 - 68, 120)[3], 0, "the outer band goes")
+    }
+
+    func testWhiteThatRunsFarInsideIsKept() throws {
+        // Drawn on white paper: the body is the rim's own white, with no outline
+        // between. Only a band the rim's width comes off.
+        let raw = picture { x, y in
+            let d = self.r(x, y)
+            if d <= 8 { return self.ink }
+            if d <= 70 { return self.rimWhite }
+            return nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertEqual(at(out, report, 120 - 40, 120)[3], 255, "the body stays")
+        XCTAssertEqual(at(out, report, 120 - 68, 120)[3], 0, "the outer band goes")
+        XCTAssertTrue(report.drawnOnPaper)
+        XCTAssertEqual(report.pockets, 0)
+    }
+
+    func testAFlatBackingJoiningTwoPartsIsRemoved() throws {
+        // The stars: two red discs on one white backing the model drew round
+        // both, wider between them than the rim alone would be.
+        let left = (60.0, 120.0), right = (180.0, 120.0)
+        let raw = picture { x, y in
+            if self.r(x, y, left.0, left.1) <= 35 || self.r(x, y, right.0, right.1) <= 35 { return self.red }
+            if self.r(x, y, left.0, left.1) <= 45 || self.r(x, y, right.0, right.1) <= 45 { return self.rimWhite }
+            if x > left.0, x < right.0, abs(y - 120) <= 45 { return self.rimWhite }
+            return nil
+        }
+        let lifted = alpha { x, y in
+            self.r(x, y, left.0, left.1) <= 45 || self.r(x, y, right.0, right.1) <= 45
+                || (x > left.0 && x < right.0 && abs(y - 120) <= 45)
+        }
+        let (out, report) = try run(raw, lifted)
+        XCTAssertEqual(at(out, report, 120, 120)[3], 0, "the backing between them is gone")
+        XCTAssertEqual(at(out, report, 120, 80)[3], 0)
+        XCTAssertEqual(at(out, report, 60, 120)[3], 255)
+        XCTAssertEqual(at(out, report, 180, 120)[3], 255)
+    }
+
+    func testAPocketClosedByThinLinesIsRemoved() throws {
+        // A balloon: two 3 px ropes from the envelope to a basket bar. The
+        // model's rim fills the space between them, which the ropes close off.
+        let envelope: (Double, Double) -> Bool = { x, y in self.r(x, y, 120, 75) <= 60 }
+        let rope: (Double, Double) -> Bool = { x, y in
+            (abs(x - 108) <= 1 || abs(x - 132) <= 1) && y > 125 && y < 166
+        }
+        let bar: (Double, Double) -> Bool = { x, y in x >= 100 && x <= 140 && y >= 163 && y <= 171 }
+        let art: (Double, Double) -> Bool = { x, y in envelope(x, y) || rope(x, y) || bar(x, y) }
+        var artMask = [Bool](repeating: false, count: size * size)
+        for y in 0..<size { for x in 0..<size { artMask[y * size + x] = art(Double(x), Double(y)) } }
+        let near = StickerEdge.distance(to: artMask, size, size)
+        let raw = picture { x, y in
+            if envelope(x, y) { return self.red }
+            if rope(x, y) || bar(x, y) { return self.ink }
+            return near[Int(y) * self.size + Int(x)] <= 12 ? self.rimWhite : nil
+        }
+        let lifted = alpha { x, y in near[Int(y) * self.size + Int(x)] <= 12 }
+        let (out, report) = try run(raw, lifted)
+        XCTAssertEqual(at(out, report, 120, 150)[3], 0, "the pocket between the ropes is gone")
+        XCTAssertGreaterThan(at(out, report, 108, 150)[3], 200, "the rope is not")
+        XCTAssertGreaterThan(report.pockets, 0)
+    }
+
+    func testAnEyesWhiteIsKept() throws {
+        // White inside the art, far from the rim: an eye, not a pocket.
+        let raw = picture { x, y in
+            if self.r(x, y, 100, 105) <= 6 { return self.ink }
+            if self.r(x, y, 100, 105) <= 16 { return self.rimWhite }
+            if self.r(x, y) <= 60 { return self.ink }
+            if self.r(x, y) <= 70 { return self.rimWhite }
+            return nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertEqual(at(out, report, 100 + 11, 105), [253, 253, 253, 255])
     }
 
     func testUnreadableInputThrows() {
-        XCTAssertThrowsError(try StickerEdge.rebuild(raw: Data("x".utf8), lifted: Data("y".utf8))) {
+        XCTAssertThrowsError(try StickerEdge.cleanCut(raw: Data("x".utf8), lifted: Data("y".utf8))) {
             XCTAssertEqual($0 as? StickerEdge.Failure, .undecodable)
         }
     }
@@ -156,7 +261,7 @@ final class StickerEdgeTests: XCTestCase {
     func testMismatchedSizesThrow() {
         let small = Bitmap(width: 10, height: 10).png()!
         let raw = picture(sticker).png()!
-        XCTAssertThrowsError(try StickerEdge.rebuild(raw: raw, lifted: small)) {
+        XCTAssertThrowsError(try StickerEdge.cleanCut(raw: raw, lifted: small)) {
             XCTAssertEqual($0 as? StickerEdge.Failure, .sizeMismatch)
         }
     }
@@ -164,7 +269,17 @@ final class StickerEdgeTests: XCTestCase {
     func testNothingLiftedThrows() {
         let raw = picture(sticker).png()!
         let empty = Bitmap(width: size, height: size).png()!
-        XCTAssertThrowsError(try StickerEdge.rebuild(raw: raw, lifted: empty)) {
+        XCTAssertThrowsError(try StickerEdge.cleanCut(raw: raw, lifted: empty)) {
+            XCTAssertEqual($0 as? StickerEdge.Failure, .nothingLifted)
+        }
+    }
+
+    func testACutKeyedAwayEntirelyThrows() {
+        // Vision kept a sliver thinner than trustInset, all of it backdrop: the
+        // key leaves nothing, and a throw keeps Vision's cut instead of a blank.
+        let raw = picture { _, _ in nil }.png()!
+        let sliver = alpha { x, y in self.r(x, y) <= 10 }.png()!
+        XCTAssertThrowsError(try StickerEdge.cleanCut(raw: raw, lifted: sliver)) {
             XCTAssertEqual($0 as? StickerEdge.Failure, .nothingLifted)
         }
     }
@@ -179,10 +294,20 @@ final class StickerEdgeTests: XCTestCase {
             XCTAssertEqual(Double(d[y * 15 + x]), expected, accuracy: 1e-5)
         } }
     }
+
+    func testNearestFindsTheClosestFeature() {
+        var feature = [Bool](repeating: false, count: 20 * 10)
+        feature[2 * 20 + 3] = true
+        feature[7 * 20 + 16] = true
+        let nearest = StickerEdge.nearest(to: feature, 20, 10)
+        XCTAssertEqual(nearest[0], Int32(2 * 20 + 3))
+        XCTAssertEqual(nearest[9 * 20 + 19], Int32(7 * 20 + 16))
+        XCTAssertEqual(nearest[2 * 20 + 3], Int32(2 * 20 + 3))
+    }
 }
 
 /// A sticker the server generated, lifted by a stand-in for Vision, comes out
-/// with its edge redrawn -- and one the redraw cannot read comes out as lifted.
+/// without the model's edge -- and one StickerEdge cannot read comes out as lifted.
 final class StickerEdgeRoutingTests: XCTestCase {
     private struct FixedMatte: ForegroundMatte {
         let output: Data
@@ -205,35 +330,49 @@ final class StickerEdgeRoutingTests: XCTestCase {
         return b
     }
 
-    func testGeneratedStickersGetTheirEdgeRedrawn() async throws {
-        let raw = disc(rim: true).png()!
-        var cut = disc(rim: true)
-        for i in 0..<(120 * 120) {
-            let x = i % 120, y = i / 120
-            let d = (Double((x - 60) * (x - 60) + (y - 60) * (y - 60))).squareRoot()
-            cut.pixels[i * 4 + 3] = d <= 30 ? 255 : 0   // Vision kept the art, lost the rim
-        }
+    private func service(raw: Data, lifted: Data) -> LiveImageStudioService {
         StubURLProtocol.handler = { request in
             (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
              Data(#"{"images": ["\#(raw.base64EncodedString())"], "count": 1}"#.utf8))
         }
-        let service = LiveImageStudioService(
+        return LiveImageStudioService(
             baseURL: URL(string: "http://localhost:8002")!,
             client: HTTPClient(session: StubURLProtocol.makeSession()),
-            matte: FixedMatte(output: cut.png()!)
+            matte: FixedMatte(output: lifted)
         )
+    }
 
-        let batch = try await service.generateStickers(prompt: "a red dot")
+    func testGeneratedStickersComeOutWithoutTheModelsEdge() async throws {
+        var cut = disc(rim: true)
+        for i in 0..<(120 * 120) {
+            let x = i % 120, y = i / 120
+            let d = (Double((x - 60) * (x - 60) + (y - 60) * (y - 60))).squareRoot()
+            cut.pixels[i * 4 + 3] = d <= 40 ? 255 : 0   // Vision kept the art and the rim
+        }
+
+        let batch = try await service(raw: disc(rim: true).png()!, lifted: cut.png()!)
+            .generateStickers(prompt: "a red dot")
 
         let out = try XCTUnwrap(Bitmap(data: batch.images[0]))
-        XCTAssertGreaterThan(out.width, 120, "padded for the redrawn rim")
+        XCTAssertLessThanOrEqual(out.width, 66, "cropped to the art (61 px), rim removed")
+        XCTAssertTrue(batch.allMatted)
+    }
+
+    func testAStickerTheEdgeCannotReadComesOutAsLifted() async throws {
+        // A lift of the wrong size: StickerEdge throws, and Vision's cut is kept.
+        let lifted = Bitmap(width: 10, height: 10).png()!
+
+        let batch = try await service(raw: disc(rim: true).png()!, lifted: lifted)
+            .generateStickers(prompt: "a red dot")
+
+        XCTAssertEqual(batch.images[0], lifted)
         XCTAssertTrue(batch.allMatted)
     }
 }
 
-/// Runs the real Vision lift plus StickerEdge over a folder of generated
-/// stickers and writes the results for the bench's Python metrics. Skipped
-/// unless STICKER_EDGE_BENCH_DIR names a folder with a `raw/` inside
+/// Runs the real Vision lift plus StickerEdge.cleanCut over a folder of
+/// generated stickers and writes the results for the bench's Python metrics.
+/// Skipped unless STICKER_EDGE_BENCH_DIR names a folder with a `raw/` inside
 /// (on a Simulator, pass it as TEST_RUNNER_STICKER_EDGE_BENCH_DIR).
 final class StickerEdgeBenchTests: XCTestCase {
     func testBenchFolder() throws {
@@ -259,7 +398,7 @@ final class StickerEdgeBenchTests: XCTestCase {
             let lifted: Data
             let visionStart = Date()
             if let useLifted {
-                // Simulator: Vision's foreground request may not run there, so
+                // Simulator: Vision's foreground request does not run there, so
                 // the Mac's lifts are fed in and only StickerEdge is exercised.
                 lifted = try Data(contentsOf: URL(fileURLWithPath: useLifted).appendingPathComponent(name))
             } else {
@@ -268,12 +407,14 @@ final class StickerEdgeBenchTests: XCTestCase {
             let visionSeconds = Date().timeIntervalSince(visionStart)
             try lifted.write(to: liftDir.appendingPathComponent(name))
             let edgeStart = Date()
-            let (png, report) = try StickerEdge.rebuildReporting(raw: raw, lifted: lifted)
+            let (png, report) = try StickerEdge.cleanCutReporting(raw: raw, lifted: lifted)
             let edgeSeconds = Date().timeIntervalSince(edgeStart)
             try png.write(to: outDir.appendingPathComponent(name))
             rows.append(["name": file.deletingPathExtension().lastPathComponent,
-                         "pad": report.padding, "rim_px": report.rimWidth,
+                         "crop": [report.cropX, report.cropY],
                          "model_rim_px": report.modelRimWidth, "keyed": report.keyed,
+                         "pockets": report.pockets, "white_body_px": report.whiteBodyPixels,
+                         "drawn_on_paper": report.drawnOnPaper,
                          "vision_s": visionSeconds, "edge_s": edgeSeconds])
         }
         let json = try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
@@ -304,7 +445,7 @@ final class StickerEdgeMemoryBenchTests: XCTestCase {
         let raw = try Data(contentsOf: URL(fileURLWithPath: rawPath))
         let lifted = try Data(contentsOf: URL(fileURLWithPath: liftedPath))
         let before = peakFootprint()
-        _ = try StickerEdge.rebuild(raw: raw, lifted: lifted)
+        _ = try StickerEdge.cleanCut(raw: raw, lifted: lifted)
         let after = peakFootprint()
         print(String(format: "[mem] peak added: %.1f MB", Double(after - before) / 1_048_576))
     }
