@@ -163,7 +163,7 @@ struct MiraChatComposer: View {
                 .padding(-5)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(Text(copy: label))
         .accessibilityIdentifier(id)
     }
 
@@ -209,7 +209,7 @@ struct MiraChatComposer: View {
     /// transcribes into the field; sliding up past 60 pt cancels. VoiceOver
     /// users get a tap toggle instead of a hold.
     private var holdBar: some View {
-        Text(viewModel.voice == .transcribing ? "Transcribing..." : "Hold to talk")
+        Text(viewModel.voice == .transcribing ? "Transcribing..." as LocalizedStringKey : "Hold to talk")
             .font(Sans.font(size: 14, weight: 600))
             .foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity)
@@ -246,7 +246,7 @@ struct MiraChatComposer: View {
                     }
             )
             .accessibilityElement()
-            .accessibilityLabel(isRecording ? "Stop and transcribe" : "Hold to talk")
+            .accessibilityLabel(isRecording ? Text("Stop and transcribe") : Text("Hold to talk"))
             .accessibilityHint("Your words go into the message field to edit before sending.")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction {
@@ -321,7 +321,9 @@ struct MiraChatComposer: View {
 
     private var statusCaption: String? {
         guard isRecording else { return nil }
-        return releaseCancels ? "Release to cancel" : "Release to finish, slide up to cancel"
+        return releaseCancels
+            ? String(appCopy: "Release to cancel")
+            : String(appCopy: "Release to finish, slide up to cancel")
     }
 
     /// The words land in the field with the keyboard up, ready to fix.
@@ -421,7 +423,7 @@ struct MiraChatComposer: View {
             VStack(spacing: 4) {
                 Image(systemName: symbol)
                     .font(.system(size: 17))
-                Text(label)
+                Text(copy: label)
                     .font(Sans.font(size: 13, weight: 700))
             }
             .foregroundStyle(ChatMetrics.muted)
@@ -459,7 +461,8 @@ struct MiraChatComposer: View {
                     .accessibilityAddTraits(.isImage)
                     .accessibilityIdentifier("chat.staged.\(index)")
 
-                    removeBadge(label: "Remove photo \(index + 1)", id: "chat.staged.\(index).remove") {
+                    let label = String(appCopy: "Remove photo \(index + 1)")
+                    removeBadge(label: label, id: "chat.staged.\(index).remove") {
                         viewModel.removeStagedImage(at: index)
                     }
                 }
@@ -473,7 +476,7 @@ struct MiraChatComposer: View {
                         .background(RoundedRectangle(cornerRadius: 12).fill(Palette.cardFill))
                         .accessibilityLabel("Photo loading")
                         .accessibilityIdentifier("chat.staged.loading")
-                    removeBadge(label: "Remove the loading photo", id: "chat.staged.loading.remove") {
+                    removeBadge(label: String(appCopy: "Remove the loading photo"), id: "chat.staged.loading.remove") {
                         viewModel.removeLoadingPick(pick)
                     }
                 }
@@ -536,7 +539,7 @@ struct MiraChatComposer: View {
             showCamera = true
             return
         }
-        viewModel.hint = ChatHint(text: "This device has no camera -- try Photos instead.")
+        viewModel.hint = ChatHint(text: String(appCopy: "This device has no camera -- try Photos instead."))
     }
 }
 

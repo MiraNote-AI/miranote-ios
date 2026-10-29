@@ -69,7 +69,8 @@ public final class HomeViewModel {
                 .firstIndex(where: { $0.id == noteID })
         else { return }
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        library.collections[collectionIndex].memories[noteIndex].title = name.isEmpty ? "Untitled" : name
+        let titled = name.isEmpty ? String(appCopy: "Untitled") : name
+        library.collections[collectionIndex].memories[noteIndex].title = titled
         library.collections[collectionIndex].memories[noteIndex].body = body
         library.collections[collectionIndex].memories[noteIndex].savedAt = .now
         store.save(library)
@@ -82,6 +83,17 @@ public final class HomeViewModel {
         for index in library.collections.indices {
             if let existing = library.collections[index].memories
                 .firstIndex(where: { $0.id == memory.id }) {
+                // The mood is the judge's to write: a copy filed from an
+                // editor opened before the answer landed keeps the shelf's.
+                let shelved = library.collections[index].memories[existing]
+                var memory = memory
+                memory.mood = shelved.mood
+                memory.moodTextHash = shelved.moodTextHash
+                // Opened and left without a change: still saved when it
+                // was, so the star jar drops in only pages that changed.
+                var unchanged = memory
+                unchanged.savedAt = shelved.savedAt
+                if unchanged == shelved { memory.savedAt = shelved.savedAt }
                 library.collections[index].memories[existing] = memory
                 store.save(library)
                 return
@@ -122,6 +134,29 @@ public final class HomeViewModel {
         else { return }
         library.collections[collectionIndex].memories[noteIndex].memoryDate = date
         store.save(library)
+    }
+
+    /// A page on the shelf by id, wherever it is filed.
+    public func memory(_ noteID: Memory.ID) -> Memory? {
+        for collection in collections {
+            if let memory = collection.memories.first(where: { $0.id == noteID }) { return memory }
+        }
+        return nil
+    }
+
+    /// Writes a judged mood, and the hash of the words it was judged from,
+    /// onto the page as it is NOW: only those change, so an edit filed
+    /// while the mood was on its way is kept (and, its words differing, is
+    /// asked again). A page binned meanwhile is left alone.
+    public func setMood(_ mood: Mood, judgedFrom textHash: String, for noteID: Memory.ID) {
+        for index in library.collections.indices {
+            if let note = library.collections[index].memories.firstIndex(where: { $0.id == noteID }) {
+                library.collections[index].memories[note].mood = mood
+                library.collections[index].memories[note].moodTextHash = textHash
+                store.save(library)
+                return
+            }
+        }
     }
 
     // MARK: Recently deleted (30-day bin) and moving

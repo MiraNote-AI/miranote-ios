@@ -11,6 +11,7 @@ public struct ServiceContainer: Sendable {
     public let styleTransfer: StyleTransferService
     public let chat: ChatService
     public let imageStudio: ImageStudioService
+    public let mood: MoodService
 
     public init(
         textTransform: TextTransformService,
@@ -18,7 +19,8 @@ public struct ServiceContainer: Sendable {
         stickerGeneration: StickerGenerationService,
         styleTransfer: StyleTransferService,
         chat: ChatService = MockChatService(),
-        imageStudio: ImageStudioService = MockImageStudioService()
+        imageStudio: ImageStudioService = MockImageStudioService(),
+        mood: MoodService = MockMoodService()
     ) {
         self.textTransform = textTransform
         self.voiceTranscription = voiceTranscription
@@ -26,10 +28,12 @@ public struct ServiceContainer: Sendable {
         self.styleTransfer = styleTransfer
         self.chat = chat
         self.imageStudio = imageStudio
+        self.mood = mood
     }
 
-    /// Live wiring. Text, voice, and chat hit their POCs. Sticker and style
-    /// transfer stay mocked -- no backend POC exists for them yet (spec scope).
+    /// Live wiring. Text (page moods included), voice, and chat hit their
+    /// POCs. Sticker and style transfer stay mocked -- no backend POC exists
+    /// for them yet (spec scope).
     ///
     /// The image studio is handed a `VisionForegroundMatte`, which is what
     /// moves plain background removal onto this phone: no upload, no queue
@@ -46,7 +50,8 @@ public struct ServiceContainer: Sendable {
             stickerGeneration: MockStickerGenerationService(),
             styleTransfer: MockStyleTransferService(),
             chat: LiveChatService(),
-            imageStudio: LiveImageStudioService(matte: matte)
+            imageStudio: LiveImageStudioService(matte: matte),
+            mood: LiveMoodService()
         )
     }()
 

@@ -248,7 +248,7 @@ final class PhotoEditController {
     /// The white outline around the photo's current pixels, in place.
     private func runOutline() {
         guard let data = currentPixels else {
-            notice = "This picture has no stored pixels to outline."
+            notice = String(appCopy: "This picture has no stored pixels to outline.")
             return
         }
         lastRun = .outline
@@ -267,7 +267,7 @@ final class PhotoEditController {
         let instruction = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !instruction.isEmpty else { return }
         guard let data = currentPixels else {
-            notice = "This picture has no stored pixels to change."
+            notice = String(appCopy: "This picture has no stored pixels to change.")
             return
         }
         lastRun = .ai
@@ -291,7 +291,7 @@ final class PhotoEditController {
     /// the canvas changes unless the cutout succeeds.
     private func runCutout() {
         guard let ref = currentRef, let data = currentPixels else {
-            notice = "This picture has no stored pixels to cut."
+            notice = String(appCopy: "This picture has no stored pixels to cut.")
             return
         }
         let target = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -324,7 +324,7 @@ final class PhotoEditController {
             } catch {
                 guard !cancelled, !(error is CancellationError) else { return }
                 notice = (error as? LocalizedError)?.errorDescription
-                    ?? "That didn't work this time. Try again?"
+                    ?? String(appCopy: "That didn't work this time. Try again?")
             }
         }
     }
@@ -550,7 +550,7 @@ private struct PhotoEditStage: View {
     }
 
     private func label(_ text: String, color: Color, id: String) -> some View {
-        Text(text)
+        Text(copy: text)
             .font(Sans.font(size: 12, weight: 700))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
@@ -594,7 +594,9 @@ private struct PhotoEditStage: View {
                 // VoiceOver cannot hold: activating toggles the comparison,
                 // and the value says what is showing.
                 .accessibilityAction { if looksEdited { controller.pinnedCompare.toggle() } }
-                .accessibilityValue(controller.comparing ? "Showing before and current" : "Showing your edit")
+                .accessibilityValue(
+                    controller.comparing ? Text("Showing before and current") : Text("Showing your edit")
+                )
                 .accessibilityIdentifier("photo.compare")
 
             Button(action: controller.favorite) {
@@ -602,7 +604,7 @@ private struct PhotoEditStage: View {
             }
             .buttonStyle(.plain)
             .disabled(controller.isFavorite)
-            .accessibilityLabel(controller.isFavorite ? "In Favorites" : "Add to Favorites")
+            .accessibilityLabel(controller.isFavorite ? Text("In Favorites") : Text("Add to Favorites"))
             .accessibilityIdentifier("photo.favorite")
         }
     }

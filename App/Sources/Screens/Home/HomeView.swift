@@ -6,14 +6,19 @@ import SwiftUI
 /// the retrieval prompt bar, and the collection grid -- driven by the
 /// user's real, persisted note collections. Beyond the design: a "New
 /// collection" card closes the grid and "Recently deleted" sits under it
-/// when the bin holds anything.
+/// when the bin holds anything. Forest and Sunlit Pop redraw it in their
+/// colors and type (handoff 2026-10-24, screens 01-02; see `Theme`).
 struct HomeView: View {
     var viewModel: HomeViewModel
     var onStart: () -> Void = {}
     var onQuickCapture: (String) -> Void = { _ in }
     var onOpenCollection: (MemoryCollection) -> Void = { _ in }
     var onOpenTrash: () -> Void = {}
+    var onOpenStarJar: () -> Void = {}
+    var onOpenSettings: () -> Void = {}
+    var onOpenProfile: () -> Void = {}
 
+    @Environment(\.theme) private var theme
     @State private var prompt = ""
     /// The ask bar's keyboard: a tap on the page or a scroll lowers it.
     @FocusState private var promptFocused: Bool
@@ -33,9 +38,9 @@ struct HomeView: View {
                 header
                     .padding(.bottom, 8)
                 dateline
-                    .padding(.bottom, 9)
+                    .padding(.bottom, 9 + theme.heroGaps.above)
                 hero
-                    .padding(.bottom, 28)
+                    .padding(.bottom, 28 + theme.heroGaps.below)
                 startButton
                     .padding(.bottom, 27)
                 promptBar
@@ -54,7 +59,7 @@ struct HomeView: View {
                         }
                         // Not drawn by the design: textSecondary (6.1:1 on
                         // the paper), not the 3.3:1 date color.
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                         .frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
@@ -74,6 +79,13 @@ struct HomeView: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .screenBackground()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.root")
+        #if DEBUG
+        // UI tests read the theme Home is drawn in (VoiceOver users of a
+        // release build are not read it).
+        .accessibilityValue(theme.appearance.rawValue)
+        #endif
         .alert("New collection", isPresented: $addingCollection) {
             TextField("Name", text: $newCollectionName)
             Button("Cancel", role: .cancel) { newCollectionName = "" }
@@ -86,53 +98,65 @@ struct HomeView: View {
         }
     }
 
-    /// Wordmark (Bold 15, #25231F) and the 38 pt glass profile circle. The
-    /// design's bell is left out: nothing stands behind it yet.
+    /// Wordmark (Bold 15, #25231F), then the 38 pt glass settings and
+    /// profile circles, 8 apart (handoff 2026-10-24, screens 01-02). The
+    /// 2026-10-07 design's bell is left out: nothing stands behind it yet.
     private var header: some View {
         HStack(alignment: .top) {
             Text("MiraNote")
-                .font(.miraLogo)
-                .foregroundStyle(Color(hex: 0x25231F))
+                .font(theme.wordmark.font)
+                .foregroundStyle(theme.wordmark.color)
                 .padding(.top, 9)
             Spacer()
-            Image("home.profile")
+            HStack(spacing: 8) {
+                // Not drawn by the handoff: the star jar, a twin of the
+                // circles beside it.
+                headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
+                headerCircle("home.settings", label: "Settings", action: onOpenSettings)
+                headerCircle("home.profile", label: "Profile", action: onOpenProfile)
+            }
+        }
+    }
+
+    private func headerCircle(_ icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(icon)
                 .renderingMode(.template)
                 .resizable()
                 .frame(width: 20, height: 20)
-                .foregroundStyle(Color(hex: 0x635B50))
-                .frame(width: 38, height: 38)
-                .background(
-                    Circle()
-                        .fill(Color.white.opacity(0.58))
-                        .overlay(Circle().strokeBorder(Color(hex: 0x48433B).opacity(0.12), lineWidth: 1))
-                        .shadow(color: Color(hex: 0x544738).opacity(0.025), radius: 8, y: 6)
-                )
-                .accessibilityHidden(true)
+                .foregroundStyle(theme.homeIcon)
+                .glassCircle()
         }
+        .buttonStyle(.plain)
+        .circleHitTarget()
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(icon)
     }
 
     /// "MONDAY," over an indented "JUNE 22", Josefin Bold 24 in #8F8477.
     private var dateline: some View {
         let lines = HomeView.dateLines(for: .now)
-        return VStack(alignment: .leading, spacing: 4) {
+        let style = theme.dateline
+        return VStack(alignment: .leading, spacing: style.lineSpacing) {
             Text(lines.weekday)
             Text(lines.day)
-                .padding(.leading, 80)
+                .padding(.leading, theme.datelineIndent)
         }
-        .font(.miraDate)
-        .foregroundStyle(Self.dateColor)
+        .font(style.font)
+        .foregroundStyle(style.color)
         .accessibilityElement(children: .combine)
     }
 
     /// Two lines at the design's 1.02 line height: Fraunces' own line box
     /// is ~7 pt taller than 1769_W05's, so the lines overlap by that much.
     private var hero: some View {
-        VStack(spacing: -7) {
+        let style = theme.hero
+        return VStack(spacing: style.lineSpacing) {
             Text("Your memory,")
             Text("beautifully made.")
         }
-        .font(.miraHero)
-        .foregroundStyle(Color(hex: 0x24221E))
+        .font(style.font)
+        .foregroundStyle(style.color)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
     }
@@ -141,8 +165,8 @@ struct HomeView: View {
     private var startButton: some View {
         Button(action: onStart) {
             Text("Start a memory")
-                .font(Sans.font(size: 24.6, weight: 700))
-                .foregroundStyle(Color(hex: 0xFFFAF3))
+                .font(theme.startLabelFont)
+                .foregroundStyle(theme.startLabel)
                 // One line: the button is drawn 226 wide.
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -150,7 +174,7 @@ struct HomeView: View {
                 .frame(width: 226, height: 92)
                 .background(
                     RoundedRectangle(cornerRadius: 36)
-                        .fill(Palette.ink)
+                        .fill(theme.button)
                         .shadow(color: Color(hex: 0x544738).opacity(0.16), radius: 28, y: 30)
                 )
         }
@@ -168,15 +192,15 @@ struct HomeView: View {
                 .renderingMode(.template)
                 .resizable()
                 .frame(width: 20, height: 20)
-                .foregroundStyle(Color(hex: 0x635B50))
+                .foregroundStyle(theme.homeIcon)
                 .frame(width: 26, height: 26)
-                .background(Circle().fill(Color(hex: 0xC6B298)))
+                .background(Circle().fill(theme.promptIconFill))
                 .accessibilityHidden(true)
 
             TextField("", text: $prompt)
-                .font(Sans.font(size: 16, weight: 700))
-                .foregroundStyle(Palette.ink)
-                .tint(Palette.forest)
+                .font(theme.promptFont)
+                .foregroundStyle(theme.ink)
+                .tint(theme.promptTint)
                 .submitLabel(.send)
                 .onSubmit(submitPrompt)
                 .focused($promptFocused)
@@ -184,8 +208,8 @@ struct HomeView: View {
                 .overlay(alignment: .leading) {
                     if prompt.isEmpty {
                         Text("When was my Paris trip?")
-                            .font(Sans.font(size: 16, weight: 700))
-                            .foregroundStyle(Palette.ink.opacity(0.5))
+                            .font(theme.promptFont)
+                            .foregroundStyle(theme.promptPlaceholder)
                             .allowsHitTesting(false)
                     }
                 }
@@ -194,7 +218,7 @@ struct HomeView: View {
                 Button(action: submitPrompt) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(theme.ink)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("quick.send")
@@ -205,7 +229,7 @@ struct HomeView: View {
         .frame(height: 41)
         .background(
             Capsule()
-                .fill(Color(hex: 0xF6F5F1))
+                .fill(theme.promptFill)
                 .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
         )
         // A tap anywhere on the bar is for its field, not the page's tap
@@ -224,7 +248,7 @@ struct HomeView: View {
                 Button {
                     onOpenCollection(collection)
                 } label: {
-                    HomeCollectionCard(title: collection.title, style: HomeCollectionCard.Style.cycle(index))
+                    HomeCollectionCard(title: collection.title, style: theme.card(index))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("collection.\(collection.title)")
@@ -250,14 +274,15 @@ struct HomeView: View {
                 .font(Sans.font(size: 22, weight: 700))
             Spacer(minLength: 0)
         }
-        .foregroundStyle(Self.dateColor)
+        .foregroundStyle(theme.muted(Self.dateColor))
         .padding(.top, 26)
         .padding(.horizontal, 30)
         .frame(maxWidth: .infinity, minHeight: HomeCollectionCard.height, maxHeight: HomeCollectionCard.height,
                alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: HomeCollectionCard.corner)
-                .strokeBorder(Color(hex: 0x48433B).opacity(0.24), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                .strokeBorder(theme.muted(Color(hex: 0x48433B)).opacity(0.24),
+                              style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
         )
         .contentShape(RoundedRectangle(cornerRadius: HomeCollectionCard.corner))
     }
@@ -285,6 +310,7 @@ struct HomeCollectionCard: View {
         let accent: Color
         /// The handoff's #D9CDBA where it reads at 3:1 (forest, 8.4:1).
         var title = Color(hex: 0xD9CDBA)
+        var border = Color(hex: 0x48433B).opacity(0.12)
 
         /// Accessibility deviation (decided 2026-10-15, as dev had it): the
         /// handoff's titles read at 1.5-2.5:1 on the grey, olive and tan
@@ -309,15 +335,12 @@ struct HomeCollectionCard: View {
     let title: String
     let style: Style
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(Sans.font(size: 22, weight: 700))
+            titleText
                 .foregroundStyle(style.title)
-                .lineSpacing(3)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .multilineTextAlignment(.leading)
                 .frame(width: 118, alignment: .leading)
             Spacer(minLength: 0)
             RoundedRectangle(cornerRadius: 18)
@@ -334,28 +357,34 @@ struct HomeCollectionCard: View {
                 .fill(style.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: Self.corner)
-                        .strokeBorder(Color(hex: 0x48433B).opacity(0.12), lineWidth: 1)
+                        .strokeBorder(style.border, lineWidth: 1)
                 )
                 .shadow(color: Color(hex: 0x544738).opacity(0.1), radius: 17, y: 18)
         )
     }
+
+    /// Up to two lines, in Josefin or the theme's face.
+    @ViewBuilder private var titleText: some View {
+        if let face = theme.cardTitleFace {
+            ThemedCardTitle(title: title, face: face, width: 118)
+        } else {
+            Text(title)
+                .font(Sans.font(size: 22, weight: 700))
+                .lineSpacing(3)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .multilineTextAlignment(.leading)
+        }
+    }
 }
 
 extension HomeView {
-    private static func formatter(_ format: String) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.dateFormat = format
-        return formatter
-    }
-
-    private static let weekdayFormatter = formatter("EEEE,")
-    private static let dayFormatter = formatter("MMMM d")
-
-    /// The editorial dateline: "MONDAY," over "JUNE 22". Pinned to English
-    /// -- all of the app's copy is.
+    /// The editorial dateline: "MONDAY," over "JUNE 22", in the app's
+    /// language (Chinese drops the comma).
     static func dateLines(for date: Date) -> (weekday: String, day: String) {
-        (weekdayFormatter.string(from: date).uppercased(), dayFormatter.string(from: date).uppercased())
+        let weekday = AppDateFormat.string(from: date, template: "EEEE")
+        return (String(appCopy: "\(weekday),").uppercased(),
+                AppDateFormat.string(from: date, template: "MMMMd").uppercased())
     }
 }
 

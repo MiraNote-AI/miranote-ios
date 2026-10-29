@@ -13,7 +13,7 @@ extension CanvasScene {
         // it over (or its release would transcribe the take into the block).
         // An armed Voice tool holds nothing yet.
         if case .recording = recorderState {
-            dictationHint = "Stop the voice recording first."
+            dictationHint = String(appCopy: "Stop the voice recording first.")
             return
         }
         dictationPress = (start: .now, wasLive: dictating || recorder != nil)
@@ -37,6 +37,7 @@ extension CanvasScene {
         if startingMic == .text {
             startingMic = nil
             recorder = nil
+            endDeferredWriting()
             return
         }
         guard dictating else { return }
@@ -44,6 +45,15 @@ extension CanvasScene {
         recorder = nil
         dictating = false
         Task { _ = try? await abandoned?.stop() }
+        endDeferredWriting()
+    }
+
+    /// The writing's end waited for a held take that then ended without
+    /// words (cancelled, or its mic never came up): once the earlier words
+    /// have landed, the writing ends now -- still on their way, they end it.
+    private func endDeferredWriting() {
+        guard doneWaiting != nil, pendingTakes.isEmpty else { return }
+        finishWaitingDone(caught: true)
     }
 
     /// Whether `candidate` still holds the recorder slot (a cancel while it
@@ -74,6 +84,7 @@ extension CanvasScene {
                 startingMic = nil
                 recorder = nil
                 dictationHint = error.localizedDescription
+                endDeferredWriting()
             }
         }
     }
@@ -97,6 +108,12 @@ extension CanvasScene {
         // written down queues behind it: both land, in the order spoken.
         let take = UUID()
         pendingTakes.append(take)
+        // The writing's end waited for this take to be let go of: its words
+        // get the whole wait from here.
+        if doneWaiting != nil {
+            doneWaiting = nil
+            waitForWordsThenEnd()
+        }
         let earlier = lastTake
         lastTake = Task {
             let words = await transcribe(recorder, for: id)
@@ -116,20 +133,20 @@ extension CanvasScene {
     /// return looked like a dead feature.
     private func transcribe(_ recorder: AudioRecording, for id: CanvasItem.ID?) async -> String? {
         guard let data = try? await recorder.stop(), !data.isEmpty else {
-            dictationHint = "I couldn't catch any words -- try again?"
+            dictationHint = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         guard id != nil else {
-            dictationHint = "Tap a text block first, then dictate."
+            dictationHint = String(appCopy: "Tap a text block first, then dictate.")
             return nil
         }
         guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
-            dictationHint = "Couldn't reach the transcriber -- try again?"
+            dictationHint = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty else {
-            dictationHint = "I couldn't catch any words -- try again?"
+            dictationHint = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         return words
@@ -158,6 +175,14 @@ extension CanvasScene {
     /// Ends the writing, then does what the tap that asked for it does
     /// (deselect, select another element), if a tap did.
     private func finishWaitingDone(caught: Bool) {
+        // A take still held (a hold during the wait) keeps recording: the
+        // writing ends once it is let go of and its words land. No cap runs
+        // while the finger is down.
+        if dictating || startingMic == .text {
+            doneWaiting = UUID()
+            if !caught { flashHint("Couldn't catch those words.") }
+            return
+        }
         doneWaiting = nil
         let then = afterWritingDown
         afterWritingDown = nil
@@ -169,7 +194,7 @@ extension CanvasScene {
         } else {
             then?()
         }
-        if !caught { flashHint("Couldn't catch those words.") }
+        if !caught { flashHint(String(appCopy: "Couldn't catch those words.")) }
     }
 
     private func append(_ words: String, to id: CanvasItem.ID) {

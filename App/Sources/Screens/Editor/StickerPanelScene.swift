@@ -104,7 +104,7 @@ struct StickerPanelScene: View {
             InputModeBar(active: .sticker, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
                 guard mode == .sticker || !placingWouldDropWork else {
-                    notice = "Add the sticker you made first, or Cancel to let it go."
+                    notice = String(appCopy: "Add the sticker you made first, or Cancel to let it go.")
                     return
                 }
                 actions.selectMode(mode)
@@ -249,7 +249,7 @@ struct StickerPanelScene: View {
                 .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(Text(copy: label))
         .accessibilityAddTraits(active ? .isSelected : [])
         .accessibilityIdentifier(value.accessibilityID)
     }
@@ -446,7 +446,7 @@ struct StickerPanelScene: View {
         }
         .buttonStyle(.plain)
         .disabled(busy || saved)
-        .accessibilityLabel(saved ? "In Favorites" : "Add to Favorites")
+        .accessibilityLabel(saved ? Text("In Favorites") : Text("Add to Favorites"))
         .accessibilityIdentifier("sticker.favorite")
     }
 
@@ -566,7 +566,7 @@ struct StickerPanelScene: View {
                     .buttonStyle(.plain)
                     .disabled(placingWouldDropWork)
                     .opacity(placingWouldDropWork ? 0.45 : 1)
-                    .accessibilityLabel(name.replacingOccurrences(of: "-", with: " "))
+                    .accessibilityLabel(Text(copy: name.replacingOccurrences(of: "-", with: " ")))
                     .accessibilityIdentifier("sticker.preset.\(name)")
                 }
             }
@@ -632,17 +632,17 @@ struct StickerPanelScene: View {
                 if !batch.allMatted {
                     notice = batch.unmatted.count == images.count
                         ? (images.count == 1
-                            ? "Couldn't lift this off its background -- it's here as it came."
-                            : "Couldn't lift these off their background -- they're here as they came.")
-                        : "One of these kept its background. They're all here -- pick either."
+                            ? String(appCopy: "Couldn't lift this off its background -- it's here as it came.")
+                            : String(appCopy: "Couldn't lift these off their background -- they're here as they came."))
+                        : String(appCopy: "One of these kept its background. They're all here -- pick either.")
                 }
                 if images.isEmpty {
-                    notice = "Mira couldn't make that one -- try other words?"
+                    notice = String(appCopy: "Mira couldn't make that one -- try other words?")
                 }
                 drafts = images.map { StickerDraft(prompt: trimmed, data: $0) }
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
-                    ?? "Making a sticker didn't work this time. Try again?"
+                    ?? String(appCopy: "Making a sticker didn't work this time. Try again?")
             }
         }
     }
@@ -663,7 +663,7 @@ struct StickerPanelScene: View {
                 drafts = [draft]
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
-                    ?? "That didn't work this time. Try again?"
+                    ?? String(appCopy: "That didn't work this time. Try again?")
             }
         }
     }
@@ -684,7 +684,7 @@ struct StickerPanelScene: View {
                 case .cutout: restyled = try await studio.cutout(image: source, target: target)
                 case .bw:
                     guard let mono = StickerLook.monochrome(source) else {
-                        notice = "That didn't work this time. Try again?"
+                        notice = String(appCopy: "That didn't work this time. Try again?")
                         return
                     }
                     restyled = mono
@@ -693,7 +693,7 @@ struct StickerPanelScene: View {
                 drafts[index].push(StickerVariant(data: restyled, style: style))
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
-                    ?? "That didn't work this time. Try again?"
+                    ?? String(appCopy: "That didn't work this time. Try again?")
             }
         }
     }
@@ -713,7 +713,7 @@ struct StickerPanelScene: View {
         guard !busy, drafts.indices.contains(page), flight == nil else { return }
         // Saved here, so a write failure is reported next to the sticker.
         guard let fileName = try? imageStore.save(drafts[page].current.data, id: UUID()) else {
-            notice = "That sticker couldn't be saved. Try again?"
+            notice = String(appCopy: "That sticker couldn't be saved. Try again?")
             return
         }
         hop(PendingPlacement(prompt: drafts[page].prompt, fileName: fileName, at: landingSpot))

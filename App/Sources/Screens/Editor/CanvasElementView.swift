@@ -117,7 +117,7 @@ struct CanvasElementView: View {
                 .padding(TextFace.inset)
                 .textBlockBackground(block)
         } else {
-            Text(block.text.isEmpty ? "Say something..." : block.text)
+            Text(block.text.isEmpty ? String(appCopy: "Say something...") : block.text)
                 .font(TextFace.font(for: block))
                 .lineSpacing(TextFace.lineSpacing(for: block))
                 .foregroundStyle(
@@ -147,13 +147,13 @@ struct CanvasElementView: View {
             }
             .buttonStyle(.plain)
             .allowsHitTesting(isSelected)
-            .accessibilityLabel(isPlaying ? "Stop" : "Play")
+            .accessibilityLabel(isPlaying ? Text("Stop") : Text("Play"))
             .accessibilityIdentifier("sound.play")
 
             if isSelected {
                 Button(action: onEditNote) {
                     HStack(spacing: 6) {
-                        Text(clip.note.isEmpty ? "Add a note" : clip.note)
+                        Text(clip.note.isEmpty ? String(appCopy: "Add a note") : clip.note)
                             .font(Sans.font(size: 13, weight: 500))
                             .foregroundStyle(clip.note.isEmpty ? Palette.textSecondary : Palette.ink)
                             .lineLimit(1)
@@ -218,6 +218,19 @@ enum DarkKeyboard {
                 textField.reloadInputViews()
             }
         }
+    }
+}
+
+/// The caret of the text being written, in global (window) points: the
+/// first responder's insertion point. Nil when no text field has focus.
+enum WrittenCaret {
+    @MainActor
+    static var frame: CGRect? {
+        guard let input = UIResponder.currentFirstResponder as? UIView & UITextInput,
+              let end = input.selectedTextRange?.end else { return nil }
+        let caret = input.caretRect(for: end)
+        guard !caret.isNull, !caret.isInfinite else { return nil }
+        return input.convert(caret, to: nil)
     }
 }
 
