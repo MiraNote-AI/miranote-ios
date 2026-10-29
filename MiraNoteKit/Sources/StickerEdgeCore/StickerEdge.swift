@@ -6,26 +6,32 @@ import UniformTypeIdentifiers
 
 /// A generated sticker cut out without the model's white die-cut edge.
 ///
-/// The image model draws its sticker -- usually inside a white rim of its own --
-/// on a flat backdrop, and Vision lifts it. Stickers come out with no edge
-/// (team decision 2026-10-24; Outline adds one on request), so the rim has to
-/// go, and Vision cannot be asked to drop it: it is unreliable at where a pale
-/// rim ends. So the roles are split:
+/// The image model draws the art on a flat backdrop that shows through its
+/// holes, and Vision lifts it. Stickers come out with no edge (team decision
+/// 2026-10-24; Outline adds one on request). Now and then the model still draws
+/// a white die-cut rim of its own, and Vision cannot be asked to drop it: it is
+/// unreliable at where a pale rim ends. So the roles are split:
 ///
-/// - Vision picks the sticker (which connected parts count);
-/// - the backdrop colour places the sticker's outer edge (the backdrop is flat,
-///   so its colour can be keyed, shadow tones included);
-/// - and the rim is found by what it is: near-white, joined to that outer edge,
-///   and never further from the coloured art than the rim is wide. A white body
-///   behind an outline is not joined to it; one with no outline loses only a
-///   band the rim's width.
+/// - Vision picks the sticker (which connected parts count) and its holes (an
+///   enclosed patch of backdrop it left out);
+/// - the backdrop colour moves the outer edge (the backdrop is flat, so its
+///   colour can be keyed, shadow tones included), within a few px of Vision's;
+/// - and a rim, when there is one, is found by what it is: near-white, joined
+///   to the outside, and never further from the coloured art than the rim is
+///   wide. A white body behind an outline is not joined to it; one with no
+///   outline loses only a band the rim's width.
+///
+/// With no rim the key may add to Vision's cut but not take from it, since on
+/// a pale backdrop pale art (silver, a daisy) reads as backdrop to the key.
 ///
 /// The art keeps its pixels; only its outermost 2 px are un-mixed from the
 /// white or backdrop they were blended with, so no pale fringe is left.
 ///
 /// Prototyped in Python against Vision on 24 generated stickers (miranote-api
-/// poc/image-generation/test_output/sticker_clean_cut_20261028/clean_cut.py);
-/// the constants below are the ones that bench settled on.
+/// poc/image-generation/test_output/sticker_clean_cut_20261028/clean_cut.py),
+/// then tuned in Swift on 100 more drawn with and without the rim
+/// (.../sticker_prompt_bench_20261028); the constants below are the ones those
+/// benches settled on.
 public enum StickerEdge {
     public struct Parameters: Sendable {
         /// Corner patch size (px) the backdrop colour is read from.
@@ -39,13 +45,31 @@ public enum StickerEdge {
         public var shadowChroma = 0.035
         /// Largest RGB distance a shadow pixel may have from the backdrop.
         public var shadowDistance = 175.0
+        /// Channel spread above which a backdrop is coloured, so a shadow on it
+        /// can overrule Vision (bench: grey 15-19, cream 30-37, a light blue or
+        /// yellow 104-135).
+        public var tintedBackdrop = 40.0
+        /// Looser shadow test for the contact shadow on a coloured backdrop
+        /// (bench: chroma 0.05-0.07, 0.23-0.76 of the backdrop's luminance).
+        public var contactShadowChroma = 0.09
+        public var contactShadowMinLum = 0.15
         /// Corner std above this means the backdrop is not flat: no keying.
         public var uniformMax = 18.0
-        /// Enclosed backdrop areas bigger than this share of the image, ringed
-        /// by white, are real holes (a mug handle).
-        public var holeMinFraction = 0.0015
+        /// Enclosed backdrop areas bigger than this share of the image that
+        /// Vision left out are holes (smaller ones are key noise)...
+        public var holeMinFraction = 0.00002
+        /// ...and, on a rimmed sticker, only those this close to the backdrop on
+        /// average (bench holes 2.3-11, a white body's pale shading 12.4-31), or
+        /// bigger than `ringedHoleMinFraction` and ringed by white (a mug handle).
+        public var flatHoleDistance = 11.5
+        public var ringedHoleMinFraction = 0.0015
         /// Vision's mask eroded by this many px is always kept.
         public var trustInset = 16.0
+        /// The key may move Vision's edge by this many px...
+        public var visionReach: Float = 8
+        /// ...and beyond it keeps only px this many key thresholds from the
+        /// backdrop.
+        public var farFromVisionContrast = 2.0
         /// Components smaller than this share of the sticker are dropped.
         public var speckFraction = 0.002
         /// The model's rim: every channel above this...
@@ -57,6 +81,9 @@ public enum StickerEdge {
         public var rimWidthCapFraction = 0.035
         /// ...and the measured one at this.
         public var rimWidthMaxFraction = 0.08
+        /// A "rim" over this share of the subject is the art itself (white line
+        /// art); a real rim is 10-30% of it, a thin balloon string's up to ~45%.
+        public var rimMaxShare = 0.6
         /// What the rim itself is made of: flat near-white, every channel at
         /// least this and spread at most `rimLikeSpread` (rims measure >= 250,
         /// spread <= 3; a white mug body is a shade off, 247/239).
@@ -108,7 +135,8 @@ public enum StickerEdge {
         /// fox 4.8% over 874, a dandelion 2.9% over 231; every other sticker on
         /// the bench under 0.9%, a balloon's 3 gaps 0.9%): a drawing on paper.
         public var hatchedPocketFraction = 0.02
-        public var hatchedPocketCount = 20
+        /// (watercolour balloons on a white backing: 135, and they go)
+        public var hatchedPocketCount = 200
         /// Final parts smaller than this (px) are dropped.
         public var minPartPixels = 20
         /// Px from the art's edge that are un-mixed, and the depth of the art
@@ -181,7 +209,8 @@ public enum StickerEdge {
         let rgb = RGB(pixels: raw.pixels)
         let (backdrop, spread) = Self.backdrop(rgb, w, h, p.corner)
         let keyed = spread <= p.uniformMax
-        let mask = keyed ? subjectMask(rgb, w, h, vis, backdrop, p) : vis
+        let keyedMask = keyed ? subjectMask(rgb, w, h, vis, backdrop, p) : nil
+        let mask = keyedMask?.rimmed ?? vis
         // keyed away entirely (a Vision cut thinner than trustInset, all of it
         // backdrop-coloured): throwing keeps Vision's cut instead of a blank
         guard mask.contains(true) else { throw Failure.nothingLifted }
@@ -220,8 +249,10 @@ public enum StickerEdge {
             if light[i] { litSums.append(depth[i] + toColoured[i]) }
         }
         if rimWidth > 0 || (bandCount > 0 && Double(litSums.count) > 0.5 * Double(bandCount)), !litSums.isEmpty {
-            rimWidth = Int(median(litSums).rounded(.toNearestOrEven))
-            rimWidth = min(rimWidth, Int(p.rimWidthMaxFraction * side))
+            // capped before it becomes an Int: with no coloured art at all (a
+            // sticker of pure white) every sum is the "no art" distance, ~3e38
+            rimWidth = Int(min(median(litSums), Float(Int(p.rimWidthMaxFraction * side)))
+                .rounded(.toNearestOrEven))
         }
 
         var art = mask
@@ -268,24 +299,46 @@ public enum StickerEdge {
                     drawnOnPaper = true
                 }
             }
-            // the model's grey stroke and shadow just outside the rim
-            let toRim = distance(to: rim, w, h)
-            for i in 0..<n where rim[i] || (toRim[i] <= p.seamReach && depth[i] <= seamBand + 1) {
-                art[i] = false
+            let rimCount = rim.reduce(0) { $1 ? $0 + 1 : $0 }
+            if Double(rimCount) > p.rimMaxShare * maskCount {
+                // Most of the sticker reads as rim: it is white line art (bare
+                // branches, a pale snowflake), not a rim round art.
+                rimWidth = 0
+                pockets = 0; whiteBody = 0; drawnOnPaper = false
+            } else {
+                // the model's grey stroke and shadow just outside the rim
+                let toRim = distance(to: rim, w, h)
+                for i in 0..<n where rim[i] || (toRim[i] <= p.seamReach && depth[i] <= seamBand + 1) {
+                    art[i] = false
+                }
             }
         }
 
-        // art drawn straight onto the backdrop: its outermost px are backdrop blends
-        let axis = (255 - backdrop.0, 255 - backdrop.1, 255 - backdrop.2)
-        let axisLength2 = max(1e-6, axis.0 * axis.0 + axis.1 * axis.1 + axis.2 * axis.2)
-        for i in 0..<n where art[i] && depth[i] <= seamBand {
-            let d0 = rgb[i * 3] - backdrop.0, d1 = rgb[i * 3 + 1] - backdrop.1,
-                d2 = rgb[i * 3 + 2] - backdrop.2
-            let t = min(1, max(0, (d0 * axis.0 + d1 * axis.1 + d2 * axis.2) / axisLength2))
-            let e0 = d0 - t * axis.0, e1 = d1 - t * axis.1, e2 = d2 - t * axis.2
-            if (e0 * e0 + e1 * e1 + e2 * e2).squareRoot() < p.seamTolerance { art[i] = false }
+        var edgeDepth = depth
+        if rimWidth > 0 {
+            // the rim's outermost px are blends of it and the backdrop
+            let axis = (255 - backdrop.0, 255 - backdrop.1, 255 - backdrop.2)
+            let axisLength2 = max(1e-6, axis.0 * axis.0 + axis.1 * axis.1 + axis.2 * axis.2)
+            for i in 0..<n where art[i] && depth[i] <= seamBand {
+                let d0 = rgb[i * 3] - backdrop.0, d1 = rgb[i * 3 + 1] - backdrop.1,
+                    d2 = rgb[i * 3 + 2] - backdrop.2
+                let t = min(1, max(0, (d0 * axis.0 + d1 * axis.1 + d2 * axis.2) / axisLength2))
+                let e0 = d0 - t * axis.0, e1 = d1 - t * axis.1, e2 = d2 - t * axis.2
+                if (e0 * e0 + e1 * e1 + e2 * e2).squareRoot() < p.seamTolerance { art[i] = false }
+            }
+        } else if let keyedMask {
+            // Art drawn straight onto the backdrop, no rim to take off: the bare
+            // mask, and Vision's cut is the better judge of a pale part on a
+            // pale backdrop (silver scissors on grey, a daisy on cream), so the
+            // key may add to it but not take from it -- except holes and the
+            // backdrop's shadow.
+            art = keyedMask.bare
+            for i in 0..<n where vis[i] && !keyedMask.notSticker[i] { art[i] = true }
+            // less the crumbs of rim or paper Vision lifted with it
+            art = pickParts(art, vis, w, h, p)
+            edgeDepth = distance(to: art.map { !$0 }, w, h)
         }
-        dropSlivers(&art, depth: depth, w, h, limit: Double(rimWidth) + p.seamBand, p)
+        dropSlivers(&art, depth: edgeDepth, w, h, limit: Double(rimWidth) + p.seamBand, p)
         // crumbs a removed rim can leave (a rope's last px, a hair tip)
         dropSmallParts(&art, w, h, below: p.minPartPixels)
         guard art.contains(true) else { throw Failure.nothingLifted }
@@ -573,9 +626,27 @@ public enum StickerEdge {
         return ((median(channels[0]), median(channels[1]), median(channels[2])), spread)
     }
 
-    /// Vision picks the parts, the backdrop key places their edge.
+    /// Vision picks the parts, the backdrop key places their edge -- two ways.
+    ///
+    /// `rimmed` is for a sticker the model drew a white rim round: Vision is
+    /// unsure where a pale rim or white body ends and often drops part of it, so
+    /// the key may bring back anything not joined to the outside, and only an
+    /// enclosed backdrop area ringed by white (the rim round a mug's handle) is a
+    /// hole -- a star filled with the backdrop's colour inside its own outline is
+    /// body.
+    ///
+    /// `bare` is for art drawn straight onto the backdrop, where the backdrop
+    /// shows through every hole (a donut's, a key's bow, between spokes or
+    /// leaves): an enclosed backdrop area Vision left out is a hole whatever
+    /// rings it, and away from Vision's cut only px clearly unlike the backdrop
+    /// come back (a string Vision dropped), never a vignette the key misses (a
+    /// slab between a tree's branches).
+    ///
+    /// `notSticker` is what is surely not sticker even where Vision took it:
+    /// those holes, and on a coloured backdrop its shadow joined to the outside.
     static func subjectMask(_ rgb: RGB, _ w: Int, _ h: Int, _ vis: [Bool],
-                            _ bg: (Double, Double, Double), _ p: Parameters) -> [Bool] {
+                            _ bg: (Double, Double, Double), _ p: Parameters)
+        -> (rimmed: [Bool], bare: [Bool], notSticker: [Bool]) {
         let n = w * h
         let toWhite = ((255 - bg.0) * (255 - bg.0) + (255 - bg.1) * (255 - bg.1)
                        + (255 - bg.2) * (255 - bg.2)).squareRoot()
@@ -583,7 +654,11 @@ public enum StickerEdge {
         let bgSum = bg.0 + bg.1 + bg.2 + 1e-6
         let bgLum = (bg.0 + bg.1 + bg.2) / 3
         var backdropLike = [Bool](repeating: false, count: n)
+        var unlikeBackdrop = [Bool](repeating: false, count: n)
+        var shadowLike = [Bool](repeating: false, count: n)
         var whiteish = [Bool](repeating: false, count: n)
+        var toBackdrop = [Float](repeating: 0, count: n)
+        var softShadow = [Bool](repeating: false, count: n)
         for i in 0..<n {
             let r = rgb[i * 3], g = rgb[i * 3 + 1], b = rgb[i * 3 + 2]
             let d = ((r - bg.0) * (r - bg.0) + (g - bg.1) * (g - bg.1)
@@ -595,7 +670,12 @@ public enum StickerEdge {
             let shadow = chroma < p.shadowChroma && lum < bgLum && lum > 0.35 * bgLum
                 && d < p.shadowDistance
             backdropLike[i] = d < threshold || shadow
+            unlikeBackdrop[i] = !shadow && d > p.farFromVisionContrast * threshold
+            shadowLike[i] = shadow
             whiteish[i] = min(r, g, b) > p.rimLightMin
+            toBackdrop[i] = Float(d)
+            softShadow[i] = chroma < p.contactShadowChroma && lum < bgLum
+                && lum > p.contactShadowMinLum * bgLum && d < p.shadowDistance
         }
 
         let (labels, count) = label(backdropLike, w, h)
@@ -605,28 +685,67 @@ public enum StickerEdge {
         border.remove(0)
         var sizes = [Int](repeating: 0, count: count + 1)
         var visHits = [Int](repeating: 0, count: count + 1)
+        var dSum = [Double](repeating: 0, count: count + 1)
         for i in 0..<n where labels[i] > 0 {
             sizes[Int(labels[i])] += 1
             if vis[i] { visHits[Int(labels[i])] += 1 }
+            dSum[Int(labels[i])] += Double(toBackdrop[i])
         }
-        // A big enclosed backdrop-coloured area is a hole (a mug handle) only when
-        // Vision also left it out and it is ringed by white: a star filled with
-        // the backdrop's colour and ringed by its own blue line is body.
-        var holeLabels = Set<Int32>()
+        var holes = Set<Int32>(), ringedHoles = Set<Int32>()
         for l in 1...max(1, count) where count > 0 && !border.contains(Int32(l)) {
             guard Double(sizes[l]) > p.holeMinFraction * Double(n),
                   Double(visHits[l]) / Double(sizes[l]) < 0.5 else { continue }
-            if ringWhiteShare(labels, Int32(l), whiteish, w, h) >= 0.5 { holeLabels.insert(Int32(l)) }
+            holes.insert(Int32(l))
+            // On a rimmed sticker: the backdrop itself showing through (flat,
+            // its own colour), or a hole ringed by the rim's white; not the pale
+            // shading of a white body that the key happens to catch.
+            if Double(dSum[l]) / Double(sizes[l]) <= p.flatHoleDistance
+                || (Double(sizes[l]) > p.ringedHoleMinFraction * Double(n)
+                    && ringWhiteShare(labels, Int32(l), whiteish, w, h) >= 0.5) {
+                ringedHoles.insert(Int32(l))
+            }
         }
         let inside = distance(to: vis.map { !$0 }, w, h)
-        var candidate = [Bool](repeating: false, count: n)
+        let toVision = distance(to: vis, w, h)
+        // A shadow can be told from art only on a coloured backdrop: on grey or
+        // cream, silver scissors and a daisy's shading look like shadow too. On
+        // one, the contact shadow the model still draws under the art (a darker,
+        // slightly shifted shade of the backdrop, joined to the outside) is
+        // never added back where Vision left it out; where Vision took it, it is
+        // too like a dark part in the backdrop's hue to take away.
+        let tinted = max(bg.0, bg.1, bg.2) - min(bg.0, bg.1, bg.2) > p.tintedBackdrop
+        var outerShadow = [Bool](repeating: false, count: n)
+        if tinted {
+            let (shade, _) = label((0..<n).map { backdropLike[$0] || softShadow[$0] }, w, h)
+            var outer = Set<Int32>()
+            for x in 0..<w { outer.insert(shade[x]); outer.insert(shade[(h - 1) * w + x]) }
+            for y in 0..<h { outer.insert(shade[y * w]); outer.insert(shade[y * w + w - 1]) }
+            outer.remove(0)
+            for i in 0..<n where (softShadow[i] || shadowLike[i]) && outer.contains(shade[i]) {
+                outerShadow[i] = true
+            }
+        }
+        var rimmed = [Bool](repeating: false, count: n)
+        var bare = [Bool](repeating: false, count: n)
+        var notSticker = [Bool](repeating: false, count: n)
         for i in 0..<n {
             let l = labels[i]
-            let hole = l > 0 && holeLabels.contains(l)
+            let hole = l > 0 && holes.contains(l)
             let exterior = l > 0 && border.contains(l)
-            candidate[i] = (!exterior && !hole) || (inside[i] > Float(p.trustInset) && !hole)
+            let trusted = inside[i] > Float(p.trustInset)
+            let reached = toVision[i] <= p.visionReach || unlikeBackdrop[i]
+            notSticker[i] = hole || (exterior && shadowLike[i] && tinted)
+            rimmed[i] = !(l > 0 && ringedHoles.contains(l)) && (!exterior || trusted)
+            // the key never adds a contact shadow Vision left out
+            bare[i] = !hole && !(outerShadow[i] && !vis[i]) && ((!exterior && reached) || trusted)
         }
+        return (pickParts(rimmed, vis, w, h, p), pickParts(bare, vis, w, h, p), notSticker)
+    }
 
+    /// The candidate's components that Vision touched, less specks.
+    static func pickParts(_ candidate: [Bool], _ vis: [Bool], _ w: Int, _ h: Int,
+                          _ p: Parameters) -> [Bool] {
+        let n = w * h
         let (parts, partCount) = label(candidate, w, h)
         var partSize = [Int](repeating: 0, count: partCount + 1)
         var picked = [Bool](repeating: false, count: partCount + 1)

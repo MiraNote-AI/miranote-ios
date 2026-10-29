@@ -105,17 +105,78 @@ final class StickerEdgeTests: XCTestCase {
         XCTAssertEqual(at(out, report, 120 + 19, 120)[3], 0, "and the rim round the hole goes too")
     }
 
-    func testABackdropColouredFillInsideAnOutlineIsBody() throws {
-        // The blue star: filled with the backdrop's own colour, ringed by its
-        // drawn outline rather than white, and missed by Vision.
+    func testAHoleRingedByArtIsEmpty() throws {
+        // A donut drawn straight on the backdrop: no rim anywhere, the backdrop
+        // showing through the hole, and Vision leaving the hole out.
+        let raw = picture { x, y in
+            let d = self.r(x, y)
+            if d <= 20 { return nil }
+            if d <= 26 { return self.ink }
+            return d <= 60 ? self.red : nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) > 20 && self.r(x, y) <= 60 })
+        XCTAssertEqual(report.modelRimWidth, 0)
+        XCTAssertEqual(at(out, report, 120, 120)[3], 0, "the hole is empty")
+        XCTAssertEqual(at(out, report, 120 + 23, 120)[3], 255, "its ring is not")
+    }
+
+    func testABackdropColouredPartVisionKeptIsBody() throws {
+        // A whale's belly in the backdrop's own blue, ringed by its outline:
+        // Vision keeps it, so it is body, not a hole.
         let raw = picture { x, y in
             let d = self.r(x, y)
             if d <= 30 { return nil }
             if d <= 36 { return (40, 60, 140) }
             return self.sticker(x, y)
         }
-        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) > 30 && self.r(x, y) <= 70 })
-        XCTAssertEqual(at(out, report, 120, 120)[3], 255, "the fill is not punched out")
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertEqual(at(out, report, 120, 120)[3], 255, "the belly is not punched out")
+    }
+
+    func testABackdropToneVisionLeftOutIsNotAdded() throws {
+        // Thin dark branches round a patch of slightly different backdrop (a
+        // vignette the key misses): Vision takes only the branches, and the
+        // patch must not come back as a slab.
+        let branch: (Double, Double) -> Bool = { x, y in
+            abs(x - 60) <= 2 || abs(x - 180) <= 2 || abs(y - 60) <= 2 || abs(y - 180) <= 2
+        }
+        let inBox: (Double, Double) -> Bool = { x, y in x > 58 && x < 182 && y > 58 && y < 182 }
+        let raw = picture { x, y in
+            guard inBox(x, y) else { return nil }
+            return branch(x, y) ? self.ink : (150, 200, 230)
+        }
+        let (out, report) = try run(raw, alpha { x, y in inBox(x, y) && branch(x, y) })
+        XCTAssertEqual(at(out, report, 120, 120)[3], 0, "no slab between the branches")
+        // (a 5 px line is anti-aliased right across, so not quite 255)
+        XCTAssertGreaterThan(at(out, report, 60, 120)[3], 240, "the branch stays")
+    }
+
+    func testWhiteLineArtIsNotTakenForARim() throws {
+        // Bare white branches on the backdrop: near-white all through, so the
+        // rim test reads most of the sticker as rim. It is the art.
+        let branch: (Double, Double) -> Bool = { x, y in
+            (abs(x - 120) <= 4 && y > 40 && y < 200) || (abs(y - 90) <= 4 && x > 50 && x < 190)
+                || (abs(y - 150) <= 4 && x > 70 && x < 170)
+        }
+        let raw = picture { x, y in branch(x, y) ? self.rimWhite : nil }
+        let (out, report) = try run(raw, alpha { x, y in branch(x, y) })
+        XCTAssertEqual(report.modelRimWidth, 0)
+        XCTAssertGreaterThan(at(out, report, 120, 120)[3], 240, "the trunk stays")
+        XCTAssertGreaterThan(at(out, report, 60, 90)[3], 240, "and its branches")
+    }
+
+    func testAPalePartVisionKeptStaysOnBareArt() throws {
+        // A red disc with a fringe a shade off the backdrop (silver on grey, a
+        // daisy on cream): the key reads the fringe as backdrop, Vision as art.
+        // With no rim to take off, Vision's cut is kept whole.
+        let raw = picture { x, y in
+            let d = self.r(x, y)
+            if d <= 50 { return self.red }
+            return d <= 62 ? (135, 182, 210) : nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 62 })
+        XCTAssertEqual(report.modelRimWidth, 0)
+        XCTAssertGreaterThan(at(out, report, 120 + 56, 120)[3], 200, "the pale fringe is art")
     }
 
     func testTheModelsDropShadowIsNotSticker() throws {
