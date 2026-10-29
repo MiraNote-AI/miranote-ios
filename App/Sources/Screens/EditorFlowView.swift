@@ -154,6 +154,22 @@ struct HomeFlow: View {
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
 
+    /// The photo trigger's memory (v0: the bundled demo, not the backend).
+    private static let triggerSource: TriggerMemorySource = DemoMemoryLoader()
+    @State private var triggerMemory = HomeFlow.triggerSource.load()
+
+    /// The demo entry shows in Debug builds and under `-DEMO-SAMPLES`, but
+    /// not in UI tests, whose Home it would change.
+    private static var showsTriggerDemo: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-DEMO-SAMPLES") { return true }
+        #if DEBUG
+        return !arguments.contains("-UITEST")
+        #else
+        return false
+        #endif
+    }
+
     /// A note addressed within its collection, for stack navigation.
     private struct NoteRef: Hashable {
         let collectionID: MemoryCollection.ID
@@ -216,6 +232,8 @@ struct HomeFlow: View {
         case chat(String)
         /// A page Mira drafted in chat, opening in the editor as a new note.
         case draft(Memory)
+        /// The photo trigger's story and ending.
+        case trigger(TriggerMemory)
 
         var id: String {
             switch self {
@@ -224,6 +242,7 @@ struct HomeFlow: View {
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
             case .draft(let memory): return "draft-\(memory.id.uuidString)"
+            case .trigger(let memory): return "trigger-\(memory.id)"
             }
         }
 
@@ -244,7 +263,8 @@ struct HomeFlow: View {
                 onStart: { route = .editor },
                 onQuickCapture: { route = .chat($0) },
                 onOpenCollection: { path.append($0) },
-                onOpenTrash: { path.append(TrashRoute()) }
+                onOpenTrash: { path.append(TrashRoute()) },
+                demoEntry: triggerDemoEntry
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -277,6 +297,12 @@ struct HomeFlow: View {
             }
         }
         #if DEBUG
+        // `-TRIGGER-OPEN` opens the photo trigger's story at launch.
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-TRIGGER-OPEN"), let triggerMemory {
+                route = .trigger(triggerMemory)
+            }
+        }
         .background { ChatPhotoFilesProbe() }
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
@@ -307,6 +333,8 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+            case .trigger(let memory):
+                PhotoTriggerView(memory: memory, source: Self.triggerSource, onClose: { route = nil })
             case .chat(let seed):
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
@@ -345,5 +373,22 @@ struct HomeFlow: View {
                 )
             }
         }
+    }
+}
+
+extension HomeFlow {
+    private var triggerDemoEntry: DemoTriggerEntry? {
+        guard Self.showsTriggerDemo else { return nil }
+        let memory = triggerMemory
+        return DemoTriggerEntry(
+            available: memory != nil,
+            onPush: {
+                guard let memory else { return .failed }
+                return await TriggerNotifications.schedule(memory, from: Self.triggerSource)
+            },
+            onOpen: {
+                if let memory { route = .trigger(memory) }
+            }
+        )
     }
 }

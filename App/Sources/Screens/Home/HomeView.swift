@@ -13,6 +13,8 @@ struct HomeView: View {
     var onQuickCapture: (String) -> Void = { _ in }
     var onOpenCollection: (MemoryCollection) -> Void = { _ in }
     var onOpenTrash: () -> Void = {}
+    /// The photo trigger's demo entry, at the foot of the page; nil hides it.
+    var demoEntry: DemoTriggerEntry?
 
     @State private var prompt = ""
     /// The ask bar's keyboard: a tap on the page or a scroll lowers it.
@@ -60,6 +62,11 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.trash")
                     .padding(.top, 8)
+                }
+
+                if let demoEntry {
+                    demoEntry
+                        .padding(.top, 28)
                 }
             }
             .padding(.horizontal, Metrics.chromeInset)
