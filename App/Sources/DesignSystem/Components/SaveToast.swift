@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 
 /// The handoff's save receipt (screen 38): a 222 x 38 near-black capsule
@@ -12,11 +13,11 @@ struct SaveToast: View {
 
         var text: String {
             switch self {
-            case .savedToFiles: return "Saved to Files"
-            case .savedToPhotos: return "Saved to Photos"
-            case .failed: return "Couldn't save -- try again"
-            case .photosFailed: return "Couldn't save -- allow Photos access in Settings."
-            case .keptAsDraft: return "Kept as draft"
+            case .savedToFiles: return String(appCopy: "Saved to Files")
+            case .savedToPhotos: return String(appCopy: "Saved to Photos")
+            case .failed: return String(appCopy: "Couldn't save -- try again")
+            case .photosFailed: return String(appCopy: "Couldn't save -- allow Photos access in Settings.")
+            case .keptAsDraft: return String(appCopy: "Kept as draft")
             }
         }
 

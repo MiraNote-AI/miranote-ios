@@ -6,10 +6,10 @@ struct MiraTimeoutError: Error {}
 private extension TextTransformMode {
     var receiptLine: String {
         switch self {
-        case .polish: return "Polished the text."
-        case .expand: return "Expanded the text."
-        case .clean: return "Cleaned up the text."
-        case .shorten: return "Shortened the text."
+        case .polish: return String(appCopy: "Polished the text.")
+        case .expand: return String(appCopy: "Expanded the text.")
+        case .clean: return String(appCopy: "Cleaned up the text.")
+        case .shorten: return String(appCopy: "Shortened the text.")
         }
     }
 }
@@ -240,25 +240,27 @@ enum MiraIntent {
 
     var verb: String {
         switch self {
-        case .transformText(_, _, .polish): return "Polishing the text..."
-        case .transformText(_, _, .expand): return "Expanding the text..."
-        case .transformText(_, _, .clean): return "Cleaning up the text..."
-        case .transformText(_, _, .shorten): return "Shortening the text..."
-        case .addTitle: return "Adding a title..."
-        case .addCaption: return "Writing a few words..."
+        case .transformText(_, _, .polish): return String(appCopy: "Polishing the text...")
+        case .transformText(_, _, .expand): return String(appCopy: "Expanding the text...")
+        case .transformText(_, _, .clean): return String(appCopy: "Cleaning up the text...")
+        case .transformText(_, _, .shorten): return String(appCopy: "Shortening the text...")
+        case .addTitle: return String(appCopy: "Adding a title...")
+        case .addCaption: return String(appCopy: "Writing a few words...")
         case .canvasTurn(let words, _, _):
-            return Self.isLayoutAsk(words) ? "Tidying the layout..." : "Working on the page..."
-        case .clarifyNoText, .clarifyNothingToArrange: return "Thinking..."
-        case .generateImage: return "Painting..."
-        case .editPhoto: return "Restyling the photo..."
-        case .makeSticker: return "Cutting the sticker..."
-        case .editSticker: return "Redrawing the sticker..."
-        case .setBackground: return "Painting the backdrop..."
-        case .illustrateText: return "Painting..."
+            return Self.isLayoutAsk(words)
+                ? String(appCopy: "Tidying the layout...")
+                : String(appCopy: "Working on the page...")
+        case .clarifyNoText, .clarifyNothingToArrange: return String(appCopy: "Thinking...")
+        case .generateImage: return String(appCopy: "Painting...")
+        case .editPhoto: return String(appCopy: "Restyling the photo...")
+        case .makeSticker: return String(appCopy: "Cutting the sticker...")
+        case .editSticker: return String(appCopy: "Redrawing the sticker...")
+        case .setBackground: return String(appCopy: "Painting the backdrop...")
+        case .illustrateText: return String(appCopy: "Painting...")
         // Instant local work settles before the 400 ms delay ever shows it.
         case .applyFilter, .applyFrame, .resizeText, .recolorText, .clearBackground:
-            return "Working..."
-        case .clarifyPhoto, .clarifySticker: return "Thinking..."
+            return String(appCopy: "Working...")
+        case .clarifyPhoto, .clarifySticker: return String(appCopy: "Thinking...")
         }
     }
 
@@ -289,7 +291,7 @@ enum MiraIntent {
             let transformed = try await text.transform(original, mode: mode)
             return .textChanged(id, transformed, MiraReceipt(
                 changed: mode.receiptLine,
-                kept: "Layout, photos, and everything else stayed put."
+                kept: String(appCopy: "Layout, photos, and everything else stayed put.")
             ))
         case .addTitle(let pageNotes):
             return try await Self.performAddTitle(chat: chat, pageNotes: pageNotes)
@@ -302,12 +304,12 @@ enum MiraIntent {
             return Self.outcome(of: reply, handles: handles)
         case .clarifyNoText:
             throw MiraClarifyError(
-                question: "There are no words on the page yet -- which text should I change?",
+                question: String(appCopy: "There are no words on the page yet -- which text should I change?"),
                 chips: ["Add a soft title"]
             )
         case .clarifyNothingToArrange:
             throw MiraClarifyError(
-                question: "There is not much on this page to arrange yet -- add a little first?",
+                question: String(appCopy: "There is not much on this page to arrange yet -- add a little first?"),
                 chips: ["Add a soft title"]
             )
         case .generateImage, .editPhoto, .makeSticker, .applyFilter,
@@ -347,9 +349,9 @@ enum MiraIntent {
             notes: pageNotes
         )
         let title = MiraIntent.cleanTitle(reply.text)
-        return .titleAdded(title.isEmpty ? "A quiet moment" : title, MiraReceipt(
-            changed: "Added a soft title.",
-            kept: "Your words and photos are unchanged."
+        return .titleAdded(title.isEmpty ? String(appCopy: "A quiet moment") : title, MiraReceipt(
+            changed: String(appCopy: "Added a soft title."),
+            kept: String(appCopy: "Your words and photos are unchanged.")
         ))
     }
 
@@ -365,13 +367,13 @@ enum MiraIntent {
         let words = MiraIntent.cleanPlacedText(reply.text)
         guard !words.isEmpty else {
             throw MiraClarifyError(
-                question: "I could not find words for this page -- try again?",
+                question: String(appCopy: "I could not find words for this page -- try again?"),
                 chips: ["Try again"]
             )
         }
         return .textAdded(words, MiraReceipt(
-            changed: "Added a few words.",
-            kept: "Everything else stayed put."
+            changed: String(appCopy: "Added a few words."),
+            kept: String(appCopy: "Everything else stayed put.")
         ))
     }
 

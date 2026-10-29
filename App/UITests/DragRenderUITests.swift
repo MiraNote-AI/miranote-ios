@@ -99,4 +99,98 @@ final class DragRenderUITests: XCTestCase {
         XCTAssertGreaterThan(scale, 1.02, "the card is scaled up on this phone")
         XCTAssertEqual(moved * scale, 60, accuracy: 3, "moved \(moved) page points at scale \(scale)")
     }
+
+    /// While a long press is held the photo stays at its size and place on
+    /// the card until the menu opens (#132: the press preview drew it
+    /// without the card's scale, 182 -> 172 pt and 15 pt lower on 17 Pro).
+    /// Read from a screenshot taken mid-press: the sample photo is one flat
+    /// red.
+    func testAPressedPhotoKeepsItsSizeAndPlace() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        app.buttons["image.library.open"].tap()
+        XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+        app.buttons["nav.trailing"].tap()
+        let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        let card = photo.frame
+        XCTAssertEqual(redBox(in: XCUIScreen.main.screenshot(), around: card)?.width ?? 0, card.width,
+                       accuracy: 2, "the photo reads at rest")
+
+        let box = redBox(in: screenshotMidPress(photo), around: card) ?? .zero
+        // Never smaller; the system's own lift grows it a few percent about
+        // its centre just before the menu opens.
+        XCTAssertGreaterThan(box.width, card.width - 2, "pressed \(box), on the card \(card)")
+        XCTAssertLessThan(box.width, card.width * 1.05, "pressed \(box), on the card \(card)")
+        XCTAssertEqual(box.midX, card.midX, accuracy: 2, "pressed \(box), on the card \(card)")
+        XCTAssertEqual(box.midY, card.midY, accuracy: 2, "pressed \(box), on the card \(card)")
+    }
+
+    /// A selected, tilted photo is pressed whole: its corners
+    /// and handles reach past its untilted box, which the press preview
+    /// clipped to.
+    func testAPressedTiltedPhotoIsDrawnWhole() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        app.buttons["image.library.open"].tap()
+        XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+        app.buttons["nav.trailing"].tap()
+        let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        photo.tap()
+        photo.rotate(0.6, withVelocity: 1)
+        Thread.sleep(forTimeInterval: 1)
+        let card = photo.frame
+        let rest = redBox(in: XCUIScreen.main.screenshot(), around: card) ?? .zero
+        XCTAssertGreaterThan(rest.width, rest.height * 0.9, "tilted at rest: \(rest)")
+        let box = redBox(in: screenshotMidPress(photo), around: card) ?? .zero
+        XCTAssertGreaterThan(box.width, rest.width - 2, "pressed \(box), at rest \(rest)")
+        XCTAssertGreaterThan(box.height, rest.height - 2, "pressed \(box), at rest \(rest)")
+    }
+
+    /// The press blocks this thread: the shot is taken beside it, 0.5 s in,
+    /// after the touch is down and before the menu opens (about 0.7 s).
+    private func screenshotMidPress(_ element: XCUIElement) -> XCUIScreenshot {
+        var pressed: XCUIScreenshot?
+        let shot = DispatchSemaphore(value: 0)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
+            pressed = XCUIScreen.main.screenshot()
+            shot.signal()
+        }
+        element.press(forDuration: 1.2)
+        shot.wait()
+        return pressed ?? XCUIScreen.main.screenshot()
+    }
+
+    /// The bounding box, in points, of the sample photo's red within 40 pt
+    /// of `frame` (the page's gradient below reads red-ish too).
+    private func redBox(in shot: XCUIScreenshot, around frame: CGRect) -> CGRect? {
+        guard let image = shot.image.cgImage else { return nil }
+        let scale = CGFloat(image.width) / shot.image.size.width
+        let width = image.width, height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8,
+                                bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let area = frame.insetBy(dx: -40, dy: -40)
+        var box: CGRect?
+        for y in max(0, Int(area.minY * scale))..<min(height, Int(area.maxY * scale)) {
+            for x in max(0, Int(area.minX * scale))..<min(width, Int(area.maxX * scale)) {
+                let i = (y * width + x) * 4
+                guard pixels[i] > 120, pixels[i + 1] < 90, pixels[i + 2] < 90 else { continue }
+                let point = CGRect(x: CGFloat(x) / scale, y: CGFloat(y) / scale, width: 1 / scale, height: 1 / scale)
+                box = box?.union(point) ?? point
+            }
+        }
+        return box
+    }
 }

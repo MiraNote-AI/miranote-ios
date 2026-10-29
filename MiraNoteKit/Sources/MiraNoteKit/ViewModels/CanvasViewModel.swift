@@ -674,7 +674,7 @@ extension CanvasViewModel {
 
     /// Filed-on-Done shape: title = most prominent text (v2.1 "the visual
     /// title IS a text element"), body = remaining text in reading order.
-    public func composedMemory(defaultTitle: String = "New memory") -> Memory {
+    public func composedMemory(defaultTitle: String = String(appCopy: "New memory")) -> Memory {
         var composed = memory
         composed.items = filedItems
         if let origin = pagePreviewOrigin {

@@ -68,6 +68,15 @@ struct TextToolBar: View {
     let alignment: TextAlign
     let onSelect: (TextTool) -> Void
 
+    /// The block's alignment as VoiceOver reads it, in the app's language.
+    private static func spoken(_ alignment: TextAlign) -> String {
+        switch alignment {
+        case .leading: return String(appCopy: "Left")
+        case .center: return String(appCopy: "Centered")
+        case .trailing: return String(appCopy: "Right")
+        }
+    }
+
     /// Tool centers as fractions of the drawn 342 pt bar.
     private static let centers: [TextTool: CGFloat] = [
         .font: 23.5 / 342, .color: 95.2 / 342, .ai: 168.8 / 342, .align: 245 / 342, .background: 309.9 / 342,
@@ -85,7 +94,7 @@ struct TextToolBar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(label(tool))
-                .accessibilityValue(tool == .align ? alignment.rawValue : "")
+                .accessibilityValue(tool == .align ? Self.spoken(alignment) : "")
                 .accessibilityAddTraits(tool == active ? .isSelected : [])
                 .accessibilityIdentifier(identifier(tool))
                 .position(x: geo.size.width * (Self.centers[tool] ?? 0), y: geo.size.height / 2)
@@ -135,11 +144,11 @@ struct TextToolBar: View {
 
     private func label(_ tool: TextTool) -> String {
         switch tool {
-        case .font: return "Font and size"
-        case .color: return "Text color"
-        case .ai: return "Rewrite"
-        case .align: return "Alignment"
-        case .background: return "Text background"
+        case .font: return String(appCopy: "Font and size")
+        case .color: return String(appCopy: "Text color")
+        case .ai: return String(appCopy: "Rewrite")
+        case .align: return String(appCopy: "Alignment")
+        case .background: return String(appCopy: "Text background")
         }
     }
 
@@ -196,8 +205,10 @@ struct FontChipRow: View {
                     ForEach(TextFace.choices, id: \.name) { face in
                         let selected = face.name == fontName
                         Button { onFont(face.name) } label: {
-                            Text(face.label)
-                                .font(Font(TextFace.uiFont(name: face.name, size: 14.5, weight: 500)))
+                            // Face names have no entry and show as given;
+                            // "Classic" is copy.
+                            Text(copy: face.label)
+                                .font(Font(TextFace.uiFont(name: face.name, size: TextScale.scaled(14.5), weight: 500)))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                                 .frame(width: 59)
@@ -277,7 +288,7 @@ struct ColorSwatchRow: View {
                                darkMark: !RowColor.isDark(swatch.hex))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(swatch.name)
+                .accessibilityLabel(Text(copy: swatch.name))
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .accessibilityIdentifier("style.color.\(swatch.hex)")
             }
@@ -413,9 +424,9 @@ struct RewriteRow: View {
 
     private func title(_ choice: TextRewriteSession.Choice) -> String {
         switch choice {
-        case .original: return "Original"
-        case .clean: return "Clean up"
-        case .expand: return "Expand"
+        case .original: return String(appCopy: "Original text")
+        case .clean: return String(appCopy: "Clean up")
+        case .expand: return String(appCopy: "Expand")
         }
     }
 }
@@ -485,7 +496,7 @@ struct TextBackgroundRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(Text(copy: label))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("style.highlight.\(id)")
     }

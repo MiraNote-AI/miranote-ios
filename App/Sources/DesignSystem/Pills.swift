@@ -21,20 +21,27 @@ struct PrimaryPill: ButtonStyle {
 }
 
 /// Quiet capsule for navigation and toolbar chips: paper fill, hairline ring.
+/// A themed screen passes its theme: on Forest's dark green the selected pill
+/// takes the gold of Home's Start button and an unselected one is an outline
+/// in the theme's light ink. System (the default, the editor's) and Sunlit
+/// Pop keep the ink and paper pills.
 struct SoftPill: ButtonStyle {
     var selected = false
+    var theme = Theme(appearance: .system)
 
     func makeBody(configuration: Configuration) -> some View {
+        let dark = theme.appearance == .forest
         configuration.label
             .font(.miraLabel)
-            .foregroundStyle(selected ? Palette.onInk : Palette.ink)
+            .foregroundStyle(selected ? theme.onSmallButton(Palette.onInk) : dark ? theme.ink : Palette.ink)
             .padding(.horizontal, 15)
             .padding(.vertical, 8)
             // Josefin's line box is 1.0 em, so the label alone left the pill
             // ~29 pt; the design's 34 pt floor lets the +5 reach 44.
             .frame(minHeight: 34)
-            .background(selected ? Palette.ink : Palette.paper, in: Capsule())
-            .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: selected ? 0 : Metrics.hairline))
+            .background(selected ? theme.smallButton : dark ? .clear : Palette.paper, in: Capsule())
+            .overlay(Capsule().strokeBorder(dark ? theme.ink.opacity(0.3) : Palette.hairline,
+                                            lineWidth: selected ? 0 : Metrics.hairline))
             .opacity(configuration.isPressed ? 0.7 : 1)
             .minimumHitTarget()
     }

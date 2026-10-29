@@ -27,8 +27,9 @@ struct PreviewWords {
         let lineBlock = blocks.indices.filter { $0 != titleIndex }.min { blocks[$0].1 < blocks[$1].1 }
             .map { blocks[$0].0 }
 
-        title = titleBlock.map { Self.firstLine($0.text) } ?? "Lunch by the river"
-        line = lineBlock.map { Self.firstLine($0.text) } ?? (titleBlock == nil ? "A small moment worth keeping." : "")
+        title = titleBlock.map { Self.firstLine($0.text) } ?? String(appCopy: "Lunch by the river")
+        line = lineBlock.map { Self.firstLine($0.text) }
+            ?? (titleBlock == nil ? String(appCopy: "A small moment worth keeping.") : "")
         titleFont = Self.font(titleBlock?.fontName ?? "", size: 16, fallbackWeight: 700)
         lineFont = Self.font(lineBlock?.fontName ?? "", size: 13, fallbackWeight: 500)
         titleColor = Self.color(titleBlock?.colorName, fallback: Palette.ink)
@@ -45,7 +46,9 @@ struct PreviewWords {
     /// as itself.
     private static func font(_ name: String, size: CGFloat, fallbackWeight: CGFloat) -> Font {
         // Page faces at page sizes, not the UI type scale.
-        Font(name.isEmpty ? Sans.uiFont(size: size, weight: fallbackWeight) : TextFace.uiFont(name: name, size: size))
+        Font(name.isEmpty
+            ? Sans.uiFont(size: size, weight: fallbackWeight, scaled: false)
+            : TextFace.uiFont(name: name, size: size))
     }
 
     /// Default ink words preview in the handoff's colors; chosen colors as
