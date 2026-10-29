@@ -41,6 +41,9 @@ public protocol ImageStudioService: Sendable {
     func stylize(image: Data, instruction: String) async throws -> Data
     /// The white sticker outline around a cutout.
     func outline(image: Data) async throws -> Data
+    /// Get ready for a cut-out soon (the Sticker panel just opened): loads
+    /// what the first one would otherwise wait for.
+    func prepare()
     /// One warm sentence about the photo (vision) -- page context for chat.
     func describe(image: Data) async throws -> String
     /// Stickers plus per-image matte results, for callers that offer a choice.
@@ -48,6 +51,8 @@ public protocol ImageStudioService: Sendable {
 }
 
 public extension ImageStudioService {
+    func prepare() {}
+
     /// Default for any service that mattes server-side: what comes back is
     /// already cut out, or the call threw.
     func generateStickers(prompt: String) async throws -> StickerGeneration {
@@ -109,15 +114,25 @@ public struct LiveImageStudioService: ImageStudioService {
     private let baseURL: URL
     private let client: HTTPClient
     private let matte: ForegroundMatte?
+    private let localOutline: Bool
 
+    /// `localOutline` draws the Outline tool's white edge on this phone
+    /// (StickerEdge) instead of posting the sticker to /border: that round
+    /// trip carried 0.3-0.9 MB each way and took longer than the cut-out.
     public init(
         baseURL: URL = MiraNoteConfig.Backend.imageBaseURL,
         client: HTTPClient = HTTPClient(),
-        matte: ForegroundMatte? = nil
+        matte: ForegroundMatte? = nil,
+        localOutline: Bool = false
     ) {
         self.baseURL = baseURL
         self.client = client
         self.matte = matte
+        self.localOutline = localOutline
+    }
+
+    public func prepare() {
+        matte?.warmUp()
     }
 
     public func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
@@ -222,7 +237,12 @@ public struct LiveImageStudioService: ImageStudioService {
     }
 
     public func outline(image: Data) async throws -> Data {
-        try await uploadForImage(
+        if localOutline {
+            return try await Task.detached(priority: .userInitiated) {
+                try StickerEdge.outline(lifted: image)
+            }.value
+        }
+        return try await uploadForImage(
             path: "border",
             image: image,
             query: [URLQueryItem(name: "mode", value: "outline")]

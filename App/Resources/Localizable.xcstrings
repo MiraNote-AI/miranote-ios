@@ -4715,6 +4715,17 @@
         }
       }
     },
+    "This sticker has no stored pixels to outline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可描边的像素。"
+          }
+        }
+      }
+    },
     "This sticker has no stored pixels to work on -- try another?" : {
       "extractionState" : "manual",
       "localizations" : {

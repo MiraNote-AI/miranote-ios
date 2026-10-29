@@ -147,6 +147,12 @@ public enum StickerEdge {
         public var unmixMin = 40.0
         /// Anti-aliasing of the art's edge.
         public var antialiasSigma: Float = 0.8
+        /// The Outline tool's white edge: this share of the sticker's longer
+        /// side (team decision 2026-10-28), never under `outlineMin` px, its
+        /// edge smoothed by this share of its width.
+        public var outlineFraction = 0.04
+        public var outlineMin = 9
+        public var outlineSigmaFraction = 0.6
 
         public init() {}
     }
@@ -602,6 +608,74 @@ public enum StickerEdge {
             alpha[i] = base[i] ? 1 : min(1, max(0, (alpha[i] - 0.5) * 8 + 0.5))
         }
         return alpha
+    }
+
+    // MARK: - Outline
+
+    /// What `outline` drew: the edge's width and the margin it added round the
+    /// sticker.
+    public struct OutlineReport: Sendable, Equatable {
+        public var width: Int
+        public var padding: Int
+    }
+
+    /// A white edge round a sticker that is already cut out -- the Outline
+    /// tool, on a generated sticker, a photo cut-out or a draft alike. Every
+    /// transparent edge gets it, a hole's too, so a donut keeps an empty middle
+    /// ringed in white; a gap narrower than two widths fills. A sticker that
+    /// already has a white edge gets a second one round it. The sticker keeps
+    /// its own colours and soft edge; the result is cropped to it, as the
+    /// server's /border was, which this replaces.
+    public static func outline(lifted: Data, parameters: Parameters = Parameters()) throws -> Data {
+        guard let cut = Bitmap(data: lifted) else { throw Failure.undecodable }
+        guard let png = try outline(cut, parameters).0.png() else { throw Failure.unencodable }
+        return png
+    }
+
+    static func outline(_ cut: Bitmap, _ p: Parameters) throws -> (Bitmap, OutlineReport) {
+        let w = cut.width, h = cut.height
+        var minX = w, maxX = -1, minY = h, maxY = -1
+        for y in 0..<h { for x in 0..<w where cut.pixels[(y * w + x) * 4 + 3] > 127 {
+            minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+        } }
+        guard maxX >= 0 else { throw Failure.nothingLifted }
+        let side = Double(max(maxX - minX, maxY - minY) + 1)
+        let width = max(p.outlineMin, Int((p.outlineFraction * side).rounded()))
+        let sigma = max(1.0, p.outlineSigmaFraction * Double(width))
+        let pad = Int(Double(width) + 3 * sigma + 2)
+
+        // Work on the sticker's bounds plus the edge, not the whole canvas: a
+        // cut-out is mostly transparent and every pass below is per pixel.
+        let ox = minX - pad, oy = minY - pad
+        let cw = maxX - minX + 1 + 2 * pad, ch = maxY - minY + 1 + 2 * pad
+        var mask = [Bool](repeating: false, count: cw * ch)
+        for y in 0..<ch {
+            let sy = y + oy
+            guard sy >= 0, sy < h else { continue }
+            for x in 0..<cw {
+                let sx = x + ox
+                if sx >= 0, sx < w, cut.pixels[(sy * w + sx) * 4 + 3] > 127 { mask[y * cw + x] = true }
+            }
+        }
+        let edge = rimAlpha(around: mask, cw, ch, rim: width, sigma: sigma)
+
+        var out = Bitmap(width: cw, height: ch)
+        for y in 0..<ch { for x in 0..<cw {
+            let i = y * cw + x, sx = x + ox, sy = y + oy
+            var a = 0.0
+            var colour = (255.0, 255.0, 255.0)
+            if sx >= 0, sx < w, sy >= 0, sy < h {
+                let s = (sy * w + sx) * 4
+                a = Double(cut.pixels[s + 3]) / 255
+                colour = (Double(cut.pixels[s]), Double(cut.pixels[s + 1]), Double(cut.pixels[s + 2]))
+            }
+            // the sticker over the white edge
+            out.pixels[i * 4] = UInt8((colour.0 * a + 255 * (1 - a)).rounded())
+            out.pixels[i * 4 + 1] = UInt8((colour.1 * a + 255 * (1 - a)).rounded())
+            out.pixels[i * 4 + 2] = UInt8((colour.2 * a + 255 * (1 - a)).rounded())
+            out.pixels[i * 4 + 3] = UInt8((Double(max(edge[i], Float(a))) * 255).rounded())
+        } }
+        return (out, OutlineReport(width: width, padding: pad))
     }
 
     /// Median of the four corner patches, and their mean per-channel std.

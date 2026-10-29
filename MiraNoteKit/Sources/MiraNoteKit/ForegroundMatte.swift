@@ -1,5 +1,6 @@
 import CoreImage
 import Foundation
+import os
 import Vision
 
 /// Background removal that runs where the photo already is.
@@ -16,6 +17,12 @@ import Vision
 public protocol ForegroundMatte: Sendable {
     /// Lift the salient foreground out of `image`, returning RGBA PNG data.
     func removeBackground(_ image: Data) throws -> Data
+    /// Load whatever the first lift would otherwise wait for.
+    func warmUp()
+}
+
+public extension ForegroundMatte {
+    func warmUp() {}
 }
 
 public enum ForegroundMatteError: Error, Equatable {
@@ -37,13 +44,21 @@ public enum ForegroundMatteError: Error, Equatable {
 /// server's helper uses needs iOS 18, and adopting it here would raise the
 /// app's floor from iOS 17 for no gain -- the two produce the same mask.
 public struct VisionForegroundMatte: ForegroundMatte {
+    private static let warmed = OSAllocatedUnfairLock(initialState: false)
+
     public init() {}
 
     /// Loads Vision's segmentation model ahead of the first real lift. On the
     /// bench the first lift after launch took 0.58 s and the next ones
     /// 0.05-0.13 s; the difference is the model load, which a throwaway request
-    /// on a tiny image pays instead. Fire and forget, at utility priority.
+    /// on a tiny image pays instead. Fire and forget, at utility priority, and
+    /// once per launch however often the Sticker panel opens.
     public func warmUp() {
+        let first = Self.warmed.withLock { warmed in
+            defer { warmed = true }
+            return !warmed
+        }
+        guard first else { return }
         Task.detached(priority: .utility) {
             let side = 64
             var pixels = [UInt8](repeating: 0, count: side * side * 4)

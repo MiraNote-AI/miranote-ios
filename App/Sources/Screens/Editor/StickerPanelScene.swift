@@ -150,6 +150,8 @@ struct StickerPanelScene: View {
             // Entries whose image file is gone or degenerate would render as
             // blank squares.
             favorites = favoritesStore.prunedRaisingSmall(images: imageStore)
+            // A cut-out is likely next: load Vision's model now, not on it.
+            studio.prepare()
         }
         #if DEBUG
         .background(DebugStateProbe {
@@ -295,7 +297,7 @@ struct StickerPanelScene: View {
     }
 
     /// Screen 30: the photo selected on the canvas, a tap from becoming a
-    /// sticker (cutout, then outline).
+    /// sticker (cut out, no edge; the Outline tile adds one).
     private func photoShortcut(_ photo: ImageRef) -> some View {
         Button {
             makeSticker(from: photo)
@@ -656,11 +658,10 @@ struct StickerPanelScene: View {
         Task {
             defer { generating = false }
             do {
+                // No white edge (team decision 2026-10-24): stickers come out
+                // without one, and the Outline tile adds it on request.
                 let cut = try await studio.cutout(image: data, target: nil)
-                let outlined = try await studio.outline(image: cut)
-                var draft = StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)
-                draft.push(StickerVariant(data: outlined, style: .outline))
-                drafts = [draft]
+                drafts = [StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)]
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? String(appCopy: "That didn't work this time. Try again?")

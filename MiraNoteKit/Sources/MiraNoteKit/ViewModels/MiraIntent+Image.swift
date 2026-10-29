@@ -76,20 +76,22 @@ extension MiraIntent {
                 kept: String(appCopy: "Undo brings the old one back.")))
         case .makeSticker(let id, let data, let prompt):
             try Self.requirePixels(data)
+            // No white edge: stickers come out without one (team decision
+            // 2026-10-24) and Outline in Edit sticker adds it on request.
+            // Trimmed to the cut, as /border's crop used to.
             let cut = try await imageStudio.cutout(image: data, target: nil)
-            let outlined = try await imageStudio.outline(image: cut)
-            return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
+            return .stickerReplaced(id, StickerTrim.croppedToOpaqueBounds(cut), prompt: prompt, MiraReceipt(
                 changed: String(appCopy: "Made it a sticker."),
                 kept: String(appCopy: "Undo brings the photo back.")))
         case .editSticker(let id, let data, let instruction, _):
             try Self.requirePixels(
                 data, question: String(appCopy: "This sticker has no stored pixels to work on -- try another?"))
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
-            // No outline pass here, unlike makeSticker above: the sticker
-            // already has a die-cut edge and /stylize asks for it to be kept,
-            // so a second stroke only thickens it, once per edit.
+            // No outline pass, as in makeSticker above: an edge is the
+            // Outline tool's to add, and one already there is kept by
+            // /stylize.
             //
-            // The trim is the half of the dropped outline pass that was worth
+            // The trim is what the old outline pass did that was worth
             // keeping: /border cropped to alpha on either side of the stroke,
             // and without it the matte's transparent margin is drawn as part
             // of the picture inside an unchanged frame. Measured on a real
