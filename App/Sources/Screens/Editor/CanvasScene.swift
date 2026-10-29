@@ -132,6 +132,9 @@ struct CanvasScene: View {
     /// newest's task, which the next take's words wait for (spoken order).
     @State var pendingTakes: [UUID] = []
     @State var lastTake: Task<Void, Never>?
+    /// Times the app left the foreground: a take's request cut off by a
+    /// trip away is sent again on return.
+    @State var leftForeground = 0
     /// Done is waiting for those words (the wait's token: its cap timer
     /// acts only on its own wait).
     @State var doneWaiting: UUID?
@@ -372,9 +375,10 @@ struct CanvasScene: View {
         }
         .onChange(of: scenePhase) { _, phase in
             // A hold the system interrupted never ends: the mic stops when
-            // the app leaves the foreground.
+            // the app leaves the foreground, the take kept as if let go.
             if phase != .active {
-                cancelDictationIfNeeded()
+                leftForeground += 1
+                stopDictationForBackground()
                 cancelMiraDictation()
             }
         }
