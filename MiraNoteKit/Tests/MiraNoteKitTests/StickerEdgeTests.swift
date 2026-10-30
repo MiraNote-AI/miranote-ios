@@ -133,6 +133,22 @@ final class StickerEdgeTests: XCTestCase {
         XCTAssertEqual(at(out, report, 120, 120)[3], 255, "the belly is not punched out")
     }
 
+    func testTheBackdropBetweenTwigsGoesEvenWhereVisionTookIt() throws {
+        // A bare tree: dark twigs over the backdrop, so dense that Vision
+        // takes the whole crown, backdrop and all. The backdrop is the
+        // prompt's colour, kept out of the art, so it goes wherever it is.
+        let twig: (Double, Double) -> Bool = { x, y in
+            Int(x) % 12 < 3 || Int(y) % 12 < 3
+        }
+        let raw = picture { x, y in
+            self.r(x, y) <= 70 && twig(x, y) ? self.ink : nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertEqual(report.modelRimWidth, 0)
+        XCTAssertEqual(at(out, report, 127, 127)[3], 0, "the gap between twigs is empty")
+        XCTAssertGreaterThan(at(out, report, 121, 127)[3], 200, "the twig stays")
+    }
+
     func testABackdropToneVisionLeftOutIsNotAdded() throws {
         // Thin dark branches round a patch of slightly different backdrop (a
         // vignette the key misses): Vision takes only the branches, and the
@@ -166,13 +182,14 @@ final class StickerEdgeTests: XCTestCase {
     }
 
     func testAPalePartVisionKeptStaysOnBareArt() throws {
-        // A red disc with a fringe a shade off the backdrop (silver on grey, a
-        // daisy on cream): the key reads the fringe as backdrop, Vision as art.
-        // With no rim to take off, Vision's cut is kept whole.
+        // A red disc with a fringe a shade off a grey backdrop (silver on grey,
+        // a daisy on cream): the key reads the fringe as backdrop, Vision as
+        // art. On a neutral backdrop with no rim to take off, Vision's cut is
+        // kept whole. (On a coloured one the fringe would go: see the twigs.)
         let raw = picture { x, y in
             let d = self.r(x, y)
             if d <= 50 { return self.red }
-            return d <= 62 ? (135, 182, 210) : nil
+            return d <= 62 ? (186, 186, 180) : (170, 170, 170)
         }
         let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 62 })
         XCTAssertEqual(report.modelRimWidth, 0)
@@ -239,9 +256,10 @@ final class StickerEdgeTests: XCTestCase {
         XCTAssertEqual(at(out, report, 120 - 68, 120)[3], 0, "the outer band goes")
     }
 
-    func testWhiteThatRunsFarInsideIsKept() throws {
-        // Drawn on white paper: the body is the rim's own white, with no outline
-        // between. Only a band the rim's width comes off.
+    func testWhiteThatRunsFarInsideIsKeptWhole() throws {
+        // A white body with no outline (a white rabbit), or art on white paper:
+        // the white runs far deeper than any rim, so none of it is taken --
+        // a band off it would be a band off the rabbit.
         let raw = picture { x, y in
             let d = self.r(x, y)
             if d <= 8 { return self.ink }
@@ -250,7 +268,7 @@ final class StickerEdgeTests: XCTestCase {
         }
         let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
         XCTAssertEqual(at(out, report, 120 - 40, 120)[3], 255, "the body stays")
-        XCTAssertEqual(at(out, report, 120 - 68, 120)[3], 0, "the outer band goes")
+        XCTAssertEqual(at(out, report, 120 - 66, 120)[3], 255, "its outer band stays too")
         XCTAssertTrue(report.drawnOnPaper)
         XCTAssertEqual(report.pockets, 0)
     }

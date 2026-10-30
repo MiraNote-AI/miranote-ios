@@ -49,6 +49,10 @@ public enum StickerEdge {
         /// can overrule Vision (bench: grey 15-19, cream 30-37, a light blue or
         /// yellow 104-135).
         public var tintedBackdrop = 40.0
+        /// On a coloured backdrop, px this close to it are backdrop wherever
+        /// they are (bench, 48 stickers: the art 6 px in from its edge keeps
+        /// 36+ away, glasses' see-through lenses the nearest).
+        public var backdropExact: Float = 30
         /// Looser shadow test for the contact shadow on a coloured backdrop
         /// (bench: chroma 0.05-0.07, 0.23-0.76 of the backdrop's luminance).
         public var contactShadowChroma = 0.09
@@ -94,8 +98,10 @@ public enum StickerEdge {
         public var rimToleranceFraction = 0.25
         /// Outermost px checked for backdrop blends and the model's grey stroke.
         public var seamBand = 4.0
-        /// Distance from the backdrop-to-white line that counts as a blend.
+        /// Distance from the backdrop-to-white line that counts as a blend,
+        /// and how far towards white a blend may go before it is white.
         public var seamTolerance = 14.0
+        public var blendMaxShare = 0.9
         /// Non-rim px this close to the rim, in the seam band, are its stroke.
         public var seamReach: Float = 3
         /// A rim component must come this close (px) to the outside.
@@ -330,7 +336,11 @@ public enum StickerEdge {
                     d2 = rgb[i * 3 + 2] - backdrop.2
                 let t = min(1, max(0, (d0 * axis.0 + d1 * axis.1 + d2 * axis.2) / axisLength2))
                 let e0 = d0 - t * axis.0, e1 = d1 - t * axis.1, e2 = d2 - t * axis.2
-                if (e0 * e0 + e1 * e1 + e2 * e2).squareRoot() < p.seamTolerance { art[i] = false }
+                // part way between: a blend. Full white here is art the rim
+                // test left alone (a white body with no outline), not a blend.
+                if t < p.blendMaxShare, (e0 * e0 + e1 * e1 + e2 * e2).squareRoot() < p.seamTolerance {
+                    art[i] = false
+                }
             }
         } else if let keyedMask {
             // Art drawn straight onto the backdrop, no rim to take off: the bare
@@ -427,21 +437,32 @@ public enum StickerEdge {
         var touching = [Bool](repeating: false, count: count + 1)
         for i in 0..<n where rim[i] { touching[Int(labels[i])] = true }
         var rest = [Int](repeating: 0, count: count + 1), flatRest = [Int](repeating: 0, count: count + 1)
-        var deep = [Int](repeating: 0, count: count + 1)
+        var deep = [Int](repeating: 0, count: count + 1), deepRimWhite = [Int](repeating: 0, count: count + 1)
         for i in 0..<n where light[i] {
             let l = Int(labels[i])
             guard touching[l] else { continue }
-            if depth[i] > W + tol + 2 { deep[l] += 1 }
+            if depth[i] > W + tol + 2 {
+                deep[l] += 1
+                if rimLike[i] { deepRimWhite[l] += 1 }
+            }
             guard !rim[i] else { continue }
             rest[l] += 1
             if Double(lo[i]) >= p.flatWhiteMin && Double(spread[i]) <= p.flatWhiteSpread { flatRest[l] += 1 }
         }
-        enum Verdict { case keep, backing, band }
+        enum Verdict { case keep, backing, band, art }
         var verdict = [Verdict](repeating: .keep, count: count + 1)
         var whiteBody = 0, drawnOnPaper = false
         for l in 1..<(count + 1) where touching[l] {
             if Double(deep[l]) > p.paperDeepFraction * maskCount {
-                verdict[l] = .band
+                // White far deeper than any rim, over a quarter of the
+                // sticker: the art is white there or drawn on white paper.
+                // When that white is the rim's own flat white (a white rabbit
+                // with no outline), a rim cannot be told from it, so none is
+                // taken: a band off it was a band off the rabbit (ears
+                // thinned), while a white rim left on white art reads as the
+                // art, not as an edge. A shade off the rim's white (a cream
+                // body, paper texture), only the rim's own band comes off.
+                verdict[l] = Double(deepRimWhite[l]) > 0.5 * Double(deep[l]) ? .art : .band
                 whiteBody += rest[l]
                 drawnOnPaper = true
             } else if rest[l] == 0 {
@@ -459,6 +480,7 @@ public enum StickerEdge {
             case .keep: break
             case .backing: rim[i] = true
             case .band: rim[i] = rimLike[i] && depth[i] <= W + 2
+            case .art: rim[i] = false
             }
         }
         return (whiteBody, drawnOnPaper)
@@ -808,10 +830,16 @@ public enum StickerEdge {
             let exterior = l > 0 && border.contains(l)
             let trusted = inside[i] > Float(p.trustInset)
             let reached = toVision[i] <= p.visionReach || unlikeBackdrop[i]
-            notSticker[i] = hole || (exterior && shadowLike[i] && tinted)
+            // The backdrop's own flat colour, on a coloured backdrop (which the
+            // prompt keeps out of the art): never sticker, even where Vision
+            // took it in -- the gaps between a bare tree's twigs, a birdcage's
+            // bars, a dreamcatcher's web.
+            let backdrop = tinted && toBackdrop[i] < p.backdropExact
+            notSticker[i] = hole || backdrop || (exterior && shadowLike[i] && tinted)
             rimmed[i] = !(l > 0 && ringedHoles.contains(l)) && (!exterior || trusted)
             // the key never adds a contact shadow Vision left out
-            bare[i] = !hole && !(outerShadow[i] && !vis[i]) && ((!exterior && reached) || trusted)
+            bare[i] = !hole && !backdrop && !(outerShadow[i] && !vis[i])
+                && ((!exterior && reached) || trusted)
         }
         return (pickParts(rimmed, vis, w, h, p), pickParts(bare, vis, w, h, p), notSticker)
     }
