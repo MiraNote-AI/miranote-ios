@@ -96,3 +96,18 @@ it, and every draft would be a star.
      - NIT 1 FIXED f9dc2bd. The new test fails if drafts are dropped only when queued.
      - NIT 3 FIXED f9dc2bd. The new test fails if a missing `hasBeenSaved` reads as saved.
      - NIT 2 ANSWERED. With the baseline taken at open, `testLookingAtASavedPageKeepsItSaved` still passes, because the seeded page's heights already fit. Its comment now names the Kit test that guards the re-measure.
+5. Pre-merge review, round 1: `/code-review high` on a35b849 returned 10 findings -- 2 fixed, 7 answered, 1 pre-existing.
+   - **`MoodJudge.swift:79`**: a draft whose Save never got a mood stays unjudged. ANSWERED: the draft overwrites the saved words in place, so judging them would mean storing them -- a second data-structure change, which is an escalation trigger. The star reads "mood not read yet" until the next Save, as after any failed ask; no words are lost.
+   - **`EditorFlowView.swift:80`**: emptying an existing page and leaving files nothing. PRE-EXISTING: dev's `finish()` has the same blank-page rule. It is listed in the PR as a follow-up.
+   - **`CanvasViewModel.swift:638`**: `hasEdits` relies on the scene re-measuring before the first recorded change. ANSWERED: this is the design Jason reviewed. The order is documented at `CanvasScene.swift:177-181` and pinned by `testTheOpeningRemeasureIsNoEdit` (mutation-checked); an explicit "opened" hook would be a refactor beyond this PR.
+   - **`CanvasViewModel.swift:59`**: `isClosing` is never cleared. ANSWERED: each editor presentation makes its own `CanvasViewModel` (`EditorFlowView.init`), and nothing uses one after `leave()`. Jason reviewed this placement.
+   - **`EditorFlowView.swift:474`**: a third copy of the toast's show-and-hide timing. ANSWERED: "pending" waits for the cover to go, while "shown" drives the overlay -- two different moments. A shared toast helper would change `ReadingView` and `CanvasBoardView`, outside this PR; it is listed as a follow-up.
+   - **`SaveToast.swift:50`**: the identifier is picked by message. ANSWERED: with two uses, moving the choice into `Message` or the caller moves the same switch without removing it. Revisit when a third caller comes.
+   - **`StarJarView.swift:40`**: a copy of the star rule. FIXED 3fc2212: the forward step asks `StarJar.stars`.
+   - **`CanvasViewModel.swift:647`**: the page is composed twice when filed. ANSWERED: that is one page, once per leave or autosave; the saving does not justify a second code path.
+   - **`CollectionDetailView.swift:167`**: the Draft tag truncates a long date at large text sizes. FIXED eda0904.
+     - Reproduced on an iPhone SE at 125%: "September... Draft".
+     - After the fix, the date stays whole with the tag below it, and at 100% the two still share the line (screenshots).
+   - **`Models.swift:73`**: `hasBeenSaved` is an optional init argument. ANSWERED: nothing rebuilds a page through init (copies use `var`). The nil default keeps a new draft out of the jar without every call site saying so, and the decoder shares it; a plain default would set the opposite trap for `Memory(isDraft: true)`.
+   - Verify after the fixes: swiftlint 136; app unit 108/0; DraftPagesUITests 7/7; StarJarUITests 2/2.
+   - `/security-review` could not run: this session's working directory is not a git repository. The owner decides how to run it.
