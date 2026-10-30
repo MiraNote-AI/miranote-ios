@@ -57,14 +57,19 @@ public enum JarPeriod: String, CaseIterable, Sendable {
 
 public enum StarJar {
     /// The one place that decides which pages are stars: every page on the
-    /// shelf (the bin's are gone) whose memory date falls in `interval`,
-    /// oldest first so a period fills its jar from the bottom.
+    /// shelf (the bin's are gone) that Save has filed -- still one when it
+    /// is a draft again, never one that only ever was (#137) -- whose
+    /// memory date falls in `interval`, oldest first so a period fills its
+    /// jar from the bottom.
     public static func stars(in library: MemoryLibrary, during interval: DateInterval) -> [JarStar] {
         library.collections
             .flatMap { collection in
                 collection.memories.map { JarStar(collectionID: collection.id, memory: $0) }
             }
-            .filter { $0.memory.memoryDate >= interval.start && $0.memory.memoryDate < interval.end }
+            .filter {
+                $0.memory.hasBeenSaved
+                    && $0.memory.memoryDate >= interval.start && $0.memory.memoryDate < interval.end
+            }
             .sorted {
                 ($0.memory.memoryDate, $0.id.uuidString) < ($1.memory.memoryDate, $1.id.uuidString)
             }

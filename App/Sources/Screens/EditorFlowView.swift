@@ -6,7 +6,10 @@ import SwiftUI
 /// Done composes the memory (title from its most prominent text) and files it.
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
-    var onComplete: (Memory) -> Void = { _ in }
+    /// The page Save or Home filed, and whether Save did: what follows a
+    /// Save keys off that, not off `!isDraft` -- a saved page left
+    /// unchanged is no draft either (#137).
+    var onComplete: (Memory, _ saved: Bool) -> Void = { _, _ in }
     /// Files the page quietly WITHOUT leaving the editor -- the autosave
     /// half of "editing autosaves"; like Home, it keeps a draft (#137).
     var onAutosave: (Memory) -> Void = { _ in }
@@ -32,7 +35,7 @@ struct EditorFlowView: View {
     init(
         memory: Memory? = nil,
         onExit: @escaping () -> Void = {},
-        onComplete: @escaping (Memory) -> Void = { _ in },
+        onComplete: @escaping (Memory, _ saved: Bool) -> Void = { _, _ in },
         onAutosave: @escaping (Memory) -> Void = { _ in },
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
         services: ServiceContainer = .mock
@@ -78,7 +81,7 @@ struct EditorFlowView: View {
         if editor.isBlankPage {
             onExit()
         } else {
-            onComplete(editor.leave(saving: saving))
+            onComplete(editor.leave(saving: saving), saving)
         }
     }
 
@@ -275,7 +278,8 @@ struct HomeFlow: View {
     struct StarJarRoute: Hashable {}
 
     /// Asks the moods of saved pages in the background (the star jar's
-    /// colors); made on first use, then one queue for the whole app.
+    /// colors); made on first use, then one queue for the whole app. Save
+    /// starts it, never Home: a draft keeps its last Save's mood (#137).
     private func judgeMoods(_ noteIDs: [Memory.ID]) {
         guard !noteIDs.isEmpty else { return }
         makeMoodJudge().judge(noteIDs)
@@ -384,10 +388,10 @@ struct HomeFlow: View {
                 let journal = presented.journal
                 EditorFlowView(
                     onExit: { route = nil },
-                    onComplete: { memory in
+                    onComplete: { memory, saved in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
                         draftToastPending = memory.isDraft
-                        judgeMoods([memory.id])
+                        if saved { judgeMoods([memory.id]) }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
@@ -400,10 +404,10 @@ struct HomeFlow: View {
                 EditorFlowView(
                     memory: memory,
                     onExit: { route = nil },
-                    onComplete: { edited in
+                    onComplete: { edited, saved in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
                         draftToastPending = edited.isDraft
-                        judgeMoods([edited.id])
+                        if saved { judgeMoods([edited.id]) }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },

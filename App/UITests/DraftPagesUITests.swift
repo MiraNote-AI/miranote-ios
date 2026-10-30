@@ -2,7 +2,8 @@ import XCTest
 
 /// Save is the one way a page becomes saved (#137): Home keeps it as a
 /// draft -- a toast says so and the journal cover is tagged -- except a
-/// saved page left unchanged, which stays saved.
+/// saved page left unchanged, which stays saved. The star jar holds a page
+/// once Save has filed it, and a draft keeps the mood its last Save got.
 final class DraftPagesUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -105,6 +106,100 @@ final class DraftPagesUITests: XCTestCase {
         app.buttons["reading.back"].tap()
         XCTAssertTrue(cover.waitForExistence(timeout: 5))
         XCTAssertNotEqual(cover.value as? String, "Draft")
+    }
+
+    // MARK: The star jar: a page is a star once Save files it
+
+    func testADraftIsNoStarUntilItIsSaved() {
+        app.buttons["Start a memory"].tap()
+        addTextBlock("A happy draft")
+        app.buttons["Home"].tap()
+        XCTAssertTrue(draftToast.waitForExistence(timeout: 5))
+
+        openJar()
+        XCTAssertTrue(app.staticTexts["jar.summary"].waitForExistence(timeout: 5), "the seed's stars are in")
+        XCTAssertFalse(app.buttons["jar.star.A happy draft"].exists, "a draft never saved is no star")
+        app.buttons["Home"].tap()
+
+        saveUnchanged("A happy draft")
+        openJar()
+        let star = app.buttons["jar.star.A happy draft"]
+        XCTAssertTrue(star.waitForExistence(timeout: 5), "saved, it is a star")
+        label(of: star, becomes: "A happy draft, Joyful")
+    }
+
+    // The mock reads "sad" as low, but "happy" first: judged from the
+    // draft's words, the star would turn joyful before the next Save.
+    func testASavedPageLeftAsADraftKeepsItsStarAndMood() {
+        app.buttons["Start a memory"].tap()
+        addTextBlock("A sad walk")
+        app.buttons["Save"].tap()
+        openJar()
+        let star = app.buttons["jar.star.A sad walk"]
+        XCTAssertTrue(star.waitForExistence(timeout: 5))
+        label(of: star, becomes: "A sad walk, Low")
+        app.buttons["Home"].tap()
+
+        app.buttons["collection.Daily Log"].tap()
+        let cover = app.buttons["note.A sad walk"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        cover.tap()
+        app.buttons["reading.edit"].tap()
+        addTextBlock("then a happy dinner")
+        app.buttons["Home"].tap()
+        XCTAssertTrue(draftToast.waitForExistence(timeout: 5))
+        app.buttons["reading.back"].tap()
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        XCTAssertEqual(cover.value as? String, "Draft")
+        app.buttons["Home"].tap()
+
+        openJar()
+        XCTAssertTrue(star.waitForExistence(timeout: 5), "a saved page's draft keeps its star")
+        label(of: star, staysAt: "A sad walk, Low", for: 3)
+        app.buttons["Home"].tap()
+
+        saveUnchanged("A sad walk")
+        openJar()
+        label(of: star, becomes: "A sad walk, Joyful")
+    }
+
+    private func openJar() {
+        let entry = app.buttons["home.starJar"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 8))
+        entry.tap()
+        XCTAssertTrue(app.staticTexts["Star jar"].waitForExistence(timeout: 5))
+    }
+
+    /// From Home: opens the Daily Log page `title`, taps Save without a
+    /// change, and comes back Home.
+    private func saveUnchanged(_ title: String) {
+        app.buttons["collection.Daily Log"].tap()
+        let cover = app.buttons["note.\(title)"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        cover.tap()
+        app.buttons["reading.edit"].tap()
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
+        app.buttons["reading.back"].tap()
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(cover.value as? String, "Draft")
+        app.buttons["Home"].tap()
+    }
+
+    private func label(of element: XCUIElement, becomes expected: String) {
+        let match = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", expected), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [match], timeout: 8), .completed,
+                       "label is \(element.label), expected \(expected)")
+    }
+
+    /// Nothing changes the label for `seconds`: a mood ask answers in
+    /// well under that (the mock takes 0.3 s).
+    private func label(of element: XCUIElement, staysAt expected: String, for seconds: TimeInterval) {
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", expected),
+                                                object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [changed], timeout: seconds), .timedOut,
+                       "label became \(element.label)")
     }
 
     /// Adds a text block through the Text tool and closes the keyboard.

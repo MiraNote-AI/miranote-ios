@@ -642,10 +642,16 @@ extension CanvasViewModel {
 
     /// The page as leaving files it (#137): Save makes it saved; Home and
     /// the background autosave keep a draft -- a saved page left
-    /// unchanged stays saved.
+    /// unchanged stays saved. Only Save stamps the time: the star jar
+    /// drops in what was saved since its last visit, not a draft.
     public func filedMemory(saving: Bool) -> Memory {
         var filed = composedMemory()
         filed.isDraft = !saving && (memory.isDraft || hasEdits)
+        if saving {
+            filed.hasBeenSaved = true
+        } else {
+            filed.savedAt = memory.savedAt
+        }
         return filed
     }
 

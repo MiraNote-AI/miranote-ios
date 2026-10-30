@@ -172,6 +172,37 @@ final class MoodJudgeTests: XCTestCase {
         XCTAssertEqual(viewModel.memory(page.id)?.moodTextHash, Memory.moodHash(of: edited.moodText))
     }
 
+    /// A draft's words are not the page's (#137): a page never saved has
+    /// no mood to ask, and a saved page left as a draft keeps the mood its
+    /// last Save got, whether Save or the jar queued it. The next Save asks.
+    @MainActor
+    func testADraftIsNotAsked() async {
+        let service = CountingMoodService(answer: .low)
+        let unsaved = Memory(items: [text("half a thought", y: 100)], isDraft: true)
+        let page = Memory(items: [text("A picnic", y: 100)])
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [unsaved, page])])
+        viewModel.setMood(.joyful, judgedFrom: Memory.moodHash(of: page.moodText), for: page.id)
+        var draft = viewModel.memory(page.id)!
+        draft.items = [text("rain all day", y: 100)]
+        draft.isDraft = true
+        viewModel.file(draft, underCollectionTitled: "Daily Log")
+        let judge = MoodJudge(service: service, library: viewModel)
+
+        judge.judge([unsaved.id, page.id])
+        judge.show([unsaved.id, page.id])
+        try? await Task.sleep(for: .milliseconds(100))
+        let calls = await service.counts().calls
+        XCTAssertEqual(calls, 0, "no draft's words are asked")
+        XCTAssertNil(viewModel.memory(unsaved.id)?.mood)
+        XCTAssertEqual(viewModel.memory(page.id)?.mood, .joyful, "the last Save's mood stays")
+
+        var saved = viewModel.memory(page.id)!
+        saved.isDraft = false
+        viewModel.file(saved, underCollectionTitled: "Daily Log")
+        judge.judge([page.id])
+        await waitUntil { viewModel.memory(page.id)?.mood == .low }
+    }
+
     /// Offline, no access, no endpoint, rate-limited, tunnel down: the
     /// first failure pauses the queue, not one request per page.
     @MainActor

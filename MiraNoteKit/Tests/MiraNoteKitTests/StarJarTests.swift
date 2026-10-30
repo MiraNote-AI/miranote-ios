@@ -87,6 +87,18 @@ final class StarJarTests: XCTestCase {
         XCTAssertEqual(stars.first?.collectionID, shelf.collections[1].id, "a star knows its journal")
     }
 
+    /// A page is a star once Save has filed it (#137): a draft never saved
+    /// is none, and a saved page left as a draft keeps its star.
+    func testADraftIsAStarOnlyOnceItHasBeenSaved() {
+        let saved = Memory(title: "Saved", memoryDate: date(2026, 10, 2))
+        let unsaved = Memory(title: "Never saved", memoryDate: date(2026, 10, 3), isDraft: true)
+        let reopened = Memory(title: "Saved, now a draft", memoryDate: date(2026, 10, 4),
+                              isDraft: true, hasBeenSaved: true)
+        let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)
+        XCTAssertEqual(StarJar.stars(in: library([saved, unsaved, reopened]), during: october).map(\.memory.title),
+                       ["Saved", "Saved, now a draft"])
+    }
+
     func testPeriodLabels() {
         let english = Locale(identifier: "en_US")
         let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)

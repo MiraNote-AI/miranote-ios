@@ -17,16 +17,27 @@ final class DraftPageTests: XCTestCase {
         decoder.dateDecodingStrategy = .secondsSince1970
         let memory = try decoder.decode(Memory.self, from: Data(legacy.utf8))
         XCTAssertFalse(memory.isDraft, "pages from before this change count as saved")
+        XCTAssertTrue(memory.hasBeenSaved)
     }
 
     func testADraftStaysADraftThroughARoundTrip() throws {
         let draft = Memory(title: "half a thought", isDraft: true)
         let back = try JSONDecoder().decode(Memory.self, from: JSONEncoder().encode(draft))
         XCTAssertTrue(back.isDraft)
+        XCTAssertFalse(back.hasBeenSaved)
+    }
+
+    func testASavedPagesDraftRemembersTheSaveThroughARoundTrip() throws {
+        let draft = Memory(title: "Lunch by the river", isDraft: true, hasBeenSaved: true)
+        let back = try JSONDecoder().decode(Memory.self, from: JSONEncoder().encode(draft))
+        XCTAssertTrue(back.isDraft)
+        XCTAssertTrue(back.hasBeenSaved)
     }
 
     func testANewMemoryIsSavedUnlessMarked() {
         XCTAssertFalse(Memory(title: "seeded").isDraft, "seeds and old call sites stay saved")
+        XCTAssertTrue(Memory(title: "seeded").hasBeenSaved)
+        XCTAssertFalse(Memory(isDraft: true).hasBeenSaved, "a page born a draft was never saved")
     }
 
     // MARK: An edit, or just a look
@@ -128,13 +139,18 @@ final class DraftPageTests: XCTestCase {
     func testSaveFilesASavedPage() {
         let editor = CanvasViewModel(memory: Memory(isDraft: true))
         editor.addText("picnic", at: CGPoint(x: 100, y: 100))
-        XCTAssertFalse(editor.filedMemory(saving: true).isDraft)
+        let filed = editor.filedMemory(saving: true)
+        XCTAssertFalse(filed.isDraft)
+        XCTAssertTrue(filed.hasBeenSaved)
     }
 
     func testLeavingANewPageKeepsItADraft() {
         let editor = CanvasViewModel(memory: Memory(isDraft: true))
         editor.addText("picnic", at: CGPoint(x: 100, y: 100))
-        XCTAssertTrue(editor.filedMemory(saving: false).isDraft)
+        let filed = editor.filedMemory(saving: false)
+        XCTAssertTrue(filed.isDraft)
+        XCTAssertFalse(filed.hasBeenSaved, "no star in the jar")
+        XCTAssertNil(filed.savedAt, "never saved")
     }
 
     func testLeavingASavedPageUnchangedKeepsItSaved() {
@@ -145,7 +161,21 @@ final class DraftPageTests: XCTestCase {
     func testLeavingAChangedSavedPageMakesItADraft() {
         let editor = CanvasViewModel(memory: savedPage())
         editor.addText("a second coffee", at: CGPoint(x: 100, y: 500))
-        XCTAssertTrue(editor.filedMemory(saving: false).isDraft)
+        let filed = editor.filedMemory(saving: false)
+        XCTAssertTrue(filed.isDraft)
+        XCTAssertTrue(filed.hasBeenSaved, "its star stays in the jar")
+    }
+
+    // The jar drops in what was saved since its last visit: a draft
+    // filed since is not.
+    func testADraftKeepsTheTimeOfItsLastSave() throws {
+        var page = savedPage()
+        let lastSave = Date(timeIntervalSince1970: 800_000_000)
+        page.savedAt = lastSave
+        let editor = CanvasViewModel(memory: page)
+        editor.addText("a second coffee", at: CGPoint(x: 100, y: 500))
+        XCTAssertEqual(editor.filedMemory(saving: false).savedAt, lastSave)
+        XCTAssertGreaterThan(try XCTUnwrap(editor.filedMemory(saving: true).savedAt), lastSave)
     }
 
     func testLeavingADraftUnchangedKeepsItADraft() {

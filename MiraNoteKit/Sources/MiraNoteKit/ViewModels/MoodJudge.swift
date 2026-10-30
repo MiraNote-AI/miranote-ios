@@ -73,8 +73,10 @@ public final class MoodJudge {
 
     /// Whether a request was sent.
     private func ask(_ id: Memory.ID) async -> Bool {
-        // The page as it is when its turn comes, not when it was queued.
-        guard let page = library.memory(id) else { return false }
+        // The page as it is when its turn comes, not when it was queued. A
+        // draft's words are not the page's (#137): its star keeps the mood
+        // the last Save got, and the next Save asks again.
+        guard let page = library.memory(id), !page.isDraft else { return false }
         let text = page.moodText
         let textHash = Memory.moodHash(of: text)
         // Judged from these words already (also: asked a moment ago, when
