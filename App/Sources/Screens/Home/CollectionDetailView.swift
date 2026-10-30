@@ -145,8 +145,13 @@ struct CollectionDetailView: View {
                 .kerning(1.6)
                 .foregroundStyle(theme.muted(Palette.textSecondary))
 
+            // Top-aligned: a draft's tag can drop under a long date and make
+            // its card taller than the one beside it.
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                columns: [
+                    GridItem(.flexible(), spacing: 12, alignment: .top),
+                    GridItem(.flexible(), spacing: 12, alignment: .top)
+                ],
                 spacing: 14
             ) {
                 ForEach(group.memories) { memory in
