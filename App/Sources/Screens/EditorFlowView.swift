@@ -367,14 +367,7 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
         }
-        .overlay(alignment: .bottom) {
-            if draftToastShown {
-                SaveToast(message: .keptAsDraft)
-                    .padding(.bottom, 8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .allowsHitTesting(false)
-            }
-        }
+        .overlay(alignment: .bottom) { draftToast }
         // The Appearance setting, applied live (a choice redraws at once).
         .environment(\.theme, Theme(appearance: settings.appearance))
         #if DEBUG
@@ -455,6 +448,19 @@ struct HomeFlow: View {
             }
         }
     }
+}
+
+/// Home's "Kept as draft" toast (#137), kept out of HomeFlow's body.
+extension HomeFlow {
+    /// The export toast's look; taps go through to the screen under it.
+    @ViewBuilder private var draftToast: some View {
+        if draftToastShown {
+            SaveToast(message: .keptAsDraft)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .allowsHitTesting(false)
+        }
+    }
 
     /// Not under the editor as it slides away: the toast's two seconds,
     /// and its spoken line, start once it is gone.
@@ -464,8 +470,7 @@ struct HomeFlow: View {
         showDraftToast()
     }
 
-    /// The export toast's look for two seconds; taps go through to the
-    /// screen under it.
+    /// Shows the toast for two seconds.
     private func showDraftToast() {
         draftToastDismiss?.cancel()
         withAnimation(.spring(duration: 0.3)) { draftToastShown = true }
