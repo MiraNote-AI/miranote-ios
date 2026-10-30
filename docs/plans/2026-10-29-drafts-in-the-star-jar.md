@@ -78,8 +78,8 @@ it, and every draft would be a star.
 - [x] `hasBeenSaved`, the jar's stars, `savedAt` for drafts (4, 5, 6)
 - [x] zh-Hans strings (7)
 - [x] Jason's review nits; the Draft tag's theme (8, 9)
-- [ ] verify-repo, the fresh-context check, the pre-merge review (10, 11)
-- [ ] Push; PR body from the org template; answer Jason's review
+- [x] verify-repo, the fresh-context check, the pre-merge review (10, 11)
+- [x] Push; PR body from the org template; answer Jason's review
 
 ## Iterations
 
@@ -112,7 +112,7 @@ it, and every draft would be a star.
    - Verify after the fixes: swiftlint 136; app unit 108/0; DraftPagesUITests 7/7; StarJarUITests 2/2.
    - `/security-review` could not run: this session's working directory is not a git repository. The owner decides how to run it.
    - Cap raised from 5 to 7 (decision of 2026-10-29). Round 2 of the review found faults in round 1's own fix, and the fixes need one more iteration. The review cap of three rounds still bounds the loop.
-6. Pre-merge review, round 2: `/code-review high` on 21b10a1 returned 6 findings -- 2 fixed, 4 answered. Nothing from round 1 was raised again.
+6. Pre-merge review, round 2: `/code-review high` on 21b10a1 returned 6 findings -- 3 fixed, 3 answered. Nothing from round 1 was raised again.
    - **`CollectionDetailView.swift:168`**: when the tag drops under the date, the shorter card beside it is centered in the taller row. FIXED 6f5263c: the grid is top-aligned.
      - Before the fix, a probe on the iPhone SE at 125% put the saved cover 11.5 pt below the draft's (y 381.0 vs 369.5).
      - After the fix, both covers sit at the same y on the SE (369.5) and on the iPhone 17 Pro (411.0).
@@ -125,3 +125,12 @@ it, and every draft would be a star.
    - `/security-review`, run at 21b10a1 from a worktree of the branch under `~/MiraNote` and scoped to `origin/dev...HEAD`: no findings.
      - The skill's own diff was against `origin/HEAD`, which is `main`, so it also listed files that dev had already merged; those were left out.
      - Checked: the two new stored fields and their decoding; what reaches the network (only the existing `/mood` body, now sent less often); logging; the new strings.
+7. Pre-merge review, round 3 (the last the cap allows): `/code-review high` on ea2c43b returned 4 findings -- 3 fixed, 1 pre-existing.
+   - **IMPORTANT, `CollectionDetailView.swift:152`**: the top alignment had no committed test. FIXED b33888d: `testADraftsCoverLinesUpWithTheSavedOneBesideIt` compares the new draft's cover with the seeded page beside it. Without `alignment: .top` it fails (143.0 vs 144.0).
+   - **NIT, `StarJarView.swift:13`**: `onShow` promised to ask again for a draft. FIXED b584c98.
+   - **NIT, `EditorFlowView.swift:14`**: `onAutosave` said it always keeps a draft. FIXED b584c98.
+   - **NIT, `StarJarView.swift:128`**: `stars` is built several times per render. PRE-EXISTING: dev's jar reads `stars` the same way, and the PR lists it as a follow-up. `canStepForward` now stops at the first star (5e102f5).
+   - No fourth review round, by the review cap: the round 3 fixes are one mutation-checked test and two comments.
+   - Verify: swiftlint 136; app unit 108/0; DraftPagesUITests 8/8; StarJarUITests 2/2. Kit was last run at 5e102f5 (605/0); later commits change no Kit code.
+   - Pre-merge review in all: 20 findings -- 8 fixed, 10 answered, 2 pre-existing. `/security-review`: no findings.
+   - SUCCESS: criteria 1-11 pass. Criteria 2 and 9 are HUMAN, and the screenshots stand as their evidence.
