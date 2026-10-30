@@ -189,11 +189,48 @@ final class SettingsProfileUITests: XCTestCase {
         XCTAssertEqual(app.buttons["profile.name"].label, "Add your name")
     }
 
-    /// Hidden until a follow-up applies the scale app-wide (owner).
-    func testTextSizeIsHiddenUntilItApplies() {
+    /// A text block's words on the canvas, written at the current scale.
+    private func canvasBlockHeight(_ words: String) -> CGFloat {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText(words)
+        app.buttons["keyboard.done"].tap()
+        let block = app.staticTexts[words]
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        return block.frame.height
+    }
+
+    /// 125% grows the app's own type at once -- the Settings title while
+    /// the slider moves -- and survives a relaunch; a text block on the
+    /// canvas keeps its own size.
+    func testTextSizeScalesTheChromeLiveAndPersistsButNotThePage() {
+        let words = "Same size"
+        let blockAt100 = canvasBlockHeight(words)
+        app.terminate()
+        app.launch()
+
         openSettings()
-        XCTAssertTrue(app.buttons["settings.language"].exists)
-        XCTAssertFalse(app.otherElements["settings.textSize"].exists)
+        let slider = app.otherElements["settings.textSize"]
+        XCTAssertEqual(slider.value as? String, "100 percent")
+        let title = app.staticTexts["Settings"]
+        let titleAt100 = title.frame.height
+        // The rail runs between the small and the large "A"; a tap just
+        // past its end picks the largest step.
+        let frame = slider.frame
+        let railEnd = frame.maxX - 37 + 4
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: railEnd, dy: frame.maxY - 36)).tap()
+        XCTAssertEqual(slider.value as? String, "125 percent")
+        XCTAssertGreaterThan(title.frame.height, titleAt100 * 1.15, "the title grows without a relaunch")
+
+        relaunch()
+        openSettings()
+        XCTAssertEqual(app.otherElements["settings.textSize"].value as? String, "125 percent")
+        XCTAssertGreaterThan(app.staticTexts["Settings"].frame.height, titleAt100 * 1.15, "kept after a relaunch")
+        app.buttons["settings.back"].tap()
+        XCTAssertEqual(canvasBlockHeight(words), blockAt100, accuracy: 0.5, "the page's words keep their size")
     }
 
     func testHomeProfileOpensProfileAndSaveShowsTheName() {

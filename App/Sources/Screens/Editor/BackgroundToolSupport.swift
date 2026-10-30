@@ -46,7 +46,9 @@ struct PreviewWords {
     /// as itself.
     private static func font(_ name: String, size: CGFloat, fallbackWeight: CGFloat) -> Font {
         // Page faces at page sizes, not the UI type scale.
-        Font(name.isEmpty ? Sans.uiFont(size: size, weight: fallbackWeight) : TextFace.uiFont(name: name, size: size))
+        Font(name.isEmpty
+            ? Sans.uiFont(size: size, weight: fallbackWeight, scaled: false)
+            : TextFace.uiFont(name: name, size: size))
     }
 
     /// Default ink words preview in the handoff's colors; chosen colors as

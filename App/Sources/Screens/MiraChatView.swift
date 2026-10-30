@@ -193,7 +193,9 @@ struct MiraChatView: View {
                 .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
-                .frame(width: width, height: 24)
+                // The handoff's widths fit its 12 pt labels: they grow with
+                // the text size.
+                .frame(width: TextScale.scaled(width), height: TextScale.scaled(24))
                 .background(
                     Capsule()
                         .fill(Color.white.opacity(0.78))
