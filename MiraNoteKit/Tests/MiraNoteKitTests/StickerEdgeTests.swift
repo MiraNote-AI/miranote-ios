@@ -1,3 +1,5 @@
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 @testable import MiraNoteKit
 @testable import StickerEdgeCore
@@ -179,6 +181,20 @@ final class StickerEdgeTests: XCTestCase {
         XCTAssertEqual(report.modelRimWidth, 0)
         XCTAssertGreaterThan(at(out, report, 231, 120)[3], 200, "the sparkle stays")
         XCTAssertGreaterThan(at(out, report, 229, 165)[3], 150, "the motion line stays")
+    }
+
+    func testAPhotoIsReadUprightByItsOrientation() throws {
+        // a 20 x 10 JPEG tagged "rotate 90" (orientation 6): read 10 x 20, as
+        // Vision and the canvas see it
+        let wide = Bitmap(width: 20, height: 10)
+        let data = NSMutableData()
+        let dest = try XCTUnwrap(CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil))
+        let image = try XCTUnwrap(Bitmap(data: wide.png()!)).cgImageForTest()
+        CGImageDestinationAddImage(dest, image, [kCGImagePropertyOrientation: 6] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(dest))
+        let read = try XCTUnwrap(Bitmap(data: data as Data))
+        XCTAssertEqual(read.width, 10)
+        XCTAssertEqual(read.height, 20)
     }
 
     func testAnImageOverTheSizeLimitThrows() {
@@ -710,5 +726,17 @@ final class StickerEdgeMemoryBenchTests: XCTestCase {
         _ = try StickerEdge.cleanCut(raw: raw, lifted: lifted)
         let after = peakFootprint()
         print(String(format: "[mem] peak added: %.1f MB", Double(after - before) / 1_048_576))
+    }
+}
+
+private extension Bitmap {
+    /// An opaque grey CGImage of this size, for encoding test files.
+    func cgImageForTest() throws -> CGImage {
+        let ctx = try XCTUnwrap(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                          bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        ctx.setFillColor(gray: 0.5, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        return try XCTUnwrap(ctx.makeImage())
     }
 }
