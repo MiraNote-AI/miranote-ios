@@ -65,7 +65,7 @@ it, and every draft would be a star.
 ## Stop conditions
 
 - **Success:** criteria 1-11 pass.
-- **Iteration cap:** 5.
+- **Iteration cap:** 5, raised to 7 in iteration 5 (see the ledger).
 - **No progress:** 2 iterations in a row without progress -> stop and
   write the handoff.
 - **Escalate:** a protected path, a check that would need weakening, a
@@ -111,3 +111,17 @@ it, and every draft would be a star.
    - **`Models.swift:73`**: `hasBeenSaved` is an optional init argument. ANSWERED: nothing rebuilds a page through init (copies use `var`). The nil default keeps a new draft out of the jar without every call site saying so, and the decoder shares it; a plain default would set the opposite trap for `Memory(isDraft: true)`.
    - Verify after the fixes: swiftlint 136; app unit 108/0; DraftPagesUITests 7/7; StarJarUITests 2/2.
    - `/security-review` could not run: this session's working directory is not a git repository. The owner decides how to run it.
+   - Cap raised from 5 to 7 (decision of 2026-10-29). Round 2 of the review found faults in round 1's own fix, and the fixes need one more iteration. The review cap of three rounds still bounds the loop.
+6. Pre-merge review, round 2: `/code-review high` on 21b10a1 returned 6 findings -- 2 fixed, 4 answered. Nothing from round 1 was raised again.
+   - **`CollectionDetailView.swift:168`**: when the tag drops under the date, the shorter card beside it is centered in the taller row. FIXED 6f5263c: the grid is top-aligned.
+     - Before the fix, a probe on the iPhone SE at 125% put the saved cover 11.5 pt below the draft's (y 381.0 vs 369.5).
+     - After the fix, both covers sit at the same y on the SE (369.5) and on the iPhone 17 Pro (411.0).
+   - **`CollectionDetailView.swift:168`**: on wider phones the caption could run past the 164 pt cover. ANSWERED: measured on the iPhone 17 Pro at 125%, the "September 30" draft's card is 164.0 pt wide, the cover's own width. The caption never passes the cover.
+   - **`StarJarView.swift:38`**: the forward step built and sorted the whole star list. FIXED 5e102f5: `StarJar.hasStars(in:from:)` stops at the first star, and `StarJar.isStar` is the one rule that both functions use.
+   - **`MiraChatView.swift:233`**: drafts carry no tag in Mira chat's page results. ANSWERED: #137 settled on a tag on journal covers only. Chat results are listed in the PR as a design follow-up.
+   - **`StarJarUITests.swift:61`**: no test covered a never-saved draft dated ahead. FIXED 5e102f5: `testOnlyAStarDatedAheadOpensALaterPeriod` fails when `hasStars` checks only the date.
+   - **`CollectionDetailView.swift:170`**: the tag's two layouts are checked only in screenshots. ANSWERED: the caption sits inside the cover button, whose children merge into one accessibility element, and the tag is hidden from VoiceOver on purpose (the cover's value says Draft), so XCUITest cannot see the layout. HUMAN: screenshots on the SE at 100% and 125%.
+   - Verify: swiftlint 136; Kit 605/0; app unit 108/0; DraftPagesUITests 7/7; StarJarUITests 2/2.
+   - `/security-review`, run at 21b10a1 from a worktree of the branch under `~/MiraNote` and scoped to `origin/dev...HEAD`: no findings.
+     - The skill's own diff was against `origin/HEAD`, which is `main`, so it also listed files that dev had already merged; those were left out.
+     - Checked: the two new stored fields and their decoding; what reaches the network (only the existing `/mood` body, now sent less often); logging; the new strings.
