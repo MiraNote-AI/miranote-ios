@@ -56,24 +56,35 @@ public enum JarPeriod: String, CaseIterable, Sendable {
 }
 
 public enum StarJar {
-    /// The one place that decides which pages are stars: every page on the
-    /// shelf (the bin's are gone) that Save has filed -- still one when it
-    /// is a draft again, never one that only ever was (#137) -- whose
-    /// memory date falls in `interval`, oldest first so a period fills its
-    /// jar from the bottom.
+    /// Every star on the shelf (the bin's are gone) whose memory date falls
+    /// in `interval`, oldest first so a period fills its jar from the
+    /// bottom.
     public static func stars(in library: MemoryLibrary, during interval: DateInterval) -> [JarStar] {
         library.collections
             .flatMap { collection in
                 collection.memories.map { JarStar(collectionID: collection.id, memory: $0) }
             }
             .filter {
-                $0.memory.hasBeenSaved
+                isStar($0.memory)
                     && $0.memory.memoryDate >= interval.start && $0.memory.memoryDate < interval.end
             }
             .sorted {
                 ($0.memory.memoryDate, $0.id.uuidString) < ($1.memory.memoryDate, $1.id.uuidString)
             }
     }
+
+    /// Whether a star is dated `date` or later: the jar steps past the
+    /// current period only toward one.
+    public static func hasStars(in library: MemoryLibrary, from date: Date) -> Bool {
+        library.collections.contains { collection in
+            collection.memories.contains { isStar($0) && $0.memoryDate >= date }
+        }
+    }
+
+    /// The one rule for which pages are stars: those Save has filed --
+    /// still one when it is a draft again, never one that only ever was
+    /// (#137).
+    private static func isStar(_ memory: Memory) -> Bool { memory.hasBeenSaved }
 }
 
 public extension Memory {

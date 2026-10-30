@@ -99,6 +99,17 @@ final class StarJarTests: XCTestCase {
                        ["Saved", "Saved, now a draft"])
     }
 
+    /// The jar steps past the current period only toward a star: a draft
+    /// never saved, dated ahead, opens no later period.
+    func testOnlyAStarDatedAheadOpensALaterPeriod() {
+        let november = date(2026, 11, 1, 0, 0)
+        let unsaved = Memory(title: "Plans", memoryDate: date(2026, 11, 5), isDraft: true)
+        XCTAssertFalse(StarJar.hasStars(in: library([unsaved]), from: november))
+        let saved = Memory(title: "Booked", memoryDate: date(2026, 11, 5))
+        XCTAssertTrue(StarJar.hasStars(in: library([unsaved, saved]), from: november))
+        XCTAssertFalse(StarJar.hasStars(in: library([saved]), from: date(2026, 12, 1, 0, 0)), "dated before")
+    }
+
     func testPeriodLabels() {
         let english = Locale(identifier: "en_US")
         let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)

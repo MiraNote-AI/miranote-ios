@@ -35,9 +35,7 @@ struct StarJarView: View {
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
     private var canStepForward: Bool {
-        interval.end <= .now || !StarJar.stars(
-            in: viewModel.library, during: DateInterval(start: interval.end, end: .distantFuture)
-        ).isEmpty
+        interval.end <= .now || StarJar.hasStars(in: viewModel.library, from: interval.end)
     }
 
     var body: some View {
