@@ -474,11 +474,13 @@ final class StickerOutlineTests: XCTestCase {
     func testTheStickerGetsAWhiteEdgeAndIsCroppedToIt() throws {
         let (out, report) = try StickerEdge.outline(cutout { self.r($0, $1) <= 100 }, StickerEdge.Parameters())
         XCTAssertEqual(report.width, 8 + 1, "4% of a 201 px sticker is 8, the floor is 9")
+        XCTAssertEqual(report.padding, report.width, accuracy: 1, "no margin beyond the edge")
         XCTAssertEqual(out.width, 201 + 2 * report.padding, "cropped to the sticker and its edge")
         let c = out.height / 2
         XCTAssertEqual(px(out, out.width / 2, c), [30, 160, 60, 255], "the sticker keeps its colours")
         XCTAssertEqual(px(out, out.width / 2 - 100 - report.width / 2, c), [255, 255, 255, 255], "white edge")
-        XCTAssertEqual(px(out, 0, c)[3], 0, "clear beyond it")
+        XCTAssertEqual(px(out, 0, 0)[3], 0, "clear outside the round edge")
+        XCTAssertGreaterThan(px(out, 0, c)[3], 0, "and the edge reaches the crop")
     }
 
     func testTheEdgeIsFourPercentOfABigSticker() throws {
@@ -495,6 +497,34 @@ final class StickerOutlineTests: XCTestCase {
         let c = out.width / 2
         XCTAssertEqual(px(out, c, c)[3], 0, "the hole's middle stays empty")
         XCTAssertEqual(px(out, c - 40 + report.width / 2, c), [255, 255, 255, 255], "ringed in white")
+    }
+
+    /// A disc with a round hole of `diameter`, outlined with a 9 px edge; the
+    /// alpha at the hole's middle.
+    private func holeMiddleAlpha(diameter: Double) throws -> UInt8 {
+        let (out, report) = try StickerEdge.outline(
+            cutout { self.r($0, $1) <= 100 && self.r($0, $1) > diameter / 2 }, StickerEdge.Parameters())
+        XCTAssertEqual(report.width, 9)
+        let c = out.width / 2
+        return px(out, c, c)[3]
+    }
+
+    func testAHoleJustUnderTwoEdgesFillsAndJustOverStaysOpen() throws {
+        // The team's rule: wider than two edges keeps an empty middle.
+        XCTAssertEqual(try holeMiddleAlpha(diameter: 16), 255, "16 px < 2 x 9: fills")
+        XCTAssertEqual(try holeMiddleAlpha(diameter: 24), 0, "24 px > 2 x 9: stays open")
+    }
+
+    func testAFaintPixelBeyondTheEdgeKeepsItsColour() throws {
+        // a soft wisp 20 px out from a 9 px edge: drawn as it was, not whitened
+        var cut = cutout { self.r($0, $1) <= 100 }
+        let i = (150 * 300 + 150 + 100 + 20) * 4
+        cut.pixels[i] = 30; cut.pixels[i + 1] = 160; cut.pixels[i + 2] = 60; cut.pixels[i + 3] = 100
+        let (out, report) = try StickerEdge.outline(cut, StickerEdge.Parameters())
+        let x = 150 + 100 + 20 - (50 - report.padding)
+        let wisp = px(out, x, 150 - (50 - report.padding))
+        XCTAssertEqual(Array(wisp[0..<3]), [30, 160, 60])
+        XCTAssertEqual(wisp[3], 100)
     }
 
     func testAGapNarrowerThanTwoEdgesFills() throws {
@@ -531,6 +561,17 @@ final class StickerOutlineTests: XCTestCase {
         )
         let out = try await service.outline(image: cutout { self.r($0, $1) <= 100 }.png()!)
         XCTAssertNotNil(Bitmap(data: out))
+    }
+
+    func testAnEmptyStickerSaysSoInsteadOfTryAgain() async throws {
+        let service = LiveImageStudioService(baseURL: URL(string: "http://localhost:8002")!, localOutline: true)
+        do {
+            _ = try await service.outline(image: Bitmap(width: 20, height: 20).png()!)
+            XCTFail("an empty sticker cannot be outlined")
+        } catch {
+            XCTAssertEqual(error as? OutlineError, .nothingVisible)
+            XCTAssertNotNil((error as? LocalizedError)?.errorDescription)
+        }
     }
 }
 

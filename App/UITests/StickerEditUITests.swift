@@ -118,7 +118,8 @@ final class StickerEditUITests: XCTestCase {
         XCTAssertTrue(app.buttons["sticker.tile.ai"].isSelected, "AI Editing owns the composer")
         let outline = app.buttons["sticker.tile.outline"]
         XCTAssertTrue(outline.exists)
-        XCTAssertFalse(app.buttons["photo.tile.cutout"].exists, "no Cutout, filters or frames here")
+        let tiles = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sticker.tile.'"))
+        XCTAssertEqual(tiles.count, 2, "exactly two tiles: no Cutout, filters or frames here")
         outline.tap()
 
         let field = app.textFields["sticker.ai.instruction"]

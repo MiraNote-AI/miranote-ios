@@ -660,7 +660,10 @@ struct StickerPanelScene: View {
             do {
                 // No white edge (team decision 2026-10-24): stickers come out
                 // without one, and the Outline tile adds it on request.
-                let cut = try await studio.cutout(image: data, target: nil)
+                // Trimmed to the subject: Vision's cut keeps the whole photo's
+                // canvas, which /border used to crop for the outlined variant.
+                let cut = StickerTrim.croppedToOpaqueBounds(
+                    try await studio.cutout(image: data, target: nil))
                 drafts = [StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)]
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription

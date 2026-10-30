@@ -93,7 +93,8 @@ struct StickerEditPanel: View {
     /// A white edge round the sticker as it is now, in place. Drawn on the
     /// phone and already cropped to the sticker and its edge.
     private func runOutline() {
-        guard !editing, let sticker = currentSticker,
+        guard !editing else { return }
+        guard let sticker = currentSticker,
               let data = imageStore.data(forFileName: sticker.fileName) else {
             notice = String(appCopy: "This sticker has no stored pixels to outline.")
             return

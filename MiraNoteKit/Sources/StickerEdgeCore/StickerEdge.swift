@@ -154,11 +154,9 @@ public enum StickerEdge {
         /// Anti-aliasing of the art's edge.
         public var antialiasSigma: Float = 0.8
         /// The Outline tool's white edge: this share of the sticker's longer
-        /// side (team decision 2026-10-28), never under `outlineMin` px, its
-        /// edge smoothed by this share of its width.
+        /// side (team decision 2026-10-28), never under `outlineMin` px.
         public var outlineFraction = 0.04
         public var outlineMin = 9
-        public var outlineSigmaFraction = 0.6
 
         public init() {}
     }
@@ -618,24 +616,10 @@ public enum StickerEdge {
         return out
     }
 
-    /// The rim's alpha: everything within `rim` px of `base` (a round, Euclidean
-    /// dilation), Gaussian-blurred and pulled back through a steep ramp so the
-    /// edge is smooth but crisp, with `base` itself always opaque.
-    static func rimAlpha(around base: [Bool], _ w: Int, _ h: Int,
-                         rim: Int, sigma: Double) -> [Float] {
-        let outside = distance(to: base, w, h)
-        var alpha = outside.map { Float($0 <= Float(rim) ? 1 : 0) }
-        alpha = gaussian(alpha, w, h, sigma: Float(sigma))
-        for i in 0..<alpha.count {
-            alpha[i] = base[i] ? 1 : min(1, max(0, (alpha[i] - 0.5) * 8 + 0.5))
-        }
-        return alpha
-    }
-
     // MARK: - Outline
 
-    /// What `outline` drew: the edge's width and the margin it added round the
-    /// sticker.
+    /// What `outline` drew: the edge's width, and how far the result reaches
+    /// left of the sticker's solid part (the edge plus any faint px).
     public struct OutlineReport: Sendable, Equatable {
         public var width: Int
         public var padding: Int
@@ -656,20 +640,25 @@ public enum StickerEdge {
 
     static func outline(_ cut: Bitmap, _ p: Parameters) throws -> (Bitmap, OutlineReport) {
         let w = cut.width, h = cut.height
+        // the solid sticker (sizes the edge) and everything visible (kept)
         var minX = w, maxX = -1, minY = h, maxY = -1
-        for y in 0..<h { for x in 0..<w where cut.pixels[(y * w + x) * 4 + 3] > 127 {
+        var vx0 = w, vx1 = -1, vy0 = h, vy1 = -1
+        for y in 0..<h { for x in 0..<w {
+            let a = cut.pixels[(y * w + x) * 4 + 3]
+            guard a > 0 else { continue }
+            vx0 = min(vx0, x); vx1 = max(vx1, x); vy0 = min(vy0, y); vy1 = max(vy1, y)
+            guard a > 127 else { continue }
             minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
         } }
         guard maxX >= 0 else { throw Failure.nothingLifted }
         let side = Double(max(maxX - minX, maxY - minY) + 1)
         let width = max(p.outlineMin, Int((p.outlineFraction * side).rounded()))
-        let sigma = max(1.0, p.outlineSigmaFraction * Double(width))
-        let pad = Int(Double(width) + 3 * sigma + 2)
+        let pad = width + 2
 
         // Work on the sticker's bounds plus the edge, not the whole canvas: a
         // cut-out is mostly transparent and every pass below is per pixel.
-        let ox = minX - pad, oy = minY - pad
-        let cw = maxX - minX + 1 + 2 * pad, ch = maxY - minY + 1 + 2 * pad
+        let ox = vx0 - pad, oy = vy0 - pad
+        let cw = vx1 - vx0 + 1 + 2 * pad, ch = vy1 - vy0 + 1 + 2 * pad
         var mask = [Bool](repeating: false, count: cw * ch)
         for y in 0..<ch {
             let sy = y + oy
@@ -679,9 +668,13 @@ public enum StickerEdge {
                 if sx >= 0, sx < w, cut.pixels[(sy * w + sx) * 4 + 3] > 127 { mask[y * cw + x] = true }
             }
         }
-        let edge = rimAlpha(around: mask, cw, ch, rim: width, sigma: sigma)
+        // The edge is every px within `width` of the sticker, anti-aliased over
+        // one px from the distance itself. (A Gaussian-smoothed edge looked a
+        // touch softer but closed holes up to 3.4 widths across, not 2.)
+        let toSticker = distance(to: mask, cw, ch)
 
         var out = Bitmap(width: cw, height: ch)
+        var cx0 = cw, cx1 = -1, cy0 = ch, cy1 = -1
         for y in 0..<ch { for x in 0..<cw {
             let i = y * cw + x, sx = x + ox, sy = y + oy
             var a = 0.0
@@ -691,13 +684,22 @@ public enum StickerEdge {
                 a = Double(cut.pixels[s + 3]) / 255
                 colour = (Double(cut.pixels[s]), Double(cut.pixels[s + 1]), Double(cut.pixels[s + 2]))
             }
-            // the sticker over the white edge
-            out.pixels[i * 4] = UInt8((colour.0 * a + 255 * (1 - a)).rounded())
-            out.pixels[i * 4 + 1] = UInt8((colour.1 * a + 255 * (1 - a)).rounded())
-            out.pixels[i * 4 + 2] = UInt8((colour.2 * a + 255 * (1 - a)).rounded())
-            out.pixels[i * 4 + 3] = UInt8((Double(max(edge[i], Float(a))) * 255).rounded())
+            let e = mask[i] ? 1 : Double(min(1, max(0, Float(width) + 0.5 - toSticker[i])))
+            // the sticker over the white edge ("over"; where there is no edge
+            // a faint px keeps its own colour)
+            let outA = a + e * (1 - a)
+            guard outA > 0 else { continue }
+            for k in 0..<3 {
+                let c = [colour.0, colour.1, colour.2][k]
+                out.pixels[i * 4 + k] = UInt8(min(255, (c * a + 255 * e * (1 - a)) / outA).rounded())
+            }
+            out.pixels[i * 4 + 3] = UInt8((outA * 255).rounded())
+            guard out.pixels[i * 4 + 3] > 0 else { continue }
+            cx0 = min(cx0, x); cx1 = max(cx1, x); cy0 = min(cy0, y); cy1 = max(cy1, y)
         } }
-        return (out, OutlineReport(width: width, padding: pad))
+        // cropped to what shows: the sticker and its edge, no margin
+        let cropped = out.cropped(x: cx0, y: cy0, width: cx1 - cx0 + 1, height: cy1 - cy0 + 1)
+        return (cropped, OutlineReport(width: width, padding: minX - (ox + cx0)))
     }
 
     /// Median of the four corner patches, and their mean per-channel std.

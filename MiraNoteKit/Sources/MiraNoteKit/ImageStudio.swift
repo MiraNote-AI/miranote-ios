@@ -60,6 +60,19 @@ public extension ImageStudioService {
     }
 }
 
+/// Why an Outline could not be drawn, in words the user can act on.
+public enum OutlineError: Error, LocalizedError {
+    /// The image has no opaque px at all: trying again will not help.
+    case nothingVisible
+
+    public var errorDescription: String? {
+        switch self {
+        case .nothingVisible:
+            return String(appCopy: "This sticker has nothing visible to outline.")
+        }
+    }
+}
+
 /// Deterministic offline double: instant tiny PNGs, no network.
 public struct MockImageStudioService: ImageStudioService {
     /// A valid 8x8 opaque tan PNG -- visible in snapshots, and opaque so
@@ -239,7 +252,11 @@ public struct LiveImageStudioService: ImageStudioService {
     public func outline(image: Data) async throws -> Data {
         if localOutline {
             return try await Task.detached(priority: .userInitiated) {
-                try StickerEdge.outline(lifted: image)
+                do {
+                    return try StickerEdge.outline(lifted: image)
+                } catch StickerEdge.Failure.nothingLifted {
+                    throw OutlineError.nothingVisible
+                }
             }.value
         }
         return try await uploadForImage(
