@@ -203,6 +203,27 @@ final class MoodJudgeTests: XCTestCase {
         await waitUntil { viewModel.memory(page.id)?.mood == .low }
     }
 
+    /// The page as it is at its turn, not as it was queued: Save queued
+    /// it, and Home left it a draft before the turn came.
+    @MainActor
+    func testAPageThatBecameADraftWhileQueuedIsNotAsked() async {
+        let service = CountingMoodService(answer: .low)
+        let page = Memory(items: [text("A picnic", y: 100)])
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
+        let judge = MoodJudge(service: service, library: viewModel)
+
+        judge.judge([page.id])
+        var draft = viewModel.memory(page.id)!
+        draft.items = [text("rain all day", y: 100)]
+        draft.isDraft = true
+        viewModel.file(draft, underCollectionTitled: "Daily Log")
+        try? await Task.sleep(for: .milliseconds(100))
+
+        let calls = await service.counts().calls
+        XCTAssertEqual(calls, 0, "its turn finds a draft")
+        XCTAssertNil(viewModel.memory(page.id)?.mood)
+    }
+
     /// Offline, no access, no endpoint, rate-limited, tunnel down: the
     /// first failure pauses the queue, not one request per page.
     @MainActor

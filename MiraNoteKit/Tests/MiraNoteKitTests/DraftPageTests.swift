@@ -20,6 +20,20 @@ final class DraftPageTests: XCTestCase {
         XCTAssertTrue(memory.hasBeenSaved)
     }
 
+    // A draft filed before `hasBeenSaved` existed (only builds of this
+    // branch wrote one) reads as never saved.
+    func testADraftWrittenWithoutTheSaveFieldLoadsAsNeverSaved() throws {
+        let early = """
+        {"id":"00000000-0000-0000-0000-000000000004","title":"half a thought",
+         "body":"","createdAt":700000000,"memoryDate":700000000,"items":[],"isDraft":true}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let memory = try decoder.decode(Memory.self, from: Data(early.utf8))
+        XCTAssertTrue(memory.isDraft)
+        XCTAssertFalse(memory.hasBeenSaved)
+    }
+
     func testADraftStaysADraftThroughARoundTrip() throws {
         let draft = Memory(title: "half a thought", isDraft: true)
         let back = try JSONDecoder().decode(Memory.self, from: JSONEncoder().encode(draft))
