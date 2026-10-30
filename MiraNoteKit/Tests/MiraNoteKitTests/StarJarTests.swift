@@ -87,6 +87,29 @@ final class StarJarTests: XCTestCase {
         XCTAssertEqual(stars.first?.collectionID, shelf.collections[1].id, "a star knows its journal")
     }
 
+    /// A page is a star once Save has filed it (#137): a draft never saved
+    /// is none, and a saved page left as a draft keeps its star.
+    func testADraftIsAStarOnlyOnceItHasBeenSaved() {
+        let saved = Memory(title: "Saved", memoryDate: date(2026, 10, 2))
+        let unsaved = Memory(title: "Never saved", memoryDate: date(2026, 10, 3), isDraft: true)
+        let reopened = Memory(title: "Saved, now a draft", memoryDate: date(2026, 10, 4),
+                              isDraft: true, hasBeenSaved: true)
+        let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)
+        XCTAssertEqual(StarJar.stars(in: library([saved, unsaved, reopened]), during: october).map(\.memory.title),
+                       ["Saved", "Saved, now a draft"])
+    }
+
+    /// The jar steps past the current period only toward a star: a draft
+    /// never saved, dated ahead, opens no later period.
+    func testOnlyAStarDatedAheadOpensALaterPeriod() {
+        let november = date(2026, 11, 1, 0, 0)
+        let unsaved = Memory(title: "Plans", memoryDate: date(2026, 11, 5), isDraft: true)
+        XCTAssertFalse(StarJar.hasStars(in: library([unsaved]), from: november))
+        let saved = Memory(title: "Booked", memoryDate: date(2026, 11, 5))
+        XCTAssertTrue(StarJar.hasStars(in: library([unsaved, saved]), from: november))
+        XCTAssertFalse(StarJar.hasStars(in: library([saved]), from: date(2026, 12, 1, 0, 0)), "dated before")
+    }
+
     func testPeriodLabels() {
         let english = Locale(identifier: "en_US")
         let october = JarPeriod.month.interval(containing: date(2026, 10, 3), calendar: calendar)
