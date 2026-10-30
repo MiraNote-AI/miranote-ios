@@ -265,12 +265,14 @@ extension EnvironmentValues {
 /// The theme faces: DM Sans (Forest's UI, a variable font pinned at its
 /// 14 pt optical size), Playfair Display Regular (Forest's hero; the default
 /// instance of the variable font the Background tool already bundles) and
-/// Poppins Medium / SemiBold (Sunlit Pop).
+/// Poppins Medium / SemiBold (Sunlit Pop). All of them are chrome, so they
+/// follow the text-size setting (`TextScale`).
 enum ThemeFont {
     private static let weightAxis = 0x77676874   // 'wght'
     private static let opticalAxis = 0x6F70737A  // 'opsz'
 
     static func dmSansUIFont(size: CGFloat, weight: CGFloat) -> UIFont {
+        let size = TextScale.scaled(size)
         let variationKey = UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String)
         let descriptor = UIFontDescriptor(fontAttributes: [
             .family: "DM Sans",
@@ -284,11 +286,14 @@ enum ThemeFont {
     }
 
     static func playfairUIFont(size: CGFloat) -> UIFont {
-        UIFont(name: "PlayfairDisplay-Regular", size: size) ?? .systemFont(ofSize: size)
+        let size = TextScale.scaled(size)
+        return UIFont(name: "PlayfairDisplay-Regular", size: size) ?? .systemFont(ofSize: size)
     }
 
     static func poppinsUIFont(size: CGFloat, weight: CGFloat) -> UIFont {
-        UIFont(name: weight >= 600 ? "Poppins-SemiBold" : "Poppins-Medium", size: size) ?? .systemFont(ofSize: size)
+        let size = TextScale.scaled(size)
+        let name = weight >= 600 ? "Poppins-SemiBold" : "Poppins-Medium"
+        return UIFont(name: name, size: size) ?? .systemFont(ofSize: size)
     }
 
     static func poppins(size: CGFloat, weight: CGFloat) -> Font {

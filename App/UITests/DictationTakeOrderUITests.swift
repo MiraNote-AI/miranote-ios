@@ -84,8 +84,8 @@ final class DictationTakeOrderUITests: XCTestCase {
     }
 
     /// A take still live when the earlier words land, then cut off by the
-    /// app leaving the foreground: the writing the tap asked to end ends,
-    /// rather than staying open with nothing left to land.
+    /// app leaving the foreground: its words land too, and the writing the
+    /// tap asked to end ends after them, rather than staying open.
     func testATakeCutOffWhileTheWritingWaitsEndsTheWriting() {
         startAMemory(["-TRANSCRIBE_FIRST_DELAY", "3000"])
         app.buttons["mode.text"].tap()
@@ -101,9 +101,57 @@ final class DictationTakeOrderUITests: XCTestCase {
         XCTAssertTrue(app.buttons["keyboard.done"].exists, "the live take keeps the writing open")
         XCUIDevice.shared.press(.home)
         app.activate()
-        let landed = app.staticTexts["Lunch Transcribed voice note (mock)"]
+        let landed = app.staticTexts["Lunch Transcribed voice note (mock) Transcribed voice note (mock)"]
         XCTAssertTrue(landed.waitForExistence(timeout: 5), "the writing stayed open")
         XCTAssertFalse(app.buttons["keyboard.done"].exists, "the writing stayed open")
+    }
+
+    /// A live take when the app leaves the foreground ends as if let go:
+    /// what it recorded lands in the block, and back in the app the block
+    /// is still being written, keyboard up (#146). A test cannot hold the
+    /// strip across the home press, so the take is the tap toggle's.
+    func testATakeLiveWhenTheAppLeavesLandsAndTheKeyboardComesBack() {
+        startAMemory(["-TIME_TAKES"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.tap()
+        Thread.sleep(forTimeInterval: 1)
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 4)
+        app.activate()
+        // Seconds 1-3: the take ended at the home press, not on return
+        // (that would be 5 s or more).
+        let whole = #"Lunch Transcribed voice note \(mock\) \([1-3] s\)"#
+        let typed = NSPredicate(format: "value MATCHES %@", whole)
+        let inField = XCTNSPredicateExpectation(predicate: typed, object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [inField], timeout: 8), .completed,
+                       "the take was dropped or stopped late: \(field.value ?? "")")
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "the writing ended")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "the keyboard did not come back")
+        app.typeText("!")
+        let more = NSPredicate(format: "value MATCHES %@", whole + "!")
+        XCTAssertTrue(more.evaluate(with: field), "typing went elsewhere: \(field.value ?? "")")
+    }
+
+    /// A take whose request the trip away cut off (iOS suspends the app;
+    /// here the first request fails) is sent again back in the app: its
+    /// words land after the earlier text, no failure left on the strip.
+    func testATakeCutOffByATripAwayIsSentAgainOnReturn() {
+        startAMemory(["-FAIL_FIRST_TAKE"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.tap()
+        Thread.sleep(forTimeInterval: 1)
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 4)
+        app.activate()
+        let typed = NSPredicate(format: "value == %@", "Lunch Transcribed voice note (mock)")
+        let inField = XCTNSPredicateExpectation(predicate: typed, object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [inField], timeout: 8), .completed,
+                       "the take was lost: \(field.value ?? "")")
+        XCTAssertNotEqual(strip.value as? String, "Couldn't reach the transcriber -- try again?")
     }
 
     /// Two holds on the Mira strip, the first written down slowly: the

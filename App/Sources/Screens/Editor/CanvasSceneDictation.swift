@@ -1,6 +1,7 @@
 import Foundation
 import MiraNoteKit
 import SwiftUI
+import UIKit
 
 // MARK: - Dictation (hold to talk)
 
@@ -30,7 +31,7 @@ extension CanvasScene {
     }
 
     /// Ends a dictation that lost its editing session (keyboard dismissed,
-    /// editing finished, the app or the editor left): stop the mic quietly,
+    /// editing finished, the editor left): stop the mic quietly,
     /// keep nothing -- also one still coming up, which stops once it is.
     func cancelDictationIfNeeded() {
         dictationPress = nil
@@ -46,6 +47,33 @@ extension CanvasScene {
         dictating = false
         Task { _ = try? await abandoned?.stop() }
         endDeferredWriting()
+    }
+
+    /// The app leaves the foreground: a live take ends as if let go, so
+    /// what it recorded lands (or the strip says why not); a mic still
+    /// coming up has recorded nothing and is cancelled.
+    func stopDictationForBackground() {
+        dictationPress = nil
+        guard dictating else {
+            cancelDictationIfNeeded()
+            return
+        }
+        // iOS suspends the app seconds after it leaves: ask for time to
+        // stop the take and send it, until its words land or time is up.
+        let app = UIApplication.shared
+        var assertion = UIBackgroundTaskIdentifier.invalid
+        func end() {
+            guard assertion != .invalid else { return }
+            app.endBackgroundTask(assertion)
+            assertion = .invalid
+        }
+        assertion = app.beginBackgroundTask(withName: "dictation take", expirationHandler: end)
+        stopDictation()
+        let take = lastTake
+        Task {
+            await take?.value
+            end()
+        }
     }
 
     /// The writing's end waited for a held take that then ended without
@@ -140,7 +168,17 @@ extension CanvasScene {
             dictationHint = String(appCopy: "Tap a text block first, then dictate.")
             return nil
         }
-        guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
+        let trips = leftForeground
+        let away = { UIApplication.shared.applicationState != .active || leftForeground != trips }
+        let sentAway = away()
+        var transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
+        // A trip away cuts the request off (the app is suspended): the take
+        // is sent once more back in the foreground, still in its place.
+        if transcript == nil, sentAway || away() {
+            await backInForeground()
+            transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
+        }
+        guard let transcript else {
             dictationHint = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
@@ -150,6 +188,13 @@ extension CanvasScene {
             return nil
         }
         return words
+    }
+
+    private func backInForeground() async {
+        guard UIApplication.shared.applicationState != .active else { return }
+        for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
+            return
+        }
     }
 
     /// Words are on their way for the block being written.
