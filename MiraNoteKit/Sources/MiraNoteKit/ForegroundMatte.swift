@@ -46,6 +46,14 @@ public enum ForegroundMatteError: Error, Equatable {
 public struct VisionForegroundMatte: ForegroundMatte {
     private static let warmed = OSAllocatedUnfairLock(initialState: false)
 
+    /// True for the first caller in this process only.
+    static func claimWarmUp() -> Bool {
+        warmed.withLock { warmed in
+            defer { warmed = true }
+            return !warmed
+        }
+    }
+
     public init() {}
 
     /// Loads Vision's segmentation model ahead of the first real lift. On the
@@ -54,11 +62,7 @@ public struct VisionForegroundMatte: ForegroundMatte {
     /// on a tiny image pays instead. Fire and forget, at utility priority, and
     /// once per launch however often the Sticker panel opens.
     public func warmUp() {
-        let first = Self.warmed.withLock { warmed in
-            defer { warmed = true }
-            return !warmed
-        }
-        guard first else { return }
+        guard Self.claimWarmUp() else { return }
         Task.detached(priority: .utility) {
             let side = 64
             var pixels = [UInt8](repeating: 0, count: side * side * 4)

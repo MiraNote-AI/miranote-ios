@@ -24,6 +24,9 @@ struct StickerEditPanel: View {
     @State private var instruction = ""
     @State private var editing = false
     @State private var notice: String?
+    /// Set when the panel goes away: a result that lands after that must not
+    /// swap the sticker or close a panel that is no longer there.
+    @State private var cancelled = false
 
     private let imageStore = ImageFileStore()
 
@@ -60,6 +63,8 @@ struct StickerEditPanel: View {
             focus: focus,
             onAction: runEdit
         )
+        .onAppear { cancelled = false }
+        .onDisappear { cancelled = true }
     }
 
     private var currentSticker: GeneratedSticker? {
@@ -108,7 +113,9 @@ struct StickerEditPanel: View {
         Task {
             defer { editing = false }
             do {
-                let fileName = try imageStore.save(try await make(), id: UUID())
+                let made = try await make()
+                guard !cancelled else { return }
+                let fileName = try imageStore.save(made, id: UUID())
                 let edited = GeneratedSticker(
                     prompt: sticker.prompt,
                     symbolName: sticker.symbolName,
@@ -119,6 +126,7 @@ struct StickerEditPanel: View {
                 // the old one back.
                 onClose()
             } catch {
+                guard !cancelled else { return }
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? String(appCopy: "That didn't work this time. Try again?")
             }
