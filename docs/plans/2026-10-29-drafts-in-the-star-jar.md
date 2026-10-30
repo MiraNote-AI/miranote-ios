@@ -74,13 +74,16 @@ it, and every draft would be a star.
 ## Steps
 
 - [x] Merge dev (1)
-- [ ] Only Save starts a mood ask; drafts are never judged (2, 3)
-- [ ] `hasBeenSaved`, the jar's stars, `savedAt` for drafts (4, 5, 6)
-- [ ] zh-Hans strings (7)
-- [ ] Jason's review nits; the Draft tag's theme (8, 9)
+- [x] Only Save starts a mood ask; drafts are never judged (2, 3)
+- [x] `hasBeenSaved`, the jar's stars, `savedAt` for drafts (4, 5, 6)
+- [x] zh-Hans strings (7)
+- [x] Jason's review nits; the Draft tag's theme (8, 9)
 - [ ] verify-repo, the fresh-context check, the pre-merge review (10, 11)
 - [ ] Push; PR body from the org template; answer Jason's review
 
 ## Iterations
 
 1. Merged dev (7083a82). The four conflicts all kept both sides -- criteria 1/11; xcodegen, the Kit build and the app's build-for-testing exit 0.
+2. Drafts in the jar (9f33471) and their zh-Hans strings (f073e1c) -- criteria 1-7/11 (2 is HUMAN); Kit 602/0, app unit 108/0, DraftPagesUITests 7/7, StarJarUITests 2/2. On 7083a82 the two new UI tests fail ("a draft never saved is no star"; "label became A sad walk, Joyful"), and LocalizationCatalogTests failed until the catalog had both entries.
+3. Jason's three review points (the commit that adds this line) -- criteria 1-9/11. Mutation evidence: with the baseline taken at open, `testTheOpeningRemeasureIsNoEdit` fails; with the draft toast switched off, `testSaveTurnsADraftIntoASavedPage` fails at its new wait. Draft tag and toast screenshotted in System, Forest and Sunlit Pop, in English and Chinese.
+   Ruling: the Draft tag keeps its paper capsule. The journal's own Home pill is the same unthemed `SoftPill` in every theme, Forest included, so the tag already matches it. No code change.

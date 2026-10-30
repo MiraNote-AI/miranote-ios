@@ -46,9 +46,16 @@ final class DraftPageTests: XCTestCase {
         XCTAssertFalse(CanvasViewModel(memory: savedPage()).hasEdits)
     }
 
+    // The scene re-measures the text as the page opens, before anything is
+    // recorded: the first recorded change takes the page as the baseline
+    // with its fitted heights, so a look still files no draft.
     func testTheOpeningRemeasureIsNoEdit() {
-        let editor = CanvasViewModel(memory: savedPage())
+        let page = savedPage()
+        let editor = CanvasViewModel(memory: page)
         editor.fitTextHeights { _ in 120 }
+        XCTAssertNotEqual(editor.items, page.items, "the remeasure moved a height")
+        editor.startEditingText(page.items[0].id)
+        editor.endEditingText()
         XCTAssertFalse(editor.hasEdits, "the app fitting its text boxes is not the user's edit")
     }
 

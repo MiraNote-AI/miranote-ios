@@ -57,6 +57,9 @@ final class DraftPagesUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         addTextBlock("picnic under the plane trees")
         app.buttons["Home"].tap()
+        // The toast shows once the editor is gone: wait for it before
+        // waiting it out.
+        XCTAssertTrue(draftToast.waitForExistence(timeout: 5))
         waitUntilGone(draftToast)
         app.buttons["collection.Daily Log"].tap()
         let cover = app.buttons["note.picnic under the plane trees"]
