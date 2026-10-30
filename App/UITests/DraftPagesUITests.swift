@@ -113,6 +113,25 @@ final class DraftPagesUITests: XCTestCase {
         XCTAssertNotEqual(cover.value as? String, "Draft")
     }
 
+    // The Draft tag makes a card's caption taller than its neighbor's (a
+    // long date at a large text size even puts the tag on a line of its
+    // own): the row is top-aligned, so the covers still line up. The
+    // seeded "Slow morning" page is dated today, like the new draft.
+    func testADraftsCoverLinesUpWithTheSavedOneBesideIt() {
+        app.buttons["Start a memory"].tap()
+        addTextBlock("A rainy draft")
+        app.buttons["Home"].tap()
+        XCTAssertTrue(draftToast.waitForExistence(timeout: 5))
+
+        app.buttons["collection.Daily Log"].tap()
+        let draft = app.buttons["note.A rainy draft"]
+        let saved = app.buttons["note.Slow morning, good coffee"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 5))
+        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertEqual(draft.value as? String, "Draft")
+        XCTAssertEqual(draft.frame.minY, saved.frame.minY, accuracy: 0.5, "the two covers share a top")
+    }
+
     // MARK: The star jar: a page is a star once Save files it
 
     func testADraftIsNoStarUntilItIsSaved() {
