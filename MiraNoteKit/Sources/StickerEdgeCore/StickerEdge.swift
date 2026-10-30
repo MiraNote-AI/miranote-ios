@@ -703,10 +703,15 @@ public enum StickerEdge {
         var sizes = [Int](repeating: 0, count: count + 1)
         var visHits = [Int](repeating: 0, count: count + 1)
         var dSum = [Double](repeating: 0, count: count + 1)
+        // every component's bounding box in this one pass, for ringWhiteShare
+        var boxes = [(minX: Int, maxX: Int, minY: Int, maxY: Int)](repeating: (w, -1, h, -1), count: count + 1)
         for i in 0..<n where labels[i] > 0 {
-            sizes[Int(labels[i])] += 1
-            if vis[i] { visHits[Int(labels[i])] += 1 }
-            dSum[Int(labels[i])] += Double(toBackdrop[i])
+            let l = Int(labels[i])
+            sizes[l] += 1
+            if vis[i] { visHits[l] += 1 }
+            dSum[l] += Double(toBackdrop[i])
+            let x = i % w, y = i / w
+            boxes[l] = (min(boxes[l].minX, x), max(boxes[l].maxX, x), min(boxes[l].minY, y), max(boxes[l].maxY, y))
         }
         var holes = Set<Int32>(), ringedHoles = Set<Int32>()
         for l in 1...max(1, count) where count > 0 && !border.contains(Int32(l)) {
@@ -722,7 +727,7 @@ public enum StickerEdge {
             // shading of a white body that the key happens to catch.
             if Double(dSum[l]) / Double(sizes[l]) <= p.flatHoleDistance
                 || (Double(sizes[l]) > p.ringedHoleMinFraction * Double(n)
-                    && ringWhiteShare(labels, Int32(l), whiteish, w, h) >= 0.5) {
+                    && ringWhiteShare(labels, Int32(l), boxes[l], whiteish, w, h) >= 0.5) {
                 ringedHoles.insert(Int32(l))
             }
         }
@@ -797,12 +802,9 @@ public enum StickerEdge {
     }
 
     /// Share of white pixels in the 3 px (city-block) ring around one component.
-    static func ringWhiteShare(_ labels: [Int32], _ l: Int32, _ whiteish: [Bool],
-                               _ w: Int, _ h: Int) -> Double {
-        var minX = w, maxX = 0, minY = h, maxY = 0
-        for y in 0..<h { for x in 0..<w where labels[y * w + x] == l {
-            minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
-        } }
+    static func ringWhiteShare(_ labels: [Int32], _ l: Int32, _ box: (minX: Int, maxX: Int, minY: Int, maxY: Int),
+                               _ whiteish: [Bool], _ w: Int, _ h: Int) -> Double {
+        let (minX, maxX, minY, maxY) = box
         var ring = 0, white = 0
         for y in max(0, minY - 3)...min(h - 1, maxY + 3) {
             for x in max(0, minX - 3)...min(w - 1, maxX + 3) where labels[y * w + x] != l {
@@ -1075,8 +1077,19 @@ struct Bitmap {
     /// Decodes any ImageIO format. Alpha is read straight; colour is only
     /// meaningful where alpha is 255, which is everywhere this reads colour.
     init?(data: Data) {
+        // Upright, as Vision and the canvas see it: a photo's EXIF orientation
+        // is applied (a full-size "thumbnail" with the transform), so a phone
+        // photo stored sideways is not outlined or cut sideways.
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let pw = properties[kCGImagePropertyPixelWidth] as? Int,
+              let ph = properties[kCGImagePropertyPixelHeight] as? Int,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: max(pw, ph),
+                  kCGImageSourceShouldCacheImmediately: true,
+              ] as CFDictionary) else { return nil }
         let w = image.width, h = image.height
         var buffer = [UInt8](repeating: 0, count: w * h * 4)
         let drawn: Bool = buffer.withUnsafeMutableBytes { bytes in

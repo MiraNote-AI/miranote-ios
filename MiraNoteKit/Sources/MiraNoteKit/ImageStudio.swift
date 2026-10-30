@@ -139,6 +139,10 @@ public struct LiveImageStudioService: ImageStudioService {
         var images: [Data] = []
         var unmatted: [Int] = []
         for (index, image) in raw.enumerated() {
+            // The lift and the cut run detached, so they would not see a
+            // cancelled generation: stop here rather than pay ~0.5 s an image
+            // for pictures nobody is waiting for.
+            try Task.checkCancellation()
             do {
                 let lifted = try await Self.lift(image, with: matte)
                 images.append(await Self.withoutModelEdge(raw: image, lifted: lifted))
