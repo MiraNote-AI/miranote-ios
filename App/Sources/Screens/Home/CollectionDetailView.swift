@@ -178,7 +178,7 @@ struct CollectionDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("note.\(memory.title)")
-        .accessibilityValue(memory.isDraft ? "Draft" : "")
+        .accessibilityValue(memory.isDraft ? String(appCopy: "Draft") : "")
         .contextMenu {
             Button {
                 pickedDate = memory.memoryDate
