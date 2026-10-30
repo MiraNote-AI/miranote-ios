@@ -120,17 +120,74 @@ final class StickerEdgeTests: XCTestCase {
         XCTAssertEqual(at(out, report, 120 + 23, 120)[3], 255, "its ring is not")
     }
 
-    func testABackdropColouredPartVisionKeptIsBody() throws {
-        // A whale's belly in the backdrop's own blue, ringed by its outline:
-        // Vision keeps it, so it is body, not a hole.
+    func testAPartAShadeOffTheBackdropVisionKeptIsBody() throws {
+        // A whale's belly a shade off the backdrop's blue, ringed by its
+        // outline: Vision keeps it, so it is body, not a hole. (In the
+        // backdrop's exact colour it would go: the prompt keeps that colour
+        // out of the art, so there it is backdrop seen through a hole.)
         let raw = picture { x, y in
             let d = self.r(x, y)
-            if d <= 30 { return nil }
+            if d <= 30 { return (95, 140, 185) }
             if d <= 36 { return (40, 60, 140) }
             return self.sticker(x, y)
         }
         let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
         XCTAssertEqual(at(out, report, 120, 120)[3], 255, "the belly is not punched out")
+    }
+
+    func testAHoleVisionFilledOnARimmedStickerOpensWithItsRim() throws {
+        // The model drew its rim round the art and round the hole, where the
+        // backdrop shows; Vision took the whole disc, hole and all.
+        let raw = picture { x, y in
+            let d = self.r(x, y)
+            if d <= 18 { return nil }
+            if d <= 26 { return self.rimWhite }
+            return self.sticker(x, y)
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 70 })
+        XCTAssertGreaterThan(report.modelRimWidth, 0)
+        XCTAssertEqual(at(out, report, 120, 120)[3], 0, "the hole opens")
+        XCTAssertEqual(at(out, report, 120 + 22, 120)[3], 0, "and its rim goes with it")
+        XCTAssertEqual(at(out, report, 120 + 40, 120)[3], 255, "the art stays")
+    }
+
+    func testAHoleVisionFilledOnAGreyBackdropOpens() throws {
+        // Bare art on grey (where Vision has the last word on pale parts): a
+        // patch of the backdrop's own flat grey ringed by the art is a hole
+        // even though Vision took it.
+        let grey: (UInt8, UInt8, UInt8) = (170, 170, 170)
+        let raw = picture { x, y in
+            let d = self.r(x, y)
+            return d <= 20 || d > 60 ? grey : self.red
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 60 })
+        XCTAssertEqual(at(out, report, 120, 120)[3], 0, "the hole opens")
+        XCTAssertEqual(at(out, report, 120 + 40, 120)[3], 255)
+    }
+
+    func testSmallColouredPartsVisionKeptStay() throws {
+        // A big disc with a sparkle and a short motion line beside it, all
+        // taken by Vision: small, but clearly coloured art, not crumbs.
+        let blue: (UInt8, UInt8, UInt8) = (40, 60, 210)
+        let sparkle: (Double, Double) -> Bool = { x, y in self.r(x, y, 231, 120) <= 3.5 }
+        let line: (Double, Double) -> Bool = { x, y in x >= 228 && x <= 230 && y >= 150 && y < 180 }
+        let raw = picture { x, y in
+            if self.r(x, y) <= 100 { return self.red }
+            return sparkle(x, y) || line(x, y) ? blue : nil
+        }
+        let (out, report) = try run(raw, alpha { x, y in self.r(x, y) <= 100 || sparkle(x, y) || line(x, y) })
+        XCTAssertEqual(report.modelRimWidth, 0)
+        XCTAssertGreaterThan(at(out, report, 231, 120)[3], 200, "the sparkle stays")
+        XCTAssertGreaterThan(at(out, report, 229, 165)[3], 150, "the motion line stays")
+    }
+
+    func testAnImageOverTheSizeLimitThrows() {
+        var p = StickerEdge.Parameters()
+        p.maxPixels = 100
+        XCTAssertThrowsError(try StickerEdge.cleanCut(raw: picture(sticker).png()!,
+                                                      lifted: alpha { _, _ in true }.png()!, parameters: p)) {
+            XCTAssertEqual($0 as? StickerEdge.Failure, .tooLarge)
+        }
     }
 
     func testTheBackdropBetweenTwigsGoesEvenWhereVisionTookIt() throws {

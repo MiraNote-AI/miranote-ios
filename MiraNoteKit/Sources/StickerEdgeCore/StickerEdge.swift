@@ -157,6 +157,9 @@ public enum StickerEdge {
         /// side (team decision 2026-10-28), never under `outlineMin` px.
         public var outlineFraction = 0.04
         public var outlineMin = 9
+        /// Largest image cut (px): the model draws 1024 x 1024; 2048 x 2048
+        /// would already use ~200 MB.
+        public var maxPixels = 2048 * 2048
 
         public init() {}
     }
@@ -166,6 +169,9 @@ public enum StickerEdge {
         case sizeMismatch
         case nothingLifted
         case unencodable
+        /// Over `maxPixels`: the cut holds dozens of full-size buffers, so
+        /// Vision's own cut is used instead of risking the app's memory.
+        case tooLarge
     }
 
     /// What the cut decided, for logs and the bench.
@@ -201,6 +207,7 @@ public enum StickerEdge {
         guard source.width == cut.width, source.height == cut.height else {
             throw Failure.sizeMismatch
         }
+        guard source.width * source.height <= parameters.maxPixels else { throw Failure.tooLarge }
         let alpha = (0..<(cut.width * cut.height)).map { cut.pixels[$0 * 4 + 3] }
         let (out, report) = try cleanCut(source, liftedAlpha: alpha, parameters)
         guard let png = out.png() else { throw Failure.unencodable }
@@ -349,10 +356,11 @@ public enum StickerEdge {
             art = keyedMask.bare
             for i in 0..<n where vis[i] && !keyedMask.notSticker[i] { art[i] = true }
             // less the crumbs of rim or paper Vision lifted with it
-            art = pickParts(art, vis, w, h, p)
+            art = pickParts(art, vis, w, h, p, keep: keyedMask.clearlyArt)
             edgeDepth = distance(to: art.map { !$0 }, w, h)
         }
-        dropSlivers(&art, depth: edgeDepth, w, h, limit: Double(rimWidth) + p.seamBand, p)
+        dropSlivers(&art, depth: edgeDepth, w, h, limit: Double(rimWidth) + p.seamBand, p,
+                    keep: keyedMask?.clearlyArt)
         // crumbs a removed rim can leave (a rope's last px, a hair tip)
         dropSmallParts(&art, w, h, below: p.minPartPixels)
         guard art.contains(true) else { throw Failure.nothingLifted }
@@ -744,7 +752,7 @@ public enum StickerEdge {
     /// those holes, and on a coloured backdrop its shadow joined to the outside.
     static func subjectMask(_ rgb: RGB, _ w: Int, _ h: Int, _ vis: [Bool],
                             _ bg: (Double, Double, Double), _ p: Parameters)
-        -> (rimmed: [Bool], bare: [Bool], notSticker: [Bool]) {
+        -> (rimmed: [Bool], bare: [Bool], notSticker: [Bool], clearlyArt: [Bool]) {
         let n = w * h
         let toWhite = ((255 - bg.0) * (255 - bg.0) + (255 - bg.1) * (255 - bg.1)
                        + (255 - bg.2) * (255 - bg.2)).squareRoot()
@@ -791,8 +799,12 @@ public enum StickerEdge {
         }
         var holes = Set<Int32>(), ringedHoles = Set<Int32>()
         for l in 1...max(1, count) where count > 0 && !border.contains(Int32(l)) {
-            guard Double(sizes[l]) > p.holeMinFraction * Double(n),
-                  Double(visHits[l]) / Double(sizes[l]) < 0.5 else { continue }
+            guard Double(sizes[l]) > p.holeMinFraction * Double(n) else { continue }
+            // Vision fills small enclosed gaps (a donut's hole, between spokes)
+            // as often as it leaves them: a patch that is the backdrop's own
+            // flat colour is a hole whatever Vision did.
+            let flat = Double(dSum[l]) / Double(sizes[l]) <= p.flatHoleDistance
+            guard flat || Double(visHits[l]) / Double(sizes[l]) < 0.5 else { continue }
             holes.insert(Int32(l))
             // On a rimmed sticker: the backdrop itself showing through (flat,
             // its own colour), or a hole ringed by the rim's white; not the pale
@@ -843,23 +855,31 @@ public enum StickerEdge {
             bare[i] = !hole && !backdrop && !(outerShadow[i] && !vis[i])
                 && ((!exterior && reached) || trusted)
         }
-        return (pickParts(rimmed, vis, w, h, p), pickParts(bare, vis, w, h, p), notSticker)
+        // clearly coloured art: far from the backdrop, not white, not shadow
+        let clearlyArt = (0..<n).map { unlikeBackdrop[$0] && !whiteish[$0] }
+        return (pickParts(rimmed, vis, w, h, p), pickParts(bare, vis, w, h, p, keep: clearlyArt),
+                notSticker, clearlyArt)
     }
 
-    /// The candidate's components that Vision touched, less specks.
+    /// The candidate's components that Vision touched, less specks. With
+    /// `keep`, a small part that is mostly `keep` px (clearly coloured art: a
+    /// sparkle, a sweat drop, a music note) is not a speck.
     static func pickParts(_ candidate: [Bool], _ vis: [Bool], _ w: Int, _ h: Int,
-                          _ p: Parameters) -> [Bool] {
+                          _ p: Parameters, keep: [Bool]? = nil) -> [Bool] {
         let n = w * h
         let (parts, partCount) = label(candidate, w, h)
         var partSize = [Int](repeating: 0, count: partCount + 1)
+        var kept = [Int](repeating: 0, count: partCount + 1)
         var picked = [Bool](repeating: false, count: partCount + 1)
         for i in 0..<n where parts[i] > 0 {
             partSize[Int(parts[i])] += 1
             if vis[i] { picked[Int(parts[i])] = true }
+            if keep?[i] == true { kept[Int(parts[i])] += 1 }
         }
         let total = (1..<(partCount + 1)).reduce(0) { picked[$1] ? $0 + partSize[$1] : $0 }
         for l in 1..<(partCount + 1) where picked[l]
-            && Double(partSize[l]) < p.speckFraction * Double(total) {
+            && Double(partSize[l]) < p.speckFraction * Double(total)
+            && !(keep != nil && 2 * kept[l] >= partSize[l]) {
             picked[l] = false
         }
         return parts.map { $0 > 0 && picked[Int($0)] }
@@ -915,19 +935,23 @@ public enum StickerEdge {
     /// Shadow slivers and dashes clinging to the outside of the model's rim:
     /// small art components that never reach deeper than `limit`.
     static func dropSlivers(_ art: inout [Bool], depth: [Float], _ w: Int, _ h: Int,
-                            limit: Double, _ p: Parameters) {
+                            limit: Double, _ p: Parameters, keep: [Bool]? = nil) {
         let (labels, count) = label(art, w, h)
         guard count > 0 else { return }
         var size = [Int](repeating: 0, count: count + 1)
+        var kept = [Int](repeating: 0, count: count + 1)
         var deepest = [Float](repeating: 0, count: count + 1)
         for i in 0..<art.count where labels[i] > 0 {
             let l = Int(labels[i])
             size[l] += 1
             deepest[l] = max(deepest[l], depth[i])
+            if keep?[i] == true { kept[l] += 1 }
         }
         let total = Double(size.reduce(0, +))
         var junk = [Bool](repeating: false, count: count + 1)
-        for l in 1...count where Double(size[l]) < p.sliverFraction * total && Double(deepest[l]) <= limit {
+        // a thin line of clearly coloured art (a motion line) is not a sliver
+        for l in 1...count where Double(size[l]) < p.sliverFraction * total && Double(deepest[l]) <= limit
+            && !(keep != nil && 2 * kept[l] >= size[l]) {
             junk[l] = true
         }
         for i in 0..<art.count where labels[i] > 0 && junk[Int(labels[i])] { art[i] = false }
@@ -1077,8 +1101,10 @@ public enum StickerEdge {
     }
 
     /// Separable Gaussian, truncated at 4 sigma like scipy, edges replicated
-    /// (every caller pads its image, so the edge rule never touches a sticker).
+    /// (art touching the image's border sees its own edge px repeated).
+    /// A sigma under 0.1 is taken as 0.1 rather than dividing by zero.
     static func gaussian(_ src: [Float], _ w: Int, _ h: Int, sigma: Float) -> [Float] {
+        let sigma = max(0.1, sigma)
         let radius = max(1, Int(4 * sigma + 0.5))
         var kernel = (-radius...radius).map { i in exp(-Float(i * i) / (2 * sigma * sigma)) }
         let total = kernel.reduce(0, +)
