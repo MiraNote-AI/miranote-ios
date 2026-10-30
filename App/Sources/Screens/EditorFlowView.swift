@@ -11,7 +11,9 @@ struct EditorFlowView: View {
     /// unchanged is no draft either (#137).
     var onComplete: (Memory, _ saved: Bool) -> Void = { _, _ in }
     /// Files the page quietly WITHOUT leaving the editor -- the autosave
-    /// half of "editing autosaves"; like Home, it keeps a draft (#137).
+    /// half of "editing autosaves". Like Home, it files a changed page as a
+    /// draft and a saved page left unchanged as saved (#137); once Save or
+    /// Home has filed the page, it files nothing.
     var onAutosave: (Memory) -> Void = { _ in }
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var services: ServiceContainer = .mock

@@ -11,7 +11,8 @@ struct StarJarView: View {
     var onOpenNote: (JarStar) -> Void = { _ in }
     /// The shown pages, to ask the mood of one at a time: the judge skips
     /// one judged from its current words, and asks again one whose words
-    /// changed after an ask at Save failed. `[]` when the jar closes.
+    /// changed after an ask at Save failed -- unless it is a draft, which
+    /// waits for its next Save (#137). `[]` when the jar closes.
     var onShow: ([Memory.ID]) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
