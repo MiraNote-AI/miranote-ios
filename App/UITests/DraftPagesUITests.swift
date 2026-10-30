@@ -94,9 +94,11 @@ final class DraftPagesUITests: XCTestCase {
         XCTAssertEqual(cover.value as? String, "Draft")
     }
 
-    // A guard: opening re-measures the page's text, which is no edit. (No
-    // waiting on the toast NOT to show: a miss over the reading page took
-    // XCUITest ten minutes to describe. The cover says it plainly.)
+    // A saved page only looked at stays saved. The seeded page's text
+    // already fits, so the opening re-measure moves nothing here: its guard
+    // is DraftPageTests.testTheOpeningRemeasureIsNoEdit. (No waiting on the
+    // toast NOT to show: a miss over the reading page took XCUITest ten
+    // minutes to describe. The cover says it plainly.)
     func testLookingAtASavedPageKeepsItSaved() {
         app.buttons["collection.Daily Log"].tap()
         let cover = app.buttons["note.Lunch by the river"]

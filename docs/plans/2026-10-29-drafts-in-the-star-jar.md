@@ -87,3 +87,12 @@ it, and every draft would be a star.
 2. Drafts in the jar (9f33471) and their zh-Hans strings (f073e1c) -- criteria 1-7/11 (2 is HUMAN); Kit 602/0, app unit 108/0, DraftPagesUITests 7/7, StarJarUITests 2/2. On 7083a82 the two new UI tests fail ("a draft never saved is no star"; "label became A sad walk, Joyful"), and LocalizationCatalogTests failed until the catalog had both entries.
 3. Jason's three review points (the commit that adds this line) -- criteria 1-9/11. Mutation evidence: with the baseline taken at open, `testTheOpeningRemeasureIsNoEdit` fails; with the draft toast switched off, `testSaveTurnsADraftIntoASavedPage` fails at its new wait. Draft tag and toast screenshotted in System, Forest and Sunlit Pop, in English and Chinese.
    Ruling: the Draft tag keeps its paper capsule. The journal's own Home pill is the same unthemed `SoftPill` in every theme, Forest included, so the tag already matches it. No code change.
+4. Verification, and fixes from it (f9dc2bd, ebd2ed3, the commit that adds this line) -- criteria 1-10/11.
+   - Full run at 87eaacc: Kit 602/0; app unit 108/0; UI 233 (229 passed, 4 skipped, 0 failed); Release builds.
+   - swiftlint found 137 violations, one more than dev: HomeFlow's body reached 266 lines, over the 250-line `type_body_length` limit, once dev's additions met the toast code. The toast moved to an extension (ebd2ed3) and the count is back to 136, as on dev.
+   - After the later commits: Kit 604/0; DraftPagesUITests 7/7; StarJarUITests 2/2. Those commits only add tests and move the toast.
+   - Governance checks from `.github` main (f732992): all four pass.
+   - Fresh-context check: VERDICT DONE, with 0 IMPORTANT and 3 NIT findings.
+     - NIT 1 FIXED f9dc2bd. The new test fails if drafts are dropped only when queued.
+     - NIT 3 FIXED f9dc2bd. The new test fails if a missing `hasBeenSaved` reads as saved.
+     - NIT 2 ANSWERED. With the baseline taken at open, `testLookingAtASavedPageKeepsItSaved` still passes, because the seeded page's heights already fit. Its comment now names the Kit test that guards the re-measure.
