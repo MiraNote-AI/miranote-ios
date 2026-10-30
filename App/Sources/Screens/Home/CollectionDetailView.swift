@@ -163,13 +163,11 @@ struct CollectionDetailView: View {
             VStack(alignment: .leading, spacing: 5) {
                 PageCoverView(memory: memory, coverWidth: 164, coverHeight: 190)
                 // The cover already says the title; the caption says when,
-                // and whether the page still waits for Save (#137).
-                HStack(spacing: 6) {
-                    Text(CaptionDate.string(for: memory.memoryDate))
-                        .font(.miraCaption)
-                        .foregroundStyle(theme.muted(Palette.textSecondary))
-                        .lineLimit(1)
-                    if memory.isDraft { DraftTag() }
+                // and whether the page still waits for Save (#137). A date
+                // too long to share its line with the tag keeps the line.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { caption(memory) }
+                    VStack(alignment: .leading, spacing: 4) { caption(memory) }
                 }
             }
             // The cover itself ignores touches (Color.clear + hit-disabled
@@ -199,6 +197,14 @@ struct CollectionDetailView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+    }
+
+    @ViewBuilder private func caption(_ memory: Memory) -> some View {
+        Text(CaptionDate.string(for: memory.memoryDate))
+            .font(.miraCaption)
+            .foregroundStyle(theme.muted(Palette.textSecondary))
+            .lineLimit(1)
+        if memory.isDraft { DraftTag() }
     }
 
     private var otherCollections: [MemoryCollection] {
