@@ -4715,6 +4715,17 @@
         }
       }
     },
+    "This sticker has no stored pixels to outline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可描边的像素。"
+          }
+        }
+      }
+    },
     "This sticker has no stored pixels to work on -- try another?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4722,6 +4733,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这张贴纸没有可处理的像素，换一张试试？"
+          }
+        }
+      }
+    },
+    "This sticker has nothing visible to outline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可描边的可见部分。"
           }
         }
       }

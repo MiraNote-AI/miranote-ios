@@ -1,5 +1,6 @@
 import CoreImage
 import Foundation
+import os
 import Vision
 
 /// Background removal that runs where the photo already is.
@@ -16,6 +17,12 @@ import Vision
 public protocol ForegroundMatte: Sendable {
     /// Lift the salient foreground out of `image`, returning RGBA PNG data.
     func removeBackground(_ image: Data) throws -> Data
+    /// Load whatever the first lift would otherwise wait for.
+    func warmUp()
+}
+
+public extension ForegroundMatte {
+    func warmUp() {}
 }
 
 public enum ForegroundMatteError: Error, Equatable {
@@ -37,7 +44,46 @@ public enum ForegroundMatteError: Error, Equatable {
 /// server's helper uses needs iOS 18, and adopting it here would raise the
 /// app's floor from iOS 17 for no gain -- the two produce the same mask.
 public struct VisionForegroundMatte: ForegroundMatte {
+    private static let warmed = OSAllocatedUnfairLock(initialState: false)
+
+    /// True for the first caller in this process only.
+    static func claimWarmUp() -> Bool {
+        warmed.withLock { warmed in
+            defer { warmed = true }
+            return !warmed
+        }
+    }
+
     public init() {}
+
+    /// Loads Vision's segmentation model ahead of the first real lift. On the
+    /// bench the first lift after launch took 0.58 s and the next ones
+    /// 0.05-0.13 s; the difference is the model load, which a throwaway request
+    /// on a tiny image pays instead. Fire and forget, at utility priority, and
+    /// once per launch however often the Sticker panel opens.
+    public func warmUp() {
+        guard Self.claimWarmUp() else { return }
+        Task.detached(priority: .utility) {
+            let side = 64
+            var pixels = [UInt8](repeating: 0, count: side * side * 4)
+            for i in 0..<(side * side) {
+                let inside = abs(i % side - side / 2) < 16 && abs(i / side - side / 2) < 16
+                pixels[i * 4] = inside ? 200 : 40
+                pixels[i * 4 + 1] = inside ? 60 : 40
+                pixels[i * 4 + 2] = 40
+                pixels[i * 4 + 3] = 255
+            }
+            guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+                  let image = CGImage(
+                    width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 32,
+                    bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                    provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+                  ) else { return }
+            try? VNImageRequestHandler(cgImage: image)
+                .perform([VNGenerateForegroundInstanceMaskRequest()])
+        }
+    }
 
     public func removeBackground(_ image: Data) throws -> Data {
         // Built per call. CIContext is documented as expensive to create, but

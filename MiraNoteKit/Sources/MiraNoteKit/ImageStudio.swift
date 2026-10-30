@@ -1,4 +1,5 @@
 import Foundation
+import StickerEdgeCore
 
 /// What the image-generation POC can produce from a prompt.
 public enum GeneratedImageKind: String, Sendable {
@@ -40,6 +41,9 @@ public protocol ImageStudioService: Sendable {
     func stylize(image: Data, instruction: String) async throws -> Data
     /// The white sticker outline around a cutout.
     func outline(image: Data) async throws -> Data
+    /// Get ready for a cut-out soon (the Sticker panel just opened): loads
+    /// what the first one would otherwise wait for.
+    func prepare()
     /// One warm sentence about the photo (vision) -- page context for chat.
     func describe(image: Data) async throws -> String
     /// Stickers plus per-image matte results, for callers that offer a choice.
@@ -47,10 +51,25 @@ public protocol ImageStudioService: Sendable {
 }
 
 public extension ImageStudioService {
+    func prepare() {}
+
     /// Default for any service that mattes server-side: what comes back is
     /// already cut out, or the call threw.
     func generateStickers(prompt: String) async throws -> StickerGeneration {
         StickerGeneration(images: try await generate(kind: .sticker, prompt: prompt))
+    }
+}
+
+/// Why an Outline could not be drawn, in words the user can act on.
+public enum OutlineError: Error, LocalizedError {
+    /// The image has no opaque px at all: trying again will not help.
+    case nothingVisible
+
+    public var errorDescription: String? {
+        switch self {
+        case .nothingVisible:
+            return String(appCopy: "This sticker has nothing visible to outline.")
+        }
     }
 }
 
@@ -108,15 +127,25 @@ public struct LiveImageStudioService: ImageStudioService {
     private let baseURL: URL
     private let client: HTTPClient
     private let matte: ForegroundMatte?
+    private let localOutline: Bool
 
+    /// `localOutline` draws the Outline tool's white edge on this phone
+    /// (StickerEdge) instead of posting the sticker to /border: that round
+    /// trip carried 0.3-0.9 MB each way and took longer than the cut-out.
     public init(
         baseURL: URL = MiraNoteConfig.Backend.imageBaseURL,
         client: HTTPClient = HTTPClient(),
-        matte: ForegroundMatte? = nil
+        matte: ForegroundMatte? = nil,
+        localOutline: Bool = false
     ) {
         self.baseURL = baseURL
         self.client = client
         self.matte = matte
+        self.localOutline = localOutline
+    }
+
+    public func prepare() {
+        matte?.warmUp()
     }
 
     public func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
@@ -138,8 +167,13 @@ public struct LiveImageStudioService: ImageStudioService {
         var images: [Data] = []
         var unmatted: [Int] = []
         for (index, image) in raw.enumerated() {
+            // The lift and the cut run detached, so they would not see a
+            // cancelled generation: stop here rather than pay ~0.5 s an image
+            // for pictures nobody is waiting for.
+            try Task.checkCancellation()
             do {
-                images.append(try await Self.lift(image, with: matte))
+                let lifted = try await Self.lift(image, with: matte)
+                images.append(await Self.withoutModelEdge(raw: image, lifted: lifted))
             } catch {
                 // The picture is already here and already paid for. Keep it,
                 // background and all, and let the caller say so.
@@ -201,6 +235,16 @@ public struct LiveImageStudioService: ImageStudioService {
         }.value
     }
 
+    /// A generated sticker without the white die-cut edge the model drew round
+    /// it (see StickerEdge): stickers come out bare, and Outline adds an edge on
+    /// request. If StickerEdge cannot read the images, Vision's cut is kept as
+    /// it was, model edge and all.
+    private static func withoutModelEdge(raw: Data, lifted: Data) async -> Data {
+        await Task.detached(priority: .userInitiated) {
+            (try? StickerEdge.cleanCut(raw: raw, lifted: lifted)) ?? lifted
+        }.value
+    }
+
     public func stylize(image: Data, instruction: String) async throws -> Data {
         try await uploadForImage(
             path: "stylize",
@@ -210,7 +254,16 @@ public struct LiveImageStudioService: ImageStudioService {
     }
 
     public func outline(image: Data) async throws -> Data {
-        try await uploadForImage(
+        if localOutline {
+            return try await Task.detached(priority: .userInitiated) {
+                do {
+                    return try StickerEdge.outline(lifted: image)
+                } catch StickerEdge.Failure.nothingLifted {
+                    throw OutlineError.nothingVisible
+                }
+            }.value
+        }
+        return try await uploadForImage(
             path: "border",
             image: image,
             query: [URLQueryItem(name: "mode", value: "outline")]

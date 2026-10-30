@@ -100,4 +100,41 @@ final class StickerEditUITests: XCTestCase {
         XCTAssertTrue(edited.waitForExistence(timeout: 5), "the element is still a sticker")
         XCTAssertTrue(edited.isHittable, "the edited sticker is on screen, no scrolling needed")
     }
+
+    /// Edit sticker offers AI Editing and Outline, like Photo Editing but only
+    /// those two; Outline adds the white edge in place, one undo.
+    func testOutlineTileEdgesTheStickerInPlace() {
+        startMemory()
+        placeOneSticker()
+
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        sticker.press(forDuration: 1.1)
+        let entry = app.buttons["Edit sticker"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        entry.tap()
+
+        XCTAssertTrue(app.buttons["sticker.tile.ai"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["sticker.tile.ai"].isSelected, "AI Editing owns the composer")
+        let outline = app.buttons["sticker.tile.outline"]
+        XCTAssertTrue(outline.exists)
+        let tiles = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sticker.tile.'"))
+        XCTAssertEqual(tiles.count, 2, "exactly two tiles: no Cutout, filters or frames here")
+        outline.tap()
+
+        let field = app.textFields["sticker.ai.instruction"]
+        let closed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 8), .completed,
+                       "the panel closes once the outlined sticker lands")
+        let outlined = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        XCTAssertTrue(outlined.waitForExistence(timeout: 5), "still a sticker, in place")
+        let undo = app.buttons["editor.undo"]
+        XCTAssertTrue(undo.isEnabled, "one undo takes the edge back off")
+        undo.tap()
+        XCTAssertTrue(app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch.waitForExistence(timeout: 5),
+                      "undo restores the sticker, not an empty page")
+    }
 }

@@ -39,13 +39,16 @@ public struct ServiceContainer: Sendable {
     /// moves plain background removal onto this phone: no upload, no queue
     /// behind one shared Mac, and it works with the backend unreachable.
     /// Everything that needs a model too large to ship still goes to the POC.
+    /// The Outline tool's white edge is drawn here too. Vision's model is
+    /// loaded when the Sticker panel opens (`ImageStudioService.prepare`), not
+    /// at launch: most launches never cut anything out.
     public static let live = ServiceContainer(
         textTransform: LiveTextTransformService(),
         voiceTranscription: LiveVoiceTranscriptionService(),
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: LiveChatService(),
-        imageStudio: LiveImageStudioService(matte: VisionForegroundMatte()),
+        imageStudio: LiveImageStudioService(matte: VisionForegroundMatte(), localOutline: true),
         mood: LiveMoodService()
     )
 
