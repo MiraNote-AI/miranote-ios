@@ -70,6 +70,33 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertEqual(stickers.count, 1)
     }
 
+    /// A photo becomes a sticker with no edge (team decision 2026-10-24):
+    /// the cut is what shows, Outline is not lit and there is nothing to
+    /// undo. It used to push an outlined look on top of the cut.
+    func testAPhotoBecomesAStickerWithNoEdge() {
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let samples = app.buttons["image.library.samples"]
+        XCTAssertTrue(samples.waitForExistence(timeout: 5))
+        samples.tap()
+        let photo = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        app.buttons["nav.trailing"].tap()
+        // Placed photos arrive unselected; the shortcut needs one selected.
+        photo.tap()
+
+        app.buttons["mode.sticker"].tap()
+        let fromPhoto = app.buttons["sticker.fromPhoto"]
+        XCTAssertTrue(fromPhoto.waitForExistence(timeout: 5), "the selected photo's shortcut shows")
+        fromPhoto.tap()
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["sticker.style.cutout"].isSelected, "the plain cut is the showing look")
+        XCTAssertFalse(app.buttons["sticker.style.outline"].isSelected, "no edge was added")
+        XCTAssertFalse(app.buttons["sticker.undo"].isEnabled, "no look sits on top of the cut")
+    }
+
     func testGeneratingShowsTheSpinnerThenTheResult() {
         generate("a cup, slowly")
         XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3), "the generating spinner shows")
