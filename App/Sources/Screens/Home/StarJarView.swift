@@ -33,12 +33,11 @@ struct StarJarView: View {
     private var isCurrent: Bool { interval.contains(.now) }
 
     /// Past the current period only while a later one holds stars: a page
-    /// can be dated ahead, and must stay reachable. A draft never saved is
-    /// no star (`StarJar.stars`).
+    /// can be dated ahead, and must stay reachable.
     private var canStepForward: Bool {
-        interval.end <= .now || viewModel.library.collections.contains { collection in
-            collection.memories.contains { $0.hasBeenSaved && $0.memoryDate >= interval.end }
-        }
+        interval.end <= .now || !StarJar.stars(
+            in: viewModel.library, during: DateInterval(start: interval.end, end: .distantFuture)
+        ).isEmpty
     }
 
     var body: some View {
