@@ -4,6 +4,10 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
+// Pixel code: w/h, x/y, i (index), p (parameters), a (alpha), r/g/b read
+// as the maths they are; longer names would hide the formulas.
+// swiftlint:disable identifier_name
+
 /// A generated sticker cut out without the model's white die-cut edge.
 ///
 /// The image model draws the art on a flat backdrop that shows through its
@@ -154,9 +158,12 @@ public enum StickerEdge {
         /// Anti-aliasing of the art's edge.
         public var antialiasSigma: Float = 0.8
         /// The Outline tool's white edge: this share of the sticker's longer
-        /// side (team decision 2026-10-28), never under `outlineMin` px.
+        /// side (team decision 2026-10-28), never under `outlineMin` px. The
+        /// floor only keeps a tiny sticker from getting no edge at all: a
+        /// preset's art is ~54 px and draws scaled up, so a larger floor
+        /// made its edge several times the 4% (#156 review).
         public var outlineFraction = 0.04
-        public var outlineMin = 9
+        public var outlineMin = 1
         /// Largest image cut (px): the model draws 1024 x 1024; 2048 x 2048
         /// would already use ~200 MB.
         public var maxPixels = 2048 * 2048

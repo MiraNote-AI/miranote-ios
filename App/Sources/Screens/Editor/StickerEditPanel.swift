@@ -96,7 +96,8 @@ struct StickerEditPanel: View {
     }
 
     /// A white edge round the sticker as it is now, in place. Drawn on the
-    /// phone and already cropped to the sticker and its edge.
+    /// phone and already cropped to the sticker and its edge; the frame grows
+    /// by the edge, so the art keeps its size and place.
     private func runOutline() {
         guard !editing else { return }
         guard let sticker = currentSticker,
@@ -104,10 +105,13 @@ struct StickerEditPanel: View {
             notice = String(appCopy: "This sticker has no stored pixels to outline.")
             return
         }
-        replace(sticker) { try await studio.outline(image: data) }
+        replace(sticker, growingFrom: data) { try await studio.outline(image: data) }
     }
 
-    private func replace(_ sticker: GeneratedSticker, with make: @escaping () async throws -> Data) {
+    /// `growingFrom`: the sticker's pixels before, when the new ones are them
+    /// with an edge round them (Outline).
+    private func replace(_ sticker: GeneratedSticker, growingFrom old: Data? = nil,
+                         with make: @escaping () async throws -> Data) {
         editing = true
         notice = nil
         Task {
@@ -121,7 +125,11 @@ struct StickerEditPanel: View {
                     symbolName: sticker.symbolName,
                     fileName: fileName
                 )
-                editor.replaceSticker(itemID: itemID, with: edited)
+                let frame = editor.item(itemID)?.size
+                let regrowth = old.flatMap { old in
+                    frame.flatMap { StickerTrim.regrowth(from: old, to: made, in: $0) }
+                }
+                editor.replaceSticker(itemID: itemID, with: edited, regrowth: regrowth)
                 // The new sticker on the page is the receipt; Undo brings
                 // the old one back.
                 onClose()

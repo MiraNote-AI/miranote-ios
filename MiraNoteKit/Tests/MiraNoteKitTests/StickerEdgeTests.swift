@@ -4,6 +4,10 @@ import XCTest
 @testable import MiraNoteKit
 @testable import StickerEdgeCore
 
+// Pixel code: w/h, x/y, i (index), p (parameters), a (alpha), r/g/b read
+// as the maths they are; longer names would hide the formulas.
+// swiftlint:disable identifier_name
+
 /// StickerEdge.cleanCut on drawn inputs whose right answer is known by
 /// construction: a red disc inside a white model rim on a flat backdrop, and a
 /// "Vision" alpha that gets it wrong in the ways the bench saw Vision get it wrong.
@@ -546,7 +550,7 @@ final class StickerOutlineTests: XCTestCase {
 
     func testTheStickerGetsAWhiteEdgeAndIsCroppedToIt() throws {
         let (out, report) = try StickerEdge.outline(cutout { self.r($0, $1) <= 100 }, StickerEdge.Parameters())
-        XCTAssertEqual(report.width, 8 + 1, "4% of a 201 px sticker is 8, the floor is 9")
+        XCTAssertEqual(report.width, 8, "4% of a 201 px sticker")
         XCTAssertEqual(report.padding, report.width, accuracy: 1, "no margin beyond the edge")
         XCTAssertEqual(out.width, 201 + 2 * report.padding, "cropped to the sticker and its edge")
         let c = out.height / 2
@@ -557,14 +561,26 @@ final class StickerOutlineTests: XCTestCase {
     }
 
     func testTheEdgeIsFourPercentOfABigSticker() throws {
+        // Two lines: as one expression Xcode 26.3 gives up type-checking it.
         let (_, report) = try StickerEdge.outline(cutout(700) { x, y in
-            ((x - 350) * (x - 350) + (y - 350) * (y - 350)).squareRoot() <= 300
+            let dx = x - 350, dy = y - 350
+            return (dx * dx + dy * dy).squareRoot() <= 300
         }, StickerEdge.Parameters())
         XCTAssertEqual(report.width, 24, "4% of 601 px")
     }
 
+    func testASmallStickerKeepsTheFourPercentEdge() throws {
+        // A Food preset's art is ~54 x 30 px and draws scaled up on the page:
+        // a 9 px floor made its edge 17% of it, a white slab (#156 review).
+        let (out, report) = try StickerEdge.outline(cutout(80) { x, y in
+            x >= 13 && x < 67 && y >= 25 && y < 55
+        }, StickerEdge.Parameters())
+        XCTAssertEqual(report.width, 2, "4% of 54 px")
+        XCTAssertLessThanOrEqual(out.width, 54 + 2 * 3, "the edge adds about 4% a side, no slab")
+    }
+
     func testAHoleGetsOneRingAndStaysEmpty() throws {
-        // A donut: ring 40-100, hole of radius 40, wider than two 9 px edges.
+        // A donut: ring 40-100, hole of radius 40, wider than two 8 px edges.
         let (out, report) = try StickerEdge.outline(
             cutout { self.r($0, $1) <= 100 && self.r($0, $1) > 40 }, StickerEdge.Parameters())
         let c = out.width / 2
@@ -572,24 +588,24 @@ final class StickerOutlineTests: XCTestCase {
         XCTAssertEqual(px(out, c - 40 + report.width / 2, c), [255, 255, 255, 255], "ringed in white")
     }
 
-    /// A disc with a round hole of `diameter`, outlined with a 9 px edge; the
+    /// A disc with a round hole of `diameter`, outlined with an 8 px edge; the
     /// alpha at the hole's middle.
     private func holeMiddleAlpha(diameter: Double) throws -> UInt8 {
         let (out, report) = try StickerEdge.outline(
             cutout { self.r($0, $1) <= 100 && self.r($0, $1) > diameter / 2 }, StickerEdge.Parameters())
-        XCTAssertEqual(report.width, 9)
+        XCTAssertEqual(report.width, 8)
         let c = out.width / 2
         return px(out, c, c)[3]
     }
 
     func testAHoleJustUnderTwoEdgesFillsAndJustOverStaysOpen() throws {
         // The team's rule: wider than two edges keeps an empty middle.
-        XCTAssertEqual(try holeMiddleAlpha(diameter: 16), 255, "16 px < 2 x 9: fills")
-        XCTAssertEqual(try holeMiddleAlpha(diameter: 24), 0, "24 px > 2 x 9: stays open")
+        XCTAssertEqual(try holeMiddleAlpha(diameter: 14), 255, "14 px < 2 x 8: fills")
+        XCTAssertEqual(try holeMiddleAlpha(diameter: 20), 0, "20 px > 2 x 8: stays open")
     }
 
     func testAFaintPixelBeyondTheEdgeKeepsItsColour() throws {
-        // a soft wisp 20 px out from a 9 px edge: drawn as it was, not whitened
+        // a soft wisp 20 px out from an 8 px edge: drawn as it was, not whitened
         var cut = cutout { self.r($0, $1) <= 100 }
         let i = (150 * 300 + 150 + 100 + 20) * 4
         cut.pixels[i] = 30; cut.pixels[i + 1] = 160; cut.pixels[i + 2] = 60; cut.pixels[i + 3] = 100
@@ -601,7 +617,7 @@ final class StickerOutlineTests: XCTestCase {
     }
 
     func testAGapNarrowerThanTwoEdgesFills() throws {
-        // Two bars 10 px apart: narrower than two 9 px edges, so it fills white.
+        // Two bars 10 px apart: narrower than two 8 px edges, so it fills white.
         let (out, report) = try StickerEdge.outline(cutout { x, y in
             y > 100 && y < 200 && ((x > 80 && x < 145) || (x >= 155 && x < 220))
         }, StickerEdge.Parameters())

@@ -66,12 +66,12 @@ public struct VisionForegroundMatte: ForegroundMatte {
         Task.detached(priority: .utility) {
             let side = 64
             var pixels = [UInt8](repeating: 0, count: side * side * 4)
-            for i in 0..<(side * side) {
-                let inside = abs(i % side - side / 2) < 16 && abs(i / side - side / 2) < 16
-                pixels[i * 4] = inside ? 200 : 40
-                pixels[i * 4 + 1] = inside ? 60 : 40
-                pixels[i * 4 + 2] = 40
-                pixels[i * 4 + 3] = 255
+            for px in 0..<(side * side) {
+                let inside = abs(px % side - side / 2) < 16 && abs(px / side - side / 2) < 16
+                pixels[px * 4] = inside ? 200 : 40
+                pixels[px * 4 + 1] = inside ? 60 : 40
+                pixels[px * 4 + 2] = 40
+                pixels[px * 4 + 3] = 255
             }
             guard let provider = CGDataProvider(data: Data(pixels) as CFData),
                   let image = CGImage(

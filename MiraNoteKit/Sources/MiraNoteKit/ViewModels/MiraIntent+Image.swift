@@ -76,9 +76,7 @@ extension MiraIntent {
                 kept: String(appCopy: "Undo brings the old one back.")))
         case .makeSticker(let id, let data, let prompt):
             try Self.requirePixels(data)
-            // No white edge: stickers come out without one (team decision
-            // 2026-10-24) and Outline in Edit sticker adds it on request.
-            // Trimmed to the cut, as /border's crop used to.
+            // No white edge (team decision 2026-10-24; Outline adds one).
             let cut = try await imageStudio.cutout(image: data, target: nil)
             return .stickerReplaced(id, StickerTrim.croppedToOpaqueBounds(cut), prompt: prompt, MiraReceipt(
                 changed: String(appCopy: "Made it a sticker."),
