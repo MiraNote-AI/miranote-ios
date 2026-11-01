@@ -57,7 +57,7 @@ public actor TriggerRun {
         guard access != .denied else { return report(.failed(.photosDenied)) }
         if access == .limited { report(.partialLibrary) }
 
-        let ranking = await TriggerRanking.make(deps) { step in await self.report(step) }
+        let ranking = await TriggerRanking.make(deps) { step in self.report(step) }
         guard !ranking.groups.isEmpty else { return report(.failed(.noFragment)) }
         await tryGroups(ranking, from: next ? (cursor ?? 1) : 1)
     }

@@ -36,10 +36,11 @@ final class PhotoTriggerLiveUITests: XCTestCase {
             if alert.waitForExistence(timeout: 1) {
                 shot("live-prompt-\(Int(Date().timeIntervalSince1970))")
                 let buttons = alert.buttons.allElementsBoundByIndex
-                // "Allow Full Access" / "Allow" sit last or second.
-                let allow = buttons.first { $0.label.contains("Full") || $0.label.contains("\u{5B8C}\u{6574}") }
-                    ?? buttons.last
-                allow?.tap()
+                // "Allow Full Access" (photos), else "Allow" (notifications);
+                // never "Don't Allow" or "Limit Access".
+                let full = buttons.first { $0.label.contains("Full") || $0.label.contains("\u{5B8C}\u{5168}") }
+                let plain = buttons.first { $0.label == "Allow" || $0.label == "\u{5141}\u{8BB8}" }
+                (full ?? plain)?.tap()
             }
         }
     }
@@ -60,9 +61,11 @@ final class PhotoTriggerLiveUITests: XCTestCase {
         XCTAssertTrue(entry("trigger.pushTop").waitForExistence(timeout: 10))
         if app.switches["trigger.fakeAI"].value as? String != "1" { app.switches["trigger.fakeAI"].tap() }
         entry("trigger.pushTop").tap()
-        allowPrompts(for: 4)
+        allowPrompts(for: 8)
         // "Looking at photos x/y": wait for some progress, then kill the app.
-        XCTAssertTrue(progress("/").waitForExistence(timeout: 30))
+        let counting = progress("/").waitForExistence(timeout: 30)
+        shot("b5-0-first-progress")
+        XCTAssertTrue(counting)
         Thread.sleep(forTimeInterval: 3)
         shot("b5-1-before-kill")
         let before = progress("/").label
@@ -87,7 +90,7 @@ final class PhotoTriggerLiveUITests: XCTestCase {
         if app.switches["trigger.fakeAI"].value as? String == "1" { app.switches["trigger.fakeAI"].tap() }
         shot("live-01-entry")
         entry("trigger.pushTop").tap()
-        allowPrompts(for: 3)
+        allowPrompts(for: 8)
         guard waitForScheduled() else { return }
         shot("live-03-scheduled")
         openFromThePush()
@@ -101,7 +104,7 @@ final class PhotoTriggerLiveUITests: XCTestCase {
         XCTAssertTrue(entry("trigger.pushTop").waitForExistence(timeout: 10))
         if app.switches["trigger.fakeAI"].value as? String == "1" { app.switches["trigger.fakeAI"].tap() }
         entry("trigger.pushTop").tap()
-        allowPrompts(for: 3)
+        allowPrompts(for: 8)
         // "Asking the AI": then away for 30 s.
         XCTAssertTrue(progress("AI\u{2026}").waitForExistence(timeout: 60))
         shot("d2b-1-asking")
@@ -111,6 +114,69 @@ final class PhotoTriggerLiveUITests: XCTestCase {
         shot("d2b-2-back")
         XCTAssertTrue(waitForScheduled(), "the same press finished after the return")
         shot("d2b-3-scheduled")
+    }
+
+    /// D3 with the fake AI (quick): kill the app as the banner shows, tap
+    /// the banner.
+    func testBannerTapColdLaunchesTheStory() {
+        app.launch()
+        XCTAssertTrue(entry("trigger.pushTop").waitForExistence(timeout: 10))
+        if app.switches["trigger.fakeAI"].value as? String != "1" { app.switches["trigger.fakeAI"].tap() }
+        entry("trigger.pushTop").tap()
+        XCTAssertTrue(progress("\u{5DF2}\u{5B89}\u{6392}").waitForExistence(timeout: 60))
+        XCUIDevice.shared.press(.home)
+        let banner = springboard.descendants(matching: .any)["NotificationShortLookView"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 25), "the push arrived")
+        app.terminate()
+        shot("d3-banner-1-before-tap")
+        banner.tap()
+        let foreground = app.wait(for: .runningForeground, timeout: 10)
+        let label = app.staticTexts["trigger.firstFrameLabel"]
+        let opened = label.waitForExistence(timeout: 20)
+        shot("d3-banner-2-after-tap")
+        print("D3 banner: launched \(foreground), story \(opened), label \(opened ? label.label : "-")")
+        XCTAssertTrue(opened, "the cold launch opened the story")
+    }
+
+    /// E1-E3, F1-F5 on a push the real AI wrote (TRIGGER_PUSH_ID), opened
+    /// through the same router a tap uses.
+    func testRealRecordStoryEndingAndCanvas() throws {
+        let pushId = try XCTUnwrap(ProcessInfo.processInfo.environment["TRIGGER_PUSH_ID"])
+        app.launchArguments += ["-TRIGGER-OPEN-PUSH", pushId]
+        app.launch()
+        let label = app.staticTexts["trigger.firstFrameLabel"]
+        XCTAssertTrue(label.waitForExistence(timeout: 15))
+        shot("real-1-story-first")
+        print("E1 first frame: \(label.label)")
+        keepAsAPage()
+    }
+
+    /// Review focus 5: a banner tapped with the app in front routes the same.
+    func testForegroundBannerTapOpensTheStory() {
+        app.launch()
+        XCTAssertTrue(entry("trigger.pushTop").waitForExistence(timeout: 10))
+        if app.switches["trigger.fakeAI"].value as? String != "1" { app.switches["trigger.fakeAI"].tap() }
+        entry("trigger.pushTop").tap()
+        XCTAssertTrue(progress("\u{5DF2}\u{5B89}\u{6392}").waitForExistence(timeout: 60))
+        let banner = springboard.descendants(matching: .any)["NotificationShortLookView"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 25), "the banner shows over the app")
+        shot("focus5-foreground-banner")
+        banner.tap()
+        XCTAssertTrue(app.staticTexts["trigger.firstFrameLabel"].waitForExistence(timeout: 15))
+        shot("focus5-story")
+    }
+
+    /// In an expanded stack, the newest push: the highest MiraNote cell.
+    private func tapNewestPush() {
+        let cells = springboard.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'NotificationShortLookView' AND label BEGINSWITH 'MiraNote'"))
+            .allElementsBoundByIndex.filter(\.isHittable)
+        if let top = cells.min(by: { $0.frame.minY < $1.frame.minY }) {
+            top.tap()
+        } else {
+            // The expanded list's first cell, by position.
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.645)).tap()
+        }
     }
 
     /// Screenshots each new progress step until the push is scheduled.
@@ -157,6 +223,9 @@ final class PhotoTriggerLiveUITests: XCTestCase {
             XCTAssertTrue(listed.waitForExistence(timeout: 5))
             shot("live-04b-notification-center")
             listed.tap()
+            if app.wait(for: .runningForeground, timeout: 3) == false {
+                tapNewestPush()
+            }
         }
         let label = app.staticTexts["trigger.firstFrameLabel"]
         XCTAssertTrue(label.waitForExistence(timeout: 15), "the cold launch opened the story")
@@ -172,6 +241,10 @@ final class PhotoTriggerLiveUITests: XCTestCase {
         XCTAssertTrue(keep.waitForExistence(timeout: 8))
         Thread.sleep(forTimeInterval: 1.5)
         shot("live-06-ending")
+        let detail = app.staticTexts["trigger.detail"]
+        let detailText = detail.exists ? detail.label : "(no detail)"
+        let question = app.staticTexts["trigger.question"].label
+        print("E3 ending: \(app.staticTexts["trigger.factLine"].label) / \(detailText) / \(question) / \(keep.label)")
         keep.tap()
         let saveLabel = NSPredicate(format: "label == 'Save' OR label == '\u{4FDD}\u{5B58}'")
         let save = app.buttons.matching(saveLabel).firstMatch
@@ -182,6 +255,10 @@ final class PhotoTriggerLiveUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 2)
         shot("live-08-home")
         app.terminate()
+        // A plain relaunch: not the push again.
+        if let index = app.launchArguments.firstIndex(of: "-TRIGGER-OPEN-PUSH") {
+            app.launchArguments.removeSubrange(index...(index + 1))
+        }
         app.launch()
         Thread.sleep(forTimeInterval: 3)
         shot("live-09-home-after-relaunch")
