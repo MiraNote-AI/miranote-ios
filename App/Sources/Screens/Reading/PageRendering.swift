@@ -54,7 +54,7 @@ struct StaticPageView: View {
         VStack(alignment: .leading, spacing: 14) {
             if !memory.title.isEmpty {
                 Text(memory.title)
-                    .font(Serif.font(size: 30, weight: 560, optical: 72))
+                    .font(Serif.font(size: 30, weight: 560, optical: 72, scaled: false))
                     .foregroundStyle(Palette.ink)
             }
             if !memory.body.isEmpty {
@@ -150,7 +150,7 @@ struct StaticElementView: View {
             .accessibilityIdentifier("reading.sound.play")
 
             Text(clip.note.isEmpty ? CanvasElementView.timestamp(clip.duration) : clip.note)
-                .font(Sans.font(size: 13, weight: 500))
+                .font(Sans.font(size: 13, weight: 500, scaled: false))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .padding(.horizontal, 10)

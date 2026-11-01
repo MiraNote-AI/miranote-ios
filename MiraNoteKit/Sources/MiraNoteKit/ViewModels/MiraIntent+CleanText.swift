@@ -11,8 +11,8 @@ extension MiraIntent {
         let words = cleanPlacedText(draft.body.isEmpty ? draft.title : draft.body)
         guard !words.isEmpty else { return nil }
         return .textAdded(words, MiraReceipt(
-            changed: "Added a few words.",
-            kept: "Everything else stayed put."
+            changed: String(appCopy: "Added a few words."),
+            kept: String(appCopy: "Everything else stayed put.")
         ))
     }
 

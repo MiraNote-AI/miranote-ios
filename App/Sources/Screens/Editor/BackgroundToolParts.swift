@@ -10,6 +10,18 @@ enum BackgroundToolColors {
     static let labelSurface = Color(hex: 0xFAF8EF)
 }
 
+extension PaperKind {
+    /// The page type's name in the app's language.
+    var title: String {
+        switch self {
+        case .blank: return String(appCopy: "Blank")
+        case .grid: return String(appCopy: "Grid")
+        case .lined: return String(appCopy: "Lined")
+        case .dot: return String(appCopy: "Dot")
+        }
+    }
+}
+
 // MARK: - Page type tile
 
 /// A 67x63 page-type tile with its drawn paper sample (30 pt, at 18,10)
@@ -26,7 +38,7 @@ struct PageTypeTile: View {
             Self.shape.fill(selected ? BackgroundToolColors.tileSelected : BackgroundToolColors.tile)
             sample
                 .offset(x: 18, y: 10)
-            Text(kind.rawValue.capitalized)
+            Text(kind.title)
                 .font(Sans.font(size: 12, weight: 500))
                 .foregroundStyle(Palette.muted)
                 .frame(maxWidth: .infinity)

@@ -33,9 +33,9 @@ public enum RecordingError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .microphonePermissionDenied:
-            return "Microphone access is off. Enable it in Settings to record voice notes."
+            return String(appCopy: "Microphone access is off. Enable it in Settings to record voice notes.")
         case .noAudioCaptured:
-            return "No audio was captured. Try recording again."
+            return String(appCopy: "No audio was captured. Try recording again.")
         }
     }
 }

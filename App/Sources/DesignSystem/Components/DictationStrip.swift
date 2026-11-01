@@ -54,7 +54,7 @@ struct DictationStrip: View {
                 .foregroundStyle(listening ? Palette.forest : Self.warmGrey)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            Text(action)
+            Text(copy: action)
                 .font(Sans.font(size: 14, weight: 700))
                 .foregroundStyle(Palette.forest)
                 .frame(minWidth: 34)

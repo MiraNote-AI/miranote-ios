@@ -150,6 +150,9 @@ struct HomeFlow: View {
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
+    @State private var settings = AppSettings.shared
+    @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
+    @State private var moodJudge: MoodJudge?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -186,6 +189,22 @@ struct HomeFlow: View {
         return FileCollectionStore()
     }
 
+    /// UI tests keep the avatar in a folder of their own, emptied at launch
+    /// like the settings' suite (`AppSettings.storeDefaults`);
+    /// `-KEEP_SETTINGS` keeps it (a test's own relaunch).
+    private static let profileImages: ImageFileStore = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("UITestProfile", isDirectory: true)
+            if !ProcessInfo.processInfo.arguments.contains("-KEEP_SETTINGS") {
+                try? FileManager.default.removeItem(at: folder)
+            }
+            return ImageFileStore(directory: folder)
+        }
+        #endif
+        return LocalProfile.defaultImages
+    }()
+
     /// UI tests drive Mira with scripted services so working, stop, and
     /// failure states are deterministic; otherwise the app's own container
     /// is used unchanged.
@@ -200,12 +219,15 @@ struct HomeFlow: View {
 
     /// UI tests record with a canned in-memory recorder (no mic permission),
     /// at full level so the live bars draw the handoff's pattern. A mic that
-    /// is slow to come up is `-MIC_START_DELAY <ms>`.
+    /// is slow to come up is `-MIC_START_DELAY <ms>`; `-TIME_TAKES` times
+    /// each take; `-FAIL_LATER_MICS` fails every mic after the first.
     @MainActor private static func makeRecorder() -> AudioRecording {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
             let delay = UserDefaults.standard.integer(forKey: "MIC_START_DELAY")
-            return MockAudioRecorder(recordingLevel: 1, startDelay: .milliseconds(delay))
+            let mock = MockAudioRecorder(recordingLevel: 1, startDelay: .milliseconds(delay))
+            if ProcessInfo.processInfo.arguments.contains("-FAIL_LATER_MICS") { return UITestFailingRecorder(mock) }
+            return ProcessInfo.processInfo.arguments.contains("-TIME_TAKES") ? UITestTimedRecorder(mock) : mock
         }
         #endif
         return AudioRecorder()
@@ -256,6 +278,32 @@ struct HomeFlow: View {
     /// Navigation token for the recently-deleted bin.
     struct TrashRoute: Hashable {}
 
+    /// Navigation tokens for the Settings and Profile screens.
+    enum AccountRoute: Hashable {
+        case settings, appearance, language, profile
+    }
+
+    /// Navigation token for the star jar.
+    struct StarJarRoute: Hashable {}
+
+    /// Asks the moods of saved pages in the background (the star jar's
+    /// colors); made on first use, then one queue for the whole app.
+    private func judgeMoods(_ noteIDs: [Memory.ID]) {
+        guard !noteIDs.isEmpty else { return }
+        makeMoodJudge().judge(noteIDs)
+    }
+
+    /// The pages the star jar shows (`[]`: it closed): asked after saves.
+    private func showMoods(_ noteIDs: [Memory.ID]) {
+        if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
+    }
+
+    private func makeMoodJudge() -> MoodJudge {
+        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
+        moodJudge = judge
+        return judge
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             HomeView(
@@ -264,6 +312,9 @@ struct HomeFlow: View {
                 onQuickCapture: { route = .chat($0) },
                 onOpenCollection: { path.append($0) },
                 onOpenTrash: { path.append(TrashRoute()) },
+                onOpenStarJar: { path.append(StarJarRoute()) },
+                onOpenSettings: { path.append(AccountRoute.settings) },
+                onOpenProfile: { path.append(AccountRoute.profile) },
                 demoEntry: triggerDemoEntry
             )
             .navigationBarHidden(true)
@@ -288,6 +339,15 @@ struct HomeFlow: View {
                     .navigationBarHidden(true)
                 }
             }
+            .navigationDestination(for: StarJarRoute.self) { _ in
+                StarJarView(
+                    viewModel: viewModel,
+                    onBack: { path.removeLast() },
+                    onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) },
+                    onShow: showMoods
+                )
+                .navigationBarHidden(true)
+            }
             .navigationDestination(for: TrashRoute.self) { _ in
                 RecentlyDeletedView(
                     viewModel: viewModel,
@@ -295,7 +355,29 @@ struct HomeFlow: View {
                 )
                 .navigationBarHidden(true)
             }
+            .navigationDestination(for: AccountRoute.self) { route in
+                Group {
+                    switch route {
+                    case .settings:
+                        SettingsView(
+                            settings: settings,
+                            onBack: { path.removeLast() },
+                            onOpenAppearance: { path.append(AccountRoute.appearance) },
+                            onOpenLanguage: { path.append(AccountRoute.language) }
+                        )
+                    case .appearance:
+                        AppearanceView(settings: settings, onBack: { path.removeLast() })
+                    case .language:
+                        LanguageView(settings: settings, onBack: { path.removeLast() })
+                    case .profile:
+                        ProfileView(profile: profile, onBack: { path.removeLast() })
+                    }
+                }
+                .navigationBarHidden(true)
+            }
         }
+        // The Appearance setting, applied live (a choice redraws at once).
+        .environment(\.theme, Theme(appearance: settings.appearance))
         #if DEBUG
         // `-TRIGGER-OPEN` opens the photo trigger's story at launch.
         .onAppear {
@@ -315,24 +397,29 @@ struct HomeFlow: View {
                     onExit: { route = nil },
                     onComplete: { memory in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
+                        judgeMoods([memory.id])
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+                // The editor, its tools and Mira chat stay on System.
+                .environment(\.theme, Theme(appearance: .system))
             case .editMemory(let memory), .draft(let memory):
                 EditorFlowView(
                     memory: memory,
                     onExit: { route = nil },
                     onComplete: { edited in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
+                        judgeMoods([edited.id])
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services)
                 )
+                .environment(\.theme, Theme(appearance: .system))
             case .trigger(let memory):
                 PhotoTriggerView(memory: memory, source: Self.triggerSource, onClose: { route = nil })
             case .chat(let seed):
@@ -371,6 +458,7 @@ struct HomeFlow: View {
                         }
                     }
                 )
+                .environment(\.theme, Theme(appearance: .system))
             }
         }
     }

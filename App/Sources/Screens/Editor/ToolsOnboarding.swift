@@ -105,7 +105,7 @@ struct ToolsOnboarding: View {
                     Text(mode.title)
                         .font(Sans.font(size: 14, weight: 600))
                         .foregroundStyle(Palette.ink)
-                    Text(detail)
+                    Text(copy: detail)
                         .font(Sans.font(size: 12, weight: 500))
                         .foregroundStyle(Self.secondary)
                 }

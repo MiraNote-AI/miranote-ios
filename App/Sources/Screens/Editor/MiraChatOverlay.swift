@@ -63,8 +63,8 @@ struct MiraChatOverlay: View {
                 .accessibilityLabel("Mira Dictation")
                 .accessibilityValue(dictation.detail)
                 .accessibilityHint(dictation == .listening
-                    ? "Ends the dictation."
-                    : "Hold to talk, or tap to start; your words land in the question.")
+                    ? Text("Ends the dictation.")
+                    : Text("Hold to talk, or tap to start; your words land in the question."))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { onToggle() }
                 .accessibilityIdentifier("mira.dictation")
@@ -126,8 +126,9 @@ struct MiraChatOverlay: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 18)
                     .padding(.top, 17)
-                Text("The current page stays attached, so Mira can change color, layout, copy, "
-                     + "stickers, or image treatment without starting over.")
+                // One literal, so it is looked up in the string catalog.
+                // swiftlint:disable:next line_length
+                Text("The current page stays attached, so Mira can change color, layout, copy, stickers, or image treatment without starting over.")
                     .font(Sans.font(size: 13, weight: 700))
                     .foregroundStyle(Self.warmGrey)
                     .lineSpacing(4)
@@ -164,7 +165,7 @@ struct MiraChatOverlay: View {
         Button {
             onQuickAction(action)
         } label: {
-            Text(action)
+            Text(copy: action)
                 .font(Sans.font(size: 12, weight: 700))
                 .foregroundStyle(primary ? Color.white : Palette.ink)
                 .lineLimit(1)
@@ -199,9 +200,9 @@ enum DictationStripState: Equatable {
 
     var detail: String {
         switch self {
-        case .idle: return "accurate voice-to-text"
-        case .listening: return "Listening..."
-        case .transcribing: return "Writing it down..."
+        case .idle: return String(appCopy: "accurate voice-to-text")
+        case .listening: return String(appCopy: "Listening...")
+        case .transcribing: return String(appCopy: "Writing it down...")
         case .notice(let message): return message
         }
     }

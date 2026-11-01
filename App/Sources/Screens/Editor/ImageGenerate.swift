@@ -48,11 +48,11 @@ final class AIImageDraft {
                 // Two to pick from, as Mira's own image choices offer.
                 candidates = Array(images.prefix(2))
                 paintedPrompt = words
-                if candidates.isEmpty { notice = "Mira couldn't paint that one -- try other words?" }
+                if candidates.isEmpty { notice = String(appCopy: "Mira couldn't paint that one -- try other words?") }
             } catch {
                 guard token == generation else { return }
                 notice = (error as? LocalizedError)?.errorDescription
-                    ?? "Generating didn't work this time. Try again?"
+                    ?? String(appCopy: "Generating didn't work this time. Try again?")
             }
             generating = false
         }
@@ -75,7 +75,7 @@ final class AIImageDraft {
     func pick(_ index: Int, place: (Data, String) -> Bool) -> Bool {
         guard !generating, candidates.indices.contains(index) else { return false }
         guard place(candidates[index], paintedPrompt) else {
-            notice = "That picture couldn't be saved. Try again?"
+            notice = String(appCopy: "That picture couldn't be saved. Try again?")
             return false
         }
         candidates = []

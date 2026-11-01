@@ -7,16 +7,18 @@ struct RecentlyDeletedView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
         Group {
             if viewModel.trash.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "tray")
                         .font(.system(size: 26))
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                     Text("Nothing waiting here.")
                         .font(.miraBody)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(theme.muted(Palette.textSecondary))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -27,7 +29,7 @@ struct RecentlyDeletedView: View {
                         }
                         Text("Pages leave for good after 30 days.")
                             .font(.miraCaption)
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(theme.muted(Palette.textSecondary))
                             .padding(.top, 8)
                     }
                     .padding(.horizontal, Metrics.screenPadding)
@@ -49,24 +51,24 @@ struct RecentlyDeletedView: View {
                 Spacer()
                 Text("Recently deleted")
                     .font(.miraScreenTitle)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(theme.ink)
                 Spacer()
                 Color.clear.frame(width: 64, height: 1)
             }
             .padding(.horizontal, Metrics.screenPadding)
             .padding(.vertical, 8)
-            .background(Palette.paper.opacity(0.94))
+            .background(theme.background.opacity(0.94))
         }
     }
 
     private func row(_ entry: TrashedMemory) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.memory.title.isEmpty ? "Untitled" : entry.memory.title)
+                Text(entry.memory.title.isEmpty ? String(appCopy: "Untitled") : entry.memory.title)
                     .font(.miraCardTitle)
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
-                Text("from \(entry.collectionTitle) \u{00B7} \(daysLeft(entry)) days left")
+                Text("from \(entry.collectionTitle) \u{00B7} \(String(appCopy: "\(daysLeft(entry)) days left"))")
                     .font(.miraCaption)
                     .foregroundStyle(Palette.textSecondary)
             }
@@ -75,6 +77,8 @@ struct RecentlyDeletedView: View {
                 viewModel.restore(entry.id)
             }
             .font(.miraLabel)
+            // On the row's light card: System's ink in every theme
+            // (`Theme.smallButton`).
             .foregroundStyle(Palette.onInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)

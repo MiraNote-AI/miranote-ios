@@ -34,6 +34,13 @@ final class CanvasMiraFidelityUITests: XCTestCase {
 
     // MARK: 06
 
+    // A typed turn shows exactly as typed: no Markdown, and words that are
+    // also app copy ("Done") are not looked up in the string catalog.
+    func testATypedTurnShowsAsTyped() {
+        app.askMira("Done *x*")
+        XCTAssertTrue(app.staticTexts["Done *x*"].waitForExistence(timeout: 8), "the turn reads as typed")
+    }
+
     // The composer opens the chat: the question field, Mira's four quick
     // actions, the dictation strip; Done closes it and the draft waits in
     // the composer, ready to send.

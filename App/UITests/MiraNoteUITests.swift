@@ -81,7 +81,9 @@ final class MiraNoteUITests: XCTestCase {
     }
 
     private func pageCount() -> Int {
-        let label = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH ' pages'")).firstMatch
+        // "1 page" or "N pages".
+        let counts = NSPredicate(format: "label ENDSWITH ' pages' OR label ENDSWITH ' page'")
+        let label = app.staticTexts.matching(counts).firstMatch
         XCTAssertTrue(label.waitForExistence(timeout: 5))
         return Int(label.label.split(separator: " ").first ?? "") ?? -1
     }

@@ -17,9 +17,10 @@ extension CanvasScene {
         BackgroundToolSheet(
             editor: editor,
             // Never cancel a running turn by starting another.
-            onAsk: { words in
+            // Its one ask is a chip (Tidy the layout): app copy.
+            onAsk: { chip in
                 guard !mira.isWorking else { return }
-                mira.ask(words, editor: editor)
+                mira.askSuggestion(chip, editor: editor)
             },
             onClose: { backgroundPanelOpen = false },
             onCustomColor: openPageColorSheet,
@@ -210,16 +211,16 @@ extension CanvasScene {
     /// The take's words, or nil with the strip's notice saying why.
     private func miraWords(from recorder: AudioRecording) async -> String? {
         guard let data = try? await recorder.stop(), !data.isEmpty else {
-            miraNotice = "I couldn't catch any words -- try again?"
+            miraNotice = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
-            miraNotice = "Couldn't reach the transcriber -- try again?"
+            miraNotice = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty else {
-            miraNotice = "I couldn't catch any words -- try again?"
+            miraNotice = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         // An earlier take's notice stays: a new hold clears it as its mic

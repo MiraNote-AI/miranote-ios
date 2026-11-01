@@ -1,6 +1,23 @@
 import CoreText
+import MiraNoteKit
 import SwiftUI
 import UIKit
+
+/// Settings > Text size: the app's own type -- its chrome -- is set at
+/// `AppSettings.textScale` times the size each call site asks for. A page's
+/// content (text blocks, titles and markers drawn on the canvas, the reading
+/// view's page, exports) keeps its own point sizes: it asks with
+/// `scaled: false` (see `TextFace`). SF Symbol glyphs keep their sizes.
+enum TextScale {
+    /// Read inside a view's body, it also redraws that view when the
+    /// setting changes (`AppSettings` is observable), so the whole app
+    /// follows the slider at once.
+    static var current: CGFloat { CGFloat(AppSettings.shared.textScale) }
+
+    static func scaled(_ size: CGFloat) -> CGFloat {
+        size * current
+    }
+}
 
 /// Fraunces -- the bundled variable serif that carries the Flow 7 identity.
 /// Weight and optical size are pinned through CoreText variation axes so a
@@ -13,11 +30,14 @@ enum Serif {
 
     private static let isAvailable = UIFont.familyNames.contains(familyName)
 
-    static func font(size: CGFloat, weight: CGFloat, optical: CGFloat) -> Font {
-        Font(uiFont(size: size, weight: weight, optical: optical))
+    static func font(size: CGFloat, weight: CGFloat, optical: CGFloat, scaled: Bool = true) -> Font {
+        Font(uiFont(size: size, weight: weight, optical: optical, scaled: scaled))
     }
 
-    static func uiFont(size: CGFloat, weight: CGFloat, optical: CGFloat) -> UIFont {
+    /// `scaled` applies the text-size setting (`TextScale`); page content
+    /// passes false.
+    static func uiFont(size: CGFloat, weight: CGFloat, optical: CGFloat, scaled: Bool = true) -> UIFont {
+        let size = scaled ? TextScale.scaled(size) : size
         guard isAvailable else { return systemSerif(size: size, weight: weight) }
         let variations: [Int: CGFloat] = [weightAxis: weight, opticalAxis: optical]
         let variationKey = UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String)
@@ -54,11 +74,14 @@ enum Sans {
 
     private static let isAvailable = UIFont.familyNames.contains(familyName)
 
-    static func font(size: CGFloat, weight: CGFloat) -> Font {
-        Font(uiFont(size: size, weight: weight))
+    static func font(size: CGFloat, weight: CGFloat, scaled: Bool = true) -> Font {
+        Font(uiFont(size: size, weight: weight, scaled: scaled))
     }
 
-    static func uiFont(size: CGFloat, weight: CGFloat) -> UIFont {
+    /// `scaled` applies the text-size setting (`TextScale`); page content
+    /// passes false.
+    static func uiFont(size: CGFloat, weight: CGFloat, scaled: Bool = true) -> UIFont {
+        let size = scaled ? TextScale.scaled(size) : size
         guard isAvailable else { return UIFont.systemFont(ofSize: size, weight: named(weight)) }
         let variationKey = UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String)
         let descriptor = UIFontDescriptor(fontAttributes: [
@@ -86,26 +109,27 @@ enum Sans {
 /// handoff's (it read small beside the system keyboard): inputs 17, controls
 /// 15-16, body 16, secondary 13, nothing under 12, titles 20-22. The roles
 /// below follow it; a few sizes off it remain (14 at call sites, and the
-/// home's 24.6 and 26).
+/// home's 24.6 and 26). Each role is read anew so it follows the text-size
+/// setting.
 extension Font {
     /// Nav pills: Josefin SemiBold 15.
-    static let miraNav = Sans.font(size: 15, weight: 600)
+    static var miraNav: Font { Sans.font(size: 15, weight: 600) }
     /// The Mira composer's field and placeholder: Medium 17, as iOS inputs.
-    static let miraComposer = Sans.font(size: 17, weight: 500)
+    static var miraComposer: Font { Sans.font(size: 17, weight: 500) }
     /// The composer's action pill (Go, Apply): Bold 16.
-    static let miraComposerAction = Sans.font(size: 16, weight: 700)
+    static var miraComposerAction: Font { Sans.font(size: 16, weight: 700) }
 
-    static let miraHero = Serif.font(size: 39, weight: 410, optical: 144)
+    static var miraHero: Font { Serif.font(size: 39, weight: 410, optical: 144) }
     /// Home dateline (screen 01): Josefin Bold 26.
-    static let miraDate = Sans.font(size: 26, weight: 700)
-    static let miraPageTitle = Sans.font(size: 22, weight: 700)
-    static let miraScreenTitle = Sans.font(size: 20, weight: 600)
-    static let miraLogo = Sans.font(size: 17, weight: 700)
+    static var miraDate: Font { Sans.font(size: 26, weight: 700) }
+    static var miraPageTitle: Font { Sans.font(size: 22, weight: 700) }
+    static var miraScreenTitle: Font { Sans.font(size: 20, weight: 600) }
+    static var miraLogo: Font { Sans.font(size: 17, weight: 700) }
 
-    static let miraCardTitle = Sans.font(size: 17, weight: 600)
-    static let miraPill = Sans.font(size: 16, weight: 600)
-    static let miraBody = Sans.font(size: 16, weight: 400)
-    static let miraLabel = Sans.font(size: 15, weight: 500)
-    static let miraCaption = Sans.font(size: 13, weight: 400)
-    static let miraChip = Sans.font(size: 15, weight: 500)
+    static var miraCardTitle: Font { Sans.font(size: 17, weight: 600) }
+    static var miraPill: Font { Sans.font(size: 16, weight: 600) }
+    static var miraBody: Font { Sans.font(size: 16, weight: 400) }
+    static var miraLabel: Font { Sans.font(size: 15, weight: 500) }
+    static var miraCaption: Font { Sans.font(size: 13, weight: 400) }
+    static var miraChip: Font { Sans.font(size: 15, weight: 500) }
 }

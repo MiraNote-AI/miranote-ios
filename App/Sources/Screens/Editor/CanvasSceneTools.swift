@@ -153,7 +153,7 @@ extension CanvasScene {
             DictationStrip(
                 surface: .page,
                 listening: dictating,
-                detail: stripDetail ?? "accurate voice-to-text",
+                detail: stripDetail ?? String(appCopy: "accurate voice-to-text"),
                 onPress: { if dictationPress == nil { pressDictation() } },
                 onRelease: releaseDictation,
                 onCancel: cancelDictationIfNeeded
@@ -163,7 +163,7 @@ extension CanvasScene {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Mira Dictation")
             .accessibilityValue(stripDetail ?? "")
-            .accessibilityHint(dictating ? "Ends the dictation." : "Hold to talk, or tap to start.")
+            .accessibilityHint(dictating ? Text("Ends the dictation.") : Text("Hold to talk, or tap to start."))
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { dictating ? stopDictation() : startDictation() }
             .accessibilityIdentifier("style.mic")
@@ -176,8 +176,8 @@ extension CanvasScene {
     /// The strip's line when it is not at rest: a new take listening while
     /// an earlier one is written down reads as listening.
     private var stripDetail: String? {
-        if dictating { return "Listening..." }
-        return writingDown ? "Writing it down..." : dictationHint
+        if dictating { return String(appCopy: "Listening...") }
+        return writingDown ? String(appCopy: "Writing it down...") : dictationHint
     }
 
     @ViewBuilder private var textToolRow: some View {
@@ -352,7 +352,7 @@ extension CanvasScene {
                 guard var now = rewrite, now.original.id == id else { return }
                 now.session.fail(choice, of: source)
                 rewrite = now
-                dictationHint = "Couldn't rewrite -- try again?"
+                dictationHint = String(appCopy: "Couldn't rewrite -- try again?")
             }
         }
     }

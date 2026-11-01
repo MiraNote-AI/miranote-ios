@@ -57,7 +57,7 @@ extension MiraCanvasCoordinator {
         editor.resetPageBackground()
         if editor.changeCount == before {
             showReceipt(
-                MiraReceipt(changed: "Already on the default background.", kept: receipt.kept),
+                MiraReceipt(changed: String(appCopy: "Already on the default background."), kept: receipt.kept),
                 editor: editor,
                 revertible: false
             )
@@ -105,22 +105,22 @@ extension MiraCanvasCoordinator {
                 prompt: prompt, symbolName: "sparkles", fileName: fileName)
             editor.addSticker(generated, at: position)
             showReceipt(MiraReceipt(
-                changed: "Added a sticker.",
-                kept: "Everything else is untouched."), editor: editor)
+                changed: String(appCopy: "Added a sticker."),
+                kept: String(appCopy: "Everything else is untouched.")), editor: editor)
         case .picture:
             editor.addImages(
                 [ImageRef(displayName: prompt, fileName: fileName)],
                 around: position)
             showReceipt(MiraReceipt(
-                changed: "Added a picture.",
-                kept: "Everything else is untouched."), editor: editor)
+                changed: String(appCopy: "Added a picture."),
+                kept: String(appCopy: "Everything else is untouched.")), editor: editor)
         case .background:
             // The prompt is what the backdrop shows, so it rides along
             // and the page map can say so without a look at the picture.
             editor.setBackground(fileName: fileName, describes: prompt)
             showReceipt(MiraReceipt(
-                changed: "Set the page background.",
-                kept: "Everything else is untouched."), editor: editor)
+                changed: String(appCopy: "Set the page background."),
+                kept: String(appCopy: "Everything else is untouched.")), editor: editor)
         }
     }
 
@@ -136,7 +136,7 @@ extension MiraCanvasCoordinator {
               let fileName = try? imageStore.save(data, id: UUID()) else {
             phase = .failure(MiraFailure(
                 kind: .retry,
-                message: "The photo I was working on is gone, so I left everything as is.",
+                message: String(appCopy: "The photo I was working on is gone, so I left everything as is."),
                 chips: ["Try again"]))
             return
         }
@@ -150,7 +150,7 @@ extension MiraCanvasCoordinator {
               let fileName = try? imageStore.save(data, id: UUID()) else {
             phase = .failure(MiraFailure(
                 kind: .retry,
-                message: "The photo I was working on is gone, so I left everything as is.",
+                message: String(appCopy: "The photo I was working on is gone, so I left everything as is."),
                 chips: ["Try again"]))
             return
         }
@@ -169,7 +169,7 @@ extension MiraCanvasCoordinator {
               let fileName = try? imageStore.save(data, id: UUID()) else {
             phase = .failure(MiraFailure(
                 kind: .retry,
-                message: "The sticker I was working on is gone, so I left everything as is.",
+                message: String(appCopy: "The sticker I was working on is gone, so I left everything as is."),
                 chips: ["Try again"]))
             return
         }

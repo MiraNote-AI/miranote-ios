@@ -33,23 +33,24 @@ extension MiraIntent {
         switch self {
         case .applyFilter(let id, let name):
             return .filterApplied(id, name: name, MiraReceipt(
-                changed: name.isEmpty ? "Cleared the filter." : "Changed the photo's look.",
-                kept: "Undo restores it."))
+                changed: name.isEmpty ? String(appCopy: "Cleared the filter.")
+                    : String(appCopy: "Changed the photo's look."),
+                kept: String(appCopy: "Undo restores it.")))
         case .applyFrame(let id, let name):
             return .frameApplied(id, name: name, MiraReceipt(
-                changed: name.isEmpty ? "Removed the frame." : "Framed the photo.",
-                kept: "Undo restores it."))
+                changed: name.isEmpty ? String(appCopy: "Removed the frame.") : String(appCopy: "Framed the photo."),
+                kept: String(appCopy: "Undo restores it.")))
         case .resizeText(let id, let up):
             return .textResized(id, up: up, MiraReceipt(
-                changed: up ? "Made the words bigger." : "Made the words smaller.",
-                kept: "Undo restores them."))
+                changed: up ? String(appCopy: "Made the words bigger.") : String(appCopy: "Made the words smaller."),
+                kept: String(appCopy: "Undo restores them.")))
         case .recolorText(let id, let colorName):
             return .textRecolored(id, colorName: colorName, MiraReceipt(
-                changed: "Recolored the words.", kept: "Undo restores them."))
+                changed: String(appCopy: "Recolored the words."), kept: String(appCopy: "Undo restores them.")))
         case .clearBackground:
             return .backgroundCleared(MiraReceipt(
-                changed: "Cleared the background.",
-                kept: "Undo restores it."))
+                changed: String(appCopy: "Cleared the background."),
+                kept: String(appCopy: "Undo restores it.")))
         default:
             return nil
         }
@@ -71,18 +72,18 @@ extension MiraIntent {
             try Self.requirePixels(data)
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
             return .imageReplaced(id, styled, MiraReceipt(
-                changed: "Restyled the photo.",
-                kept: "Undo brings the old one back."))
+                changed: String(appCopy: "Restyled the photo."),
+                kept: String(appCopy: "Undo brings the old one back.")))
         case .makeSticker(let id, let data, let prompt):
             try Self.requirePixels(data)
             let cut = try await imageStudio.cutout(image: data, target: nil)
             let outlined = try await imageStudio.outline(image: cut)
             return .stickerReplaced(id, outlined, prompt: prompt, MiraReceipt(
-                changed: "Made it a sticker.",
-                kept: "Undo brings the photo back."))
+                changed: String(appCopy: "Made it a sticker."),
+                kept: String(appCopy: "Undo brings the photo back.")))
         case .editSticker(let id, let data, let instruction, _):
             try Self.requirePixels(
-                data, question: "This sticker has no stored pixels to work on -- try another?")
+                data, question: String(appCopy: "This sticker has no stored pixels to work on -- try another?"))
             let styled = try await imageStudio.stylize(image: data, instruction: instruction)
             // No outline pass here, unlike makeSticker above: the sticker
             // already has a die-cut edge and /stylize asks for it to be kept,
@@ -96,13 +97,13 @@ extension MiraIntent {
             // result feeds the next edit. See StickerTrim for the numbers.
             let cut = try await imageStudio.cutout(image: styled, target: nil)
             return .stickerEdited(id, StickerTrim.croppedToOpaqueBounds(cut), MiraReceipt(
-                changed: "Restyled the sticker.",
-                kept: "Undo brings the old one back."))
+                changed: String(appCopy: "Restyled the sticker."),
+                kept: String(appCopy: "Undo brings the old one back.")))
         case .clarifySticker(let question), .clarifyPhoto(let question):
             throw MiraClarifyError(question: question, chips: [])
         default:
             throw MiraClarifyError(
-                question: "More than one photo here -- tap the one you mean and ask again.",
+                question: String(appCopy: "More than one photo here -- tap the one you mean and ask again."),
                 chips: []
             )
         }
@@ -112,7 +113,7 @@ extension MiraIntent {
     /// items, cleaned stores). One branch point instead of one per case.
     private static func requirePixels(
         _ data: Data,
-        question: String = "This picture has no stored pixels to work on -- try another photo?"
+        question: String = String(appCopy: "This picture has no stored pixels to work on -- try another photo?")
     ) throws {
         guard data.isEmpty else { return }
         throw MiraClarifyError(question: question, chips: [])
@@ -191,10 +192,10 @@ extension MiraIntent {
         switch stickerTarget(editor: editor) {
         case .none:
             return .clarifySticker(
-                question: "No sticker on this page yet -- generate one first?")
+                question: String(appCopy: "No sticker on this page yet -- generate one first?"))
         case .ambiguous:
             return .clarifySticker(
-                question: "More than one sticker here -- tap the one you mean and ask again.")
+                question: String(appCopy: "More than one sticker here -- tap the one you mean and ask again."))
         case .one(let id, let sticker):
             let data = imageStore.data(forFileName: sticker.fileName) ?? Data()
             return .editSticker(id, imageData: data, instruction: prompt,
@@ -292,11 +293,11 @@ extension MiraIntent {
             // A photo-flavored ask with no photo on the page: only claim
             // it when the words really are about a photo.
             return (stickerCut || mentionsPhoto)
-                ? .clarifyPhoto(question: "No photo on this page yet -- add one first?")
+                ? .clarifyPhoto(question: String(appCopy: "No photo on this page yet -- add one first?"))
                 : nil
         case .ambiguous:
             return .clarifyPhoto(
-                question: "More than one photo here -- tap the one you mean and ask again.")
+                question: String(appCopy: "More than one photo here -- tap the one you mean and ask again."))
         case .one(let id, let ref):
             let data = imageStore.data(forFileName: ref.fileName) ?? Data()
             if stickerCut {

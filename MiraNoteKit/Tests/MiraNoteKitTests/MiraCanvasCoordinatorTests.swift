@@ -116,6 +116,26 @@ final class MiraCanvasCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.refillPrompt, "tell me something nice")
     }
 
+    /// A chip's words, given back by Stop and sent again from the composer,
+    /// are still the chip's: the turn shows in the app's language.
+    func testAStoppedChipSentAgainStaysAppCopy() async {
+        let editor = makeEditor()
+        let coordinator = makeCoordinator(chat: ScriptedChat(delay: .milliseconds(300)))
+        coordinator.ask("tell me something nice", editor: editor, as: nil, appCopy: true)
+        await waitUntil { if case .working = coordinator.phase { return true } else { return false } }
+        coordinator.stop()
+        XCTAssertEqual(coordinator.refillPrompt, "tell me something nice")
+
+        coordinator.ask(coordinator.refillPrompt ?? "", editor: editor)
+        await waitUntil { coordinator.conversation.count == 2 }
+        XCTAssertEqual(coordinator.conversation.first?.text, "tell me something nice")
+        XCTAssertEqual(coordinator.conversation.first?.isAppCopy, true)
+
+        coordinator.ask("tell me something else", editor: editor)
+        await waitUntil { coordinator.conversation.count == 4 }
+        XCTAssertEqual(coordinator.conversation[2].isAppCopy, false, "typed words stay verbatim")
+    }
+
     func testTimeoutBecomesARetryFailure() async {
         let editor = makeEditor()
         let coordinator = makeCoordinator(

@@ -60,7 +60,7 @@ struct StickerEditPanel: View {
         let words = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !editing, !words.isEmpty, let sticker = currentSticker,
               let data = imageStore.data(forFileName: sticker.fileName) else {
-            notice = "This sticker has no stored pixels to change."
+            notice = String(appCopy: "This sticker has no stored pixels to change.")
             return
         }
         editing = true
@@ -91,7 +91,7 @@ struct StickerEditPanel: View {
                 onClose()
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
-                    ?? "That didn't work this time. Try again?"
+                    ?? String(appCopy: "That didn't work this time. Try again?")
             }
         }
     }

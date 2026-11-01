@@ -69,8 +69,10 @@ extension CanvasScene {
                 // The system face: Josefin has no tabular digits, so its
                 // clock jittered every second.
                 Text(CanvasScene.timestamp(context.date.timeIntervalSince(start)))
-                    .font(.system(size: 13, weight: .bold).monospacedDigit())
+                    .font(.system(size: TextScale.scaled(13), weight: .bold).monospacedDigit())
                     .foregroundStyle(Palette.warmWhite)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     .frame(width: 44, alignment: .trailing)
             }
             .padding(.trailing, 10)

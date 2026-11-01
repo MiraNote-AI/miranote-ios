@@ -1,0 +1,5776 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ and %@" : {
+      "comment" : "VoiceOver: a display font and a body font.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 搭配 %2$@"
+          }
+        }
+      }
+    },
+    "%@ paper" : {
+      "comment" : "VoiceOver: a paper type, e.g. 'Grid paper'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@纸"
+          }
+        }
+      }
+    },
+    "%@," : {
+      "comment" : "Home dateline weekday, e.g. 'MONDAY,'. Chinese drops the comma.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "comment" : "VoiceOver: two parts of one label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@，%2$@"
+          }
+        }
+      }
+    },
+    "%@, %@, %@" : {
+      "comment" : "VoiceOver: three parts of one label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@，%2$@，%3$@"
+          }
+        }
+      }
+    },
+    "%lld days left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day left"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days left"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "还剩 %lld 天"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld memories that month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memory that month"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memories that month"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "那个月有 %lld 段回忆"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld memories that week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memory that week"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memories that week"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "那一周有 %lld 段回忆"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld memories this month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memory this month"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memories this month"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这个月有 %lld 段回忆"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld memories this week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memory this week"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld memories this week"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这周有 %lld 段回忆"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld pages" : {
+      "comment" : "Collection header: how many pages it holds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld page"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld pages"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 页"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld percent" : {
+      "comment" : "VoiceOver value of a slider.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "百分之 %lld"
+          }
+        }
+      }
+    },
+    "%lld selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选 %lld 张"
+          }
+        }
+      }
+    },
+    "+ New memory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ 新回忆"
+          }
+        }
+      }
+    },
+    "A quiet moment" : {
+      "comment" : "Page title Mira writes when the title reply comes back empty.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安静的片刻"
+          }
+        }
+      }
+    },
+    "A short reminder of what this recording holds." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简单记下这段录音的内容。"
+          }
+        }
+      }
+    },
+    "A small marker keeps the page visual-first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一个小标记，不打扰页面画面。"
+          }
+        }
+      }
+    },
+    "A small moment worth keeping." : {
+      "comment" : "Background preview: sample line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "值得留住的小小瞬间。"
+          }
+        }
+      }
+    },
+    "A4 pages" : {
+      "comment" : "PDF layout.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A4 分页"
+          }
+        }
+      }
+    },
+    "AI Editing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 编辑"
+          }
+        }
+      }
+    },
+    "AI Image" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 图片"
+          }
+        }
+      }
+    },
+    "APP LANGUAGE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用语言"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加"
+          }
+        }
+      }
+    },
+    "Add a note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加备注"
+          }
+        }
+      }
+    },
+    "Add a soft title" : {
+      "comment" : "Mira suggestion chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加一个柔和的标题"
+          }
+        }
+      }
+    },
+    "Add and edit photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加和编辑照片"
+          }
+        }
+      }
+    },
+    "Add photos" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加照片"
+          }
+        }
+      }
+    },
+    "Add selected photos to canvas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把选中的照片添加到画布"
+          }
+        }
+      }
+    },
+    "Add soft title" : {
+      "comment" : "Canvas chat quick action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加个柔和标题"
+          }
+        }
+      }
+    },
+    "Add the sticker you made first, or Cancel to let it go." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先添加你做好的贴纸，或轻点“取消”放弃。"
+          }
+        }
+      }
+    },
+    "Add to Favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入收藏"
+          }
+        }
+      }
+    },
+    "Add to page" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到页面"
+          }
+        }
+      }
+    },
+    "Add to your message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到消息"
+          }
+        }
+      }
+    },
+    "Add your name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加你的名字"
+          }
+        }
+      }
+    },
+    "Added - drag to move" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已添加，拖动可移动"
+          }
+        }
+      }
+    },
+    "Added a few words." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加了几句话。"
+          }
+        }
+      }
+    },
+    "Added a picture." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加了一张图片。"
+          }
+        }
+      }
+    },
+    "Added a soft title." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加了一个柔和的标题。"
+          }
+        }
+      }
+    },
+    "Added a sticker." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加了一张贴纸。"
+          }
+        }
+      }
+    },
+    "Adding a title..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在添加标题…"
+          }
+        }
+      }
+    },
+    "Adjusted %@." : {
+      "comment" : "Result sheet; %@ is 'the photo', 'the text'...",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整了%@。"
+          }
+        }
+      }
+    },
+    "Alignment" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对齐"
+          }
+        }
+      }
+    },
+    "Already on the default background." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经是默认背景了。"
+          }
+        }
+      }
+    },
+    "Appearance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外观"
+          }
+        }
+      }
+    },
+    "Apply" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用"
+          }
+        }
+      }
+    },
+    "Apply to this page" : {
+      "comment" : "Background tool composer placeholder.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用到这一页"
+          }
+        }
+      }
+    },
+    "Ask Mira" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "问 Mira"
+          }
+        }
+      }
+    },
+    "Ask Mira anything" : {
+      "comment" : "Glossary: Mira stays Mira.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有什么都可以问 Mira"
+          }
+        }
+      }
+    },
+    "Ask Mira anything..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有什么都可以问 Mira…"
+          }
+        }
+      }
+    },
+    "Ask Mira to adjust sound..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 Mira 调整声音…"
+          }
+        }
+      }
+    },
+    "Ask Mira to refine..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 Mira 再改改…"
+          }
+        }
+      }
+    },
+    "B&W" : {
+      "comment" : "Photo filter.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黑白"
+          }
+        }
+      }
+    },
+    "Back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回"
+          }
+        }
+      }
+    },
+    "Background" : {
+      "comment" : "Tool name. Glossary: Background/backdrop = 背景.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景"
+          }
+        }
+      }
+    },
+    "Background color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景颜色"
+          }
+        }
+      }
+    },
+    "Before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原图"
+          }
+        }
+      }
+    },
+    "Blank" : {
+      "comment" : "Paper type.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空白"
+          }
+        }
+      }
+    },
+    "Blush" : {
+      "comment" : "Page color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "淡粉"
+          }
+        }
+      }
+    },
+    "Bring to front" : {
+      "comment" : "Element menu. Glossary: front/back = 顶层/底层.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "置于顶层"
+          }
+        }
+      }
+    },
+    "Build a layout" : {
+      "comment" : "Quick start; sent to Mira as the user's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搭一个版面"
+          }
+        }
+      }
+    },
+    "CHOOSE YOUR LOOK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择你的风格"
+          }
+        }
+      }
+    },
+    "Calm" : {
+      "comment" : "Mood.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平静"
+          }
+        }
+      }
+    },
+    "Camera" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相机"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "Canvas" : {
+      "comment" : "Glossary: Canvas = 画布 (the page being made).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画布"
+          }
+        }
+      }
+    },
+    "Centered" : {
+      "comment" : "VoiceOver: the text block's alignment.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "居中"
+          }
+        }
+      }
+    },
+    "Change avatar" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更换头像"
+          }
+        }
+      }
+    },
+    "Change background" : {
+      "comment" : "Canvas chat quick action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个背景"
+          }
+        }
+      }
+    },
+    "Change date" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改日期"
+          }
+        }
+      }
+    },
+    "Change the background" : {
+      "comment" : "Mira suggestion chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个背景"
+          }
+        }
+      }
+    },
+    "Changed the photo's look." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更改照片效果。"
+          }
+        }
+      }
+    },
+    "China flag" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中国国旗"
+          }
+        }
+      }
+    },
+    "Choose a photo from your device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从设备中选择一张照片"
+          }
+        }
+      }
+    },
+    "Choose a shade, or sample it from your memory." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选一个色调，或从你的回忆里取色。"
+          }
+        }
+      }
+    },
+    "Choose format and quality before saving." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存前选择格式和画质。"
+          }
+        }
+      }
+    },
+    "Choose photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择照片"
+          }
+        }
+      }
+    },
+    "Choose the language used in MiraNote." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择 MiraNote 使用的语言。"
+          }
+        }
+      }
+    },
+    "Choose your background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择你的背景"
+          }
+        }
+      }
+    },
+    "Classic" : {
+      "comment" : "Font chip: the original default face (not a font name).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经典"
+          }
+        }
+      }
+    },
+    "Clay" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "陶土"
+          }
+        }
+      }
+    },
+    "Clean up" : {
+      "comment" : "Rewrite choice. Glossary: Clean up = 纠错 (it corrects the text; 清理 read as \"clear\"); Tidy (the layout) = 整理.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纠错"
+          }
+        }
+      }
+    },
+    "Cleaned up the text." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已纠错。"
+          }
+        }
+      }
+    },
+    "Cleaning up the text..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在纠错…"
+          }
+        }
+      }
+    },
+    "Cleared the backdrop." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清除背景。"
+          }
+        }
+      }
+    },
+    "Cleared the background." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清除背景。"
+          }
+        }
+      }
+    },
+    "Cleared the filter." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已去除滤镜。"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
+    "Compare with the original" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与原图对比"
+          }
+        }
+      }
+    },
+    "Couldn't catch those words." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没听清这几句。"
+          }
+        }
+      }
+    },
+    "Couldn't lift these off their background -- they're here as they came." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没能把它们从背景中抠出来，这些是原样。"
+          }
+        }
+      }
+    },
+    "Couldn't lift this off its background -- it's here as it came." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没能把它从背景中抠出来，这是原样。"
+          }
+        }
+      }
+    },
+    "Couldn't reach MiraNote's AI server. Check your connection -- if that is fine, the server is offline and the team needs to know." : {
+      "comment" : "Network error: no connection to the server.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连不上 MiraNote 的 AI 服务器。请检查网络；如果网络正常，就是服务器离线了，请告诉团队。"
+          }
+        }
+      }
+    },
+    "Couldn't reach the transcriber -- try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连不上转写服务，再试一次？"
+          }
+        }
+      }
+    },
+    "Couldn't rewrite -- try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改写失败，再试一次？"
+          }
+        }
+      }
+    },
+    "Couldn't save -- allow Photos access in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存失败，请在设置中允许访问照片。"
+          }
+        }
+      }
+    },
+    "Couldn't save -- try again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存失败，请重试"
+          }
+        }
+      }
+    },
+    "Create" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建"
+          }
+        }
+      }
+    },
+    "Create your way" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用你的方式创作"
+          }
+        }
+      }
+    },
+    "Curated sets · %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精选搭配 · %lld"
+          }
+        }
+      }
+    },
+    "Current" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前"
+          }
+        }
+      }
+    },
+    "Custom background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义背景"
+          }
+        }
+      }
+    },
+    "Custom color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义颜色"
+          }
+        }
+      }
+    },
+    "Custom page color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义页面颜色"
+          }
+        }
+      }
+    },
+    "Custom text background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义文字背景"
+          }
+        }
+      }
+    },
+    "Custom text color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义文字颜色"
+          }
+        }
+      }
+    },
+    "Cutout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抠图"
+          }
+        }
+      }
+    },
+    "Cutting the sticker..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在抠出贴纸…"
+          }
+        }
+      }
+    },
+    "DEFAULT" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认"
+          }
+        }
+      }
+    },
+    "Decorate your memory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "装点你的回忆"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        }
+      }
+    },
+    "Deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除"
+          }
+        }
+      }
+    },
+    "Describe a background for this page" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述这一页的背景"
+          }
+        }
+      }
+    },
+    "Describe a sticker" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述一张贴纸"
+          }
+        }
+      }
+    },
+    "Describe a sticker below -- Mira makes a couple to pick from." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在下方描述一张贴纸，Mira 会做几张供你挑选。"
+          }
+        }
+      }
+    },
+    "Describe an image" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述一张图片"
+          }
+        }
+      }
+    },
+    "Describe an image below -- Mira paints a couple to pick from." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在下方描述一张图片，Mira 会画几张供你挑选。"
+          }
+        }
+      }
+    },
+    "Describe cutout target" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述要抠出的对象"
+          }
+        }
+      }
+    },
+    "Discard recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃录音"
+          }
+        }
+      }
+    },
+    "Display Name" : {
+      "comment" : "Profile field. Glossary: display name = 昵称; your name = 名字.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昵称"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
+    },
+    "Dot" : {
+      "comment" : "Paper type.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点阵"
+          }
+        }
+      }
+    },
+    "Draft ready -- open to shape it" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "草稿已备好，打开继续打磨"
+          }
+        }
+      }
+    },
+    "Drag to move. Two fingers tilt. Long-press for more." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动可移动，双指可旋转，长按查看更多。"
+          }
+        }
+      }
+    },
+    "Drag to pick a color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动来取色"
+          }
+        }
+      }
+    },
+    "Drop here to delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖到这里删除"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "comment" : "Element menu. Glossary: Duplicate = 创建副本.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建副本"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑"
+          }
+        }
+      }
+    },
+    "Edit Profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑资料"
+          }
+        }
+      }
+    },
+    "Edit note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑备注"
+          }
+        }
+      }
+    },
+    "Edit photo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑照片"
+          }
+        }
+      }
+    },
+    "Edit sticker" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑贴纸"
+          }
+        }
+      }
+    },
+    "Edit text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑文字"
+          }
+        }
+      }
+    },
+    "Editing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑"
+          }
+        }
+      }
+    },
+    "Ends the dictation." : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束听写。"
+          }
+        }
+      }
+    },
+    "Everything else is untouched." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他内容都没动。"
+          }
+        }
+      }
+    },
+    "Everything else stayed put." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他内容保持不变。"
+          }
+        }
+      }
+    },
+    "Expand" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扩写"
+          }
+        }
+      }
+    },
+    "Expanded the text." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已扩写文字。"
+          }
+        }
+      }
+    },
+    "Expanding the text..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在扩写文字…"
+          }
+        }
+      }
+    },
+    "Export & Save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出与保存"
+          }
+        }
+      }
+    },
+    "FIVE CREATIVE TOOLS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "五种创作工具"
+          }
+        }
+      }
+    },
+    "Favorite" : {
+      "comment" : "Glossary: Favorites = 收藏.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收藏"
+          }
+        }
+      }
+    },
+    "Favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收藏"
+          }
+        }
+      }
+    },
+    "Film" : {
+      "comment" : "Photo filter.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "胶片"
+          }
+        }
+      }
+    },
+    "Font and size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字体与字号"
+          }
+        }
+      }
+    },
+    "Food" : {
+      "comment" : "Sticker set.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美食"
+          }
+        }
+      }
+    },
+    "Forest" : {
+      "comment" : "Appearance theme name; also a color swatch name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "森林"
+          }
+        }
+      }
+    },
+    "Forest green · warm gold" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "森林绿 · 暖金"
+          }
+        }
+      }
+    },
+    "Framed the photo." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已给照片加上相框。"
+          }
+        }
+      }
+    },
+    "From your pages" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自你的页面"
+          }
+        }
+      }
+    },
+    "Generate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成"
+          }
+        }
+      }
+    },
+    "Generate makes a new one; close the keyboard to see this one." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“生成”会做一张新的；收起键盘就能看到这一张。"
+          }
+        }
+      }
+    },
+    "Generating didn't work this time. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能生成，再试一次？"
+          }
+        }
+      }
+    },
+    "Go" : {
+      "comment" : "The composer's action pill (52 pt wide).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始"
+          }
+        }
+      }
+    },
+    "Grid" : {
+      "comment" : "Paper type.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方格"
+          }
+        }
+      }
+    },
+    "HEX" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEX"
+          }
+        }
+      }
+    },
+    "HUE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "色相"
+          }
+        }
+      }
+    },
+    "Hi, I'm Mira. Tell me what you want to remember, change, or create." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你好，我是 Mira。告诉我你想记录、修改或创作些什么。"
+          }
+        }
+      }
+    },
+    "High" : {
+      "comment" : "Export quality.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高清"
+          }
+        }
+      }
+    },
+    "Highlight" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高光"
+          }
+        }
+      }
+    },
+    "Hold" : {
+      "comment" : "Dictation strip action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住"
+          }
+        }
+      }
+    },
+    "Hold to talk" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住说话"
+          }
+        }
+      }
+    },
+    "Hold to talk, or tap to start." : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住说话，或轻点开始。"
+          }
+        }
+      }
+    },
+    "Hold to talk, or tap to start; your words land in the question." : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住说话，或轻点开始；你说的话会填进问题里。"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "comment" : "Glossary: Home = 首页.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首页"
+          }
+        }
+      }
+    },
+    "Hue" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "色相"
+          }
+        }
+      }
+    },
+    "I could not find words for this page -- try again?" : {
+      "comment" : "Mira failure card: no caption came back.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没想出适合这一页的文字，再试一次？"
+          }
+        }
+      }
+    },
+    "I could not tell which picture you meant -- tap it and ask again?" : {
+      "comment" : "Mira failure card: the picture to change is unclear.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没看出你指的是哪张图片，点一下它再问一次？"
+          }
+        }
+      }
+    },
+    "I could not tell which piece you meant -- which one should I move?" : {
+      "comment" : "Mira failure card: the element to change is unclear.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没看出你指的是哪一个，要移动哪一个？"
+          }
+        }
+      }
+    },
+    "I couldn't catch any words -- try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我没听清，再试一次？"
+          }
+        }
+      }
+    },
+    "Image" : {
+      "comment" : "Tool name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片"
+          }
+        }
+      }
+    },
+    "Image %lld" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 张图片"
+          }
+        }
+      }
+    },
+    "In Favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收藏"
+          }
+        }
+      }
+    },
+    "Ink" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "墨色"
+          }
+        }
+      }
+    },
+    "Joyful" : {
+      "comment" : "Mood.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "喜悦"
+          }
+        }
+      }
+    },
+    "Keep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留"
+          }
+        }
+      }
+    },
+    "Keyboard" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "键盘"
+          }
+        }
+      }
+    },
+    "Language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言"
+          }
+        }
+      }
+    },
+    "Layout, photos, and everything else stayed put." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版面、照片和其他内容都保持不变。"
+          }
+        }
+      }
+    },
+    "Left" : {
+      "comment" : "VoiceOver: the text block's alignment.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左对齐"
+          }
+        }
+      }
+    },
+    "Left %@ as it was." : {
+      "comment" : "Result sheet; %@ is 'the photo', 'the text'...",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@保持原样。"
+          }
+        }
+      }
+    },
+    "Left the page as it was." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面保持原样。"
+          }
+        }
+      }
+    },
+    "Lilac" : {
+      "comment" : "Page color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "丁香紫"
+          }
+        }
+      }
+    },
+    "Lined" : {
+      "comment" : "Paper type.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横线"
+          }
+        }
+      }
+    },
+    "Linen" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亚麻白"
+          }
+        }
+      }
+    },
+    "Listening..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在听…"
+          }
+        }
+      }
+    },
+    "Long-press any image or sticker on the canvas and choose Favorite to keep it here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在画布上长按任意图片或贴纸，选择“收藏”即可保存在这里。"
+          }
+        }
+      }
+    },
+    "Looking at the page..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在看这一页…"
+          }
+        }
+      }
+    },
+    "Low" : {
+      "comment" : "Mood.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低落"
+          }
+        }
+      }
+    },
+    "Lunch by the river" : {
+      "comment" : "Background preview: sample title when the page has none.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "河边的午餐"
+          }
+        }
+      }
+    },
+    "Made it a sticker." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已做成贴纸。"
+          }
+        }
+      }
+    },
+    "Made the words bigger." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字已放大。"
+          }
+        }
+      }
+    },
+    "Made the words smaller." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字已缩小。"
+          }
+        }
+      }
+    },
+    "Make MiraNote feel like yours." : {
+      "comment" : "Glossary: MiraNote stays MiraNote.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 MiraNote 更有你的味道。"
+          }
+        }
+      }
+    },
+    "Make a healing page" : {
+      "comment" : "Quick start; sent to Mira as the user's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "做一个治愈的页面"
+          }
+        }
+      }
+    },
+    "Make a sticker" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "制作贴纸"
+          }
+        }
+      }
+    },
+    "Make a sticker from the selected photo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用选中的照片制作贴纸"
+          }
+        }
+      }
+    },
+    "Make text warmer" : {
+      "comment" : "Canvas chat quick action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让文字更温暖"
+          }
+        }
+      }
+    },
+    "Make the text warmer" : {
+      "comment" : "What the 'Make text warmer' action asks Mira.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让文字更温暖一些"
+          }
+        }
+      }
+    },
+    "Making a sticker didn't work this time. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能做出贴纸，再试一次？"
+          }
+        }
+      }
+    },
+    "Match page" : {
+      "comment" : "Photo filter.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匹配页面"
+          }
+        }
+      }
+    },
+    "Memory date" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回忆日期"
+          }
+        }
+      }
+    },
+    "Message Mira" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "给 Mira 发消息"
+          }
+        }
+      }
+    },
+    "Microphone access is off. Enable it in Settings to record voice notes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风权限已关闭。请在设置中开启，才能录制语音。"
+          }
+        }
+      }
+    },
+    "Mira Dictation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 听写"
+          }
+        }
+      }
+    },
+    "Mira can edit this canvas directly." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 可以直接编辑这张画布。"
+          }
+        }
+      }
+    },
+    "Mira couldn't look at that photo -- she answered from your words." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 没能看到那张照片，她是根据你的文字回复的。"
+          }
+        }
+      }
+    },
+    "Mira couldn't make that one -- try other words?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 没能做出来，换个说法试试？"
+          }
+        }
+      }
+    },
+    "Mira couldn't paint that one -- try other words?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 没能画出来，换个说法试试？"
+          }
+        }
+      }
+    },
+    "MiraNote can't see your photos. Allow access in Settings, or pick a few here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 看不到你的照片。请在设置中允许访问，或在这里挑选几张。"
+          }
+        }
+      }
+    },
+    "MiraNote page" : {
+      "comment" : "Print job name of an untitled page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 页面"
+          }
+        }
+      }
+    },
+    "MiraNote's AI server is not running. It lives on a Mac someone has to start -- let the team know." : {
+      "comment" : "Server error 502.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 的 AI 服务器没有运行。它在一台需要有人启动的 Mac 上，请告诉团队。"
+          }
+        }
+      }
+    },
+    "Month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月"
+          }
+        }
+      }
+    },
+    "More than one photo here -- tap the one you mean and ask again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里不止一张照片，轻点你想要的那张再问一次。"
+          }
+        }
+      }
+    },
+    "More than one sticker here -- tap the one you mean and ask again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里不止一张贴纸，轻点你想要的那张再问一次。"
+          }
+        }
+      }
+    },
+    "Move to %@" : {
+      "comment" : "Context menu: move a page to another collection (its name).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移到「%@」"
+          }
+        }
+      }
+    },
+    "Moved %@." : {
+      "comment" : "Result sheet; %@ is 'the photo', 'the text'...",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动了%@。"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "comment" : "Placeholder of the new-collection name field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
+    "Name can't be empty." : {
+      "comment" : "Edit Profile helper when the name field is emptied.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名字不能为空。"
+          }
+        }
+      }
+    },
+    "Name your new notebook." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "给新合集起个名字吧。"
+          }
+        }
+      }
+    },
+    "Neutral" : {
+      "comment" : "Mood.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平常"
+          }
+        }
+      }
+    },
+    "New collection" : {
+      "comment" : "Glossary: collection / journal / notebook = 合集.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建合集"
+          }
+        }
+      }
+    },
+    "New memory" : {
+      "comment" : "Title given to a saved page without one.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新的回忆"
+          }
+        }
+      }
+    },
+    "New page" : {
+      "comment" : "Glossary: page = 页面.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新页面"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一步"
+          }
+        }
+      }
+    },
+    "Next month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下个月"
+          }
+        }
+      }
+    },
+    "Next week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一周"
+          }
+        }
+      }
+    },
+    "No audio was captured. Try recording again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有录到声音，请再录一次。"
+          }
+        }
+      }
+    },
+    "No background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无背景"
+          }
+        }
+      }
+    },
+    "No memories that month." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "那个月没有回忆。"
+          }
+        }
+      }
+    },
+    "No memories that week." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "那一周没有回忆。"
+          }
+        }
+      }
+    },
+    "No memories yet this month." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个月还没有回忆。"
+          }
+        }
+      }
+    },
+    "No memories yet this week." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这周还没有回忆。"
+          }
+        }
+      }
+    },
+    "No photo on this page yet -- add one first?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一页还没有照片，先添加一张？"
+          }
+        }
+      }
+    },
+    "No sticker on this page yet -- generate one first?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一页还没有贴纸，先生成一张？"
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "Photo frame.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        }
+      }
+    },
+    "Nothing waiting here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里空空如也。"
+          }
+        }
+      }
+    },
+    "One long page" : {
+      "comment" : "PDF layout.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单张长页"
+          }
+        }
+      }
+    },
+    "One of these kept its background. They're all here -- pick either." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中一张保留了背景。都在这里，任选一张吧。"
+          }
+        }
+      }
+    },
+    "One-tap layout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一键排版"
+          }
+        }
+      }
+    },
+    "Only the photos you shared show here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里只显示你共享的照片。"
+          }
+        }
+      }
+    },
+    "Open Photo Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开照片图库"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置"
+          }
+        }
+      }
+    },
+    "Opens Edit Profile" : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开编辑资料"
+          }
+        }
+      }
+    },
+    "Opens the Mira chat" : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 Mira 对话"
+          }
+        }
+      }
+    },
+    "Original" : {
+      "comment" : "Photo treatment and export quality: the untouched photo (原图). The text rewrite's untouched words are \"Original text\".",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原图"
+          }
+        }
+      }
+    },
+    "Original MiraNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经典 MiraNote"
+          }
+        }
+      }
+    },
+    "Original text" : {
+      "comment" : "Text rewrite choice: the words as written. Shown in English as \"Original\".",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原文"
+          }
+        }
+      }
+    },
+    "Outline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描边"
+          }
+        }
+      }
+    },
+    "PAINTED" : {
+      "comment" : "Preview label: the page has a painted background.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已绘制"
+          }
+        }
+      }
+    },
+    "PREFERENCES" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏好设置"
+          }
+        }
+      }
+    },
+    "PREVIEW COLOR  ·  %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预览颜色  ·  %@"
+          }
+        }
+      }
+    },
+    "Page color hex" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面颜色色值"
+          }
+        }
+      }
+    },
+    "Page type" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纸张类型"
+          }
+        }
+      }
+    },
+    "Pages leave for good after 30 days." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面会在 30 天后永久删除。"
+          }
+        }
+      }
+    },
+    "Painting a background for this page..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在为这一页绘制背景…"
+          }
+        }
+      }
+    },
+    "Painting the backdrop..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在绘制背景…"
+          }
+        }
+      }
+    },
+    "Painting..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在绘制…"
+          }
+        }
+      }
+    },
+    "Paper" : {
+      "comment" : "Page color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纸白"
+          }
+        }
+      }
+    },
+    "Paper, color & curated type" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纸张、颜色与精选字体"
+          }
+        }
+      }
+    },
+    "Paper, palettes & font pairings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纸张、配色与字体搭配"
+          }
+        }
+      }
+    },
+    "Peach · coral · lilac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蜜桃 · 珊瑚 · 丁香紫"
+          }
+        }
+      }
+    },
+    "Photo %lld" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 张照片"
+          }
+        }
+      }
+    },
+    "Photo %lld to send" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待发送的第 %lld 张照片"
+          }
+        }
+      }
+    },
+    "Photo Editing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片编辑"
+          }
+        }
+      }
+    },
+    "Photo Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片图库"
+          }
+        }
+      }
+    },
+    "Photo loading" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片加载中"
+          }
+        }
+      }
+    },
+    "Photo you sent" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你发送的照片"
+          }
+        }
+      }
+    },
+    "Photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片"
+          }
+        }
+      }
+    },
+    "Pick a page color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择页面颜色"
+          }
+        }
+      }
+    },
+    "Pick an image first, or Cancel to let it go." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先选一张图片，或轻点“取消”放弃。"
+          }
+        }
+      }
+    },
+    "Pick color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取色"
+          }
+        }
+      }
+    },
+    "Pick photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "挑选照片"
+          }
+        }
+      }
+    },
+    "Play" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放"
+          }
+        }
+      }
+    },
+    "Plum" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "梅子紫"
+          }
+        }
+      }
+    },
+    "Polaroid" : {
+      "comment" : "Photo frame.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拍立得"
+          }
+        }
+      }
+    },
+    "Polished the text." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已润色文字。"
+          }
+        }
+      }
+    },
+    "Polishing the text..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在润色文字…"
+          }
+        }
+      }
+    },
+    "Previous month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上个月"
+          }
+        }
+      }
+    },
+    "Previous week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一周"
+          }
+        }
+      }
+    },
+    "Print" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打印"
+          }
+        }
+      }
+    },
+    "Profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "个人资料"
+          }
+        }
+      }
+    },
+    "Put this on the page" : {
+      "comment" : "Mira suggestion chip under a reply.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放到页面上"
+          }
+        }
+      }
+    },
+    "Quality" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画质"
+          }
+        }
+      }
+    },
+    "Quick starts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速开始"
+          }
+        }
+      }
+    },
+    "Re-layout photos" : {
+      "comment" : "Canvas chat quick action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新排列照片"
+          }
+        }
+      }
+    },
+    "Ready when you are" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备好就开始吧"
+          }
+        }
+      }
+    },
+    "Rearranged the page." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面已重新排列。"
+          }
+        }
+      }
+    },
+    "Recently deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近删除"
+          }
+        }
+      }
+    },
+    "Recently deleted (%lld)" : {
+      "comment" : "Home link to the bin, with how many pages wait there.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近删除（%lld）"
+          }
+        }
+      }
+    },
+    "Recents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近项目"
+          }
+        }
+      }
+    },
+    "Recolored %@." : {
+      "comment" : "Result sheet; %@ is 'the photo', 'the text'...",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改了%@的颜色。"
+          }
+        }
+      }
+    },
+    "Recolored the words." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更改文字颜色。"
+          }
+        }
+      }
+    },
+    "Record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音"
+          }
+        }
+      }
+    },
+    "Record and place sound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录制并放置声音"
+          }
+        }
+      }
+    },
+    "Recording" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音中"
+          }
+        }
+      }
+    },
+    "Recording here" : {
+      "comment" : "VoiceOver: where the take will land.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音位置"
+          }
+        }
+      }
+    },
+    "Redo style" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重做样式"
+          }
+        }
+      }
+    },
+    "Redrawing the sticker..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重绘贴纸…"
+          }
+        }
+      }
+    },
+    "Release" : {
+      "comment" : "Dictation strip action while listening.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "松开"
+          }
+        }
+      }
+    },
+    "Release outside the canvas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在画布外松手"
+          }
+        }
+      }
+    },
+    "Release to cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "松开取消"
+          }
+        }
+      }
+    },
+    "Release to finish, slide up to cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "松开结束，上滑取消"
+          }
+        }
+      }
+    },
+    "Remove from Favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从收藏中移除"
+          }
+        }
+      }
+    },
+    "Remove photo %lld" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除第 %lld 张照片"
+          }
+        }
+      }
+    },
+    "Remove the loading photo" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除正在加载的照片"
+          }
+        }
+      }
+    },
+    "Removed the frame." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已去除相框。"
+          }
+        }
+      }
+    },
+    "Rephrase" : {
+      "comment" : "Mira failure chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个说法"
+          }
+        }
+      }
+    },
+    "Resized %@." : {
+      "comment" : "Result sheet; %@ is 'the photo', 'the text'...",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整了%@的大小。"
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复"
+          }
+        }
+      }
+    },
+    "Restyled the photo." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已调整照片风格。"
+          }
+        }
+      }
+    },
+    "Restyled the sticker." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已调整贴纸风格。"
+          }
+        }
+      }
+    },
+    "Restyling the photo..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在调整照片风格…"
+          }
+        }
+      }
+    },
+    "Returns the page to its default backdrop" : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让页面回到默认背景"
+          }
+        }
+      }
+    },
+    "Revert" : {
+      "comment" : "Glossary: Revert = 还原 (take back the last change).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还原"
+          }
+        }
+      }
+    },
+    "Rewrite" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改写"
+          }
+        }
+      }
+    },
+    "Rewrite softer" : {
+      "comment" : "Quick start; sent to Mira as the user's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改写得更温柔"
+          }
+        }
+      }
+    },
+    "Right" : {
+      "comment" : "VoiceOver: the text block's alignment.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右对齐"
+          }
+        }
+      }
+    },
+    "Rosewood" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "玫瑰木"
+          }
+        }
+      }
+    },
+    "SWIPE →" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "滑动 →"
+          }
+        }
+      }
+    },
+    "Sage" : {
+      "comment" : "Color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鼠尾草绿"
+          }
+        }
+      }
+    },
+    "Samples" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "示例"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        }
+      }
+    },
+    "Save changes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存更改"
+          }
+        }
+      }
+    },
+    "Save to Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存到文件"
+          }
+        }
+      }
+    },
+    "Save to Photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存到照片"
+          }
+        }
+      }
+    },
+    "Saved to Favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已加入收藏"
+          }
+        }
+      }
+    },
+    "Saved to Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存到文件"
+          }
+        }
+      }
+    },
+    "Saved to Photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存到照片"
+          }
+        }
+      }
+    },
+    "Say something..." : {
+      "comment" : "Placeholder of an empty text block on the page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "说点什么…"
+          }
+        }
+      }
+    },
+    "Selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选择"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送"
+          }
+        }
+      }
+    },
+    "Send to back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "置于底层"
+          }
+        }
+      }
+    },
+    "Set the color behind your selected text." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置所选文字后面的颜色。"
+          }
+        }
+      }
+    },
+    "Set the page background." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已设置页面背景。"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置"
+          }
+        }
+      }
+    },
+    "Shade" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "色调"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享"
+          }
+        }
+      }
+    },
+    "Share more" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择更多照片"
+          }
+        }
+      }
+    },
+    "Shortened the text." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已精简文字。"
+          }
+        }
+      }
+    },
+    "Shortening the text..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在精简文字…"
+          }
+        }
+      }
+    },
+    "Showing before and current" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在显示原图和当前效果"
+          }
+        }
+      }
+    },
+    "Showing your edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在显示你的编辑"
+          }
+        }
+      }
+    },
+    "Size %@" : {
+      "comment" : "VoiceOver: size S, M or L.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字号 %@"
+          }
+        }
+      }
+    },
+    "Sky" : {
+      "comment" : "Page color swatch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "天空蓝"
+          }
+        }
+      }
+    },
+    "Something went wrong. Try again in a moment." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出了点问题，请稍后再试。"
+          }
+        }
+      }
+    },
+    "Sound is attached." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音已添加。"
+          }
+        }
+      }
+    },
+    "Sound note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音备注"
+          }
+        }
+      }
+    },
+    "Standard" : {
+      "comment" : "Export quality.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标准"
+          }
+        }
+      }
+    },
+    "Star jar" : {
+      "comment" : "Glossary: Star jar = 星星罐 (every saved page is a star in a jar).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "星星罐"
+          }
+        }
+      }
+    },
+    "Start a memory" : {
+      "comment" : "Home's main button. Glossary: memory = 回忆 (a journal memory; never 记忆); 'start a memory' reads as 'start recording'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始记录"
+          }
+        }
+      }
+    },
+    "Start from camera roll, camera, or AI." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从相册、相机或 AI 开始。"
+          }
+        }
+      }
+    },
+    "Sticker" : {
+      "comment" : "Tool name. Glossary: Sticker = 贴纸.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贴纸"
+          }
+        }
+      }
+    },
+    "Stop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "Stop and transcribe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止并转写"
+          }
+        }
+      }
+    },
+    "Stop recording" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止录音"
+          }
+        }
+      }
+    },
+    "Stop the voice recording first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先停止录音。"
+          }
+        }
+      }
+    },
+    "Sunlit Pop" : {
+      "comment" : "Appearance theme name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阳光波普"
+          }
+        }
+      }
+    },
+    "System" : {
+      "comment" : "Appearance: the original MiraNote look (not 'follow the system').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认"
+          }
+        }
+      }
+    },
+    "Tap a text block first, then dictate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先轻点一个文本框，再开始听写。"
+          }
+        }
+      }
+    },
+    "Tap an icon to switch tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点图标切换工具"
+          }
+        }
+      }
+    },
+    "Tap to select" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点选择"
+          }
+        }
+      }
+    },
+    "Tap your avatar or name to edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点头像或名字即可编辑"
+          }
+        }
+      }
+    },
+    "Tell AI what to change" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "告诉 AI 要改什么"
+          }
+        }
+      }
+    },
+    "Tell Mira what to change" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "告诉 Mira 要改什么"
+          }
+        }
+      }
+    },
+    "Tender" : {
+      "comment" : "Mood.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "温柔"
+          }
+        }
+      }
+    },
+    "Tense" : {
+      "comment" : "Mood.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "紧张"
+          }
+        }
+      }
+    },
+    "Text" : {
+      "comment" : "Tool name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字"
+          }
+        }
+      }
+    },
+    "Text background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字背景"
+          }
+        }
+      }
+    },
+    "Text color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字颜色"
+          }
+        }
+      }
+    },
+    "Text size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字大小"
+          }
+        }
+      }
+    },
+    "That didn't work this time. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没成功，再试一次？"
+          }
+        }
+      }
+    },
+    "That one did not go through. Try again, or say it differently?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没成功。再试一次，还是换个说法？"
+          }
+        }
+      }
+    },
+    "That photo could not be opened. Try another one." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开这张照片，换一张试试。"
+          }
+        }
+      }
+    },
+    "That photo couldn't be loaded. Try another?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张照片加载不了，换一张试试？"
+          }
+        }
+      }
+    },
+    "That photo couldn't be saved. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张照片没能保存，再试一次？"
+          }
+        }
+      }
+    },
+    "That picture couldn't be saved. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图片没能保存，再试一次？"
+          }
+        }
+      }
+    },
+    "That sticker couldn't be saved. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没能保存，再试一次？"
+          }
+        }
+      }
+    },
+    "That took longer than the server allows. Try again once; if it fails a second time, tell the team rather than retrying." : {
+      "comment" : "Network error: the request timed out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "处理时间超出了服务器的上限。请再试一次；如果还是失败，请告诉团队，不要反复重试。"
+          }
+        }
+      }
+    },
+    "The camera isn't available here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里无法使用相机。"
+          }
+        }
+      }
+    },
+    "The current page stays attached, so Mira can change color, layout, copy, stickers, or image treatment without starting over." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前页面会一并带上，Mira 可以直接调整颜色、布局、文字、贴纸或图片效果，无需从头再来。"
+          }
+        }
+      }
+    },
+    "The image service has used up its quota with the provider. Nothing on your phone can fix this one; try again later." : {
+      "comment" : "Server error 503: image quota.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片服务在供应商那里的额度已用完。手机上无法解决，请稍后再试。"
+          }
+        }
+      }
+    },
+    "The link to MiraNote's AI server is down, most likely because its Mac is asleep or off the network. Let the team know." : {
+      "comment" : "Server error 530: the tunnel is down.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到 MiraNote AI 服务器的连接断了，很可能是那台 Mac 在休眠或断网了。请告诉团队。"
+          }
+        }
+      }
+    },
+    "The photo I was working on is gone, so I left everything as is." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我正在处理的照片不见了，所以一切保持原样。"
+          }
+        }
+      }
+    },
+    "The server returned an error (status %lld)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器返回了错误（状态码 %lld）。"
+          }
+        }
+      }
+    },
+    "The server sent an unexpected response." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器返回了意外的响应。"
+          }
+        }
+      }
+    },
+    "The sticker I was working on is gone, so I left everything as is." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我正在处理的贴纸不见了，所以一切保持原样。"
+          }
+        }
+      }
+    },
+    "The text I was working on is gone, so I left everything as is." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我正在处理的文字不见了，所以一切保持原样。"
+          }
+        }
+      }
+    },
+    "There are no words on the page yet -- which text should I change?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面上还没有文字，你想让我改哪段文字？"
+          }
+        }
+      }
+    },
+    "There is not much on this page to arrange yet -- add a little first?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一页还没什么可排的，先加点内容？"
+          }
+        }
+      }
+    },
+    "These icons stay with you on every page." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些图标会在每一页陪着你。"
+          }
+        }
+      }
+    },
+    "Thinking..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在思考…"
+          }
+        }
+      }
+    },
+    "This build cannot get into the beta -- its access was never set up, or has since been replaced. Ask the team for an updated build; reinstalling this one will not help." : {
+      "comment" : "Server error 401: the build's beta access.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个版本无法进入测试：它的访问权限没有设置，或已被更换。请向团队要一个新版本；重新安装这个版本没有用。"
+          }
+        }
+      }
+    },
+    "This device has no camera -- try Photos instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台设备没有相机，试试从照片中选择。"
+          }
+        }
+      }
+    },
+    "This journal is still empty -- start a memory below." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个合集还是空的，在下方开始记录吧。"
+          }
+        }
+      }
+    },
+    "This page's sound plays in MiraNote only." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一页的声音只能在 MiraNote 中播放。"
+          }
+        }
+      }
+    },
+    "This picture has no stored pixels to change." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图片没有可修改的像素。"
+          }
+        }
+      }
+    },
+    "This picture has no stored pixels to cut." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图片没有可抠图的像素。"
+          }
+        }
+      }
+    },
+    "This picture has no stored pixels to outline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图片没有可描边的像素。"
+          }
+        }
+      }
+    },
+    "This picture has no stored pixels to work on -- try another photo?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图片没有可处理的像素，换一张照片试试？"
+          }
+        }
+      }
+    },
+    "This sticker has no stored pixels to change." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可修改的像素。"
+          }
+        }
+      }
+    },
+    "This sticker has no stored pixels to work on -- try another?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可处理的像素，换一张试试？"
+          }
+        }
+      }
+    },
+    "This was taking too long, so I stopped. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "花的时间太久，我先停下了。再试一次？"
+          }
+        }
+      }
+    },
+    "Those photos couldn't be imported. Try different ones?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些照片没能导入，换几张试试？"
+          }
+        }
+      }
+    },
+    "Tidied the layout." : {
+      "comment" : "Result sheet: what changed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版面已整理。"
+          }
+        }
+      }
+    },
+    "Tidy the layout" : {
+      "comment" : "Mira suggestion chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理版面"
+          }
+        }
+      }
+    },
+    "Tidying the layout..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在整理版面…"
+          }
+        }
+      }
+    },
+    "Transcribing..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在转写…"
+          }
+        }
+      }
+    },
+    "Try again" : {
+      "comment" : "Mira failure chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再试一次"
+          }
+        }
+      }
+    },
+    "Type or polish your memory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写下或润色你的回忆"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销"
+          }
+        }
+      }
+    },
+    "Undo brings the old one back." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销即可换回原来的。"
+          }
+        }
+      }
+    },
+    "Undo brings the photo back." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销即可找回照片。"
+          }
+        }
+      }
+    },
+    "Undo last edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销上一步编辑"
+          }
+        }
+      }
+    },
+    "Undo last edit or hold compare" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销上一步，或按住对比"
+          }
+        }
+      }
+    },
+    "Undo restores it." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销即可还原。"
+          }
+        }
+      }
+    },
+    "Undo restores them." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销即可还原。"
+          }
+        }
+      }
+    },
+    "Undo style" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销样式"
+          }
+        }
+      }
+    },
+    "United States flag" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美国国旗"
+          }
+        }
+      }
+    },
+    "Untitled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无标题"
+          }
+        }
+      }
+    },
+    "Use %lld characters or fewer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最多 %lld 个字符。"
+          }
+        }
+      }
+    },
+    "Use my photos" : {
+      "comment" : "Quick start; sent to Mira as the user's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用我的照片"
+          }
+        }
+      }
+    },
+    "Voice" : {
+      "comment" : "Tool name: record a sound for the page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音"
+          }
+        }
+      }
+    },
+    "Voice input" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入"
+          }
+        }
+      }
+    },
+    "Warm" : {
+      "comment" : "Photo filter.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暖色"
+          }
+        }
+      }
+    },
+    "Week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周"
+          }
+        }
+      }
+    },
+    "What is this sound?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是什么声音？"
+          }
+        }
+      }
+    },
+    "When is this memory from?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这段回忆发生在什么时候？"
+          }
+        }
+      }
+    },
+    "When was my Paris trip?" : {
+      "comment" : "Home ask-bar placeholder: an example question about past pages.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的巴黎之旅是什么时候？"
+          }
+        }
+      }
+    },
+    "White" : {
+      "comment" : "Color swatch and photo frame.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "白色"
+          }
+        }
+      }
+    },
+    "Working" : {
+      "comment" : "VoiceOver: a spinner.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "处理中"
+          }
+        }
+      }
+    },
+    "Working on the page..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在处理这一页…"
+          }
+        }
+      }
+    },
+    "Working..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "处理中…"
+          }
+        }
+      }
+    },
+    "Write, style & arrange" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "书写、样式与排版"
+          }
+        }
+      }
+    },
+    "Writing" : {
+      "comment" : "VoiceOver.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "书写中"
+          }
+        }
+      }
+    },
+    "Writing a few words..." : {
+      "comment" : "Mira working line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在写几句话…"
+          }
+        }
+      }
+    },
+    "Writing it down..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在记下…"
+          }
+        }
+      }
+    },
+    "You are sending requests faster than the beta allows. Wait about a minute and it clears on its own." : {
+      "comment" : "Server error 429: rate limit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求发得太快，超出了测试版的限制。等一分钟左右就会自动恢复。"
+          }
+        }
+      }
+    },
+    "You can change this anytime in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你可以随时在设置中更改。"
+          }
+        }
+      }
+    },
+    "You can start with a mood, a photo, a voice note, or a messy idea." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以从一种心情、一张照片、一段语音，或一个零散的想法开始。"
+          }
+        }
+      }
+    },
+    "Your changes could not be saved. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改未能保存，请重试。"
+          }
+        }
+      }
+    },
+    "Your choice sets the app’s colors and typography." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的选择决定应用的配色和字体。"
+          }
+        }
+      }
+    },
+    "Your memory," : {
+      "comment" : "Home hero, line 1 of 2.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的回忆，"
+          }
+        }
+      }
+    },
+    "Your name appears on your profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的名字会显示在个人资料上。"
+          }
+        }
+      }
+    },
+    "Your words and photos are unchanged." : {
+      "comment" : "Result sheet: what was kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的文字和照片都没有改变。"
+          }
+        }
+      }
+    },
+    "Your words go into the message field to edit before sending." : {
+      "comment" : "VoiceOver hint.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你说的话会先填进输入框，发送前可以修改。"
+          }
+        }
+      }
+    },
+    "a few things" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "几处内容"
+          }
+        }
+      }
+    },
+    "accurate voice-to-text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精准语音转文字"
+          }
+        }
+      }
+    },
+    "bakeries" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "烘焙点心"
+          }
+        }
+      }
+    },
+    "bao" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包子"
+          }
+        }
+      }
+    },
+    "beautifully made." : {
+      "comment" : "Home hero, line 2 of 2.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用心成册。"
+          }
+        }
+      }
+    },
+    "bibimbap" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "石锅拌饭"
+          }
+        }
+      }
+    },
+    "boba" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "珍珠奶茶"
+          }
+        }
+      }
+    },
+    "burgers" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "汉堡"
+          }
+        }
+      }
+    },
+    "burrito" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "墨西哥卷饼"
+          }
+        }
+      }
+    },
+    "chocolate cake" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "巧克力蛋糕"
+          }
+        }
+      }
+    },
+    "coffee" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "咖啡"
+          }
+        }
+      }
+    },
+    "cream soup" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "奶油浓汤"
+          }
+        }
+      }
+    },
+    "donuts" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "甜甜圈"
+          }
+        }
+      }
+    },
+    "dumplings" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "饺子"
+          }
+        }
+      }
+    },
+    "focaccia" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "佛卡夏"
+          }
+        }
+      }
+    },
+    "fried chicken" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "炸鸡"
+          }
+        }
+      }
+    },
+    "fries" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "薯条"
+          }
+        }
+      }
+    },
+    "from %@ · %@" : {
+      "comment" : "Bin row: the collection a page came from, then how long it stays.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自 %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "hotdog" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "热狗"
+          }
+        }
+      }
+    },
+    "hotpot" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火锅"
+          }
+        }
+      }
+    },
+    "ice cream" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冰淇淋"
+          }
+        }
+      }
+    },
+    "iced tea" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冰茶"
+          }
+        }
+      }
+    },
+    "it" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它"
+          }
+        }
+      }
+    },
+    "language.zh.subtitle" : {
+      "comment" : "The Chinese option's locale, always shown in Chinese.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simplified Chinese (China)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简体中文（中国）"
+          }
+        }
+      }
+    },
+    "language.zh.title" : {
+      "comment" : "The Chinese option's name, always shown in Chinese.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chinese"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中文"
+          }
+        }
+      }
+    },
+    "martini" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "马天尼"
+          }
+        }
+      }
+    },
+    "mood not read yet" : {
+      "comment" : "VoiceOver: a star whose page's mood is not known yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心情尚未识别"
+          }
+        }
+      }
+    },
+    "pancake" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "松饼"
+          }
+        }
+      }
+    },
+    "pasta" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "意面"
+          }
+        }
+      }
+    },
+    "pizza" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "披萨"
+          }
+        }
+      }
+    },
+    "pudding" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "布丁"
+          }
+        }
+      }
+    },
+    "quesadilla" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "芝士薄饼"
+          }
+        }
+      }
+    },
+    "ramen" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拉面"
+          }
+        }
+      }
+    },
+    "salad" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沙拉"
+          }
+        }
+      }
+    },
+    "sandwich" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "三明治"
+          }
+        }
+      }
+    },
+    "steak" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "牛排"
+          }
+        }
+      }
+    },
+    "sushi" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寿司"
+          }
+        }
+      }
+    },
+    "taco" : {
+      "comment" : "Sticker (VoiceOver).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "塔可"
+          }
+        }
+      }
+    },
+    "tap to play" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点播放"
+          }
+        }
+      }
+    },
+    "the photo" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片"
+          }
+        }
+      }
+    },
+    "the sound" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音"
+          }
+        }
+      }
+    },
+    "the sticker" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贴纸"
+          }
+        }
+      }
+    },
+    "the text" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字"
+          }
+        }
+      }
+    },
+    "the title" : {
+      "comment" : "Fills 'Moved %@.' and the like.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

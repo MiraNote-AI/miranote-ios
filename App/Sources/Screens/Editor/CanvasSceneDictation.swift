@@ -1,6 +1,7 @@
 import Foundation
 import MiraNoteKit
 import SwiftUI
+import UIKit
 
 // MARK: - Dictation (hold to talk)
 
@@ -13,7 +14,7 @@ extension CanvasScene {
         // it over (or its release would transcribe the take into the block).
         // An armed Voice tool holds nothing yet.
         if case .recording = recorderState {
-            dictationHint = "Stop the voice recording first."
+            dictationHint = String(appCopy: "Stop the voice recording first.")
             return
         }
         dictationPress = (start: .now, wasLive: dictating || recorder != nil)
@@ -30,13 +31,14 @@ extension CanvasScene {
     }
 
     /// Ends a dictation that lost its editing session (keyboard dismissed,
-    /// editing finished, the app or the editor left): stop the mic quietly,
+    /// editing finished, the editor left): stop the mic quietly,
     /// keep nothing -- also one still coming up, which stops once it is.
     func cancelDictationIfNeeded() {
         dictationPress = nil
         if startingMic == .text {
             startingMic = nil
             recorder = nil
+            endDeferredWriting()
             return
         }
         guard dictating else { return }
@@ -44,6 +46,42 @@ extension CanvasScene {
         recorder = nil
         dictating = false
         Task { _ = try? await abandoned?.stop() }
+        endDeferredWriting()
+    }
+
+    /// The app leaves the foreground: a live take ends as if let go, so
+    /// what it recorded lands (or the strip says why not); a mic still
+    /// coming up has recorded nothing and is cancelled.
+    func stopDictationForBackground() {
+        dictationPress = nil
+        guard dictating else {
+            cancelDictationIfNeeded()
+            return
+        }
+        // iOS suspends the app seconds after it leaves: ask for time to
+        // stop the take and send it, until its words land or time is up.
+        let app = UIApplication.shared
+        var assertion = UIBackgroundTaskIdentifier.invalid
+        func end() {
+            guard assertion != .invalid else { return }
+            app.endBackgroundTask(assertion)
+            assertion = .invalid
+        }
+        assertion = app.beginBackgroundTask(withName: "dictation take", expirationHandler: end)
+        stopDictation()
+        let take = lastTake
+        Task {
+            await take?.value
+            end()
+        }
+    }
+
+    /// The writing's end waited for a held take that then ended without
+    /// words (cancelled, or its mic never came up): once the earlier words
+    /// have landed, the writing ends now -- still on their way, they end it.
+    private func endDeferredWriting() {
+        guard doneWaiting != nil, pendingTakes.isEmpty else { return }
+        finishWaitingDone(caught: true)
     }
 
     /// Whether `candidate` still holds the recorder slot (a cancel while it
@@ -74,6 +112,7 @@ extension CanvasScene {
                 startingMic = nil
                 recorder = nil
                 dictationHint = error.localizedDescription
+                endDeferredWriting()
             }
         }
     }
@@ -97,6 +136,12 @@ extension CanvasScene {
         // written down queues behind it: both land, in the order spoken.
         let take = UUID()
         pendingTakes.append(take)
+        // The writing's end waited for this take to be let go of: its words
+        // get the whole wait from here.
+        if doneWaiting != nil {
+            doneWaiting = nil
+            waitForWordsThenEnd()
+        }
         let earlier = lastTake
         lastTake = Task {
             let words = await transcribe(recorder, for: id)
@@ -116,23 +161,40 @@ extension CanvasScene {
     /// return looked like a dead feature.
     private func transcribe(_ recorder: AudioRecording, for id: CanvasItem.ID?) async -> String? {
         guard let data = try? await recorder.stop(), !data.isEmpty else {
-            dictationHint = "I couldn't catch any words -- try again?"
+            dictationHint = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         guard id != nil else {
-            dictationHint = "Tap a text block first, then dictate."
+            dictationHint = String(appCopy: "Tap a text block first, then dictate.")
             return nil
         }
-        guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
-            dictationHint = "Couldn't reach the transcriber -- try again?"
+        let trips = leftForeground
+        let away = { UIApplication.shared.applicationState != .active || leftForeground != trips }
+        let sentAway = away()
+        var transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
+        // A trip away cuts the request off (the app is suspended): the take
+        // is sent once more back in the foreground, still in its place.
+        if transcript == nil, sentAway || away() {
+            await backInForeground()
+            transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
+        }
+        guard let transcript else {
+            dictationHint = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty else {
-            dictationHint = "I couldn't catch any words -- try again?"
+            dictationHint = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
         return words
+    }
+
+    private func backInForeground() async {
+        guard UIApplication.shared.applicationState != .active else { return }
+        for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
+            return
+        }
     }
 
     /// Words are on their way for the block being written.
@@ -158,6 +220,14 @@ extension CanvasScene {
     /// Ends the writing, then does what the tap that asked for it does
     /// (deselect, select another element), if a tap did.
     private func finishWaitingDone(caught: Bool) {
+        // A take still held (a hold during the wait) keeps recording: the
+        // writing ends once it is let go of and its words land. No cap runs
+        // while the finger is down.
+        if dictating || startingMic == .text {
+            doneWaiting = UUID()
+            if !caught { flashHint("Couldn't catch those words.") }
+            return
+        }
         doneWaiting = nil
         let then = afterWritingDown
         afterWritingDown = nil
@@ -169,7 +239,7 @@ extension CanvasScene {
         } else {
             then?()
         }
-        if !caught { flashHint("Couldn't catch those words.") }
+        if !caught { flashHint(String(appCopy: "Couldn't catch those words.")) }
     }
 
     private func append(_ words: String, to id: CanvasItem.ID) {
