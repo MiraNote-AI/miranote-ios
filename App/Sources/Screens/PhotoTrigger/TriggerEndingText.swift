@@ -2,9 +2,17 @@ import MiraNoteKit
 import SwiftUI
 
 /// The ending page's words under the risen card, fading in one after
-/// another: the fact line (date and place only), the question, and the
-/// button that keeps the day.
+/// another: the fact line (date and place only), the detail line in a face
+/// of its own (no row at all when there is none), the question, and the
+/// button that keeps the day (handoff 7.7).
 struct TriggerEndingText: View {
+    /// The detail line's face, shared with the canvas draft's detail block:
+    /// Lora, a bundled serif unlike the body face. (iOS ships no Chinese
+    /// serif, so Chinese glyphs fall back to the system face; the size and
+    /// colour still set the line apart.)
+    nonisolated static let detailFont = "Lora"
+    nonisolated static let detailSize: CGFloat = 18
+
     let ending: TriggerMemory.Ending
     let shown: Bool
     /// The settled card's bottom edge, in screen coordinates.
@@ -20,6 +28,18 @@ struct TriggerEndingText: View {
                 .foregroundStyle(Palette.textSecondary)
                 .modifier(Entrance(shown: shown, delay: 0))
                 .padding(.bottom, 14)
+                .accessibilityIdentifier("trigger.factLine")
+
+            if !ending.detail.isEmpty {
+                Text(ending.detail)
+                    .font(Font(TextFace.uiFont(name: Self.detailFont, size: Self.detailSize)))
+                    .foregroundStyle(Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .modifier(Entrance(shown: shown, delay: 0.1))
+                    .padding(.bottom, 12)
+                    .accessibilityIdentifier("trigger.detail")
+            }
 
             Text(ending.question)
                 // No Chinese serif ships with iOS: the serif design keeps the
@@ -29,7 +49,8 @@ struct TriggerEndingText: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
-                .modifier(Entrance(shown: shown, delay: 0.15))
+                .modifier(Entrance(shown: shown, delay: 0.2))
+                .accessibilityIdentifier("trigger.question")
 
             Spacer(minLength: 16)
 
@@ -38,7 +59,7 @@ struct TriggerEndingText: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryPill(verticalPadding: 16))
-            .modifier(Entrance(shown: shown, delay: 0.3))
+            .modifier(Entrance(shown: shown, delay: 0.35))
             .accessibilityIdentifier("trigger.keep")
         }
         .padding(.top, top + 22)

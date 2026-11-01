@@ -18,35 +18,28 @@ struct StoryPhoto: Identifiable {
     /// their own.
     private static let work = DispatchQueue(label: "ai.miranote.trigger.photos", qos: .userInitiated)
 
-    /// Decodes the photos of `memory` one by one in story order, off the
-    /// main actor, handing each over as soon as it is ready -- the story can
-    /// start on the first while the rest decode. A photo whose file is
-    /// missing or unreadable is skipped.
-    static func stream(_ memory: TriggerMemory, from source: TriggerMemorySource) -> AsyncStream<StoryPhoto> {
-        let ordered = memory.storyPhotos.map { ($0, source.url(for: $0)) }
+    /// Loads the photos of `memory` one by one in story order (the peak
+    /// first) from the library by their localIdentifiers (`photoIds`),
+    /// handing each over as soon as it is ready -- the story can start on
+    /// the first while the rest load. A photo that cannot be read is skipped.
+    static func stream(_ memory: TriggerMemory, photoIds: [String: String],
+                       from photos: TriggerPhotoProviding) -> AsyncStream<StoryPhoto> {
+        let ordered = memory.storyPhotos
         return AsyncStream { continuation in
-            work.async {
-                for (photo, url) in ordered {
-                    guard let url, let image = downsample(url, maxPixel: 1800) else { continue }
-                    continuation.yield(StoryPhoto(photo: photo, image: image, faces: detectFaces(in: image)))
+            let task = Task {
+                for photo in ordered {
+                    guard let id = photoIds[photo.id],
+                          let image = await photos.image(for: id, maxPixel: 1800, allowNetwork: true)
+                    else { continue }
+                    let faces = await withCheckedContinuation { done in
+                        work.async { done.resume(returning: detectFaces(in: image)) }
+                    }
+                    continuation.yield(StoryPhoto(photo: photo, image: image, faces: faces))
                 }
                 continuation.finish()
             }
+            continuation.onTermination = { _ in task.cancel() }
         }
-    }
-
-    /// An upright image no larger than `maxPixel` on its long edge -- the
-    /// full-resolution file would cost tens of megabytes per photo.
-    static func downsample(_ url: URL, maxPixel: Int) -> UIImage? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixel
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return UIImage(cgImage: image)
     }
 
     /// The union of the faces Vision finds, flipped to a top-left origin.

@@ -35,6 +35,8 @@ final class LibraryFilterTests: XCTestCase {
         XCTAssertEqual(CameraOrigin.classify(filename: "Weixin Image_2026.jpg"), .notCamera)
         XCTAssertEqual(CameraOrigin.classify(filename: "image-Download-3.jpeg"), .notCamera)
         XCTAssertEqual(CameraOrigin.classify(filename: "3F2504E0-4F89-11D3-9A0C-0305E82C3301.jpeg"), .notCamera)
+        XCTAssertEqual(CameraOrigin.classify(filename: "7845d7487c417052c5c5f2a1ccb6fdb8.JPG"), .notCamera)
+        XCTAssertEqual(CameraOrigin.classify(filename: "61.JPG"), .unknown, "a bare number cannot be judged: kept")
         XCTAssertFalse(LibraryFilter.eligible(asset(name: "mmexport1697000000000.jpg"), now: now))
     }
 

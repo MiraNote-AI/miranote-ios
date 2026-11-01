@@ -1,67 +1,61 @@
 import ImageIO
 import MiraNoteKit
+import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 
-/// The photo trigger's local push (v0, fired from the Home demo entry): the
-/// memory's title and body with its cover photo attached, three seconds out.
-/// A tap only opens the app -- no routing yet.
-enum TriggerNotifications {
-    enum Outcome {
-        case scheduled, denied, failed
+/// The photo trigger's local push (handoff 7.6): the record is saved
+/// first, the notification carries only its `pushId` (also its
+/// identifier), the title and body are the memory's, the cover is the peak
+/// photo, ten seconds out.
+struct LiveTriggerNotifier: TriggerNotifying {
+    let photos: TriggerPhotoProviding
+    static let delay: TimeInterval = 10
+    static let thread = "photo-trigger"
+
+    func requestPermission() async -> Bool {
+        (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) == true
     }
 
-    /// Asks for permission (the system prompt appears the first time only),
-    /// then schedules the push.
-    static func schedule(_ memory: TriggerMemory, from source: TriggerMemorySource) async -> Outcome {
-        let center = UNUserNotificationCenter.current()
-        guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return .denied }
-
+    func schedule(_ record: PushRecord) async -> Bool {
         let content = UNMutableNotificationContent()
-        content.title = memory.push.title
-        content.body = memory.push.body
+        content.title = record.memory.push.title
+        content.body = record.memory.push.body
         content.interruptionLevel = .active
-        if let cover = memory.coverPhoto, let url = source.url(for: cover), let attachment = attachment(from: url) {
+        content.threadIdentifier = Self.thread
+        content.userInfo = ["pushId": record.pushId]
+        if let cover = record.memory.coverPhoto, let id = record.photoIds[cover.id],
+           let image = await photos.image(for: id, maxPixel: 1000, allowNetwork: true),
+           let attachment = Self.attachment(image) {
             content.attachments = [attachment]
         }
-
         let request = UNNotificationRequest(
-            identifier: "trigger-\(memory.id)",
-            content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false)
+            identifier: record.pushId, content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: Self.delay, repeats: false)
         )
         do {
-            try await center.add(request)
-            return .scheduled
+            try await UNUserNotificationCenter.current().add(request)
+            return true
         } catch {
-            return .failed
+            return false
         }
     }
 
-    /// The system moves an attachment's file into its own store, so it must
-    /// not be the bundled photo: a ~1000 px JPEG copy in the temporary folder.
-    private static func attachment(from url: URL) -> UNNotificationAttachment? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1000
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-
+    /// The system moves an attachment's file into its own store: a ~1000 px
+    /// JPEG copy in the temporary folder.
+    private static func attachment(_ image: UIImage) -> UNNotificationAttachment? {
+        guard let data = image.jpegData(compressionQuality: 0.85) else { return nil }
         let file = FileManager.default.temporaryDirectory
             .appendingPathComponent("trigger-cover-\(UUID().uuidString).jpg")
-        let type = UTType.jpeg.identifier as CFString
-        guard let destination = CGImageDestinationCreateWithURL(file as CFURL, type, 1, nil) else { return nil }
-        let quality = [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary
-        CGImageDestinationAddImage(destination, image, quality)
-        guard CGImageDestinationFinalize(destination) else { return nil }
+        guard (try? data.write(to: file)) != nil else { return nil }
         return try? UNNotificationAttachment(identifier: "cover", url: file)
     }
 }
 
 /// Shows the push as a banner while the app is in front (the system hides
-/// foreground notifications otherwise). Installed once at launch.
+/// foreground notifications otherwise), and hands a tap's `pushId` to the
+/// router -- from the lock screen, the banner, or a launch the tap caused.
+/// Installed once at launch.
 final class TriggerNotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     static let shared = TriggerNotificationPresenter()
 
@@ -76,9 +70,11 @@ final class TriggerNotificationPresenter: NSObject, UNUserNotificationCenterDele
         [.banner, .list]
     }
 
-    /// v0: a tap just brings the app forward.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
-    ) async {}
+    ) async {
+        guard let pushId = response.notification.request.content.userInfo["pushId"] as? String else { return }
+        await MainActor.run { TriggerLaunchRouter.shared.pending = pushId }
+    }
 }

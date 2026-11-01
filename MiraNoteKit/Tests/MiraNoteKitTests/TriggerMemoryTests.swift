@@ -65,6 +65,23 @@ final class TriggerMemoryTests: XCTestCase {
         XCTAssertNil(memory.story.photos[0].file)
     }
 
+    /// The backend may add fields (generation.peakRewrite, .peakSwitched):
+    /// they are ignored, never a decoding failure.
+    func testUnknownFieldsAreIgnored() throws {
+        let data = try Data(contentsOf: Fixtures.url("compose_ok.json"))
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var memory = try XCTUnwrap(object["memory"] as? [String: Any])
+        var generation = try XCTUnwrap(memory["generation"] as? [String: Any])
+        generation["peakRewrite"] = true
+        generation["peakSwitched"] = false
+        memory["generation"] = generation
+        memory["somethingNew"] = ["x": 1]
+        object["memory"] = memory
+        let status = try LiveComposeClient.status(from: JSONSerialization.data(withJSONObject: object))
+        guard case .ok(let decoded) = status else { return XCTFail("\(status)") }
+        XCTAssertEqual(decoded.generation?.model, "qwen3.7-flash")
+    }
+
     func testPhotoFileIsOptional() throws {
         let photo = try TriggerMemory.decoder.decode(
             TriggerMemory.Photo.self,
@@ -131,26 +148,6 @@ final class TriggerMemoryTests: XCTestCase {
         XCTAssertEqual([4, 5, 10, 11, 13, 14, 16, 17, 18, 19, 23, 0].map { Daypart(hour: $0) },
                        [.night, .morning, .morning, .noon, .noon, .afternoon, .afternoon,
                         .evening, .evening, .night, .night, .night])
-    }
-
-    func testMissingFolderMeansNoMemory() {
-        let loader = DemoMemoryLoader(directory: URL(fileURLWithPath: "/nonexistent-demo-memory"))
-        XCTAssertNil(loader.load())
-        XCTAssertNil(DemoMemoryLoader(directory: nil).load())
-    }
-
-    func testLoaderReadsAFolder() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
-        try Data(json.utf8).write(to: folder.appendingPathComponent("memory.json"))
-        try Data([0xFF]).write(to: folder.appendingPathComponent("01.jpg"))
-
-        let loader = DemoMemoryLoader(directory: folder)
-        let memory = try XCTUnwrap(loader.load())
-        let byID = Dictionary(uniqueKeysWithValues: memory.storyPhotos.map { ($0.id, $0) })
-        XCTAssertNotNil(loader.url(for: try XCTUnwrap(byID["01"])))
-        XCTAssertNil(loader.url(for: try XCTUnwrap(byID["02"])), "02.jpg was never written")
     }
 }
 

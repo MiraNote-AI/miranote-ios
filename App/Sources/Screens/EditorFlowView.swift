@@ -157,36 +157,16 @@ struct HomeFlow: View {
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
 
-    /// The photo trigger's memory (v0: the bundled demo, not the backend).
-    private static let triggerSource: TriggerMemorySource = DemoMemoryLoader()
-    @State private var triggerMemory = HomeFlow.triggerSource.load()
-
-    /// The demo entry shows in Debug builds and under `-DEMO-SAMPLES`, but
-    /// not in UI tests, whose Home it would change.
-    private static var showsTriggerDemo: Bool {
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("-DEMO-SAMPLES") { return true }
-        #if DEBUG
-        return !arguments.contains("-UITEST")
-        #else
-        return false
-        #endif
-    }
+    /// The photo trigger: its run, push records and library photos.
+    @State private var trigger = TriggerController.make()
+    @State private var router = TriggerLaunchRouter.shared
+    /// The debug entry: development and TestFlight builds (InstallSource).
+    @State private var showsTriggerEntry = false
 
     /// A note addressed within its collection, for stack navigation.
     private struct NoteRef: Hashable {
         let collectionID: MemoryCollection.ID
         let noteID: Memory.ID
-    }
-
-    /// UI tests launch with `-UITEST` for a fresh, non-persistent seed each run.
-    private static func makeStore() -> CollectionStore {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            return InMemoryCollectionStore(collections: MemoryCollection.seed)
-        }
-        #endif
-        return FileCollectionStore()
     }
 
     /// UI tests keep the avatar in a folder of their own, emptied at launch
@@ -254,8 +234,8 @@ struct HomeFlow: View {
         case chat(String)
         /// A page Mira drafted in chat, opening in the editor as a new note.
         case draft(Memory)
-        /// The photo trigger's story and ending.
-        case trigger(TriggerMemory)
+        /// The photo trigger's story and ending, opened from a push.
+        case trigger(TriggerOpening)
 
         var id: String {
             switch self {
@@ -264,7 +244,7 @@ struct HomeFlow: View {
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
             case .draft(let memory): return "draft-\(memory.id.uuidString)"
-            case .trigger(let memory): return "trigger-\(memory.id)"
+            case .trigger(let opening): return "trigger-\(opening.pushId)"
             }
         }
 
@@ -315,7 +295,7 @@ struct HomeFlow: View {
                 onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
                 onOpenProfile: { path.append(AccountRoute.profile) },
-                demoEntry: triggerDemoEntry
+                triggerEntry: showsTriggerEntry ? TriggerDebugEntry(controller: trigger) : nil
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -378,13 +358,14 @@ struct HomeFlow: View {
         }
         // The Appearance setting, applied live (a choice redraws at once).
         .environment(\.theme, Theme(appearance: settings.appearance))
-        #if DEBUG
-        // `-TRIGGER-OPEN` opens the photo trigger's story at launch.
-        .onAppear {
-            if ProcessInfo.processInfo.arguments.contains("-TRIGGER-OPEN"), let triggerMemory {
-                route = .trigger(triggerMemory)
-            }
+        .task {
+            guard Self.triggerEntryAllowed else { return }
+            showsTriggerEntry = await InstallSource.showsDebugEntry(isDebugBuild: InstallSource.isDebugBuild,
+                                                                   probe: AppTransactionProbe())
         }
+        // A tapped push, also one that launched the app: open it once Home is up.
+        .task(id: router.pending) { await openPendingPush() }
+        #if DEBUG
         .background { ChatPhotoFilesProbe() }
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
@@ -420,8 +401,9 @@ struct HomeFlow: View {
                     services: Self.editorServices(base: services)
                 )
                 .environment(\.theme, Theme(appearance: .system))
-            case .trigger(let memory):
-                PhotoTriggerView(memory: memory, source: Self.triggerSource, onClose: { route = nil })
+            case .trigger(let opening):
+                PhotoTriggerView(memory: opening.memory, photoIds: opening.photoIds, library: trigger.photos,
+                                 onClose: { route = nil }, onKeep: { keepTrigger($0, photoIds: opening.photoIds) })
             case .chat(let seed):
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
@@ -465,18 +447,63 @@ struct HomeFlow: View {
 }
 
 extension HomeFlow {
-    private var triggerDemoEntry: DemoTriggerEntry? {
-        guard Self.showsTriggerDemo else { return nil }
-        let memory = triggerMemory
-        return DemoTriggerEntry(
-            available: memory != nil,
-            onPush: {
-                guard let memory else { return .failed }
-                return await TriggerNotifications.schedule(memory, from: Self.triggerSource)
-            },
-            onOpen: {
-                if let memory { route = .trigger(memory) }
-            }
-        )
+    /// UI tests launch with `-UITEST` for a fresh, non-persistent seed each run.
+    /// The trigger's (`-UITEST-TRIGGER`) save to a file of their own, emptied
+    /// at launch unless `-KEEP_SETTINGS`, so a saved draft survives a relaunch.
+    private static func makeStore() -> CollectionStore {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST-TRIGGER") {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("uitest-trigger-collections.json")
+            if !arguments.contains("-KEEP_SETTINGS") { try? FileManager.default.removeItem(at: file) }
+            return FileCollectionStore(url: file)
+        }
+        if arguments.contains("-UITEST") {
+            return InMemoryCollectionStore(collections: MemoryCollection.seed)
+        }
+        #endif
+        return FileCollectionStore()
+    }
+
+    /// UI tests keep their Home as it was, unless they test the trigger.
+    private static var triggerEntryAllowed: Bool {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") { return arguments.contains("-UITEST-TRIGGER") }
+        #endif
+        return true
+    }
+
+    /// The push in `router.pending`: its saved record, with the photos still
+    /// in the library -- three or more play; fewer, Home stays quietly
+    /// (handoff 7.6, D4). Never regroups, never asks the backend.
+    private func openPendingPush() async {
+        guard let pushId = router.pending else { return }
+        // Cleared once handled: clearing first would cancel this task.
+        defer { router.pending = nil }
+        let records = trigger.records
+        guard let record = pushId == "latest" ? records.latest() : records.record(pushId) else { return }
+        let present = await trigger.photos.existing(Array(record.photoIds.values))
+        let numbers = Set(record.photoIds.filter { present.contains($0.value) }.keys)
+        guard let memory = record.memory.replacingMissing(present: numbers) else { return }
+        let opening = TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds)
+        if route != nil {
+            // Another cover is up: swap only after it is gone.
+            route = nil
+            try? await Task.sleep(for: .milliseconds(400))
+        }
+        route = .trigger(opening)
+    }
+
+    /// The ending's button: the photos and words as a canvas draft.
+    private func keepTrigger(_ memory: TriggerMemory, photoIds: [String: String]) {
+        let photos = trigger.photos
+        Task { @MainActor in
+            let draft = await TriggerDraftMaker.make(memory, photoIds: photoIds, photos: photos)
+            route = nil
+            // Swap covers only after this one is gone.
+            try? await Task.sleep(for: .milliseconds(300))
+            route = .draft(draft)
+        }
     }
 }

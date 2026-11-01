@@ -1,17 +1,22 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The photo trigger's landing (v0): a silent, full-screen story of one
-/// outing's photos that plays by itself -- 2 s each, 3 s on the peak photo,
-/// nothing between them -- then gathers them onto one card with the day's
-/// place, a question and a way to keep it.
+/// The photo trigger's landing: a silent, full-screen story of one
+/// outing's photos that plays by itself -- the peak first for 3 s with the
+/// day and place, the rest by time for 2 s each, nothing between them --
+/// then gathers them onto one card with the fact line, the detail line, a
+/// question and the button that opens them as a canvas draft.
 ///
 /// Tap the right two thirds for the next photo, the left third for the
 /// previous; swipe either way; hold to pause.
 struct PhotoTriggerView: View {
     let memory: TriggerMemory
-    let source: TriggerMemorySource
+    /// "P1" -> localIdentifier.
+    let photoIds: [String: String]
+    let library: TriggerPhotoProviding
     var onClose: () -> Void
+    /// The button: open the memory as a canvas draft.
+    var onKeep: (TriggerMemory) -> Void
 
     @State private var photos: [StoryPhoto] = []
     /// Photos arrive one by one; until the last has, the story may run
@@ -24,7 +29,8 @@ struct PhotoTriggerView: View {
     /// When the finger now on the story went down; nil when none is.
     @State private var touchStart: Date?
     @State private var menuShown = false
-    @State private var canvasNoticeShown = false
+    /// The "..." menu's answer, at the foot of the screen for a moment.
+    @State private var note: MenuNote?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// A held finger that has not moved is a pause, not a tap, after this.
@@ -47,18 +53,16 @@ struct PhotoTriggerView: View {
         .task { await start() }
         .task(id: clock) { await playCurrent() }
         .onChange(of: menuShown) {
-            guard phase == .story else { return }
+            guard phase == .story, note == nil else { return }
             if menuShown { clock.pause() } else { clock.resume() }
         }
         .confirmationDialog("", isPresented: $menuShown, titleVisibility: .hidden) {
-            // v0: both only close the menu.
-            Button("Fewer like this") {}
-            Button("Not this day") {}
+            // Phase 1 only says so; the ranking does not change yet.
+            Button("Fewer like this") { show(.fewerLikeThis) }
+            Button("Not this day") { show(.notThisDay) }
             Button("Cancel", role: .cancel) {}
         }
-        .alert("Opening the canvas soon", isPresented: $canvasNoticeShown) {
-            Button("OK", action: onClose)
-        }
+        .task(id: note) { await holdNote() }
     }
 
     // MARK: Layers
@@ -75,6 +79,7 @@ struct PhotoTriggerView: View {
                 .allowsHitTesting(phase == .story)
                 .accessibilityElement()
                 .accessibilityLabel("Photo \(index + 1) of \(storyLength)")
+                .accessibilityIdentifier("trigger.photo.\(current?.photo.id ?? "")")
                 .accessibilityAdjustableAction { direction in
                     direction == .increment ? advance() : goBack()
                 }
@@ -84,11 +89,16 @@ struct PhotoTriggerView: View {
 
             TriggerEndingText(ending: memory.ending, shown: phase == .settled,
                               top: stage.card(settled: true).maxY, insets: stage.insets) {
-                canvasNoticeShown = true
+                onKeep(memory)
             }
             .frame(width: stage.size.width, height: stage.size.height)
 
             chrome(stage)
+
+            if let note {
+                MenuNoteView(note: note, bucket: memory.bucket, bottom: stage.insets.bottom)
+                    .frame(width: stage.size.width, height: stage.size.height, alignment: .bottom)
+            }
 
             if phase == .loading || phase == .failed {
                 loadingOrFailure
@@ -144,6 +154,8 @@ struct PhotoTriggerView: View {
             .frame(width: stage.size.width, height: stage.size.height, alignment: .bottomLeading)
             .opacity(phase == .story && index == 0 ? 1 : 0)
             .allowsHitTesting(false)
+            .accessibilityIdentifier("trigger.firstFrameLabel")
+            .accessibilityHidden(!(phase == .story && index == 0))
     }
 
     /// Progress segments over the story, then close and more -- white on the
@@ -200,6 +212,21 @@ struct PhotoTriggerView: View {
                 .tint(Palette.taupe)
         }
     }
+}
+
+/// Playback, the menu and the gestures.
+extension PhotoTriggerView {
+    /// The photo's time on screen (`TriggerMemory.dwell`). UI tests that
+    /// check the order pass `-TRIGGER-SLOW-STORY` (4x): XCUITest is too slow
+    /// on an animating screen to keep up with 2-3 s.
+    static func dwell(_ photo: TriggerMemory.Photo) -> TimeInterval {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-TRIGGER-SLOW-STORY") {
+            return TriggerMemory.dwell(for: photo) * 4
+        }
+        #endif
+        return TriggerMemory.dwell(for: photo)
+    }
 
     // MARK: Playback
 
@@ -215,14 +242,14 @@ struct PhotoTriggerView: View {
 
     private func progress(at date: Date) -> Double {
         guard let current else { return 0 }
-        return clock.elapsed(at: date) / TriggerMemory.dwell(for: current.photo)
+        return clock.elapsed(at: date) / Self.dwell(current.photo)
     }
 
     /// Plays from the first photo as soon as it is decoded; the rest join
     /// while it is on screen.
     private func start() async {
         guard phase == .loading else { return }
-        for await photo in StoryPhoto.stream(memory, from: source) {
+        for await photo in StoryPhoto.stream(memory, photoIds: photoIds, from: library) {
             photos.append(photo)
             if phase == .loading {
                 phase = .story
@@ -245,7 +272,7 @@ struct PhotoTriggerView: View {
     /// Restarted by every change of the clock: a new photo, a pause, a resume.
     private func playCurrent() async {
         guard phase == .story, clock.isRunning, let current else { return }
-        let remaining = TriggerMemory.dwell(for: current.photo) - clock.elapsed(at: .now)
+        let remaining = Self.dwell(current.photo) - clock.elapsed(at: .now)
         try? await Task.sleep(for: .seconds(max(0, remaining)))
         guard !Task.isCancelled else { return }
         advance()
@@ -308,6 +335,28 @@ struct PhotoTriggerView: View {
         }
     }
 
+    // MARK: The menu
+
+    private func show(_ choice: MenuNote) {
+        if phase == .story { clock.pause() }
+        withAnimation(.easeOut(duration: 0.2)) { note = choice }
+    }
+
+    /// "Fewer like this" shows for 2 s, then the story carries on; "not
+    /// this day" shows, then the story closes.
+    private func holdNote() async {
+        guard let shown = note else { return }
+        try? await Task.sleep(for: .seconds(MenuNote.duration))
+        guard !Task.isCancelled else { return }
+        switch shown {
+        case .fewerLikeThis:
+            withAnimation(.easeIn(duration: 0.2)) { note = nil }
+            if phase == .story { clock.resume() }
+        case .notThisDay:
+            onClose()
+        }
+    }
+
     // MARK: Gestures
 
     /// One gesture for the whole story: the finger going down pauses; a
@@ -326,9 +375,9 @@ struct PhotoTriggerView: View {
                 let dx = value.translation.width
                 let dy = value.translation.height
                 if abs(dx) > Self.swipeDistance, abs(dx) > abs(dy) {
-                    dx < 0 ? advance() : goBack()
+                    if dx < 0 { advance() } else { goBack() }
                 } else if held < Self.tapLimit, abs(dx) < 10, abs(dy) < 10 {
-                    value.location.x < width / 3 ? goBack() : advance()
+                    if value.location.x < width / 3 { goBack() } else { advance() }
                 } else {
                     clock.resume()
                 }

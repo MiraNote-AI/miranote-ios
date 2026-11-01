@@ -51,9 +51,17 @@ public struct PushLedgerEntry: Codable, Equatable, Sendable {
     }
 }
 
+/// Where a tapped push finds its memory: by the id the notification
+/// carries. Never regroups and never calls the backend (handoff 7.6).
+public protocol TriggerMemorySource: Sendable {
+    func record(_ pushId: String) -> PushRecord?
+    /// The newest record (debug and UI tests).
+    func latest() -> PushRecord?
+}
+
 /// Push records, one JSON file per `pushId` under Application Support
 /// (`PhotoTrigger/pushes/`). Local only.
-public struct PushRecordStore: Sendable {
+public struct PushRecordStore: TriggerMemorySource {
     private let directory: URL
 
     public init(directory: URL) {
@@ -72,6 +80,14 @@ public struct PushRecordStore: Sendable {
     public func load(_ pushId: String) -> PushRecord? {
         guard let data = try? Data(contentsOf: file(pushId)) else { return nil }
         return try? TriggerMemory.decoder.decode(PushRecord.self, from: data)
+    }
+
+    public func record(_ pushId: String) -> PushRecord? {
+        load(pushId)
+    }
+
+    public func latest() -> PushRecord? {
+        all().first
     }
 
     /// Every record, newest first.

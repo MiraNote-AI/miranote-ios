@@ -17,8 +17,8 @@ struct HomeView: View {
     var onOpenStarJar: () -> Void = {}
     var onOpenSettings: () -> Void = {}
     var onOpenProfile: () -> Void = {}
-    /// The photo trigger's demo entry, at the foot of the page; nil hides it.
-    var demoEntry: DemoTriggerEntry?
+    /// The photo trigger's debug entry, at the foot of the page; nil hides it.
+    var triggerEntry: TriggerDebugEntry?
 
     @Environment(\.theme) private var theme
     @State private var prompt = ""
@@ -69,8 +69,8 @@ struct HomeView: View {
                     .padding(.top, 8)
                 }
 
-                if let demoEntry {
-                    demoEntry
+                if let triggerEntry {
+                    triggerEntry
                         .padding(.top, 28)
                 }
             }
