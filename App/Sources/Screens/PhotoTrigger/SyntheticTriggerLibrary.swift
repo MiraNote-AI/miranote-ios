@@ -122,19 +122,29 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
 /// `-UITEST-TRIGGER` with the fake AI off: a backend that answers at once
 /// with a memory that has a detail line. `-TRIGGER-BACKEND-DOWN` cannot be
-/// reached; `-TRIGGER-REJECT` turns every group down.
+/// reached; `-TRIGGER-REJECT` turns every group down; `-TRIGGER-SLOW-AI <s>`
+/// keeps each job running for that many seconds.
 struct UITestComposeClient: ComposeClient {
     private let arguments = ProcessInfo.processInfo.arguments
 
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
         if arguments.contains("-TRIGGER-BACKEND-DOWN") { throw ComposeError.unreachable }
         let data = try JSONEncoder().encode(meta)
-        return data.base64EncodedString()
+        // The job id carries the meta and when it was submitted.
+        return "\(Int(Date().timeIntervalSince1970))|" + data.base64EncodedString()
+    }
+
+    private var slowSeconds: Double {
+        guard let index = arguments.firstIndex(of: "-TRIGGER-SLOW-AI"), arguments.indices.contains(index + 1)
+        else { return 0 }
+        return Double(arguments[index + 1]) ?? 0
     }
 
     func poll(_ jobId: String) async throws -> ComposeJobStatus {
-        guard let data = Data(base64Encoded: jobId),
+        let parts = jobId.split(separator: "|", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let submitted = Double(parts[0]), let data = Data(base64Encoded: parts[1]),
               let meta = try? JSONDecoder().decode(ComposeMeta.self, from: data) else { return .expired }
+        if Date().timeIntervalSince1970 - submitted < slowSeconds { return .running }
         if arguments.contains("-TRIGGER-REJECT") {
             return .rejected(reason: "too_few_selected", message: "Too few photos for \(meta.date)")
         }

@@ -129,6 +129,22 @@ final class PhotoTriggerUITests: XCTestCase {
         shot("c4-three-failed")
     }
 
+    /// D2b: sent away while the AI works, the press picks its job up on
+    /// return and still schedules the push.
+    func testLeavingWhileWaitingStillSchedules() {
+        launch(["-TRIGGER-SLOW-AI", "25"])
+        entryButton("trigger.pushTop").tap()
+        XCTAssertTrue(progressLine("Asking the AI").waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Please stay here, about a minute"].exists)
+        shot("d2b-asking")
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 30)
+        app.activate()
+        XCTAssertTrue(progressLine("Scheduled").waitForExistence(timeout: 30), "the same job finished after the return")
+        XCTAssertFalse(progressLine("Cannot reach the backend").exists)
+        shot("d2b-scheduled")
+    }
+
     // MARK: Failures (G1, G3, G4, G5)
 
     func testBackendDownSaysSo() {
