@@ -1899,6 +1899,18 @@
         }
       }
     },
+    "Fills the screen" : {
+      "comment" : "VoiceOver value of a story photo: the photo fills the screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "铺满屏幕"
+          }
+        }
+      }
+    },
     "Film" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
@@ -4489,6 +4501,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在显示你的编辑"
+          }
+        }
+      }
+    },
+    "Shown whole" : {
+      "comment" : "VoiceOver value of a story photo: a landscape or square photo shown whole over a blurred fill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整显示"
           }
         }
       }

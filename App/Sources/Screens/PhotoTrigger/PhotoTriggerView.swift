@@ -82,6 +82,9 @@ struct PhotoTriggerView: View {
                 .accessibilityElement()
                 .accessibilityLabel("Photo \(index + 1) of \(storyLength)")
                 .accessibilityIdentifier("trigger.photo.\(current?.photo.id ?? "")")
+                .accessibilityValue(
+                    current.map(Self.showsWhole) == true ? Text("Shown whole") : Text("Fills the screen")
+                )
                 .accessibilityAdjustableAction { direction in
                     direction == .increment ? advance() : goBack()
                 }
@@ -111,11 +114,15 @@ struct PhotoTriggerView: View {
         }
     }
 
+    private static func showsWhole(_ photo: StoryPhoto) -> Bool {
+        FacePreservingCrop.showsWhole(imageSize: photo.image.size)
+    }
+
     private func photoLayer(_ stage: TriggerStage) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { offset, photo in
                 let look = stage.look(for: offset, current: index, phase: phase)
-                FaceAwarePhoto(photo: photo)
+                FaceAwarePhoto(photo: photo, whole: look.corner == 0 && Self.showsWhole(photo))
                     .frame(width: look.rect.width, height: look.rect.height)
                     .clipShape(RoundedRectangle(cornerRadius: look.corner, style: .continuous))
                     .rotationEffect(.degrees(look.rotation))

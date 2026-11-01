@@ -33,6 +33,14 @@ final class FacePreservingCropTests: XCTestCase {
         XCTAssertLessThan(frame.height, phone.height)
     }
 
+    func testLandscapeAndSquareShowWholePortraitFills() {
+        XCTAssertTrue(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 4000, height: 3000)))
+        XCTAssertTrue(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 3000, height: 3000)))
+        XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 3000, height: 4000)))
+        XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 1080, height: 1920)))
+        XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: .zero))
+    }
+
     func testUnknownFacesFit() {
         let frame = FacePreservingCrop.frame(imageSize: landscape, faces: .unknown, in: phone)
         XCTAssertEqual(frame.width, 400, accuracy: 0.01)

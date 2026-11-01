@@ -15,6 +15,13 @@ public enum FacePreservingCrop {
         case unknown
     }
 
+    /// Full screen in the story, a landscape or square photo is shown whole
+    /// over a blurred fill of itself and only a portrait one fills
+    /// (decisions 10-24; the prototype's 0.8 width-to-height line).
+    public static func showsWhole(imageSize: CGSize) -> Bool {
+        imageSize.height > 0 && imageSize.width / imageSize.height >= 0.8
+    }
+
     /// Breathing room kept around the faces, as a fraction of their size.
     static let margin: CGFloat = 0.15
 

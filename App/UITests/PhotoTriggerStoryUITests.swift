@@ -100,6 +100,28 @@ extension PhotoTriggerUITests {
         XCTAssertEqual(app.descendants(matching: .any)["trigger.photo.P2"].label, "Photo 3 of 8")
     }
 
+    /// Full screen, a landscape photo is shown whole over a blurred fill of
+    /// itself, a portrait one fills (decisions 10-24). The synthetic
+    /// library paints both.
+    func testLandscapeShowsWholeOverBlur() {
+        launch(["-TRIGGER-FAKE-AI"])
+        pushAndWait()
+        openLatestPush(["-TRIGGER-SLOW-STORY"])
+        XCTAssertTrue(photo(1, of: 8).waitForExistence(timeout: 8))
+        let right = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+        var seen: Set<String> = []
+        for number in 1...8 {
+            let current = photo(number, of: 8)
+            XCTAssertTrue(current.waitForExistence(timeout: 3))
+            let value = current.value as? String ?? ""
+            if !seen.contains(value) { shot(value == "Shown whole" ? "e1-landscape-whole" : "e1-portrait-fills") }
+            seen.insert(value)
+            if seen.count == 2 { break }
+            right.tap()
+        }
+        XCTAssertEqual(seen, ["Shown whole", "Fills the screen"])
+    }
+
     func testEndingOrderAndNoDetailRow() {
         // The scripted backend's memory has a detail line.
         launch()
