@@ -9,6 +9,7 @@ import Vision
 /// the 15 broad categories, faces, and on iOS 18+ Apple's aesthetics score
 /// and utility flag. Before iOS 18, or when the score cannot be computed
 /// (the simulator), aesthetics is nil and a `document` label marks utility.
+/// The simulator's labels and FeaturePrints are unusable and left out.
 struct PhotoAnalyzer: PhotoAnalyzing {
     let photos: TriggerPhotoProviding
     static let thumbnailPixel: CGFloat = 512
@@ -60,13 +61,23 @@ struct PhotoAnalyzer: PhotoAnalyzing {
                     continuation.resume(returning: nil)
                     return
                 }
+                #if targetEnvironment(simulator)
+                // On the simulator's CPU path the classifier answers
+                // "outdoor, sky" and the FeaturePrints are all alike for
+                // every photo (checked 2026-11-01, iOS 26.5): unusable, so
+                // treated as missing -- no fake duplicates, no fake
+                // categories. Faces are fine. Devices are unaffected.
+                let labels: [String] = []
+                let archived: Data? = nil
+                #else
                 let labels = (classify.results ?? [])
                     .filter { $0.hasMinimumRecall(0.01, forPrecision: 0.9) }
                     .map(\.identifier)
-                let broad = BroadCategory.from(labels: labels)
                 let archived = featurePrint.results?.first.flatMap {
                     try? NSKeyedArchiver.archivedData(withRootObject: $0, requiringSecureCoding: true)
                 }
+                #endif
+                let broad = BroadCategory.from(labels: labels)
                 continuation.resume(returning: PhotoAnalysis(
                     id: id, labels: labels, broad: broad, faces: faces.results?.count ?? 0, aesthetics: nil,
                     isUtility: broad.contains(.document), featurePrint: archived
