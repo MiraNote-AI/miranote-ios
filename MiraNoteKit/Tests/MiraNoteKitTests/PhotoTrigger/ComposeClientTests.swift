@@ -91,6 +91,12 @@ final class ComposeMetaTests: XCTestCase {
         XCTAssertEqual(CGImageSourceGetType(out) as String?, UTType.jpeg.identifier)
     }
 
+    /// A small real JPEG, for fakes that upload.
+    static let tinyJPEG: Data = {
+        guard let data = try? jpegWithGPS(width: 40, height: 30) else { fatalError("no JPEG") }
+        return data
+    }()
+
     /// A JPEG carrying GPS, a capture date and a camera model.
     static func jpegWithGPS(width: Int, height: Int) throws -> Data {
         let context = try XCTUnwrap(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
