@@ -205,7 +205,7 @@ final class TriggerRunTests: XCTestCase {
     }
 
     func testUnreachableBackendFails() async {
-        client.submitErrors = [.unreachable]
+        client.submitErrors = [.unreachable, .unreachable, .unreachable]
         let run = makeRun()
         await run.pushTop()
         let runHistory = await run.history
@@ -320,5 +320,53 @@ extension TriggerRunTests {
         await first
         XCTAssertEqual(client.submitted.count, 1)
         XCTAssertEqual(notifier.scheduled.count, 1)
+    }
+
+    // MARK: Review fixes (I1, I2)
+
+    func testSubmitRetriesWhenUnreachable() async {
+        client.submitErrors = [.unreachable, .unreachable]
+        let run = makeRun()
+        await run.pushTop()
+        let runHistory = await run.history
+        XCTAssertEqual(scheduledRanks(runHistory), [1])
+        XCTAssertEqual(Array(sleeps.durations.prefix(2)), [5, 5], "two waits before the third try")
+    }
+
+    func testUnreadablePhotosAreLeftOutAndRenumbered() async throws {
+        library.unreadable = ["g0-1", "g0-4"]
+        let run = makeRun()
+        await run.pushTop()
+        let meta = try XCTUnwrap(client.lastMeta)
+        XCTAssertEqual(meta.photos.map(\.id), (1...8).map { "P\($0)" }, "ten picked, two unreadable, renumbered")
+        XCTAssertEqual(client.lastPhotoNumbers, meta.photos.map(\.id), "every number has its file")
+        XCTAssertFalse(meta.coversAll)
+        let record = try XCTUnwrap(notifier.scheduled.first)
+        XCTAssertEqual(record.photoIds.count, 8)
+        XCTAssertFalse(record.photoIds.values.contains("g0-1"))
+        XCTAssertEqual(record.photoIds["P1"], "g0-0")
+        XCTAssertEqual(record.photoIds["P2"], "g0-2")
+    }
+
+    func testTooFewReadablePhotosTriesTheNextGroup() async {
+        library.unreadable = Set((2..<10).map { "g0-\($0)" })
+        let run = makeRun()
+        await run.pushTop()
+        let runHistory = await run.history
+        XCTAssertTrue(runHistory.contains(.rejected(rank: 1, message: "Too few of its photos could be read", next: 2)))
+        XCTAssertEqual(scheduledRanks(runHistory), [2])
+        XCTAssertEqual(client.submitted, [day(ofGroup: 1)], "the unreadable group is never sent")
+    }
+
+    func testAPhotoThatNeverLoadsTimesOut() async {
+        let started = Date()
+        let value: Int? = await ComposeSession.first(within: 0.2) {
+            try? await Task.sleep(for: .seconds(30))
+            return 1
+        }
+        XCTAssertNil(value)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+        let quick: Int? = await ComposeSession.first(within: 5) { 7 }
+        XCTAssertEqual(quick, 7)
     }
 }

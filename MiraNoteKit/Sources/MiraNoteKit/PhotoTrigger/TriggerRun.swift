@@ -103,16 +103,19 @@ public actor TriggerRun {
                                       library: ranking.library, place: place,
                                       recentQuestionIds: deps.records.recentQuestionIds(), calendar: calendar)
         let memory: TriggerMemory
+        var photoIds = built.photoIds
         if deps.fakeAI() {
             memory = FakeAIMemory.build(meta: built.meta, photoIds: built.photoIds, picks: picks, calendar: calendar,
                                         zh: deps.zh)
         } else {
             switch await ComposeSession(deps: deps).run(built.meta, photoIds: built.photoIds) {
-            case .success(let composed): memory = composed
+            case .success(let composed):
+                memory = composed.memory
+                photoIds = composed.photoIds
             case .failure(let box): return box.attempt
             }
         }
-        let record = PushRecord(pushId: UUID().uuidString, memory: memory, photoIds: built.photoIds,
+        let record = PushRecord(pushId: UUID().uuidString, memory: memory, photoIds: photoIds,
                                 createdAt: deps.now(), rank: group.rank, score: group.score.total,
                                 bucket: memory.bucket)
         do {

@@ -6,6 +6,8 @@ import XCTest
 final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
     let now: Date
     var access: PhotoAccess = .full
+    /// Photos whose bytes cannot be read.
+    var unreadable: Set<String> = []
     var assetsList: [LibraryAsset]
 
     init(now: Date, groups: [Int] = [10, 8, 6, 5, 4]) {
@@ -26,7 +28,7 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
 
     func requestAccess() async -> PhotoAccess { access }
     func assets(since date: Date) async -> [LibraryAsset] { assetsList.filter { ($0.takenAt ?? .distantPast) >= date } }
-    func uploadData(for id: String) async -> Data? { ComposeMetaTests.tinyJPEG }
+    func uploadData(for id: String) async -> Data? { unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG }
 }
 
 final class FakeAnalyzer: PhotoAnalyzing, @unchecked Sendable {
@@ -68,6 +70,8 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     var scripts: [String: [Answer]] = [:]
     var submitErrors: [ComposeError] = []
     private(set) var submitted: [String] = []
+    private(set) var lastMeta: ComposeMeta?
+    private(set) var lastPhotoNumbers: [String] = []
     private var polls: [String: Int] = [:]
     private var jobs: [String: ComposeMeta] = [:]
 
@@ -75,6 +79,8 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
         try lock.withLock {
             if !submitErrors.isEmpty { throw submitErrors.removeFirst() }
             submitted.append(meta.date)
+            lastMeta = meta
+            lastPhotoNumbers = photos.map(\.id)
             let job = "job-\(submitted.count)"
             jobs[job] = meta
             return job
