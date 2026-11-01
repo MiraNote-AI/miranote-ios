@@ -76,7 +76,8 @@ public enum CameraOrigin: Equatable, Sendable {
     private static let cameraPrefixes = ["img_", "dsc", "_dsc", "pxl_", "dji_"]
     private static let savedPrefixes = ["mmexport", "screenshot", "wx_", "weixin"]
     private static let uuidStem = try? NSRegularExpression(
-        pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        // A UUID, with or without its dashes (a 32-digit hash name too).
+        pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})$",
         options: [.caseInsensitive]
     )
 
