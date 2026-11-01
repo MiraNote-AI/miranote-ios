@@ -158,7 +158,8 @@ struct HomeFlow: View {
     private static let inbox = "Daily Log"
 
     /// The photo trigger: its run, push records and library photos.
-    @State private var trigger = TriggerController.make()
+    /// One per launch (`shared`), however often HomeFlow is re-made.
+    @State private var trigger = TriggerController.shared
     @State private var router = TriggerLaunchRouter.shared
     /// The debug entry: development and TestFlight builds (InstallSource).
     @State private var showsTriggerEntry = false
@@ -363,8 +364,9 @@ struct HomeFlow: View {
             showsTriggerEntry = await InstallSource.showsDebugEntry(isDebugBuild: InstallSource.isDebugBuild,
                                                                    probe: AppTransactionProbe())
         }
-        // A tapped push, also one that launched the app: open it once Home is up.
-        .task(id: router.pending) { await openPendingPush() }
+        // A tapped push, also one that launched the app: open it once Home is
+        // up and no other cover (an editor, chat, a story) is on screen.
+        .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil)) { await openPendingPush() }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
         // Under a cover the scene's own probe shows too; nothing here listens.
@@ -477,22 +479,30 @@ extension HomeFlow {
     /// The push in `router.pending`: its saved record, with the photos still
     /// in the library -- three or more play; fewer, Home stays quietly
     /// (handoff 7.6, D4). Never regroups, never asks the backend.
+    ///
+    /// While another cover is up (a page being edited, chat, another
+    /// story) the push waits in `router.pending` and opens once that cover
+    /// has closed: tearing it down would lose an unsaved page.
     private func openPendingPush() async {
-        guard let pushId = router.pending else { return }
-        // Cleared once handled: clearing first would cancel this task.
-        defer { router.pending = nil }
+        guard let pushId = router.pending, route == nil else { return }
         let records = trigger.records
-        guard let record = pushId == "latest" ? records.latest() : records.record(pushId) else { return }
+        guard let record = pushId == "latest" ? records.latest() : records.record(pushId) else {
+            return finishPending(pushId)
+        }
         let present = await trigger.photos.existing(Array(record.photoIds.values))
         let numbers = Set(record.photoIds.filter { present.contains($0.value) }.keys)
-        guard let memory = record.memory.replacingMissing(present: numbers) else { return }
-        let opening = TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds)
-        if route != nil {
-            // Another cover is up: swap only after it is gone.
-            route = nil
-            try? await Task.sleep(for: .milliseconds(400))
-        }
-        route = .trigger(opening)
+        guard let memory = record.memory.replacingMissing(present: numbers) else { return finishPending(pushId) }
+        // A cover may have opened, or a newer push arrived, while the library
+        // was asked: then this one waits (or gives way) and runs again.
+        guard route == nil, router.pending == pushId else { return }
+        finishPending(pushId)
+        route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds))
+    }
+
+    /// Clears `pushId` from the router -- never a newer push that came in
+    /// meanwhile (two quick taps).
+    private func finishPending(_ pushId: String) {
+        if router.pending == pushId { router.pending = nil }
     }
 
     /// The ending's button: the photos and words as a canvas draft.

@@ -71,10 +71,14 @@ final class TriggerController {
         try? data.write(to: file, options: .atomic)
     }
 
+    /// The one controller of this launch: made once, so the -UITEST-TRIGGER
+    /// folder is emptied once and "push next" keeps its place.
+    static let shared = make()
+
     /// The app's one controller: PhotoKit, Vision, Apple's geocoder and the
     /// photo-collections backend -- or, under `-UITEST-TRIGGER`, the
     /// synthetic library and a scripted backend.
-    static func make() -> TriggerController {
+    private static func make() -> TriggerController {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-UITEST-TRIGGER") {

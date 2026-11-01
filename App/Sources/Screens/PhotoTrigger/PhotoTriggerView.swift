@@ -177,9 +177,9 @@ struct PhotoTriggerView: View {
                 .padding(.horizontal, 12)
 
             HStack {
-                chromeButton("xmark", label: "Close", action: onClose)
+                chromeButton("xmark", label: "Close", id: "trigger.close", action: onClose)
                 Spacer()
-                chromeButton("ellipsis", label: "More") { menuShown = true }
+                chromeButton("ellipsis", label: "More", id: "trigger.more") { menuShown = true }
             }
             .padding(.horizontal, 6)
             .foregroundStyle(phase.isEnding ? Palette.ink : Color.white)
@@ -191,7 +191,8 @@ struct PhotoTriggerView: View {
         .opacity(phase == .loading ? 0 : 1)
     }
 
-    private func chromeButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+    private func chromeButton(_ symbol: String, label: LocalizedStringKey, id: String,
+                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .semibold))
@@ -200,6 +201,7 @@ struct PhotoTriggerView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+        .accessibilityIdentifier(id)
     }
 
     @ViewBuilder private var loadingOrFailure: some View {

@@ -25,6 +25,37 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(photo(1, of: 8).exists)
     }
 
+    /// A push that arrives while a page is being edited waits: the editor
+    /// is not torn down (its words would be lost); the story opens once the
+    /// page is closed, and the page is filed.
+    func testPushWaitsForAnOpenEditor() {
+        launch(["-TRIGGER-FAKE-AI"])
+        pushAndWait()
+        app.terminate()
+        let launched = Date()
+        launch(["-TRIGGER-OPEN-PUSH-AFTER", "20"], keep: true)
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("kept while the push waits")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertLessThan(Date().timeIntervalSince(launched), 20, "the page was open before the push came")
+        Thread.sleep(forTimeInterval: max(0, 24 - Date().timeIntervalSince(launched)))
+        XCTAssertFalse(photo(1, of: 8).exists, "the story waits for the editor")
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.exists, "the editor is still up")
+        shot("c1-editor-kept")
+        save.tap()
+        XCTAssertTrue(photo(1, of: 8).waitForExistence(timeout: 10), "the story opens once the page is closed")
+        app.buttons["trigger.close"].tap()
+        let log = app.buttons["collection.Daily Log"]
+        XCTAssertTrue(log.waitForExistence(timeout: 5))
+        log.tap()
+        XCTAssertTrue(app.buttons["note.kept while the push waits"].waitForExistence(timeout: 5), "the page was filed")
+    }
+
     func testMissingPhotosUnderThreeStaysHome() {
         launch(["-TRIGGER-FAKE-AI"])
         pushAndWait()
