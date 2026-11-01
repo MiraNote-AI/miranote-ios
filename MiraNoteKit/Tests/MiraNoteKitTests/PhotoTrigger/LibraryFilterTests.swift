@@ -113,6 +113,17 @@ final class AnalysisStoreTests: XCTestCase {
         XCTAssertEqual(todo, ["photo-3", "photo-4"])
     }
 
+    /// Handoff 7.2: nothing the trigger keeps goes to iCloud.
+    func testFoldersAreExcludedFromBackup() throws {
+        try AnalysisStore(directory: folder).save(analysis("one"))
+        XCTAssertEqual(try folder.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup, true)
+        let pushes = folder.appendingPathComponent("pushes")
+        let memory = TriggerMemoryTests.memory(ids: ["01", "02", "03"], peak: "01")
+        try PushRecordStore(directory: pushes).save(PushRecord(pushId: "p", memory: memory, photoIds: [:],
+                                                               createdAt: .now, rank: 1, score: 0.5, bucket: ""))
+        XCTAssertEqual(try pushes.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup, true)
+    }
+
     func testEmptyFolderHasNothing() {
         XCTAssertEqual(AnalysisStore(directory: folder).analyzedIds(), [])
     }

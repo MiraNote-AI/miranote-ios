@@ -60,7 +60,7 @@ public protocol TriggerMemorySource: Sendable {
 }
 
 /// Push records, one JSON file per `pushId` under Application Support
-/// (`PhotoTrigger/pushes/`). Local only.
+/// (`PhotoTrigger/pushes/`). Local only: excluded from backup.
 public struct PushRecordStore: TriggerMemorySource {
     private let directory: URL
 
@@ -73,7 +73,7 @@ public struct PushRecordStore: TriggerMemorySource {
     }
 
     public func save(_ record: PushRecord) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try PhotoTriggerPaths.prepare(directory)
         try TriggerMemory.encoder.encode(record).write(to: file(record.pushId), options: .atomic)
     }
 

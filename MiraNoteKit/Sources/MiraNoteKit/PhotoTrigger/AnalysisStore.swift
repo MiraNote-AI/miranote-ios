@@ -3,7 +3,8 @@ import Foundation
 /// Per-photo analysis results, one small JSON file each under Application
 /// Support (`PhotoTrigger/analysis/`): saving each photo as soon as it is
 /// analysed is what lets an interrupted first run resume where it stopped.
-/// Local only -- not in Documents, so not in iCloud backups of the journal.
+/// Local only: Application Support is backed up by default, so the folder
+/// is marked excluded from backup (handoff 7.2, "not in iCloud").
 public struct AnalysisStore: Sendable {
     private let directory: URL
 
@@ -22,7 +23,7 @@ public struct AnalysisStore: Sendable {
     }
 
     public func save(_ analysis: PhotoAnalysis) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try PhotoTriggerPaths.prepare(directory)
         try JSONEncoder().encode(analysis).write(to: file(for: analysis.id), options: .atomic)
     }
 
@@ -59,5 +60,15 @@ public enum PhotoTriggerPaths {
     public static var root: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appendingPathComponent("PhotoTrigger", isDirectory: true)
+    }
+
+    /// Creates `directory` if needed and marks it excluded from backup, so
+    /// nothing the trigger keeps leaves the phone.
+    public static func prepare(_ directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var marked = directory
+        try marked.setResourceValues(values)
     }
 }
