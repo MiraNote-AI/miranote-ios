@@ -91,13 +91,16 @@ public struct TriggerDependencies: Sendable {
     public var fakeAI: @Sendable () -> Bool
     /// zh-Hans catalog lookup for content (`TriggerContentKey`).
     public var zh: @Sendable (String) -> String
+    /// Receives each press's grouping as JSON (`GroupingReport`); nil keeps none.
+    public var groupingReport: (@Sendable (Data) -> Void)?
 
     public init(
         library: PhotoLibraryReading, analyzer: PhotoAnalyzing, places: PlaceNaming, client: ComposeClient,
         notifier: TriggerNotifying, analyses: AnalysisStore, records: PushRecordStore, calendar: Calendar = .current,
         now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
-        fakeAI: @escaping @Sendable () -> Bool, zh: @escaping @Sendable (String) -> String
+        fakeAI: @escaping @Sendable () -> Bool, zh: @escaping @Sendable (String) -> String,
+        groupingReport: (@Sendable (Data) -> Void)? = nil
     ) {
         self.library = library
         self.analyzer = analyzer
@@ -111,5 +114,6 @@ public struct TriggerDependencies: Sendable {
         self.sleep = sleep
         self.fakeAI = fakeAI
         self.zh = zh
+        self.groupingReport = groupingReport
     }
 }

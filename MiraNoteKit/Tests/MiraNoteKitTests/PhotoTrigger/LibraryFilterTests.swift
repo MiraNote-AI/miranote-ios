@@ -115,3 +115,19 @@ final class AnalysisStoreTests: XCTestCase {
         XCTAssertEqual(AnalysisStore(directory: folder).analyzedIds(), [])
     }
 }
+
+/// The place in a push (acceptance D5).
+final class PlaceNameTests: XCTestCase {
+    func testPlaceNamePrefersAreaThenDistrictThenCity() {
+        XCTAssertEqual(PlaceName.pick(PlaceParts(areasOfInterest: ["Arboretum", "Lake"], subLocality: "East",
+                                                 locality: "Dallas")), "Arboretum")
+        XCTAssertEqual(PlaceName.pick(PlaceParts(areasOfInterest: [], subLocality: "East", locality: "Dallas")), "East")
+        XCTAssertEqual(PlaceName.pick(PlaceParts(areasOfInterest: [], subLocality: " ", locality: "Dallas")), "Dallas")
+        XCTAssertNil(PlaceName.pick(PlaceParts(areasOfInterest: [], subLocality: nil, locality: nil)))
+    }
+
+    func testFactLineDropsAnUnknownPlace() {
+        XCTAssertEqual(TriggerWords.factLine(day: "2026-09-05", place: nil), "9.05")
+        XCTAssertEqual(TriggerWords.factLine(day: "2026-10-18", place: "Arboretum"), "10.18 \u{00B7} Arboretum")
+    }
+}

@@ -203,3 +203,30 @@ final class FragmentGrouperTests: XCTestCase {
         XCTAssertEqual(PersonalThreshold.gaps(between: photos.map(\.takenAt)), [300, 1500])
     }
 }
+
+/// The grouping dump used to check H4: what it says, and no coordinates.
+final class GroupingReportTests: XCTestCase {
+    func testReportNamesFilesAndCutsWithoutCoordinates() throws {
+        let start = Date(timeIntervalSince1970: 1_760_800_000)
+        let place = GeoPoint(lat: 32.8123, lon: -96.7456)
+        let photos = [0, 5, 10, 300, 305, 310].map {
+            GroupablePhoto(id: "id-\($0)", takenAt: start.addingTimeInterval(Double($0) * 60), location: place,
+                           burstId: nil)
+        }
+        let library = Dictionary(uniqueKeysWithValues: photos.map {
+            ($0.id, LibraryAsset(id: $0.id, takenAt: $0.takenAt, location: place, isFavorite: false, isEdited: false,
+                                 isScreenshot: false, isHidden: false, isVideo: false,
+                                 originalFilename: "IMG_\($0.id).HEIC", burstId: nil))
+        })
+        let grouping = FragmentGrouper.group(photos, threshold: 7200, calendar: .current) { _, _ in nil }
+        let data = try XCTUnwrap(GroupingReport.make(grouping, scores: [:], library: library, utility: [],
+                                                     calendar: .current))
+        let text = try XCTUnwrap(String(bytes: data, encoding: .utf8))
+        XCTAssertTrue(text.contains("IMG_id-0.HEIC"))
+        XCTAssertTrue(text.contains("\"timeGap\""))
+        XCTAssertFalse(text.contains("32.81"), "no latitude")
+        XCTAssertFalse(text.contains("96.74"), "no longitude")
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual((object["fragments"] as? [Any])?.count, 2)
+    }
+}

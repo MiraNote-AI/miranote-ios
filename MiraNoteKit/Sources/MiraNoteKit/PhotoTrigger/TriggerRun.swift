@@ -191,6 +191,16 @@ struct TriggerRanking: Sendable {
                   score.pushable else { return nil }
             return (fragment, score)
         }
+        if let sink = deps.groupingReport {
+            // Every scored fragment, pushable or not.
+            var scores: [String: FragmentScore] = [:]
+            for fragment in grouping.fragments {
+                scores[ComposeMeta.groupKey(fragment)] = FragmentScorer.score(
+                    fragment, analyses: analyses, library: library, now: now, calendar: calendar, pastLocations: past)
+            }
+            if let data = GroupingReport.make(grouping, scores: scores, library: library, utility: Array(utility),
+                                              calendar: calendar) { sink(data) }
+        }
         let groups = scored.sorted { $0.1.total > $1.1.total }.enumerated().map {
             RankedGroup(rank: $0.offset + 1, fragment: $0.element.0, score: $0.element.1)
         }
