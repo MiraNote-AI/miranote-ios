@@ -1,5 +1,6 @@
 import MiraNoteKit
 import SwiftUI
+import UIKit
 
 /// The photo trigger as the app holds it for its lifetime: one
 /// `TriggerRun` (so "push next" remembers where it was until a relaunch),
@@ -52,14 +53,20 @@ final class TriggerController {
         }
     }
 
-    /// "Push one in 10 s" (`next` false) or "push the next group".
+    /// "Push one in 10 s" (`next` false) or "push the next group". The press
+    /// asks iOS for background time, so leaving the app right after pressing
+    /// does not freeze it at once; past that time the job is picked up on
+    /// return (ComposeSession).
     func push(next: Bool) {
         guard !isRunning else { return }
         isRunning = true
         fakeAIFlag.value = fakeAI
+        let background = BackgroundTime()
+        background.begin()
         Task {
             if next { await run.pushNext() } else { await run.pushTop() }
             isRunning = false
+            background.end()
         }
     }
 
@@ -102,6 +109,26 @@ final class TriggerController {
             records: PushRecordStore(directory: PushRecordStore.defaultDirectory),
             fakeAI: AppSettings.storeDefaults.bool(forKey: fakeAIKey)
         )
+    }
+}
+
+/// One stretch of background time, ended once: when the press is over or
+/// when iOS says the time is up, whichever comes first.
+@MainActor
+private final class BackgroundTime {
+    private var task: UIBackgroundTaskIdentifier = .invalid
+
+    func begin() {
+        task = UIApplication.shared.beginBackgroundTask(withName: "photo-trigger") { [weak self] in
+            // iOS calls this on the main thread.
+            MainActor.assumeIsolated { self?.end() }
+        }
+    }
+
+    func end() {
+        guard task != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(task)
+        task = .invalid
     }
 }
 
