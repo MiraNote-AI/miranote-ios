@@ -63,18 +63,29 @@ final class TriggerNotificationPresenter: NSObject, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
     }
 
+    // The completion-handler forms, completed on the main thread: the async
+    // forms finish on a background thread, and UIKit asserts when a tap
+    // that launched the app completes there (a crash on every cold launch
+    // from a push, found 2026-11-01).
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        [.banner, .list]
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        DispatchQueue.main.async { completionHandler([.banner, .list]) }
     }
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
-        guard let pushId = response.notification.request.content.userInfo["pushId"] as? String else { return }
-        await MainActor.run { TriggerLaunchRouter.shared.pending = pushId }
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let pushId = response.notification.request.content.userInfo["pushId"] as? String
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                if let pushId { TriggerLaunchRouter.shared.pending = pushId }
+            }
+            completionHandler()
+        }
     }
 }
