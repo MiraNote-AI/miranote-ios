@@ -186,12 +186,12 @@ final class TriggerRunTests: XCTestCase {
         XCTAssertEqual(scheduledRanks(runHistory), [1])
     }
 
-    func testTimeoutAfterFiveMinutes() async {
+    func testTimeoutAfterSixMinutes() async {
         client.scripts[day(ofGroup: 0)] = [.running]
         let run = makeRun()
         await run.pushTop()
-        XCTAssertEqual(sleeps.durations.reduce(0, +), 300)
-        XCTAssertEqual(sleeps.durations.count, 60, "every 5 s for 5 minutes")
+        XCTAssertEqual(sleeps.durations.reduce(0, +), 360)
+        XCTAssertEqual(sleeps.durations.count, 72, "every 5 s for 6 minutes")
         let runHistory = await run.history
         XCTAssertEqual(runHistory.last, .failed(.aiTimeout))
     }

@@ -1,14 +1,15 @@
 import Foundation
 
 /// One group's round trip to the backend (handoff 5): prepare the photos,
-/// submit, then poll every 5 s for up to 5 minutes of waiting. A 429 waits
-/// 10 s; an expired job is submitted once more; a request cut short (the
-/// app went to the background) is tried again. The budget counts the
-/// waits, so time spent suspended in the background does not use it up.
+/// submit, then poll every 5 s for up to 6 minutes of waiting (the
+/// backend's own cap is 5 minutes, per the 2026-11-01 contract change). A
+/// 429 waits 10 s; an expired job is submitted once more; a request cut
+/// short (the app went to the background) is tried again. The budget counts
+/// the waits, so time spent suspended in the background does not use it up.
 struct ComposeSession {
     static let pollInterval: TimeInterval = 5
     static let rateLimitWait: TimeInterval = 10
-    static let budget: TimeInterval = 300
+    static let budget: TimeInterval = 360
     /// Consecutive transport failures tolerated while polling.
     static let pollRetries = 3
 
