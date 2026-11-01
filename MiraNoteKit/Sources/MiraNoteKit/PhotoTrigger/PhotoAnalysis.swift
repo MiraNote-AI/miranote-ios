@@ -121,10 +121,13 @@ public struct PhotoAnalysis: Codable, Equatable, Sendable {
     public let isUtility: Bool
     /// An archived `VNFeaturePrintObservation` (near-duplicates, MMR).
     public let featurePrint: Data?
+    /// The original file name PhotoKit gave when the photo was analysed
+    /// (absent in results saved before it was kept).
+    public let originalFilename: String?
 
     public init(
         id: String, labels: [String], broad: Set<BroadCategory>, faces: Int,
-        aesthetics: Double?, isUtility: Bool, featurePrint: Data?
+        aesthetics: Double?, isUtility: Bool, featurePrint: Data?, originalFilename: String? = nil
     ) {
         self.id = id
         self.labels = labels
@@ -133,6 +136,13 @@ public struct PhotoAnalysis: Codable, Equatable, Sendable {
         self.aesthetics = aesthetics
         self.isUtility = isUtility
         self.featurePrint = featurePrint
+        self.originalFilename = originalFilename
+    }
+
+    /// The same result with its original file name.
+    public func with(originalFilename name: String?) -> PhotoAnalysis {
+        PhotoAnalysis(id: id, labels: labels, broad: broad, faces: faces, aesthetics: aesthetics,
+                      isUtility: isUtility, featurePrint: featurePrint, originalFilename: name)
     }
 
     /// Preselection's quality: the aesthetics score mapped to 0...1, or a

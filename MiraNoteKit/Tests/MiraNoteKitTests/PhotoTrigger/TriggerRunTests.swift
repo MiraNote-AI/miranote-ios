@@ -369,4 +369,15 @@ extension TriggerRunTests {
         let quick: Int? = await ComposeSession.first(within: 5) { 7 }
         XCTAssertEqual(quick, 7)
     }
+
+    /// M3: file names are kept with the analysis and handed back, so a
+    /// later press does not ask PhotoKit for them again.
+    func testOriginalFilenamesAreKeptAndReused() async {
+        await makeRun().pushTop()
+        XCTAssertEqual(library.knownFilenames.first, [:])
+        await makeRun().pushTop()
+        let known = library.knownFilenames.last ?? [:]
+        XCTAssertEqual(known.count, 33)
+        XCTAssertEqual(known["g0-3"], "IMG_3.HEIC")
+    }
 }

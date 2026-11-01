@@ -157,14 +157,14 @@ struct TriggerRanking: Sendable {
     /// FeaturePrint distance between two photo ids.
     func distance(_ first: String, _ second: String) -> Float? {
         guard let one = prints[first], let two = prints[second] else { return nil }
-        return analyzer.distance(one, two)
+        return analyzer.distance((first, one), (second, two))
     }
 
     static func make(_ deps: TriggerDependencies, report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         let now = deps.now()
         let calendar = deps.calendar
         let since = { (days: Double) in now.addingTimeInterval(-days * 86_400) }
-        let eligible = await deps.library.assets(since: since(placeDays))
+        let eligible = await deps.library.assets(since: since(placeDays), knownFilenames: deps.analyses.filenames())
             .filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
         let all = await analyze(recent, deps: deps, report: report)
@@ -228,10 +228,13 @@ struct TriggerRanking: Sendable {
         }
         var done = results.count
         await report(.analyzing(done: done, total: assets.count))
+        let names = Dictionary(assets.map { ($0.id, $0.originalFilename) }, uniquingKeysWith: { first, _ in first })
         for id in todo {
             if let analysis = await deps.analyzer.analyze(id) {
-                try? store.save(analysis)
-                results[id] = analysis
+                // The file name goes with it: later presses need not ask PhotoKit.
+                let named = analysis.with(originalFilename: names[id] ?? nil)
+                try? store.save(named)
+                results[id] = named
             }
             done += 1
             await report(.analyzing(done: done, total: assets.count))

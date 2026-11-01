@@ -27,7 +27,15 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
     }
 
     func requestAccess() async -> PhotoAccess { access }
-    func assets(since date: Date) async -> [LibraryAsset] { assetsList.filter { ($0.takenAt ?? .distantPast) >= date } }
+    private let lock = NSLock()
+    private var knownLog: [[String: String]] = []
+    /// The known file names each press passed in.
+    var knownFilenames: [[String: String]] { lock.withLock { knownLog } }
+
+    func assets(since date: Date, knownFilenames: [String: String]) async -> [LibraryAsset] {
+        lock.withLock { knownLog.append(knownFilenames) }
+        return assetsList.filter { ($0.takenAt ?? .distantPast) >= date }
+    }
     func uploadData(for id: String) async -> Data? { unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG }
 }
 
@@ -42,7 +50,7 @@ final class FakeAnalyzer: PhotoAnalyzing, @unchecked Sendable {
                              isUtility: false, featurePrint: nil)
     }
 
-    func distance(_ first: Data, _ second: Data) -> Float? { nil }
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? { nil }
 }
 
 struct NoPlaces: PlaceNaming {

@@ -32,8 +32,9 @@ struct PhotoAnalyzer: PhotoAnalyzing {
         return analysis
     }
 
-    func distance(_ first: Data, _ second: Data) -> Float? {
-        guard let one = Self.prints.observation(first), let two = Self.prints.observation(second) else { return nil }
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? {
+        guard let one = Self.prints.observation(first.id, first.print),
+              let two = Self.prints.observation(second.id, second.print) else { return nil }
         var distance: Float = 0
         do {
             try one.computeDistance(&distance, to: two)
@@ -113,16 +114,17 @@ struct PhotoAnalyzer: PhotoAnalyzing {
     #endif
 }
 
-/// Unarchived FeaturePrints, kept while the app runs: grouping and
-/// preselection compare the same photos many times.
+/// Unarchived FeaturePrints by photo id, kept while the app runs: grouping
+/// and preselection compare the same photos many times. (Keyed by id, not
+/// by the bytes: hashing kilobytes of data per lookup cost more than it saved.)
 private final class FeaturePrintCache: @unchecked Sendable {
-    private let cache = NSCache<NSData, VNFeaturePrintObservation>()
+    private let cache = NSCache<NSString, VNFeaturePrintObservation>()
 
-    func observation(_ data: Data) -> VNFeaturePrintObservation? {
-        if let cached = cache.object(forKey: data as NSData) { return cached }
+    func observation(_ id: String, _ data: Data) -> VNFeaturePrintObservation? {
+        if let cached = cache.object(forKey: id as NSString) { return cached }
         guard let observation = try? NSKeyedUnarchiver.unarchivedObject(ofClass: VNFeaturePrintObservation.self,
                                                                          from: data) else { return nil }
-        cache.setObject(observation, forKey: data as NSData)
+        cache.setObject(observation, forKey: id as NSString)
         return observation
     }
 }

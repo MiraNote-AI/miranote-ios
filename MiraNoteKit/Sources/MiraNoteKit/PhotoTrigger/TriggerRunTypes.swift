@@ -11,7 +11,9 @@ public protocol PhotoLibraryReading: Sendable {
     /// Asks the first time; limited access is access.
     func requestAccess() async -> PhotoAccess
     /// Image assets taken at or after `date`: metadata only, no pixels.
-    func assets(since date: Date) async -> [LibraryAsset]
+    /// `knownFilenames` (localIdentifier -> original file name, kept from
+    /// earlier analyses) spares asking PhotoKit for those names again.
+    func assets(since date: Date, knownFilenames: [String: String]) async -> [LibraryAsset]
     /// The photo's bytes for upload (any size from about 1000 px), or nil.
     func uploadData(for id: String) async -> Data?
 }
@@ -20,8 +22,9 @@ public protocol PhotoLibraryReading: Sendable {
 public protocol PhotoAnalyzing: Sendable {
     /// Nil when the photo cannot be read (it is tried again next time).
     func analyze(_ id: String) async -> PhotoAnalysis?
-    /// FeaturePrint distance between two archived prints.
-    func distance(_ first: Data, _ second: Data) -> Float?
+    /// FeaturePrint distance between two photos' archived prints (the ids
+    /// let an implementation keep the unarchived prints by photo).
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float?
 }
 
 /// Apple's reverse geocoder.

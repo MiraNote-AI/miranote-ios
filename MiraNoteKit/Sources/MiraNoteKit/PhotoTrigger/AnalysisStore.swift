@@ -27,6 +27,24 @@ public struct AnalysisStore: Sendable {
         try JSONEncoder().encode(analysis).write(to: file(for: analysis.id), options: .atomic)
     }
 
+    /// localIdentifier -> original file name, from every saved result that
+    /// has one (only that field is decoded).
+    public func filenames() -> [String: String] {
+        struct Named: Decodable {
+            let id: String
+            let originalFilename: String?
+        }
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        var result: [String: String] = [:]
+        for name in names where name.hasSuffix(".json") {
+            guard let data = try? Data(contentsOf: directory.appendingPathComponent(name)),
+                  let named = try? JSONDecoder().decode(Named.self, from: data),
+                  let filename = named.originalFilename else { continue }
+            result[named.id] = filename
+        }
+        return result
+    }
+
     /// Every photo with a saved result, read from the file names alone.
     public func analyzedIds() -> Set<String> {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []

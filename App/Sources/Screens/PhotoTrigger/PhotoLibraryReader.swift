@@ -32,13 +32,13 @@ struct PhotoLibraryReader: PhotoLibraryReading, TriggerPhotoProviding {
         }
     }
 
-    func assets(since date: Date) async -> [LibraryAsset] {
+    func assets(since date: Date, knownFilenames: [String: String]) async -> [LibraryAsset] {
         await Task.detached(priority: .userInitiated) {
-            Self.fetch(since: date)
+            Self.fetch(since: date, known: knownFilenames)
         }.value
     }
 
-    private static func fetch(since date: Date) -> [LibraryAsset] {
+    private static func fetch(since date: Date, known: [String: String]) -> [LibraryAsset] {
         let options = PHFetchOptions()
         options.predicate = NSPredicate(format: "creationDate >= %@", date as NSDate)
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
@@ -49,7 +49,9 @@ struct PhotoLibraryReader: PhotoLibraryReading, TriggerPhotoProviding {
         assets.reserveCapacity(result.count)
         result.enumerateObjects { asset, _, _ in
             let recent = (asset.creationDate ?? .distantPast) >= filenameStart
-            let name = recent ? PHAssetResource.assetResources(for: asset).first?.originalFilename : nil
+            // Names kept from earlier analyses spare a PhotoKit call per photo.
+            let name = known[asset.localIdentifier]
+                ?? (recent ? PHAssetResource.assetResources(for: asset).first?.originalFilename : nil)
             assets.append(LibraryAsset(
                 id: asset.localIdentifier,
                 takenAt: asset.creationDate,

@@ -60,7 +60,7 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
         return arguments.contains("-PHOTOS-LIMITED") ? .limited : .full
     }
 
-    func assets(since date: Date) async -> [LibraryAsset] {
+    func assets(since date: Date, knownFilenames: [String: String]) async -> [LibraryAsset] {
         all.filter { ($0.takenAt ?? .distantPast) >= date }
     }
 
@@ -93,7 +93,7 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
                              isUtility: false, featurePrint: nil)
     }
 
-    func distance(_ first: Data, _ second: Data) -> Float? { nil }
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? { nil }
 
     /// A colour block with the photo's number, portrait on even numbers.
     static func paint(_ id: String, side: CGFloat) -> UIImage {
