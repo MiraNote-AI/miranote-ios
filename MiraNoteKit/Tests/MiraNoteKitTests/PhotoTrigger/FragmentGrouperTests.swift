@@ -14,7 +14,7 @@ final class FragmentGrouperTests: XCTestCase {
     private let twoHours: TimeInterval = 7200
     private let home = GeoPoint(lat: 32.9000, lon: -96.8000)
 
-    /// 2026-10-18 (a Saturday) at `hour`:`minute` in Chicago.
+    /// 2026-10-18 (a Sunday) at `hour`:`minute` in Chicago.
     private func at(_ hour: Int, _ minute: Int = 0, day: Int = 18) -> Date {
         calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour, minute: minute))!
     }
