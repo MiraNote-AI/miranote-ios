@@ -1,0 +1,47 @@
+{
+  "status": "ok",
+  "memory": {
+    "id": "2026-10-18_8F3A\u2026",
+    "mode": "life_fragment",
+    "date": "2026-10-18",
+    "daypart": "evening",
+    "bucket": "\u6d3b\u52a8\u4e0e\u6f14\u51fa",
+    "push": {
+      "title": "10.18 \u00b7 \u8fbe\u62c9\u65af\u690d\u7269\u56ed \u00b7 \u508d\u665a",
+      "body": "\u53f0\u4e2d\u592e\uff0c\u843d\u4e0b\u4e00\u675f\u5149",
+      "coverPhotoId": "P9"
+    },
+    "story": {
+      "firstFrameLabel": "10.18 \u00b7 \u8fbe\u62c9\u65af\u690d\u7269\u56ed",
+      "photos": [
+        {
+          "id": "P9",
+          "takenAt": "2026-10-18T17:13:00-05:00",
+          "isPeak": true
+        },
+        {
+          "id": "P2",
+          "takenAt": "2026-10-18T14:05:00-05:00",
+          "isPeak": false
+        }
+      ]
+    },
+    "ending": {
+      "factLine": "10.18 \u00b7 \u8fbe\u62c9\u65af\u690d\u7269\u56ed",
+      "detail": "\u53f0\u4e2d\u592e\uff0c\u843d\u4e0b\u4e00\u675f\u5149",
+      "question": "\u4e00\u675f\u5149\u843d\u5728\u53f0\u4e2d\u592e\u7684\u65f6\u5019\uff0c\u65c1\u8fb9\u5728\u53d1\u751f\u4ec0\u4e48\uff1f",
+      "questionId": "A1",
+      "ctaLabel": "\u7559\u4f4f\u8fd9\u4e2a\u508d\u665a"
+    },
+    "facts": {
+      "P9": "\u4e3b\u4f53\uff1a\u821e\u53f0\u3001\u706f\u5149\uff1b\u7ec6\u8282\uff1a\u4e00\u675f\u5149\u843d\u5728\u53f0\u4e2d\u592e\uff1b\u4eba\u6570\uff1a2-4"
+    },
+    "generation": {
+      "bodySource": "llm",
+      "questionSource": "llm",
+      "model": "qwen3.7-flash",
+      "costCny": 0.005,
+      "latencyMs": 41000
+    }
+  }
+}

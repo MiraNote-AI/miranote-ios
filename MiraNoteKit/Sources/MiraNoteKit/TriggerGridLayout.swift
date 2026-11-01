@@ -50,17 +50,17 @@ public struct TriggerGridLayout: Equatable, Sendable {
         }
 
         var frames: [CGRect] = []
-        var y = big.maxY
+        var top = big.maxY
         for count in rows {
-            y += gap
+            top += gap
             let cellWidth = (inner - gap * CGFloat(count - 1)) / CGFloat(count)
             for index in 0..<count {
-                let x = pad + CGFloat(index) * (cellWidth + gap)
-                frames.append(CGRect(x: x, y: y, width: cellWidth, height: rowHeight))
+                let left = pad + CGFloat(index) * (cellWidth + gap)
+                frames.append(CGRect(x: left, y: top, width: cellWidth, height: rowHeight))
             }
-            y += rowHeight
+            top += rowHeight
         }
         small = frames
-        size = CGSize(width: width, height: y + pad)
+        size = CGSize(width: width, height: top + pad)
     }
 }

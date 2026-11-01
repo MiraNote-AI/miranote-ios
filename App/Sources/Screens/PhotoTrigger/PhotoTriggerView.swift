@@ -52,12 +52,12 @@ struct PhotoTriggerView: View {
         }
         .confirmationDialog("", isPresented: $menuShown, titleVisibility: .hidden) {
             // v0: both only close the menu.
-            Button(TriggerCopy.fewerLikeThis) {}
-            Button(TriggerCopy.notThisDay) {}
-            Button(TriggerCopy.cancel, role: .cancel) {}
+            Button("Fewer like this") {}
+            Button("Not this day") {}
+            Button("Cancel", role: .cancel) {}
         }
-        .alert(TriggerCopy.canvasSoon, isPresented: $canvasNoticeShown) {
-            Button(TriggerCopy.ok, action: onClose)
+        .alert("Opening the canvas soon", isPresented: $canvasNoticeShown) {
+            Button("OK", action: onClose)
         }
     }
 
@@ -161,9 +161,9 @@ struct PhotoTriggerView: View {
                 .padding(.horizontal, 12)
 
             HStack {
-                chromeButton("xmark", label: TriggerCopy.close, action: onClose)
+                chromeButton("xmark", label: "Close", action: onClose)
                 Spacer()
-                chromeButton("ellipsis", label: TriggerCopy.more) { menuShown = true }
+                chromeButton("ellipsis", label: "More") { menuShown = true }
             }
             .padding(.horizontal, 6)
             .foregroundStyle(phase.isEnding ? Palette.ink : Color.white)
@@ -175,7 +175,7 @@ struct PhotoTriggerView: View {
         .opacity(phase == .loading ? 0 : 1)
     }
 
-    private func chromeButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+    private func chromeButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .semibold))
@@ -189,10 +189,10 @@ struct PhotoTriggerView: View {
     @ViewBuilder private var loadingOrFailure: some View {
         if phase == .failed {
             VStack(spacing: 16) {
-                Text(TriggerCopy.photosFailed)
+                Text("The photos could not be loaded")
                     .font(.miraBody)
                     .foregroundStyle(Palette.textSecondary)
-                Button(TriggerCopy.close, action: onClose)
+                Button("Close", action: onClose)
                     .buttonStyle(SoftPill())
             }
         } else {

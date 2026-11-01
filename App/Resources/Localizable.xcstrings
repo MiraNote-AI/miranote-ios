@@ -1405,6 +1405,18 @@
         }
       }
     },
+    "Demo: photo memory" : {
+      "comment" : "Photo trigger v0 demo entry on Home (debug builds).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演示：照片回忆"
+          }
+        }
+      }
+    },
     "Describe a background for this page" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -1763,6 +1775,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "收藏"
+          }
+        }
+      }
+    },
+    "Fewer like this" : {
+      "comment" : "Photo trigger story menu item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少推这类"
           }
         }
       }
@@ -2574,6 +2598,18 @@
         }
       }
     },
+    "More" : {
+      "comment" : "VoiceOver: the photo trigger's more-options button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多"
+          }
+        }
+      }
+    },
     "More than one photo here -- tap the one you mean and ask again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2758,6 +2794,18 @@
         }
       }
     },
+    "No demo data" : {
+      "comment" : "Photo trigger demo entry when there is no memory.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有演示数据"
+          }
+        }
+      }
+    },
     "No memories that month." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2836,6 +2884,18 @@
         }
       }
     },
+    "Not this day" : {
+      "comment" : "Photo trigger story menu item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不想看这一天"
+          }
+        }
+      }
+    },
     "Nothing waiting here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2843,6 +2903,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这里空空如也。"
+          }
+        }
+      }
+    },
+    "Notifications are off -- allow MiraNote notifications in Settings" : {
+      "comment" : "Photo trigger demo entry status.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知没有打开，请到设置里允许 MiraNote 通知"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "Generic confirmation button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
           }
         }
       }
@@ -2910,6 +2994,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开设置"
+          }
+        }
+      }
+    },
+    "Open memory" : {
+      "comment" : "Photo trigger demo entry: open the story straight away.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开回忆"
+          }
+        }
+      }
+    },
+    "Opening the canvas soon" : {
+      "comment" : "Photo trigger v0 stand-in alert for entering the editor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即将进入 canvas"
           }
         }
       }
@@ -3362,6 +3470,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "个人资料"
+          }
+        }
+      }
+    },
+    "Push now" : {
+      "comment" : "Photo trigger demo entry: schedule the push.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即推送"
           }
         }
       }
@@ -4522,6 +4642,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我正在处理的照片不见了，所以一切保持原样。"
+          }
+        }
+      }
+    },
+    "The photos could not be loaded" : {
+      "comment" : "Photo trigger story when no photo could be read.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片没能载入"
+          }
+        }
+      }
+    },
+    "The push arrives in 3 seconds" : {
+      "comment" : "Photo trigger demo entry status.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推送将在 3 秒后出现"
+          }
+        }
+      }
+    },
+    "The push was not sent" : {
+      "comment" : "Photo trigger demo entry status.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推送没有发出去"
           }
         }
       }

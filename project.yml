@@ -24,15 +24,6 @@ targets:
       # Holds the string catalogs (Localizable, InfoPlist): their zh-Hans
       # entries make Simplified Chinese a known region of the project.
       - App/Resources
-      # The photo-trigger demo memory (memory.json plus its photos), bundled
-      # as one folder the app reads at run time -- in Debug builds only (see
-      # the Release EXCLUDED_SOURCE_FILE_NAMES below). It is personal photos,
-      # so demo-input/ stays untracked (local exclude); a checkout without it
-      # still generates and builds, and the demo entry says there is no data.
-      - path: demo-input/DemoMemory
-        type: folder
-        buildPhase: resources
-        optional: true
     dependencies:
       - package: MiraNoteKit
     info:
@@ -130,12 +121,6 @@ targets:
         # a target setting here would override any xcconfig. The PR that
         # commits the icon sets this to AppIcon.
         ASSETCATALOG_COMPILER_APPICON_NAME: $(MIRANOTE_APP_ICON)
-      configs:
-        # The photo-trigger demo memory is personal photos: Debug builds
-        # bundle it, a Release (TestFlight) build never does, even when
-        # demo-input/ sits on the machine that archives it.
-        Release:
-          EXCLUDED_SOURCE_FILE_NAMES: DemoMemory
   MiraNoteTests:
     type: bundle.unit-test
     platform: iOS

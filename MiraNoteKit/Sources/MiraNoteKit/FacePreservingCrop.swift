@@ -42,9 +42,9 @@ public enum FacePreservingCrop {
             }
             // Centre the faces, then pull back so the image still covers the
             // frame. A face no wider than the frame stays whole either way.
-            let x = clamp(container.width / 2 - face.midX, lower: container.width - drawn.width, upper: 0)
-            let y = clamp(container.height / 2 - face.midY, lower: container.height - drawn.height, upper: 0)
-            return CGRect(x: x, y: y, width: drawn.width, height: drawn.height)
+            let left = clamp(container.width / 2 - face.midX, lower: container.width - drawn.width, upper: 0)
+            let top = clamp(container.height / 2 - face.midY, lower: container.height - drawn.height, upper: 0)
+            return CGRect(x: left, y: top, width: drawn.width, height: drawn.height)
         }
     }
 

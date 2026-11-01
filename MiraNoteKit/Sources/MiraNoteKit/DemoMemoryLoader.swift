@@ -33,7 +33,7 @@ public struct DemoMemoryLoader: TriggerMemorySource {
     }
 
     public func url(for photo: TriggerMemory.Photo) -> URL? {
-        guard let url = directory?.appendingPathComponent(photo.file),
+        guard let file = photo.file, let url = directory?.appendingPathComponent(file),
               FileManager.default.fileExists(atPath: url.path)
         else { return nil }
         return url

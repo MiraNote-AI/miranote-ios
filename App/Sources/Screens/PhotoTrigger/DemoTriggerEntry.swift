@@ -8,22 +8,22 @@ struct DemoTriggerEntry: View {
     var onPush: () async -> TriggerNotifications.Outcome
     var onOpen: () -> Void
 
-    @State private var status: String?
+    @State private var status: LocalizedStringKey?
     @State private var sending = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(TriggerCopy.demoTitle)
+            Text("Demo: photo memory")
                 .font(.miraCaption)
                 .foregroundStyle(Palette.textSecondary)
 
             if available {
                 HStack(spacing: 10) {
-                    Button(TriggerCopy.pushNow, action: push)
+                    Button("Push now", action: push)
                         .buttonStyle(SoftPill())
                         .disabled(sending)
                         .accessibilityIdentifier("trigger.demo.push")
-                    Button(TriggerCopy.openMemory, action: onOpen)
+                    Button("Open memory", action: onOpen)
                         .buttonStyle(SoftPill())
                         .accessibilityIdentifier("trigger.demo.open")
                 }
@@ -33,7 +33,7 @@ struct DemoTriggerEntry: View {
                         .foregroundStyle(Palette.textSecondary)
                 }
             } else {
-                Text(TriggerCopy.noDemoData)
+                Text("No demo data")
                     .font(.miraLabel)
                     .foregroundStyle(Palette.muted)
             }
@@ -52,9 +52,9 @@ struct DemoTriggerEntry: View {
             let outcome = await onPush()
             sending = false
             switch outcome {
-            case .scheduled: status = TriggerCopy.pushScheduled
-            case .denied: status = TriggerCopy.pushDenied
-            case .failed: status = TriggerCopy.pushFailed
+            case .scheduled: status = "The push arrives in 3 seconds"
+            case .denied: status = "Notifications are off -- allow MiraNote notifications in Settings"
+            case .failed: status = "The push was not sent"
             }
         }
     }

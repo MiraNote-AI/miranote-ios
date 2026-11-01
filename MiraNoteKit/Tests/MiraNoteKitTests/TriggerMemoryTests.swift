@@ -2,8 +2,8 @@ import XCTest
 @testable import MiraNoteKit
 
 final class TriggerMemoryTests: XCTestCase {
-    /// The file lists the peak first and the rest out of order; the story
-    /// still plays by time and ends on the peak.
+    /// v0's shape (no detail, question id, bucket or facts): the peak is
+    /// listed first and the rest out of order.
     private let json = """
     {
       "id": "demo", "mode": "life_fragment", "date": "2025-10-18", "daypart": "afternoon",
@@ -28,16 +28,103 @@ final class TriggerMemoryTests: XCTestCase {
         XCTAssertEqual(memory.story.photos.count, 3)
     }
 
-    func testStoryPlaysByTimeAndEndsOnThePeak() throws {
+    /// V1 (handoff 7.7): the peak opens the story, the rest follow by time.
+    func testStoryPhotosPutPeakFirstThenTimeOrder() throws {
         let memory = try TriggerMemory.decode(Data(json.utf8))
-        XCTAssertEqual(memory.storyPhotos.map(\.id), ["01", "02", "05"])
+        XCTAssertEqual(memory.storyPhotos.map(\.id), ["05", "01", "02"])
         XCTAssertEqual(memory.peak?.id, "05")
         XCTAssertEqual(memory.coverPhoto?.id, "05")
     }
 
-    func testThePeakLingers() throws {
+    func testDwellIsThreeSecondsForPeakTwoOtherwise() throws {
         let memory = try TriggerMemory.decode(Data(json.utf8))
-        XCTAssertEqual(memory.storyPhotos.map(TriggerMemory.dwell(for:)), [2, 2, 3])
+        XCTAssertEqual(memory.storyPhotos.map(TriggerMemory.dwell(for:)), [3, 2, 2])
+    }
+
+    func testOldJSONDecodesWithDefaults() throws {
+        let memory = try TriggerMemory.decode(Data(json.utf8))
+        XCTAssertEqual(memory.ending.detail, "")
+        XCTAssertEqual(memory.ending.questionId, "")
+        XCTAssertEqual(memory.bucket, "")
+        XCTAssertEqual(memory.facts, [:])
+        XCTAssertNil(memory.generation)
+    }
+
+    func testDecodesHandoffExample() throws {
+        let data = try Data(contentsOf: Fixtures.url("compose_ok.json"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let memoryData = try JSONSerialization.data(withJSONObject: try XCTUnwrap(object["memory"]))
+        let memory = try TriggerMemory.decode(memoryData)
+        XCTAssertEqual(memory.daypart, .evening)
+        XCTAssertEqual(memory.ending.questionId, "A1")
+        XCTAssertFalse(memory.ending.detail.isEmpty)
+        XCTAssertFalse(memory.bucket.isEmpty)
+        XCTAssertEqual(memory.storyPhotos.map(\.id), ["P9", "P2"])
+        XCTAssertNotNil(memory.facts["P9"])
+        XCTAssertEqual(memory.generation?.latencyMs, 41000)
+        XCTAssertNil(memory.story.photos[0].file)
+    }
+
+    func testPhotoFileIsOptional() throws {
+        let photo = try TriggerMemory.decoder.decode(
+            TriggerMemory.Photo.self,
+            from: Data(#"{"id": "P1", "takenAt": "2026-10-18T14:03:00-05:00", "isPeak": false}"#.utf8)
+        )
+        XCTAssertNil(photo.file)
+    }
+
+    func testRoundTripsThroughTheEncoder() throws {
+        let memory = try TriggerMemory.decode(Data(json.utf8))
+        let again = try TriggerMemory.decoder.decode(TriggerMemory.self, from: TriggerMemory.encoder.encode(memory))
+        XCTAssertEqual(again, memory)
+    }
+
+    func testMissingPeakIsReplacedByEarliestRemaining() throws {
+        let memory = try TriggerMemory.decode(Data(json.utf8)).replacingMissing(present: ["01", "02", "03"])
+        XCTAssertNil(memory, "only two of the listed photos remain")
+        let four = Self.memory(ids: ["05", "01", "02", "03"], peak: "05")
+        let replaced = try XCTUnwrap(four.replacingMissing(present: ["01", "02", "03"]))
+        XCTAssertEqual(replaced.peak?.id, "01")
+        XCTAssertEqual(replaced.storyPhotos.map(\.id), ["01", "02", "03"])
+        XCTAssertEqual(replaced.storyPhotos.map(\.isPeak), [true, false, false])
+    }
+
+    func testFewerThanThreeRemainingIsNil() {
+        let four = Self.memory(ids: ["05", "01", "02", "03"], peak: "05")
+        XCTAssertNil(four.replacingMissing(present: ["01", "05"]))
+        XCTAssertNotNil(four.replacingMissing(present: ["01", "05", "02"]))
+    }
+
+    /// An edited photo keeps its localIdentifier, so it is present: only a
+    /// deletion takes a photo out (review focus 2).
+    func testEditedPhotoStillPresent() throws {
+        let four = Self.memory(ids: ["05", "01", "02", "03"], peak: "05")
+        let all = try XCTUnwrap(four.replacingMissing(present: ["05", "01", "02", "03"]))
+        XCTAssertEqual(all, four)
+    }
+
+    func testNoFlaggedPeakFallsBackToEarliest() {
+        let memory = Self.memory(ids: ["01", "02", "03"], peak: nil)
+        XCTAssertEqual(memory.peak?.id, "01")
+        XCTAssertEqual(memory.storyPhotos.first?.isPeak, true)
+    }
+
+    /// Photos at 14:00, 14:01... in the order given; `peak` flagged.
+    static func memory(ids: [String], peak: String?) -> TriggerMemory {
+        let start = Date(timeIntervalSince1970: 1_760_000_000)
+        let ordered = ids.sorted()
+        let photos = ids.map { id in
+            TriggerMemory.Photo(
+                id: id, takenAt: start.addingTimeInterval(Double(ordered.firstIndex(of: id) ?? 0) * 60),
+                isPeak: id == peak
+            )
+        }
+        return TriggerMemory(
+            id: "m", date: "2025-10-09", daypart: .afternoon,
+            push: .init(title: "t", body: "b", coverPhotoId: peak ?? "01"),
+            story: .init(firstFrameLabel: "f", photos: photos),
+            ending: .init(factLine: "f", detail: "", question: "q", questionId: "B1", ctaLabel: "c")
+        )
     }
 
     func testDaypartBoundaries() {
@@ -61,8 +148,9 @@ final class TriggerMemoryTests: XCTestCase {
 
         let loader = DemoMemoryLoader(directory: folder)
         let memory = try XCTUnwrap(loader.load())
-        XCTAssertNotNil(loader.url(for: memory.storyPhotos[0]))
-        XCTAssertNil(loader.url(for: memory.storyPhotos[1]), "02.jpg was never written")
+        let byID = Dictionary(uniqueKeysWithValues: memory.storyPhotos.map { ($0.id, $0) })
+        XCTAssertNotNil(loader.url(for: try XCTUnwrap(byID["01"])))
+        XCTAssertNil(loader.url(for: try XCTUnwrap(byID["02"])), "02.jpg was never written")
     }
 }
 
@@ -83,9 +171,9 @@ final class TriggerGridLayoutTests: XCTestCase {
             let card = CGRect(origin: .zero, size: layout.size)
             let all = [layout.big] + layout.small
             XCTAssertEqual(layout.small.count, count - 1)
-            for (i, frame) in all.enumerated() {
-                XCTAssertTrue(card.contains(frame), "cell \(i) of \(count) leaves the card")
-                for other in all[(i + 1)...] {
+            for (cell, frame) in all.enumerated() {
+                XCTAssertTrue(card.contains(frame), "cell \(cell) of \(count) leaves the card")
+                for other in all[(cell + 1)...] {
                     XCTAssertFalse(frame.insetBy(dx: 0.5, dy: 0.5).intersects(other), "cells overlap at \(count)")
                 }
             }
