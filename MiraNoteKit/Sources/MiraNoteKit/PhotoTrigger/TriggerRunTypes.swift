@@ -66,7 +66,9 @@ public enum TriggerProgress: Equatable, Sendable {
     case wrapped
     case rejected(rank: Int, message: String, next: Int)
     case scheduled(rank: Int, score: Double)
-    case allThreeFailed
+    /// Every group tried this press was turned down: three, or all there
+    /// were when fewer.
+    case allFailed(tried: Int)
     case failed(TriggerFailure)
 }
 

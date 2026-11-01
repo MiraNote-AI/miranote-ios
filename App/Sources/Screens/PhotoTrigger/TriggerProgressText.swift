@@ -15,7 +15,7 @@ struct TriggerProgressText: View {
 
     private var isFailure: Bool {
         switch step {
-        case .failed, .allThreeFailed: return true
+        case .failed, .allFailed: return true
         default: return false
         }
     }
@@ -36,12 +36,17 @@ struct TriggerProgressText: View {
         case .wrapped:
             return Text("That was the last group, starting from the top")
         case .rejected(let rank, let message, let next):
-            return Text("Rank \(rank) did not pass (\(message)), trying rank \(next)...")
+            // The backend's Chinese message has no entry and shows as sent;
+            // the app's own ("too few photos could be read") is translated.
+            let reason = String(appCopy: LocalizedStringResource(String.LocalizationValue(message)))
+            return Text("Rank \(rank) did not pass (\(reason)), trying rank \(next)...")
         case .scheduled(let rank, let score):
             let shown = String(format: "%.2f", score)
             return Text("Scheduled, the push comes in 10 s (rank \(rank), score \(shown))")
-        case .allThreeFailed:
+        case .allFailed(let tried) where tried == TriggerRun.maxTries:
             return Text("Tried 3 groups and none passed. You can press \"Push the next group\" again")
+        case .allFailed(let tried):
+            return Text("Tried \(tried) groups and none passed. You can press \"Push the next group\" again")
         case .failed(let failure):
             return Self.text(for: failure)
         }

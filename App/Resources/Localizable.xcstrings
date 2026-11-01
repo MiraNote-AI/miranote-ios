@@ -5300,6 +5300,18 @@
         }
       }
     },
+    "Too few of its photos could be read" : {
+      "comment" : "Photo trigger progress: the reason a group did not pass (shown inside the rank line).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "能读到的照片不到 3 张"
+          }
+        }
+      }
+    },
     "Transcribing..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5307,6 +5319,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在转写…"
+          }
+        }
+      }
+    },
+    "Tried %lld groups and none passed. You can press \"Push the next group\" again" : {
+      "comment" : "Photo trigger progress: fewer than three groups existed and every one was turned down.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试了 %lld 组都没通过，可以再按一次「推下一组」"
           }
         }
       }

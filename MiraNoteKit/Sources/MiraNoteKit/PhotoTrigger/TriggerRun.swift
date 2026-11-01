@@ -82,7 +82,7 @@ public actor TriggerRun {
                 let following = rank < count ? rank + 1 : 1
                 guard attempt < tries - 1 else {
                     cursor = following
-                    return report(.allThreeFailed)
+                    return report(.allFailed(tried: tries))
                 }
                 report(.rejected(rank: rank, message: message, next: following))
                 if following == 1 { report(.wrapped) }

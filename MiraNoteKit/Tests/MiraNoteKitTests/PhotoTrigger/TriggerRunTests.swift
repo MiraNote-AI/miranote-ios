@@ -89,7 +89,7 @@ final class TriggerRunTests: XCTestCase {
         await run.pushTop()
         let history = await run.history
         XCTAssertEqual(client.submitted.count, 3)
-        XCTAssertEqual(history.last, .allThreeFailed)
+        XCTAssertEqual(history.last, .allFailed(tried: 3))
         XCTAssertEqual(history.filter { if case .rejected = $0 { return true } else { return false } },
                        [.rejected(rank: 1, message: "no \(day(ofGroup: 0))", next: 2),
                         .rejected(rank: 2, message: "no \(day(ofGroup: 1))", next: 3)])
@@ -379,5 +379,16 @@ extension TriggerRunTests {
         let known = library.knownFilenames.last ?? [:]
         XCTAssertEqual(known.count, 33)
         XCTAssertEqual(known["g0-3"], "IMG_3.HEIC")
+    }
+
+    /// M5: with only two groups, both turned down, it says two were tried.
+    func testFewerThanThreeGroupsSayHowManyWereTried() async {
+        library = FakeLibrary(now: now, groups: [10, 8])
+        for group in 0..<2 { client.scripts[day(ofGroup: group)] = [.rejected] }
+        let run = makeRun()
+        await run.pushTop()
+        let runHistory = await run.history
+        XCTAssertEqual(runHistory.last, .allFailed(tried: 2))
+        XCTAssertEqual(client.submitted.count, 2)
     }
 }
