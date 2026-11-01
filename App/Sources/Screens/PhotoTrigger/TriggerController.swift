@@ -66,8 +66,7 @@ final class TriggerController {
     /// Keeps the last press's grouping on the phone (local only) for checking.
     @Sendable nonisolated static func saveGroupingReport(_ data: Data) {
         let file = GroupingReport.defaultFile
-        let folder = file.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? PhotoTriggerPaths.prepare(file.deletingLastPathComponent())
         try? data.write(to: file, options: .atomic)
     }
 
