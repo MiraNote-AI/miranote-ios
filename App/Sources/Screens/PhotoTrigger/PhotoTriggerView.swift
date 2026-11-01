@@ -31,6 +31,8 @@ struct PhotoTriggerView: View {
     @State private var menuShown = false
     /// The "..." menu's answer, at the foot of the screen for a moment.
     @State private var note: MenuNote?
+    /// The button was pressed and the draft is being made.
+    @State private var keeping = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// A held finger that has not moved is a pause, not a tap, after this.
@@ -88,7 +90,9 @@ struct PhotoTriggerView: View {
             firstFrameLabel(stage)
 
             TriggerEndingText(ending: memory.ending, shown: phase == .settled,
-                              top: stage.card(settled: true).maxY, insets: stage.insets) {
+                              top: stage.card(settled: true).maxY, insets: stage.insets, keeping: keeping) {
+                guard !keeping else { return }
+                keeping = true
                 onKeep(memory)
             }
             .frame(width: stage.size.width, height: stage.size.height)

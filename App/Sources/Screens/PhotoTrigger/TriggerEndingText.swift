@@ -18,6 +18,8 @@ struct TriggerEndingText: View {
     /// The settled card's bottom edge, in screen coordinates.
     let top: CGFloat
     let insets: EdgeInsets
+    /// The draft is being made: the button waits (no second draft).
+    var keeping = false
     var onKeep: () -> Void
 
     var body: some View {
@@ -59,6 +61,7 @@ struct TriggerEndingText: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryPill(verticalPadding: 16))
+            .disabled(keeping)
             .modifier(Entrance(shown: shown, delay: 0.35))
             .accessibilityIdentifier("trigger.keep")
         }
