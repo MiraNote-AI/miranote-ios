@@ -6,7 +6,7 @@ import UIKit
 /// laid out as a canvas draft by `TriggerDraftBuilder` (handoff 7.8).
 enum TriggerDraftMaker {
     static func make(_ memory: TriggerMemory, photoIds: [String: String],
-                     photos: TriggerPhotoProviding, store: ImageFileStore = ImageFileStore()) async -> Memory {
+                     photos: TriggerPhotoProviding, store: ImageFileStore = ImageFileStore()) async -> TriggerDraft {
         var files: [String: String] = [:]
         for photo in memory.storyPhotos {
             guard let id = photoIds[photo.id],
@@ -15,6 +15,6 @@ enum TriggerDraftMaker {
                   let file = try? store.save(data, id: UUID()) else { continue }
             files[photo.id] = file
         }
-        return TriggerDraftBuilder.build(memory: memory, imageFiles: files, detailFont: TriggerEndingText.detailFont)
+        return TriggerDraftBuilder.draft(memory: memory, imageFiles: files, detailFont: TriggerEndingText.detailFont)
     }
 }

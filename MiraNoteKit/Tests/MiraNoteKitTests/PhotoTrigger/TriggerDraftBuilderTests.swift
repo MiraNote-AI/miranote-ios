@@ -92,6 +92,45 @@ final class TriggerDraftBuilderTests: XCTestCase {
         XCTAssertEqual([parts.year, parts.month, parts.day], [2026, 10, 18])
     }
 
+    func testQuestionIsThePagesOnlyPrompt() throws {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
+                                              imageFiles: files(3), detailFont: "Lora")
+        XCTAssertEqual(draft.prompts.count, 1)
+        let (id, words) = try XCTUnwrap(draft.prompts.first)
+        XCTAssertEqual(words, "What else?")
+        let item = try XCTUnwrap(draft.page.items.first { $0.id == id })
+        guard case .text(let block) = item.content else { return XCTFail("the prompt is a text block") }
+        XCTAssertEqual(block.text, "What else?")
+    }
+
+    /// Saved untouched, the page keeps the fact and detail lines but not
+    /// the question (user decision 2026-11-01).
+    @MainActor
+    func testUntouchedQuestionIsNotFiled() {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
+                                              imageFiles: files(3), detailFont: "Lora")
+        let canvas = CanvasViewModel(memory: draft.page, prompts: draft.prompts)
+        let filed = canvas.composedMemory()
+        XCTAssertEqual(texts(filed).map(\.block.text).sorted(), ["10.18 \u{00B7} Arboretum", "Light on the arch"])
+        XCTAssertEqual(filed.title, "10.18 \u{00B7} Arboretum")
+        XCTAssertEqual(filed.body, "Light on the arch")
+        XCTAssertEqual(images(filed).count, 3)
+        XCTAssertEqual(texts(canvas.memory).count, 3, "the editor still shows the question")
+    }
+
+    @MainActor
+    func testRewrittenQuestionIsFiled() throws {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: ""), imageFiles: files(3),
+                                              detailFont: "Lora")
+        let canvas = CanvasViewModel(memory: draft.page, prompts: draft.prompts)
+        let id = try XCTUnwrap(draft.prompts.keys.first)
+        canvas.setText(itemID: id, to: "What else? The rain, mostly.")
+        let filed = canvas.composedMemory()
+        XCTAssertEqual(texts(filed).map(\.block.text).sorted(),
+                       ["10.18 \u{00B7} Arboretum", "What else? The rain, mostly."])
+        XCTAssertEqual(filed.body, "What else? The rain, mostly.")
+    }
+
     func testPhotosWithoutAFileAreLeftOut() {
         var some = files(4)
         some["P2"] = nil

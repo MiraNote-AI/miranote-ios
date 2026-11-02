@@ -261,6 +261,13 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(log.waitForExistence(timeout: 8), "the page is still filed after a relaunch")
         log.tap()
         // Filed under its title: the fact line, the page's top, largest text (F4).
-        XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5))
+        let note = app.buttons["note.\(groupADate)"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        // Saved untouched: the detail line stays, the question was only a
+        // prompt (user decision 2026-11-01).
+        note.tap()
+        XCTAssertTrue(app.staticTexts["A quiet light on the table"].waitForExistence(timeout: 8), "the detail line")
+        XCTAssertFalse(app.staticTexts["What was on the table?"].exists, "the untouched question is not filed")
+        shot("f6-reopened")
     }
 }

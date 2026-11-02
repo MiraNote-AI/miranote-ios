@@ -107,8 +107,14 @@ public final class CanvasViewModel {
     }
     private static let historyCap = 50
 
-    public init(memory: Memory) {
+    /// Text a page arrived with only to prompt the writer (the photo
+    /// trigger's question): item id -> its words as given. Filed only once
+    /// rewritten; left as given, it is not part of the page.
+    private let prompts: [CanvasItem.ID: String]
+
+    public init(memory: Memory, prompts: [CanvasItem.ID: String] = [:]) {
         self.memory = memory
+        self.prompts = prompts
     }
 
     public var items: [CanvasItem] { memory.items }
@@ -132,9 +138,10 @@ public final class CanvasViewModel {
 
     /// The elements a filing keeps: not an empty block still being written
     /// (one waiting for dictated words when the app is backgrounded) -- the
-    /// session's end removes it unless words land.
+    /// session's end removes it unless words land -- and not a prompt left
+    /// as given.
     private var filedItems: [CanvasItem] {
-        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
+        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
     }
 
     public var contentBottom: CGFloat {
@@ -367,6 +374,15 @@ public final class CanvasViewModel {
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees
+    }
+}
+
+// MARK: - Prompts
+
+private extension CanvasViewModel {
+    func isUntouchedPrompt(_ item: CanvasItem) -> Bool {
+        guard let given = prompts[item.id], case .text(let block) = item.content else { return false }
+        return block.text == given
     }
 }
 
@@ -634,7 +650,7 @@ extension CanvasViewModel {
             composed.backgroundFileName = origin.backgroundFileName
             composed.backgroundSummary = origin.backgroundSummary
         }
-        let textBlocks: [(block: TextBlock, item: CanvasItem)] = memory.items.compactMap {
+        let textBlocks: [(block: TextBlock, item: CanvasItem)] = composed.items.compactMap {
             guard case .text(let block) = $0.content,
                   !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             return (block, $0)

@@ -6,7 +6,9 @@ import Foundation
 /// title is the fact line), the photos as the ending grid laid them out
 /// (the peak in the big cell), the detail line in the ending's detail
 /// font (none when empty), and the question at 17 pt in the body face.
-/// Real text, not placeholders: saved untouched, it stays on the page.
+/// Real text, so a page saved untouched keeps the fact and detail lines;
+/// the question is a prompt (`TriggerDraft.prompts`), filed only once
+/// rewritten (user decision 2026-11-01).
 public enum TriggerDraftBuilder {
     public static let margin: CGFloat = 20
     static let top: CGFloat = 24
@@ -20,6 +22,12 @@ public enum TriggerDraftBuilder {
     ///     a photo without one is left out.
     ///   - detailFont: the ending's detail face (a `TextBlock.fontName`).
     public static func build(memory: TriggerMemory, imageFiles: [String: String], detailFont: String) -> Memory {
+        draft(memory: memory, imageFiles: imageFiles, detailFont: detailFont).page
+    }
+
+    /// `build`'s page with its prompt: the question's item and words.
+    public static func draft(memory: TriggerMemory, imageFiles: [String: String],
+                             detailFont: String) -> TriggerDraft {
         let width = MiraNoteConfig.pageWidth - 2 * margin
         var items: [CanvasItem] = []
         var zIndex = 0
@@ -54,8 +62,12 @@ public enum TriggerDraftBuilder {
         }
         addText(TextBlock(text: memory.ending.question, pointSize: questionSize), top: next,
                 height: textHeight(memory.ending.question, size: questionSize, width: width))
+        let question = items[items.count - 1].id
 
-        return Memory(title: memory.ending.factLine, memoryDate: shootingDay(memory), items: items)
+        return TriggerDraft(
+            page: Memory(title: memory.ending.factLine, memoryDate: shootingDay(memory), items: items),
+            prompts: [question: memory.ending.question]
+        )
     }
 
     /// A generous box for `text`: the canvas measures and fits text itself;
@@ -73,4 +85,11 @@ public enum TriggerDraftBuilder {
         return Calendar.current.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
             ?? memory.peak?.takenAt ?? .now
     }
+}
+
+/// A trigger's canvas page and the text on it that only prompts: item id
+/// -> its words as given (`CanvasViewModel(memory:prompts:)`).
+public struct TriggerDraft: Sendable {
+    public let page: Memory
+    public let prompts: [CanvasItem.ID: String]
 }

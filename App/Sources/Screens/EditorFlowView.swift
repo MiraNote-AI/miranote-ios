@@ -28,9 +28,10 @@ struct EditorFlowView: View {
     @State private var photoEditors = PhotoEditors()
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
-    /// draft opens.
+    /// draft opens. `prompts`: text on it filed only once rewritten.
     init(
         memory: Memory? = nil,
+        prompts: [CanvasItem.ID: String] = [:],
         onExit: @escaping () -> Void = {},
         onComplete: @escaping (Memory) -> Void = { _ in },
         onAutosave: @escaping (Memory) -> Void = { _ in },
@@ -45,7 +46,8 @@ struct EditorFlowView: View {
         // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
         // the recorded D3 backend gap and takes over here when it lands.
         _editor = State(initialValue: CanvasViewModel(
-            memory: memory?.materializedForEditing() ?? Memory()
+            memory: memory?.materializedForEditing() ?? Memory(),
+            prompts: prompts
         ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
@@ -233,8 +235,9 @@ struct HomeFlow: View {
         case editorIn(journal: MemoryCollection.ID)
         case editMemory(Memory)
         case chat(String)
-        /// A page Mira drafted in chat, opening in the editor as a new note.
-        case draft(Memory)
+        /// A page Mira drafted in chat, opening in the editor as a new note;
+        /// `prompts`: text on it filed only once rewritten (the trigger's question).
+        case draft(Memory, prompts: [CanvasItem.ID: String] = [:])
         /// The photo trigger's story and ending, opened from a push.
         case trigger(TriggerOpening)
 
@@ -244,7 +247,7 @@ struct HomeFlow: View {
             case .editorIn(let journal): return "editor-in-\(journal.uuidString)"
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
-            case .draft(let memory): return "draft-\(memory.id.uuidString)"
+            case .draft(let memory, _): return "draft-\(memory.id.uuidString)"
             case .trigger(let opening): return "trigger-\(opening.pushId)"
             }
         }
@@ -389,9 +392,10 @@ struct HomeFlow: View {
                 )
                 // The editor, its tools and Mira chat stay on System.
                 .environment(\.theme, Theme(appearance: .system))
-            case .editMemory(let memory), .draft(let memory):
+            case .editMemory(let memory), .draft(let memory, _):
                 EditorFlowView(
                     memory: memory,
+                    prompts: Self.prompts(of: presented),
                     onExit: { route = nil },
                     onComplete: { edited in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
@@ -449,6 +453,12 @@ struct HomeFlow: View {
 }
 
 extension HomeFlow {
+    /// Text the page `route` opens holds only to prompt the writer.
+    private static func prompts(of route: Route) -> [CanvasItem.ID: String] {
+        if case .draft(_, let prompts) = route { return prompts }
+        return [:]
+    }
+
     /// UI tests launch with `-UITEST` for a fresh, non-persistent seed each run.
     /// The trigger's (`-UITEST-TRIGGER`) save to a file of their own, emptied
     /// at launch unless `-KEEP_SETTINGS`, so a saved draft survives a relaunch.
@@ -513,7 +523,7 @@ extension HomeFlow {
             route = nil
             // Swap covers only after this one is gone.
             try? await Task.sleep(for: .milliseconds(300))
-            route = .draft(draft)
+            route = .draft(draft.page, prompts: draft.prompts)
         }
     }
 }
