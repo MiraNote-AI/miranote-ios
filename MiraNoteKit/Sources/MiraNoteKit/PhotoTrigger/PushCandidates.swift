@@ -70,11 +70,15 @@ public enum PushCandidates {
                 preferences: preferences, cache: cache)
             return try? result.get()
         }
-        .sorted {
-            if $0.score.total != $1.score.total { return $0.score.total > $1.score.total }
-            if $0.belongsTo != $1.belongsTo { return $0.belongsTo < $1.belongsTo }
-            return $0.groupKey < $1.groupKey
-        }
+        .sorted(by: isRankedBefore)
     }
     // swiftlint:enable function_parameter_count
+
+    /// `ranked`'s order: best total first; ties go to the earlier belongs-to
+    /// day, then the group key.
+    static func isRankedBefore(_ first: PushCandidate, _ second: PushCandidate) -> Bool {
+        if first.score.total != second.score.total { return first.score.total > second.score.total }
+        if first.belongsTo != second.belongsTo { return first.belongsTo < second.belongsTo }
+        return first.groupKey < second.groupKey
+    }
 }

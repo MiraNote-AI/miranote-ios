@@ -130,4 +130,22 @@ final class PushCandidatesTests: XCTestCase {
         XCTAssertEqual(ranked.count, 2)
         XCTAssertGreaterThanOrEqual(ranked[0].score.total, ranked[1].score.total)
     }
+
+    private func candidate(_ day: Int, total: Double, key: String) -> PushCandidate {
+        let belongs = String(format: "2026-10-%02d", day)
+        let score = FragmentScore(r: 1, s: 1, p: 1, n: 1, u: 1, a: 1, base: total, multiplier: 1, bucket: .food,
+                                  total: total, days: 3, pushable: true)
+        let fragment = Fragment(photos: [], uniqueCount: 3, representative: [:], belongsTo: belongs)
+        return PushCandidate(fragment: fragment, groupKey: "\(belongs)_\(key)", belongsTo: belongs, bucket: .food,
+                             score: score, aiPhotoIds: [], cacheKey: key)
+    }
+
+    func testEqualTotalsGoToTheEarlierDayThenTheGroupKey() {
+        let best = candidate(12, total: 0.9, key: "z")
+        let earlierB = candidate(5, total: 0.6, key: "b")
+        let earlierA = candidate(5, total: 0.6, key: "a")
+        let later = candidate(8, total: 0.6, key: "a")
+        let sorted = [later, earlierB, best, earlierA].sorted(by: PushCandidates.isRankedBefore)
+        XCTAssertEqual(sorted.map(\.groupKey), ["2026-10-12_z", "2026-10-05_a", "2026-10-05_b", "2026-10-08_a"])
+    }
 }
