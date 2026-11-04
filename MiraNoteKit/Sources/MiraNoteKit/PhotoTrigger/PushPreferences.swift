@@ -8,7 +8,7 @@ public struct PushPreferences: Codable, Equatable, Sendable {
     /// Bucket -> when "fewer like this" was chosen.
     public var fewer: [PushBucket: Date]
 
-    /// "Fewer" blocks a bucket this long, then halves-ish it (x0.6).
+    /// "Fewer" blocks a bucket this long, then x0.6.
     static let fewerBlockSeconds: TimeInterval = 30 * 86_400
     static let fewerMultiplier = 0.6
 

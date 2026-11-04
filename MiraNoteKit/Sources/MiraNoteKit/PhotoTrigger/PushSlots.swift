@@ -24,7 +24,9 @@ public enum PushSlots {
 
     /// That day's slot time in the calendar's zone.
     public static func time(on day: Date, calendar: Calendar) -> Date {
-        let weekend = calendar.isDateInWeekend(day)
+        // Saturday and Sunday by Gregorian weekday number, whatever the locale's weekend.
+        let weekday = calendar.component(.weekday, from: day)
+        let weekend = weekday == 1 || weekday == 7
         var parts = calendar.dateComponents([.year, .month, .day], from: day)
         parts.hour = weekend ? 20 : 21
         parts.minute = weekend ? 30 : 0

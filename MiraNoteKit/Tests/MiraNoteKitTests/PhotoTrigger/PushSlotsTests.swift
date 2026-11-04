@@ -12,6 +12,24 @@ final class PushSlotsTests: XCTestCase {
         cal.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: min))!
     }
 
+    private func isWeekend(_ date: Date, _ cal: Calendar) -> Bool {
+        let weekday = cal.component(.weekday, from: date)
+        return weekday == 1 || weekday == 7
+    }
+
+    func testWeekendIsSaturdaySundayWhateverTheLocale() {
+        var cal = calendar("Asia/Dubai")
+        cal.locale = Locale(identifier: "ar_AE")
+        // 2026-11-05 Thu .. 11-11 Wed: Fri 6th 21:00, Sat 7th and Sun 8th 20:30.
+        let slots = PushSlots.make(now: date(11, 5, 9, 0, cal), calendar: cal)
+        XCTAssertEqual(slots.count, 7)
+        XCTAssertEqual(hm(slots[1], cal), [21, 0])
+        XCTAssertEqual(cal.component(.weekday, from: slots[1]), 6)
+        XCTAssertEqual(hm(slots[2], cal), [20, 30])
+        XCTAssertEqual(hm(slots[3], cal), [20, 30])
+        XCTAssertEqual(hm(slots[4], cal), [21, 0])
+    }
+
     private func hm(_ date: Date, _ cal: Calendar) -> [Int] {
         [cal.component(.hour, from: date), cal.component(.minute, from: date)]
     }
@@ -21,7 +39,7 @@ final class PushSlotsTests: XCTestCase {
         // 2026-11-04 is a Wednesday.
         let slots = PushSlots.make(now: date(11, 4, 9, 0, cal), calendar: cal)
         for slot in slots {
-            let weekend = cal.isDateInWeekend(slot)
+            let weekend = isWeekend(slot, cal)
             XCTAssertEqual(hm(slot, cal), weekend ? [20, 30] : [21, 0])
         }
         XCTAssertTrue(slots.contains { cal.component(.weekday, from: $0) == 7 })
@@ -65,11 +83,11 @@ final class PushSlotsTests: XCTestCase {
         XCTAssertEqual(slots.count, 7)
         XCTAssertEqual(slots.first, date(11, 1, 20, 30, cal))
         for slot in slots {
-            XCTAssertEqual(hm(slot, cal), cal.isDateInWeekend(slot) ? [20, 30] : [21, 0])
+            XCTAssertEqual(hm(slot, cal), isWeekend(slot, cal) ? [20, 30] : [21, 0])
         }
         let before = PushSlots.make(now: date(10, 31, 8, 0, cal), calendar: cal)
         XCTAssertEqual(before.count, 7)
-        for slot in before { XCTAssertEqual(hm(slot, cal), cal.isDateInWeekend(slot) ? [20, 30] : [21, 0]) }
+        for slot in before { XCTAssertEqual(hm(slot, cal), isWeekend(slot, cal) ? [20, 30] : [21, 0]) }
     }
 
     func testSlotsFollowTheCalendarTimeZone() {
@@ -80,8 +98,8 @@ final class PushSlotsTests: XCTestCase {
         let chicagoSlots = PushSlots.make(now: now, calendar: chicago)
         XCTAssertNotEqual(shanghaiSlots, chicagoSlots)
         for slot in shanghaiSlots {
-            XCTAssertEqual(hm(slot, shanghai), shanghai.isDateInWeekend(slot) ? [20, 30] : [21, 0]) }
+            XCTAssertEqual(hm(slot, shanghai), isWeekend(slot, shanghai) ? [20, 30] : [21, 0]) }
         for slot in chicagoSlots {
-            XCTAssertEqual(hm(slot, chicago), chicago.isDateInWeekend(slot) ? [20, 30] : [21, 0]) }
+            XCTAssertEqual(hm(slot, chicago), isWeekend(slot, chicago) ? [20, 30] : [21, 0]) }
     }
 }
