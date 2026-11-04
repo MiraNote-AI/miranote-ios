@@ -42,6 +42,11 @@ enum InstallSource {
         }
     }
 
+    /// This install's gates: this build, StoreKit's answer.
+    static func live() async -> Gates {
+        await gates(isDebugBuild: isDebugBuild, probe: AppTransactionProbe())
+    }
+
     static var isDebugBuild: Bool {
         #if DEBUG
         true

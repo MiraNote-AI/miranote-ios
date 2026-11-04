@@ -392,9 +392,7 @@ struct HomeFlow: View {
         .environment(\.theme, Theme(appearance: settings.appearance))
         .task {
             guard Self.triggerEntryAllowed else { return }
-            triggerGates = await trigger.resolveGates {
-                await InstallSource.gates(isDebugBuild: InstallSource.isDebugBuild, probe: AppTransactionProbe())
-            }
+            triggerGates = await trigger.resolveGates { await InstallSource.live() }
         }
         .triggerLifecycle(trigger, enabled: triggerGates.schedulesAutomatically)
         // A tapped push, also one that launched the app: open it once Home is
