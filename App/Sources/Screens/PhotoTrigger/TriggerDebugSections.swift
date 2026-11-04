@@ -76,6 +76,8 @@ struct TriggerLogSection: View {
                     Text(verbatim: "\(TriggerWords.shortDate(group.belongsTo)) ->")
                     TriggerDebugText.outcome(group.outcome)
                     if let message = group.message { Text(verbatim: message) }
+                    Text(verbatim: String(appCopy: "\(Int(group.seconds.rounded())) s"))
+                        .accessibilityIdentifier("debug.run.groupTime")
                 }
                 .font(.miraCaption)
                 .foregroundStyle(group.outcome == .error ? Color.debugError : Palette.textSecondary)

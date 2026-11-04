@@ -4947,6 +4947,18 @@
         }
       }
     },
+    "%lld s" : {
+      "comment" : "Photo trigger debug screen (testers only): seconds one group took.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
+          }
+        }
+      }
+    },
     "Scheduled: %@" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",

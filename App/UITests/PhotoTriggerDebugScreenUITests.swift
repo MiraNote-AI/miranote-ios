@@ -2,14 +2,14 @@ import XCTest
 
 /// The tester-only debug screen (phase 2, task A4), on the synthetic library
 /// (`-UITEST-TRIGGER`: painted colour blocks, no personal photos). Each
-/// section is saved as an XCTAttachment and, when the folder exists, as a
-/// PNG under the scratchpad.
+/// section is saved as an XCTAttachment and, when TRIGGER_SHOTS_DIR is set, as a
+/// PNG in that folder.
 final class PhotoTriggerDebugScreenUITests: XCTestCase {
     var app: XCUIApplication!
 
-    private static let shotFolder = URL(fileURLWithPath:
-        "/private/tmp/claude-501/-Users-zhizhaoyan-Desktop-AI-competition-2026-Competition-code-MiraNote-AI-postdemo/"
-        + "65508d89-6318-47c3-8753-699cde813603/scratchpad/ios-shots/a4")
+    /// Optional PNG folder, from the TRIGGER_SHOTS_DIR environment variable of the test runner.
+    private static let shotFolder: URL? = ProcessInfo.processInfo.environment["TRIGGER_SHOTS_DIR"]
+        .flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0) }
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -62,8 +62,9 @@ final class PhotoTriggerDebugScreenUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-        try? FileManager.default.createDirectory(at: Self.shotFolder, withIntermediateDirectories: true)
-        try? screenshot.pngRepresentation.write(to: Self.shotFolder.appendingPathComponent("\(name).png"))
+        guard let folder = Self.shotFolder else { return }
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? screenshot.pngRepresentation.write(to: folder.appendingPathComponent("\(name).png"))
     }
 
     private func rows(_ prefix: String) -> XCUIElementQuery {
@@ -94,6 +95,9 @@ final class PhotoTriggerDebugScreenUITests: XCTestCase {
         scrollToHittable(log)
         log.tap()
         XCTAssertTrue(app.descendants(matching: .any)["debug.run"].firstMatch.waitForExistence(timeout: 3))
+        let groupTimes = app.staticTexts.matching(NSPredicate(format: "identifier == 'debug.run.groupTime'"))
+        XCTAssertTrue(groupTimes.firstMatch.waitForExistence(timeout: 3), "each group line shows its time")
+        XCTAssertTrue(groupTimes.firstMatch.label.hasSuffix(" s"), groupTimes.firstMatch.label)
         shot("a4-4-log")
 
         let blocked = section("blocked")
