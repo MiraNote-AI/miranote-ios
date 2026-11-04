@@ -42,6 +42,10 @@ final class TriggerController {
     /// Bumped at each scene-phase change the scheduler hears of: its hops
     /// may land out of order, and it ignores one older than the last.
     @ObservationIgnored private var phaseSequence = 0
+    /// The first-launch prompts while they are up: each sends the scene
+    /// inactive and back, and that return waits for them instead of planning
+    /// before the answers (notifications would still read as off).
+    @ObservationIgnored private var asking: Task<Void, Never>?
 
     static let fakeAIKey = "photoTrigger.fakeAI"
 
@@ -72,7 +76,7 @@ final class TriggerController {
     func sceneBecameActive() async {
         guard schedulesAutomatically else { return }
         let sequence = nextPhase()
-        await permissions.askFirstLaunch()
+        await askFirstLaunch()
         let time = BackgroundTime()
         background = time
         time.begin { [scheduler] in await scheduler.backgroundTimeExpired() }
@@ -83,6 +87,14 @@ final class TriggerController {
     func sceneEnteredBackground() {
         let sequence = nextPhase()
         Task { [scheduler] in await scheduler.appEnteredBackground(sequence: sequence) }
+    }
+
+    private func askFirstLaunch() async {
+        if let asking { return await asking.value }
+        let task = Task { [permissions] in await permissions.askFirstLaunch() }
+        asking = task
+        await task.value
+        asking = nil
     }
 
     private func nextPhase() -> Int {
