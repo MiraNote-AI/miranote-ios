@@ -83,6 +83,10 @@ struct FixedPlace: PlaceNaming {
 
 final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
     var allowed = true
+    /// `schedule` adds nothing and answers false.
+    var refuseSchedule = false
+    /// Runs inside `schedule`, before it answers (races with the caller).
+    var onSchedule: (@Sendable () async -> Void)?
     private let lock = NSLock()
     private var recordsList: [PushRecord] = []
     private var identifiersList: [String] = []
@@ -107,12 +111,14 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
     func requestPermission() async -> Bool { allowed }
     func pending() async -> Set<String> { pendingIds }
     func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool {
+        if refuseSchedule { return false }
         lock.withLock {
             recordsList.append(record)
             identifiersList.append(identifier)
             atList.append(at)
             pendingSet.insert(identifier)
         }
+        await onSchedule?()
         return true
     }
     func removePending(_ identifiers: [String]) async {

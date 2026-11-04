@@ -111,6 +111,7 @@ public actor PushScheduler {
     /// the hour -- except when the last run left nights unfilled, or the
     /// time zone changed (then every scheduled push is taken back first).
     public func appBecameActive() async {
+        if inBackground { restartBudgets() }
         inBackground = false
         let state = deps.state.load()
         let zone = deps.calendar().timeZone.identifier
@@ -155,6 +156,12 @@ public actor PushScheduler {
         var run = ScheduleRun(startedAt: started, finishedAt: started, trigger: trigger.rawValue)
         let allowed = await deps.notifications.isAllowed()
         await reconcile(allowed: allowed)
+        // A job older than the backend keeps it is gone: submit again if needed.
+        try? deps.state.update {
+            $0.outstanding = $0.outstanding.filter {
+                started.timeIntervalSince($0.value.submittedAt) < Self.jobLifetime
+            }
+        }
         let slots = PushSlots.make(now: started, calendar: calendar)
         let refusal: String? = await deps.library.requestAccess() == .denied ? "photosDenied"
             : allowed ? nil : "notificationsOff"

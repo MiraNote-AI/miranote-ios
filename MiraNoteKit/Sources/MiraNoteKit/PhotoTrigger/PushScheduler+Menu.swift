@@ -68,6 +68,7 @@ extension PushScheduler {
     /// to the front runs again. The run is not cancelled: if the process
     /// lives, polling resumes on return.
     public func backgroundTimeExpired() async {
+        guard isRunning else { return }
         let out = work.days.indices.filter { work.days[$0].isWaiting && !work.leftDays.contains($0) }
         guard !out.isEmpty else { return }
         for index in out {

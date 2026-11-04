@@ -62,8 +62,9 @@ struct AIJob: Sendable {
     var photoIds: [String: String]
     var place: String?
     let startedAt: Date
-    /// Waiting counted against the 6-minute budget.
-    var waited: TimeInterval
+    /// The 6-minute budget runs from here (`deps.now()`): the first
+    /// submit, the pick-up after a relaunch, or the return to the front.
+    var budgetFrom: Date
     var resubmitted: Bool
 }
 
@@ -82,7 +83,8 @@ struct AIAsk: Sendable {
     /// A job of the same photos submitted under an hour ago (after a relaunch).
     let resume: OutstandingJob?
     let prepared: ComposeSession.Prepared?
-    let waited: TimeInterval
+    /// Carried over when an expired job goes out again.
+    let budgetFrom: Date?
     let resubmitted: Bool
 }
 

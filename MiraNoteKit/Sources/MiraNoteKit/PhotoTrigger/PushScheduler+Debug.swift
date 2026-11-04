@@ -38,7 +38,7 @@ extension PushScheduler {
         try? deps.state.clear()
         try? deps.records.removeAll()
         try? deps.lastRun.clear()
-        work = RunWork()
+        // `work` stays: a run in flight sees the new generation and stops.
         previewCount = 0
         outsideCursor = nil
         lastReport = nil
@@ -84,10 +84,13 @@ extension PushScheduler {
                                 score: score.total, bucket: memory.bucket.isEmpty ? deps.zh(bucket.catalogKey)
                                     : memory.bucket,
                                 bucketId: bucket, belongsTo: belongsTo, isDebug: true)
-        guard (try? deps.records.save(record)) != nil,
-              await deps.notifications.schedule(record, identifier: PushIdentifier.make(pushId), at: nil,
+        guard (try? deps.records.save(record)) != nil else { return false }
+        guard await deps.notifications.schedule(record, identifier: PushIdentifier.make(pushId), at: nil,
                                                 relevance: score.total)
-        else { return false }
+        else {
+            try? deps.records.remove(pushId)
+            return false
+        }
         try? deps.ledger.append(LedgerEntry(
             pushId: pushId, isDebug: true, belongsTo: belongsTo, groupKey: groupKey, photoIds: groupPhotos,
             bucket: bucket, place: place, score: score, body: memory.push.body,

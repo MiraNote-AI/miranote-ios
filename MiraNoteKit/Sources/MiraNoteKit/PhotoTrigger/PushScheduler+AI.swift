@@ -33,6 +33,7 @@ extension PushScheduler {
                 let step = step(index)
                 if case .deferred = step { continue }
                 if await move(index, step, context: context) { asks.append(index) }
+                guard context.generation == generation else { return }
                 moved = true
             }
             if !asks.isEmpty { await send(asks, context: context) }
@@ -75,7 +76,7 @@ extension PushScheduler {
         defer { work.days[index].next = next }
         while next < day.plan.queue.count {
             let candidate = day.plan.queue[next]
-            if work.failedGroups.contains(candidate.groupKey)
+            if work.failedGroups.contains(candidate.groupKey) || isRejected(candidate)
                 || taken.contains(where: { $0.group == candidate.groupKey || $0.day == candidate.belongsTo }) {
                 next += 1
                 continue
@@ -93,6 +94,12 @@ extension PushScheduler {
         return .exhausted
     }
 
+    /// Turned down earlier in this run (or cached so): never sent again.
+    private func isRejected(_ candidate: PushCandidate) -> Bool {
+        if case .rejected = work.verdicts[candidate.cacheKey] { return true }
+        return false
+    }
+
     // MARK: Submitting
 
     /// Reads and submits every asked night's photos at once (or builds the
@@ -103,14 +110,15 @@ extension PushScheduler {
         let asks = indices.compactMap { index -> AIAsk? in
             if let job = resubmitting[index] {
                 return AIAsk(day: index, candidate: job.candidate, picks: context.picks[job.candidate.groupKey] ?? [],
-                             resume: nil, prepared: job.prepared, waited: job.waited, resubmitted: true)
+                             resume: nil, prepared: job.prepared, budgetFrom: job.budgetFrom,
+                             resubmitted: true)
             }
             guard case .asking(let candidate) = work.days[index].state else { return nil }
             let fresh = outstanding[candidate.cacheKey].flatMap {
                 now.timeIntervalSince($0.submittedAt) < Self.jobLifetime ? $0 : nil
             }
             return AIAsk(day: index, candidate: candidate, picks: context.picks[candidate.groupKey] ?? [],
-                         resume: fresh, prepared: nil, waited: 0, resubmitted: false)
+                         resume: fresh, prepared: nil, budgetFrom: nil, resubmitted: false)
         }
         let deps = self.deps
         let fake = deps.fakeAI()
@@ -126,7 +134,9 @@ extension PushScheduler {
             return all.sorted { $0.0.day < $1.0.day }
         }
         guard context.generation == generation else { return }
-        for (ask, sent) in results { await apply(sent, for: ask, context: context) }
+        for (ask, sent) in results where context.generation == generation {
+            await apply(sent, for: ask, context: context)
+        }
     }
 
     private func apply(_ sent: AISent, for ask: AIAsk, context: RunContext) async {
@@ -175,18 +185,19 @@ extension PushScheduler {
         if let resume = ask.resume {
             let job = AIJob(candidate: ask.candidate, jobId: resume.jobId, prepared: nil,
                             photoIds: resume.photoIds ?? built.photoIds, place: place, startedAt: resume.submittedAt,
-                            waited: 0, resubmitted: false)
+                            budgetFrom: now, resubmitted: false)
             return .job(job, submitted: false)
         }
         let session = ComposeSession(library: deps.library, client: deps.client, sleep: deps.sleep)
         var prepared = ask.prepared
         if prepared == nil { prepared = await session.prepare(built.meta, photoIds: built.photoIds) }
         guard let prepared else { return .unreadable }
-        var waited = ask.waited
+        var waited: TimeInterval = 0
         switch await session.submit(prepared.meta, photos: prepared.uploads, waited: &waited) {
         case .success(let jobId):
             let job = AIJob(candidate: ask.candidate, jobId: jobId, prepared: prepared, photoIds: prepared.photoIds,
-                            place: place, startedAt: now, waited: waited, resubmitted: ask.resubmitted)
+                            place: place, startedAt: now, budgetFrom: ask.budgetFrom ?? now,
+                            resubmitted: ask.resubmitted)
             return .job(job, submitted: true)
         case .failure(let box):
             return .failed(Self.describe(box.attempt))
@@ -199,8 +210,8 @@ extension PushScheduler {
     /// One batch poll of every job out, 15 s after the last.
     private func pollWave(_ context: RunContext) async {
         try? await deps.sleep(Self.pollInterval)
-        addWait(Self.pollInterval)
         guard context.generation == generation else { return }
+        endOverBudget()
         let jobs = work.days.indices.compactMap { index -> (Int, AIJob)? in
             if case .waiting(let job) = work.days[index].state { return (index, job) }
             return nil
@@ -215,7 +226,7 @@ extension PushScheduler {
         }
         guard context.generation == generation else { return }
         var resubmits: [Int: AIJob] = [:]
-        for (index, sent) in jobs {
+        for (index, sent) in jobs where context.generation == generation {
             // Re-read: the night may have changed while a push was being scheduled.
             guard case .waiting(let job) = work.days[index].state, job.jobId == sent.jobId else { continue }
             if await answer(statuses[job.jobId] ?? .expired, job: job, index: index, context: context) {
@@ -230,7 +241,7 @@ extension PushScheduler {
     /// Acts on one job's status; true when it expired and goes out again.
     private func answer(_ status: ComposeJobStatus, job: AIJob, index: Int, context: RunContext) async -> Bool {
         if case .running = status {
-            guard job.waited >= ComposeSession.budget else { return false }
+            guard isOverBudget(job) else { return false }
             forget(job)
             end(index, job.candidate, since: job.startedAt, message: Self.describe(.stop(.aiTimeout)))
             return false
@@ -264,7 +275,6 @@ extension PushScheduler {
         switch error as? ComposeError {
         case .rateLimited:
             try? await deps.sleep(ComposeSession.rateLimitWait)
-            addWait(ComposeSession.rateLimitWait)
         case .unreachable:
             work.transportFailures += 1
             guard work.transportFailures >= ComposeSession.transportRetries else { return }
@@ -274,10 +284,28 @@ extension PushScheduler {
         }
     }
 
-    private func addWait(_ seconds: TimeInterval) {
+    private func isOverBudget(_ job: AIJob) -> Bool {
+        deps.now().timeIntervalSince(job.budgetFrom) >= ComposeSession.budget
+    }
+
+    /// Ends every night whose job has waited 6 minutes, whatever the last
+    /// poll said (a steady 429 must not keep the run open).
+    private func endOverBudget() {
+        for index in work.days.indices {
+            if case .waiting(let job) = work.days[index].state, isOverBudget(job) {
+                forget(job)
+                end(index, job.candidate, since: job.startedAt, message: Self.describe(.stop(.aiTimeout)))
+            }
+        }
+    }
+
+    /// Back at the front: time suspended in the background does not use up
+    /// a job's budget; polling resumes with the full 6 minutes.
+    func restartBudgets() {
+        let now = deps.now()
         for index in work.days.indices {
             if case .waiting(var job) = work.days[index].state {
-                job.waited += seconds
+                job.budgetFrom = now
                 work.days[index].state = .waiting(job)
             }
         }
@@ -309,72 +337,4 @@ extension PushScheduler {
     private func forget(_ job: AIJob) {
         try? deps.state.update { $0.outstanding[job.candidate.cacheKey] = nil }
     }
-
-    func log(_ index: Int, _ candidate: PushCandidate, _ outcome: ScheduleRun.GroupOutcome.Outcome, since: Date,
-             message: String? = nil) {
-        work.outcomes.append(ScheduleRun.GroupOutcome(
-            slotDay: work.days[index].plan.slotDay, groupKey: candidate.groupKey, belongsTo: candidate.belongsTo,
-            outcome: outcome, seconds: max(0, deps.now().timeIntervalSince(since)), message: message))
-    }
-
-    func placeName(_ fragment: Fragment) async -> String? {
-        guard let center = fragment.center else { return nil }
-        return await deps.places.name(for: center)
-    }
-
-    static func describe(_ attempt: TriggerAttempt) -> String {
-        switch attempt {
-        case .pushed: return "pushed"
-        case .rejected(let message): return message
-        case .stop(let failure):
-            switch failure {
-            case .backendUnreachable: return "backendUnreachable"
-            case .aiTimeout: return "aiTimeout"
-            case .noFragment: return "noFragment"
-            case .notificationsOff: return "notificationsOff"
-            case .photosDenied: return "photosDenied"
-            case .unauthorized: return "unauthorized"
-            case .backend(let message): return message
-            }
-        }
-    }
-
-    // MARK: Scheduling
-
-    // swiftlint:disable function_parameter_count
-    /// Saves the record, schedules the night's notification, writes the
-    /// ledger row, then takes back the push it replaces.
-    func schedule(_ index: Int, _ candidate: PushCandidate, memory: TriggerMemory, photoIds: [String: String],
-                  place: String?, context: RunContext) async {
-        guard context.generation == generation else { return }
-        let plan = work.days[index].plan
-        let fallback: DayState = plan.existing == nil ? .empty("notificationsOff") : .kept
-        let pushId = UUID().uuidString
-        let record = PushRecord(
-            pushId: pushId, memory: memory, photoIds: photoIds, createdAt: deps.now(), rank: index + 1,
-            score: candidate.score.total, bucket: memory.bucket.isEmpty ? deps.zh(candidate.bucket.catalogKey)
-                : memory.bucket,
-            bucketId: candidate.bucket, belongsTo: candidate.belongsTo, isDebug: false)
-        guard (try? deps.records.save(record)) != nil else {
-            work.days[index].state = plan.existing == nil ? .empty("aiError") : .kept
-            return
-        }
-        let parts = context.calendar.dateComponents([.year, .month, .day, .hour, .minute], from: plan.slot)
-        guard await deps.notifications.schedule(record, identifier: PushIdentifier.make(pushId), at: parts,
-                                                relevance: candidate.score.total)
-        else {
-            work.days[index].state = fallback
-            return
-        }
-        try? deps.ledger.append(LedgerEntry(
-            pushId: pushId, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
-            photoIds: candidate.fragment.photos.map(\.id), bucket: candidate.bucket, place: place,
-            score: candidate.score, body: memory.push.body, questionId: memory.ending.questionId,
-            scheduledFor: plan.slot))
-        if let existing = plan.existing {
-            await removeActive(.replaced) { $0.pushId == existing.pushId }
-        }
-        work.days[index].state = .scheduled(candidate)
-    }
-    // swiftlint:enable function_parameter_count
 }

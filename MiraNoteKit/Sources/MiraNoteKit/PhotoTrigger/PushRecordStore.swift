@@ -90,6 +90,13 @@ public struct PushRecordStore: TriggerMemorySource {
         all().prefix(limit).map(\.memory.ending.questionId).filter { !$0.isEmpty }
     }
 
+    /// Deletes one record; an unknown id changes nothing.
+    public func remove(_ pushId: String) throws {
+        let url = file(pushId)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
+    }
+
     /// Deletes every record.
     public func removeAll() throws {
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
