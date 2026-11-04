@@ -75,7 +75,8 @@ extension PushScheduler {
         defer { work.days[index].next = next }
         while next < day.plan.queue.count {
             let candidate = day.plan.queue[next]
-            if taken.contains(where: { $0.group == candidate.groupKey || $0.day == candidate.belongsTo }) {
+            if work.failedGroups.contains(candidate.groupKey)
+                || taken.contains(where: { $0.group == candidate.groupKey || $0.day == candidate.belongsTo }) {
                 next += 1
                 continue
             }
@@ -294,6 +295,7 @@ extension PushScheduler {
     /// The night is left as it was: its push kept, or empty.
     private func end(_ index: Int, _ candidate: PushCandidate, since: Date, message: String) {
         log(index, candidate, .error, since: since, message: message)
+        work.failedGroups.insert(candidate.groupKey)
         let reason = work.leftDays.contains(index) ? "leftBeforeResult" : "aiError"
         work.days[index].state = work.days[index].plan.existing == nil ? .empty(reason) : .kept
     }

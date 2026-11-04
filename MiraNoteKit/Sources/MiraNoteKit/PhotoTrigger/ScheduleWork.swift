@@ -118,4 +118,6 @@ struct RunWork: Sendable {
     var transportFailures = 0
     /// Nights whose job was out when the background time ran out.
     var leftDays: Set<Int> = []
+    /// Groups whose trip to the AI failed this run: not sent again for another night.
+    var failedGroups: Set<String> = []
 }
