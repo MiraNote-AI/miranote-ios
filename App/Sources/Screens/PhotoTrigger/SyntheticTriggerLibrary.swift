@@ -176,17 +176,22 @@ struct UITestComposeClient: ComposeClient {
 
 /// `-UITEST-TRIGGER`: notifications that are on (`-TRIGGER-NOTIFICATIONS-OFF`
 /// turns them off) and never reach the real notification centre.
-struct UITestNotifier: PushNotificationCenter {
+final class UITestNotifier: PushNotificationCenter, @unchecked Sendable {
+    private let lock = NSLock()
+    private var scheduled: Set<String> = []
+
     func requestPermission() async -> Bool {
         !ProcessInfo.processInfo.arguments.contains("-TRIGGER-NOTIFICATIONS-OFF")
     }
 
     func isAllowed() async -> Bool { await requestPermission() }
-    func pending() async -> Set<String> { [] }
+    func pending() async -> Set<String> { lock.withLock { scheduled } }
     func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool {
-        true
+        // A debug push (no slot) fires in 10 s and is not kept.
+        if at != nil { lock.withLock { _ = scheduled.insert(identifier) } }
+        return true
     }
-    func removePending(_ identifiers: [String]) async {}
+    func removePending(_ identifiers: [String]) async { lock.withLock { scheduled.subtract(identifiers) } }
     func removeDelivered(_ identifiers: [String]) async {}
 }
 

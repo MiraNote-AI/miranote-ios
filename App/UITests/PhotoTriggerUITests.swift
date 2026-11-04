@@ -19,8 +19,11 @@ final class PhotoTriggerUITests: XCTestCase {
 
     // MARK: Helpers
 
+    /// `-TRIGGER-NO-SCHEDULE`: nothing plans itself on launch, so every group
+    /// is outside the schedule for the debug buttons.
     func launch(_ extra: [String] = [], keep: Bool = false) {
-        app.launchArguments = ["-UITEST", "-UITEST-TRIGGER"] + (keep ? ["-KEEP_SETTINGS"] : []) + extra
+        app.launchArguments = ["-UITEST", "-UITEST-TRIGGER", "-TRIGGER-NO-SCHEDULE"]
+            + (keep ? ["-KEEP_SETTINGS"] : []) + extra
         app.launch()
     }
 
@@ -40,7 +43,7 @@ final class PhotoTriggerUITests: XCTestCase {
     }
 
     /// Presses a push button and waits for "Scheduled".
-    func pushAndWait(_ id: String = "trigger.pushTop") {
+    func pushAndWait(_ id: String = "trigger.tryOutside") {
         entryButton(id).tap()
         XCTAssertTrue(progressLine("Scheduled").waitForExistence(timeout: 20), "the push was scheduled")
     }
@@ -84,8 +87,8 @@ final class PhotoTriggerUITests: XCTestCase {
 
     func testDebugEntryHasTwoButtonsAndFakeAIToggle() {
         launch()
-        XCTAssertTrue(entryButton("trigger.pushTop").exists)
-        XCTAssertTrue(app.buttons["trigger.pushNext"].exists)
+        XCTAssertTrue(entryButton("trigger.preview").exists)
+        XCTAssertTrue(app.buttons["trigger.tryOutside"].exists)
         let toggle = app.switches["trigger.fakeAI"]
         XCTAssertTrue(toggle.exists)
         XCTAssertEqual(toggle.value as? String, "0", "off unless switched on")
@@ -106,23 +109,49 @@ final class PhotoTriggerUITests: XCTestCase {
         shot("c3-progress")
     }
 
-    func testPushNextWalksTheRanksAndWraps() {
+    func testTryOutsideWalksTheRanksAndWraps() {
         launch(["-TRIGGER-FAKE-AI"])
-        pushAndWait("trigger.pushNext")
+        pushAndWait("trigger.tryOutside")
         XCTAssertTrue(progressLine("Scheduled, the push comes in 10 s (rank 1").exists)
-        for rank in [2, 3] {
-            app.buttons["trigger.pushNext"].tap()
-            XCTAssertTrue(progressLine("Scheduled, the push comes in 10 s (rank \(rank)").waitForExistence(timeout: 20))
+        // One group per press; past the last, the walk starts again from the top.
+        var wrapped = false
+        for _ in 0..<5 where !wrapped {
+            app.buttons["trigger.tryOutside"].tap()
+            wrapped = progressLine("That was the last group").waitForExistence(timeout: 20)
         }
-        app.buttons["trigger.pushNext"].tap()
-        XCTAssertTrue(progressLine("That was the last group").waitForExistence(timeout: 20))
+        XCTAssertTrue(wrapped, "the walk wraps with a notice")
         XCTAssertTrue(progressLine("Scheduled, the push comes in 10 s (rank 1").waitForExistence(timeout: 20))
         shot("c2-wrapped")
     }
 
+    // MARK: Preview of the schedule
+
+    func testPreviewWithNothingScheduledSaysSo() {
+        launch()
+        entryButton("trigger.preview").tap()
+        XCTAssertTrue(app.staticTexts["Nothing is scheduled right now"].waitForExistence(timeout: 10))
+        shot("a1-nothing-scheduled")
+    }
+
+    /// Without `-TRIGGER-NO-SCHEDULE` the launch plans the nights by itself;
+    /// the preview then sends a copy of one of them.
+    func testPreviewSendsAScheduledPush() {
+        app.launchArguments = ["-UITEST", "-UITEST-TRIGGER"]
+        app.launch()
+        let sent = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The push for'")).firstMatch
+        let nothing = app.staticTexts["Nothing is scheduled right now"]
+        for _ in 0..<10 where !sent.exists {
+            entryButton("trigger.preview").tap()
+            _ = sent.waitForExistence(timeout: 3)
+        }
+        XCTAssertTrue(sent.exists, "the launch scheduled something to preview")
+        XCTAssertFalse(nothing.exists)
+        shot("a1-preview")
+    }
+
     func testRejectedGroupsStopAfterThree() {
         launch(["-TRIGGER-REJECT"])
-        entryButton("trigger.pushTop").tap()
+        entryButton("trigger.tryOutside").tap()
         XCTAssertTrue(progressLine("Tried 3 groups and none passed").waitForExistence(timeout: 20))
         XCTAssertTrue(progressLine("Rank 1 did not pass").exists)
         XCTAssertTrue(progressLine("Rank 2 did not pass").exists)
@@ -133,7 +162,7 @@ final class PhotoTriggerUITests: XCTestCase {
     /// return and still schedules the push.
     func testLeavingWhileWaitingStillSchedules() {
         launch(["-TRIGGER-SLOW-AI", "25"])
-        entryButton("trigger.pushTop").tap()
+        entryButton("trigger.tryOutside").tap()
         XCTAssertTrue(progressLine("Asking the AI").waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts["Please stay here, about a minute"].exists)
         shot("d2b-asking")
@@ -149,27 +178,27 @@ final class PhotoTriggerUITests: XCTestCase {
 
     func testBackendDownSaysSo() {
         launch(["-TRIGGER-BACKEND-DOWN"])
-        entryButton("trigger.pushTop").tap()
+        entryButton("trigger.tryOutside").tap()
         XCTAssertTrue(progressLine("Cannot reach the backend").waitForExistence(timeout: 20))
         shot("g1-backend-down")
     }
 
     func testEmptyLibraryFindsNoGroup() {
         launch(["-TRIGGER-EMPTY", "-TRIGGER-FAKE-AI"])
-        entryButton("trigger.pushTop").tap()
+        entryButton("trigger.tryOutside").tap()
         XCTAssertTrue(progressLine("No suitable group in the last 60 days").waitForExistence(timeout: 20))
         shot("g3-empty")
     }
 
     func testPermissionsOffOfferSettings() {
         launch(["-TRIGGER-NOTIFICATIONS-OFF"])
-        entryButton("trigger.pushTop").tap()
+        entryButton("trigger.tryOutside").tap()
         XCTAssertTrue(progressLine("Notifications are off").waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["trigger.openSettings"].exists)
         shot("g4-notifications-off")
         app.terminate()
         launch(["-TRIGGER-PHOTOS-DENIED"])
-        entryButton("trigger.pushTop").tap()
+        entryButton("trigger.tryOutside").tap()
         XCTAssertTrue(progressLine("Photo library access is needed").waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["trigger.openSettings"].exists)
         shot("g4-photos-denied")

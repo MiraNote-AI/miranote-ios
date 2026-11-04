@@ -44,9 +44,10 @@ struct TriggerProgressText: View {
             let shown = String(format: "%.2f", score)
             return Text("Scheduled, the push comes in 10 s (rank \(rank), score \(shown))")
         case .allFailed(let tried) where tried == TriggerRun.maxTries:
-            return Text("Tried 3 groups and none passed. You can press \"Push the next group\" again")
+            return Text("Tried 3 groups and none passed. You can press \"Try a group outside the schedule\" again")
         case .allFailed(let tried):
-            return Text("Tried \(tried) groups and none passed. You can press \"Push the next group\" again")
+            // swiftlint:disable:next line_length
+            return Text("Tried \(tried) groups and none passed. You can press \"Try a group outside the schedule\" again")
         case .failed(let failure):
             return Self.text(for: failure)
         }

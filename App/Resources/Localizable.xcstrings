@@ -3112,6 +3112,18 @@
         }
       }
     },
+    "Nothing is scheduled right now" : {
+      "comment" : "Photo trigger debug entry: nothing to preview.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在没有约好的推送"
+          }
+        }
+      }
+    },
     "Nothing waiting here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3706,6 +3718,18 @@
         }
       }
     },
+    "Preview the scheduled push" : {
+      "comment" : "Photo trigger debug entry: send a copy of the next scheduled push in 10 seconds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预览已约的推送"
+          }
+        }
+      }
+    },
     "Previous month" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3746,30 +3770,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "个人资料"
-          }
-        }
-      }
-    },
-    "Push one in 10 s" : {
-      "comment" : "Photo trigger debug entry: push the top-ranked group, 10 seconds after the AI answers.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "10 秒后推一条"
-          }
-        }
-      }
-    },
-    "Push the next group" : {
-      "comment" : "Photo trigger debug entry: push the group after the last one pushed.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "推下一组"
           }
         }
       }
@@ -5006,6 +5006,18 @@
         }
       }
     },
+    "The push for %@ comes in 10 s" : {
+      "comment" : "Photo trigger debug entry: a preview of that night's push was sent; %@ is the day.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 那晚的推送 10 秒后到"
+          }
+        }
+      }
+    },
     "The server returned an error (status %lld)." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5323,26 +5335,38 @@
         }
       }
     },
-    "Tried %lld groups and none passed. You can press \"Push the next group\" again" : {
+    "Tried %lld groups and none passed. You can press \"Try a group outside the schedule\" again" : {
       "comment" : "Photo trigger progress: fewer than three groups existed and every one was turned down.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "试了 %lld 组都没通过，可以再按一次「推下一组」"
+            "value" : "试了 %lld 组都没通过，可以再按一次「试推排期外的组」"
           }
         }
       }
     },
-    "Tried 3 groups and none passed. You can press \"Push the next group\" again" : {
+    "Tried 3 groups and none passed. You can press \"Try a group outside the schedule\" again" : {
       "comment" : "Photo trigger progress: three groups were turned down in one press.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "试了 3 组都没通过，可以再按一次「推下一组」"
+            "value" : "试了 3 组都没通过，可以再按一次「试推排期外的组」"
+          }
+        }
+      }
+    },
+    "Try a group outside the schedule" : {
+      "comment" : "Photo trigger debug entry: run the AI on a group that is not among the scheduled nights and push it in 10 seconds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试推排期外的组"
           }
         }
       }

@@ -5,10 +5,11 @@ import UniformTypeIdentifiers
 import UserNotifications
 
 /// The photo trigger's local push (handoff 7.6): the record is saved
-/// first, the notification carries only its `pushId` (also its
-/// identifier), the title and body are the memory's, the cover is the peak
-/// photo, ten seconds out.
-struct LiveTriggerNotifier: PushNotificationCenter {
+/// first, the notification carries only its `pushId`, the title and body
+/// are the memory's, the cover is the peak photo. A calendar trigger at
+/// the slot's local year/month/day/hour/minute, or ten seconds out when
+/// there is no slot (debug pushes). Removals touch only our `pt.` ids.
+struct LivePushNotificationCenter: PushNotificationCenter {
     let photos: TriggerPhotoProviding
     static let delay: TimeInterval = 10
     static let thread = "photo-trigger"
@@ -23,7 +24,8 @@ struct LiveTriggerNotifier: PushNotificationCenter {
     }
 
     func pending() async -> Set<String> {
-        Set(await UNUserNotificationCenter.current().pendingNotificationRequests().map(\.identifier))
+        Set(await UNUserNotificationCenter.current().pendingNotificationRequests().map(\.identifier)
+            .filter(PushIdentifier.isOurs))
     }
 
     func removePending(_ identifiers: [String]) async {
@@ -49,8 +51,15 @@ struct LiveTriggerNotifier: PushNotificationCenter {
             content.attachments = [attachment]
         }
         content.relevanceScore = relevance
-        let trigger: UNNotificationTrigger = at.map { UNCalendarNotificationTrigger(dateMatching: $0, repeats: false) }
-            ?? UNTimeIntervalNotificationTrigger(timeInterval: Self.delay, repeats: false)
+        let trigger: UNNotificationTrigger = at.map {
+            var slot = DateComponents()
+            slot.year = $0.year
+            slot.month = $0.month
+            slot.day = $0.day
+            slot.hour = $0.hour
+            slot.minute = $0.minute
+            return UNCalendarNotificationTrigger(dateMatching: slot, repeats: false)
+        } ?? UNTimeIntervalNotificationTrigger(timeInterval: Self.delay, repeats: false)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         do {
             try await UNUserNotificationCenter.current().add(request)
@@ -102,9 +111,14 @@ final class TriggerNotificationPresenter: NSObject, UNUserNotificationCenterDele
         let pushId = response.notification.request.content.userInfo["pushId"] as? String
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
-                if let pushId { TriggerLaunchRouter.shared.pending = pushId }
+                guard let pushId else { return completionHandler() }
+                // The ledger learns of the tap before the story opens.
+                Task { @MainActor in
+                    await TriggerController.shared.opened(pushId)
+                    TriggerLaunchRouter.shared.pending = pushId
+                    completionHandler()
+                }
             }
-            completionHandler()
         }
     }
 }

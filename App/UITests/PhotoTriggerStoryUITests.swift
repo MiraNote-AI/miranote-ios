@@ -166,9 +166,9 @@ extension PhotoTriggerUITests {
         // Group C, rank 3, has three photos.
         app.terminate()
         launch(["-TRIGGER-FAKE-AI"])
-        pushAndWait("trigger.pushNext")
+        pushAndWait("trigger.tryOutside")
         for rank in [2, 3] {
-            app.buttons["trigger.pushNext"].tap()
+            app.buttons["trigger.tryOutside"].tap()
             XCTAssertTrue(progressLine("Scheduled, the push comes in 10 s (rank \(rank)").waitForExistence(timeout: 20))
         }
         openLatestPush()

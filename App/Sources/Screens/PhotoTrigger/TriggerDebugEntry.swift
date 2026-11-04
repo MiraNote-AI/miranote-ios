@@ -3,9 +3,9 @@ import SwiftUI
 import UIKit
 
 /// Home's debug entry for the photo trigger, at the foot of the page in
-/// development and TestFlight builds (handoff 7.5): push the top-ranked
-/// group in 10 s, push the next group, the fake-AI switch, and the press's
-/// progress under them.
+/// development and TestFlight builds (handoff 7.5): preview the scheduled
+/// push, try a group outside the schedule, the fake-AI switch, and the
+/// press's progress under them.
 struct TriggerDebugEntry: View {
     @Bindable var controller: TriggerController
     @Environment(\.openURL) private var openURL
@@ -29,6 +29,9 @@ struct TriggerDebugEntry: View {
             .disabled(controller.isRunning)
             .accessibilityIdentifier("trigger.fakeAI")
 
+            if let notice = controller.notice {
+                noticeText(notice)
+            }
             if !controller.steps.isEmpty {
                 progress
             }
@@ -42,14 +45,26 @@ struct TriggerDebugEntry: View {
     }
 
     @ViewBuilder private var buttons: some View {
-        Button("Push one in 10 s") { controller.push(next: false) }
+        Button("Preview the scheduled push") { controller.previewNext() }
             .buttonStyle(SoftPill())
             .disabled(controller.isRunning)
-            .accessibilityIdentifier("trigger.pushTop")
-        Button("Push the next group") { controller.push(next: true) }
+            .accessibilityIdentifier("trigger.preview")
+        Button("Try a group outside the schedule") { controller.tryOutside() }
             .buttonStyle(SoftPill())
             .disabled(controller.isRunning)
-            .accessibilityIdentifier("trigger.pushNext")
+            .accessibilityIdentifier("trigger.tryOutside")
+    }
+
+    private func noticeText(_ notice: TriggerController.Notice) -> some View {
+        let text: Text = switch notice {
+        case .nothingScheduled: Text("Nothing is scheduled right now")
+        case .notificationsOff: Text("Notifications are off")
+        case .previewSent(let day): Text("The push for \(day) comes in 10 s")
+        }
+        return text
+            .font(.miraCaption)
+            .foregroundStyle(Palette.textSecondary)
+            .accessibilityIdentifier("trigger.notice")
     }
 
     private var progress: some View {
@@ -58,8 +73,8 @@ struct TriggerDebugEntry: View {
                 TriggerProgressText(step: step)
             }
             if case .askingAI = controller.steps.last {
-                // The button says "in 10 s", but the AI takes about a minute
-                // first; a tester who locks the phone would wait forever.
+                // The push comes 10 s after the AI answers, which takes about a
+                // minute; a tester who locks the phone would wait forever.
                 Text("Please stay here, about a minute")
                     .font(.miraCaption)
                     .foregroundStyle(Palette.ink)

@@ -367,6 +367,7 @@ struct HomeFlow: View {
             showsTriggerEntry = await InstallSource.showsDebugEntry(isDebugBuild: InstallSource.isDebugBuild,
                                                                    probe: AppTransactionProbe())
         }
+        .triggerLifecycle(trigger, enabled: showsTriggerEntry)
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil)) { await openPendingPush() }
