@@ -11,12 +11,20 @@ import SwiftUI
 /// previous; swipe either way; hold to pause.
 struct PhotoTriggerView: View {
     let memory: TriggerMemory
+    /// The bucket's name for the menu note (Chinese).
+    var bucketName: String?
+    /// False for the `other` bucket: only "Not this day" is offered.
+    var allowsFewer = true
     /// "P1" -> localIdentifier.
     let photoIds: [String: String]
     let library: TriggerPhotoProviding
     var onClose: () -> Void
     /// The button: open the memory as a canvas draft.
     var onKeep: (TriggerMemory) -> Void
+    /// The menu's choice, for the scheduler.
+    var onMenu: (MenuAction) -> Void = { _ in }
+    /// The story reached its ending.
+    var onFinished: () -> Void = {}
 
     @State private var photos: [StoryPhoto] = []
     /// Photos arrive one by one; until the last has, the story may run
@@ -59,8 +67,7 @@ struct PhotoTriggerView: View {
             if menuShown { clock.pause() } else { clock.resume() }
         }
         .confirmationDialog("", isPresented: $menuShown, titleVisibility: .hidden) {
-            // Phase 1 only says so; the ranking does not change yet.
-            Button("Fewer like this") { show(.fewerLikeThis) }
+            if allowsFewer { Button("Fewer like this") { show(.fewerLikeThis) } }
             Button("Not this day") { show(.notThisDay) }
             Button("Cancel", role: .cancel) {}
         }
@@ -103,7 +110,7 @@ struct PhotoTriggerView: View {
             chrome(stage)
 
             if let note {
-                MenuNoteView(note: note, bucket: memory.bucket, bottom: stage.insets.bottom)
+                MenuNoteView(note: note, bucket: bucketName ?? memory.bucket, bottom: stage.insets.bottom)
                     .frame(width: stage.size.width, height: stage.size.height, alignment: .bottom)
             }
 
@@ -229,18 +236,6 @@ struct PhotoTriggerView: View {
 
 /// Playback, the menu and the gestures.
 extension PhotoTriggerView {
-    /// The photo's time on screen (`TriggerMemory.dwell`). UI tests that
-    /// check the order pass `-TRIGGER-SLOW-STORY` (4x): XCUITest is too slow
-    /// on an animating screen to keep up with 2-3 s.
-    static func dwell(_ photo: TriggerMemory.Photo) -> TimeInterval {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-TRIGGER-SLOW-STORY") {
-            return TriggerMemory.dwell(for: photo) * 4
-        }
-        #endif
-        return TriggerMemory.dwell(for: photo)
-    }
-
     // MARK: Playback
 
     /// Segments in the progress bar: every photo the memory lists, until
@@ -322,6 +317,7 @@ extension PhotoTriggerView {
     /// once it has landed, lift it and bring in the words.
     private func gather() {
         clock.pause()
+        onFinished()
         // Without animation: the other photos jump to their starts while
         // still invisible, so the next change can fly them in from there.
         phase = .scatter
@@ -351,6 +347,7 @@ extension PhotoTriggerView {
     // MARK: The menu
 
     private func show(_ choice: MenuNote) {
+        onMenu(choice.action)
         if phase == .story { clock.pause() }
         withAnimation(.easeOut(duration: 0.2)) { note = choice }
     }

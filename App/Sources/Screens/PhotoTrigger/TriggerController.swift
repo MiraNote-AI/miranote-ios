@@ -82,6 +82,17 @@ final class TriggerController {
         await scheduler.markOpened(pushId)
     }
 
+    /// The story menu's choice: the scheduler records it, takes back what it
+    /// rules out and replans at once.
+    func menu(_ action: MenuAction, pushId: String) {
+        Task { await scheduler.menu(action, pushId: pushId) }
+    }
+
+    /// The story reached its ending.
+    func storyFinished(_ pushId: String) {
+        Task { await scheduler.markStoryFinished(pushId) }
+    }
+
     // MARK: Debug entry
 
     private func record(_ step: TriggerProgress) {

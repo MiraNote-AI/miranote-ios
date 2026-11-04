@@ -1,10 +1,18 @@
+import MiraNoteKit
 import SwiftUI
 
-/// What the story's "..." menu answers (handoff 7.7). Phase 1 only says
-/// it; the ranking does not change yet.
+/// What the story's "..." menu answers (handoff 7.7); the scheduler acts on
+/// the same choice.
 enum MenuNote: Equatable {
     case fewerLikeThis
     case notThisDay
+
+    var action: MenuAction {
+        switch self {
+        case .fewerLikeThis: return .fewerLikeThis
+        case .notThisDay: return .notThisDay
+        }
+    }
 
     /// How long the note stays.
     static let duration: TimeInterval = 2
@@ -13,7 +21,7 @@ enum MenuNote: Equatable {
 /// The menu's answer in small type at the foot of the screen.
 struct MenuNoteView: View {
     let note: MenuNote
-    /// The push bucket's name, Chinese content from the memory.
+    /// The push bucket's name, Chinese content.
     let bucket: String
     let bottom: CGFloat
 

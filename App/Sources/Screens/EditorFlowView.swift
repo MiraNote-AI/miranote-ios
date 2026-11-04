@@ -373,6 +373,7 @@ struct HomeFlow: View {
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil)) { await openPendingPush() }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
+        .background { TriggerScheduleProbe(controller: trigger) }
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
@@ -409,8 +410,7 @@ struct HomeFlow: View {
                 )
                 .environment(\.theme, Theme(appearance: .system))
             case .trigger(let opening):
-                PhotoTriggerView(memory: opening.memory, photoIds: opening.photoIds, library: trigger.photos,
-                                 onClose: { route = nil }, onKeep: { keepTrigger($0, photoIds: opening.photoIds) })
+                triggerStory(opening)
             case .chat(let seed):
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
@@ -507,7 +507,18 @@ extension HomeFlow {
         // was asked: then this one waits (or gives way) and runs again.
         guard route == nil, router.pending == pushId else { return }
         finishPending(pushId)
-        route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds))
+        route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds,
+                                        bucketId: record.bucketId))
+    }
+
+    /// The story of an opened push, its menu and ending wired to the scheduler.
+    private func triggerStory(_ opening: TriggerOpening) -> some View {
+        PhotoTriggerView(memory: opening.memory, bucketName: opening.bucketName,
+                         allowsFewer: opening.allowsFewer, photoIds: opening.photoIds,
+                         library: trigger.photos, onClose: { route = nil },
+                         onKeep: { keepTrigger($0, photoIds: opening.photoIds) },
+                         onMenu: { trigger.menu($0, pushId: opening.pushId) },
+                         onFinished: { trigger.storyFinished(opening.pushId) })
     }
 
     /// Clears `pushId` from the router -- never a newer push that came in

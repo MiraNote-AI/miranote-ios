@@ -9,7 +9,9 @@ import UIKit
 ///
 /// Switches: `-TRIGGER-EMPTY` (no photos), `-TRIGGER-PHOTOS-DENIED`,
 /// `-PHOTOS-LIMITED`, `-TRIGGER-MISSING <n>` (the first n photos of any
-/// record are gone).
+/// record are gone), `-TRIGGER-MANY-GROUPS` (five more fragments D-H, eight
+/// in all: one more than the seven nights) and `-TRIGGER-OTHER-ONLY` (only
+/// D, whose photos are art: the `other` bucket).
 struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, PhotoAnalyzing {
     struct Group {
         let name: String
@@ -25,6 +27,23 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
         Group(name: "B", count: 6, daysAgo: 5, hour: 9, broad: [.sky, .plant], hue: 0.55),
         Group(name: "C", count: 3, daysAgo: 8, hour: 19, broad: [.event], hue: 0.8)
     ]
+
+    /// D is `other`; D-H only with `-TRIGGER-MANY-GROUPS` / `-TRIGGER-OTHER-ONLY`.
+    private static let extraGroups = [
+        Group(name: "D", count: 5, daysAgo: 4, hour: 15, broad: [.art], hue: 0.95),
+        Group(name: "E", count: 6, daysAgo: 2, hour: 11, broad: [.animal], hue: 0.3),
+        Group(name: "F", count: 5, daysAgo: 6, hour: 16, broad: [.built], hue: 0.62),
+        Group(name: "G", count: 5, daysAgo: 7, hour: 13, broad: [.interior], hue: 0.12),
+        Group(name: "H", count: 6, daysAgo: 9, hour: 10, broad: [.water], hue: 0.5)
+    ]
+
+    private static let everyGroup = groups + extraGroups
+
+    /// The groups this launch's library holds.
+    private var active: [Group] {
+        if arguments.contains("-TRIGGER-OTHER-ONLY") { return Array(Self.extraGroups.prefix(1)) }
+        return arguments.contains("-TRIGGER-MANY-GROUPS") ? Self.everyGroup : Self.groups
+    }
 
     private let arguments = ProcessInfo.processInfo.arguments
     private let now: Date
@@ -43,7 +62,7 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     var all: [LibraryAsset] {
         guard !arguments.contains("-TRIGGER-EMPTY") else { return [] }
-        return Self.groups.flatMap { group -> [LibraryAsset] in
+        return active.flatMap { group -> [LibraryAsset] in
             let day = calendar.date(byAdding: .day, value: -group.daysAgo, to: calendar.startOfDay(for: now)) ?? now
             let start = calendar.date(bySettingHour: group.hour, minute: 0, second: 0, of: day) ?? day
             return (0..<group.count).map { index in
@@ -86,7 +105,7 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     func analyze(_ id: String) async -> PhotoAnalysis? {
         let parts = id.split(separator: "-")
-        guard parts.count == 3, let group = Self.groups.first(where: { $0.name == parts[1] }) else { return nil }
+        guard parts.count == 3, let group = Self.everyGroup.first(where: { $0.name == parts[1] }) else { return nil }
         // Photo 5 of each group is the best: the fake AI's peak.
         let best = parts[2] == "5" || (group.count <= 5 && parts[2] == "1")
         return PhotoAnalysis(id: id, labels: [], broad: group.broad, faces: 0, aesthetics: best ? 0.9 : nil,
@@ -98,7 +117,7 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
     /// A colour block with the photo's number, portrait on even numbers.
     static func paint(_ id: String, side: CGFloat) -> UIImage {
         let parts = id.split(separator: "-")
-        let group = groups.first { parts.count == 3 && $0.name == parts[1] } ?? groups[0]
+        let group = everyGroup.first { parts.count == 3 && $0.name == parts[1] } ?? groups[0]
         let index = order(id)
         let size = index.isMultiple(of: 2)
             ? CGSize(width: side * 0.75, height: side) : CGSize(width: side, height: side * 0.75)
