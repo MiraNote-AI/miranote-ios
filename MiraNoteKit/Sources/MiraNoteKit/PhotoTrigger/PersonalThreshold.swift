@@ -1,8 +1,8 @@
 import Foundation
 
 /// T, the personal "a long time without a photo" (grouping step 4).
-public struct ThresholdResult: Equatable, Sendable {
-    public enum Fallback: String, Equatable, Sendable {
+public struct ThresholdResult: Codable, Equatable, Sendable {
+    public enum Fallback: String, Codable, Equatable, Sendable {
         /// Fewer than 50 gaps: 2 hours.
         case tooFewGaps
         /// The two piles' centres are under 10x apart: 2 hours.

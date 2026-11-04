@@ -1,0 +1,53 @@
+import XCTest
+@testable import MiraNoteKit
+
+final class AIResultCacheTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func tempFile() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).appendingPathComponent("ai-cache.json")
+    }
+
+    private var ok: AIVerdict {
+        .ok(memory: TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P1"), photoIds: ["P1": "a", "P2": "b"])
+    }
+
+    func testSamePhotosHitDifferentPhotoMisses() throws {
+        let cache = AIResultCache(file: tempFile())
+        try cache.store(ok, key: AIResultCache.key(["a", "b", "c"]), belongsTo: "2026-10-30", at: now)
+        XCTAssertEqual(cache.verdict(AIResultCache.key(["c", "a", "b"])), ok)
+        XCTAssertNil(cache.verdict(AIResultCache.key(["a", "b", "d"])))
+    }
+
+    func testRejectedIsCached() throws {
+        let cache = AIResultCache(file: tempFile())
+        let rejected = AIVerdict.rejected(reason: "sensitive", message: "no")
+        try cache.store(rejected, key: "k", belongsTo: "2026-10-30", at: now)
+        XCTAssertEqual(cache.verdict("k"), rejected)
+    }
+
+    func testKeyIgnoresOrder() {
+        XCTAssertEqual(AIResultCache.key(["x", "y"]), AIResultCache.key(["y", "x"]))
+        XCTAssertEqual(AIResultCache.key(["x"]).count, 64)
+    }
+
+    func testPurgeDropsGroupsOlderThanSixtyDays() throws {
+        let cache = AIResultCache(file: tempFile())
+        try cache.store(ok, key: "old", belongsTo: "2026-08-31", at: now)
+        try cache.store(ok, key: "edge", belongsTo: "2026-09-01", at: now)
+        try cache.store(ok, key: "new", belongsTo: "2026-10-30", at: now)
+        try cache.purge(today: "2026-10-31")
+        XCTAssertNil(cache.verdict("old"))
+        XCTAssertNotNil(cache.verdict("edge"))
+        XCTAssertNotNil(cache.verdict("new"))
+    }
+
+    func testCacheLoadsEmptyFromGarbage() throws {
+        let file = tempFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{{{".utf8).write(to: file)
+        XCTAssertNil(AIResultCache(file: file).verdict("k"))
+        XCTAssertNoThrow(try AIResultCache(file: file).purge(today: "2026-10-31"))
+    }
+}
