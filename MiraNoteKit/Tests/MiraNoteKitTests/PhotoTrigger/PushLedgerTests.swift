@@ -53,6 +53,23 @@ final class PushLedgerTests: XCTestCase {
         XCTAssertTrue(LedgerReconciler.pushedDays(out).isEmpty)
     }
 
+    func testNotificationsOffReasonIsTerminal() {
+        let first = reconcile([Self.entry(at: now.addingTimeInterval(-60))], allowed: false)
+        let second = reconcile(first, allowed: true)
+        XCTAssertNil(second[0].deliveredAt)
+        XCTAssertEqual(second[0].notDeliveredReason, "notificationsOff")
+        XCTAssertTrue(LedgerReconciler.pushedDays(second).isEmpty)
+    }
+
+    func testAlreadyFlaggedNotOpenedIsNotClearedAgain() {
+        var old = Self.entry(at: now.addingTimeInterval(-200_000))
+        old.deliveredAt = old.scheduledFor
+        let first = LedgerReconciler.reconcile([old], now: now, pending: [], notificationsAllowed: true)
+        XCTAssertEqual(first.clearDelivered, ["pt.A"])
+        let second = LedgerReconciler.reconcile(first.entries, now: now, pending: [], notificationsAllowed: true)
+        XCTAssertTrue(second.clearDelivered.isEmpty)
+    }
+
     func testNotOpenedAfterFortyEightHours() {
         var old = Self.entry(at: now.addingTimeInterval(-172_800))
         old.deliveredAt = old.scheduledFor

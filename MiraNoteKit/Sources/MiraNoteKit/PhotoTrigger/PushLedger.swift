@@ -122,16 +122,17 @@ public enum LedgerReconciler {
         let settled = entries.map { entry -> LedgerEntry in
             var entry = entry
             guard entry.removedAt == nil, entry.removedReason == nil else { return entry }
-            if entry.deliveredAt == nil, entry.scheduledFor <= now, !pending.contains(entry.identifier) {
+            // A recorded reason is terminal: iOS dropped the push at fire time.
+            if entry.deliveredAt == nil, entry.notDeliveredReason == nil, entry.scheduledFor <= now,
+               !pending.contains(entry.identifier) {
                 if notificationsAllowed {
                     entry.deliveredAt = entry.scheduledFor
-                    entry.notDeliveredReason = nil
                 } else {
                     entry.notDeliveredReason = "notificationsOff"
                 }
             }
             if let delivered = entry.deliveredAt, entry.openedAt == nil,
-               now.timeIntervalSince(delivered) >= openWindow {
+               !entry.notOpened, now.timeIntervalSince(delivered) >= openWindow {
                 entry.notOpened = true
                 clear.append(entry.identifier)
             }
