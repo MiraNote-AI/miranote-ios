@@ -12,9 +12,16 @@ struct EditorFlowView: View {
     var onAutosave: (Memory) -> Void = { _ in }
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var services: ServiceContainer = .mock
+    /// Set only for a page drafted from a push: it is filed only once the
+    /// writer touched it (or tapped Done), and `onMadePage` tells the ledger.
+    var pushId: String?
+    var onMadePage: (String) -> Void = { _ in }
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var editor: CanvasViewModel
+    /// `editor.changeCount` once its own setup is done: equal to it, a push
+    /// draft is untouched.
+    @State private var baseline: Int
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
@@ -36,8 +43,12 @@ struct EditorFlowView: View {
         onComplete: @escaping (Memory) -> Void = { _ in },
         onAutosave: @escaping (Memory) -> Void = { _ in },
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
-        services: ServiceContainer = .mock
+        services: ServiceContainer = .mock,
+        pushId: String? = nil,
+        onMadePage: @escaping (String) -> Void = { _ in }
     ) {
+        self.pushId = pushId
+        self.onMadePage = onMadePage
         self.onExit = onExit
         self.onComplete = onComplete
         self.onAutosave = onAutosave
@@ -45,10 +56,12 @@ struct EditorFlowView: View {
         self.services = services
         // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
         // the recorded D3 backend gap and takes over here when it lands.
-        _editor = State(initialValue: CanvasViewModel(
+        let model = CanvasViewModel(
             memory: memory?.materializedForEditing() ?? Memory(),
             prompts: prompts
-        ))
+        )
+        _editor = State(initialValue: model)
+        _baseline = State(initialValue: model.changeCount)
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
             chat: services.chat,
@@ -64,8 +77,11 @@ struct EditorFlowView: View {
                 // Autosave against app death: words survive a backgrounded
                 // app being jettisoned. file() replaces by id, so the later
                 // Done/Home filing never duplicates this one.
-                if scenePhase == .background && !editor.isBlankPage {
+                // An untouched push draft is not worth keeping: nothing of the
+                // writer's is lost by leaving it unsaved.
+                if scenePhase == .background && !editor.isBlankPage && !isUntouchedPushDraft {
                     onAutosave(editor.composedMemory())
+                    if let pushId { onMadePage(pushId) }
                 }
             }
     }
@@ -79,7 +95,18 @@ struct EditorFlowView: View {
             onExit()
         } else {
             onComplete(editor.composedMemory())
+            if let pushId { onMadePage(pushId) }
         }
+    }
+
+    private var isUntouchedPushDraft: Bool {
+        pushId != nil && editor.changeCount == baseline
+    }
+
+    /// Back: an untouched push draft leaves nothing behind; anything else
+    /// is Done's filing.
+    private func back() {
+        if isUntouchedPushDraft { onExit() } else { finish() }
     }
 
     @ViewBuilder private var content: some View {
@@ -89,7 +116,7 @@ struct EditorFlowView: View {
                 editor: editor,
                 mira: mira,
                 imageStudio: services.imageStudio,
-                actions: actions(back: finish, done: finish),
+                actions: actions(back: back, done: finish),
                 pendingTool: $pendingTool,
                 pendingPlacement: $pendingPlacement,
                 scrollMemory: scrollMemory,
@@ -237,7 +264,7 @@ struct HomeFlow: View {
         case chat(String)
         /// A page Mira drafted in chat, opening in the editor as a new note;
         /// `prompts`: text on it filed only once rewritten (the trigger's question).
-        case draft(Memory, prompts: [CanvasItem.ID: String] = [:])
+        case draft(Memory, prompts: [CanvasItem.ID: String] = [:], pushId: String? = nil)
         /// The photo trigger's story and ending, opened from a push.
         case trigger(TriggerOpening)
 
@@ -247,7 +274,7 @@ struct HomeFlow: View {
             case .editorIn(let journal): return "editor-in-\(journal.uuidString)"
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
-            case .draft(let memory, _): return "draft-\(memory.id.uuidString)"
+            case .draft(let memory, _, _): return "draft-\(memory.id.uuidString)"
             case .trigger(let opening): return "trigger-\(opening.pushId)"
             }
         }
@@ -394,7 +421,7 @@ struct HomeFlow: View {
                 )
                 // The editor, its tools and Mira chat stay on System.
                 .environment(\.theme, Theme(appearance: .system))
-            case .editMemory(let memory), .draft(let memory, _):
+            case .editMemory(let memory), .draft(let memory, _, _):
                 EditorFlowView(
                     memory: memory,
                     prompts: Self.prompts(of: presented),
@@ -406,7 +433,9 @@ struct HomeFlow: View {
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
-                    services: Self.editorServices(base: services)
+                    services: Self.editorServices(base: services),
+                    pushId: Self.pushId(of: presented),
+                    onMadePage: { trigger.madePage($0) }
                 )
                 .environment(\.theme, Theme(appearance: .system))
             case .trigger(let opening):
@@ -456,8 +485,14 @@ struct HomeFlow: View {
 extension HomeFlow {
     /// Text the page `route` opens holds only to prompt the writer.
     private static func prompts(of route: Route) -> [CanvasItem.ID: String] {
-        if case .draft(_, let prompts) = route { return prompts }
+        if case .draft(_, let prompts, _) = route { return prompts }
         return [:]
+    }
+
+    /// The push `route` was drafted from, if any.
+    private static func pushId(of route: Route) -> String? {
+        if case .draft(_, _, let pushId) = route { return pushId }
+        return nil
     }
 
     /// UI tests launch with `-UITEST` for a fresh, non-persistent seed each run.
@@ -516,7 +551,7 @@ extension HomeFlow {
         PhotoTriggerView(memory: opening.memory, bucketName: opening.bucketName,
                          allowsFewer: opening.allowsFewer, photoIds: opening.photoIds,
                          library: trigger.photos, onClose: { route = nil },
-                         onKeep: { keepTrigger($0, photoIds: opening.photoIds) },
+                         onKeep: { keepTrigger($0, photoIds: opening.photoIds, pushId: opening.pushId) },
                          onMenu: { trigger.menu($0, pushId: opening.pushId) },
                          onFinished: { trigger.storyFinished(opening.pushId) })
     }
@@ -528,14 +563,14 @@ extension HomeFlow {
     }
 
     /// The ending's button: the photos and words as a canvas draft.
-    private func keepTrigger(_ memory: TriggerMemory, photoIds: [String: String]) {
+    private func keepTrigger(_ memory: TriggerMemory, photoIds: [String: String], pushId: String) {
         let photos = trigger.photos
         Task { @MainActor in
             let draft = await TriggerDraftMaker.make(memory, photoIds: photoIds, photos: photos)
             route = nil
             // Swap covers only after this one is gone.
             try? await Task.sleep(for: .milliseconds(300))
-            route = .draft(draft.page, prompts: draft.prompts)
+            route = .draft(draft.page, prompts: draft.prompts, pushId: pushId)
         }
     }
 }

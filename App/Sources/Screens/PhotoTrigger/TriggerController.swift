@@ -93,6 +93,11 @@ final class TriggerController {
         Task { await scheduler.markStoryFinished(pushId) }
     }
 
+    /// The writer made a page from this push (kept the draft).
+    func madePage(_ pushId: String) {
+        Task { await scheduler.markMadePage(pushId) }
+    }
+
     // MARK: Debug entry
 
     private func record(_ step: TriggerProgress) {

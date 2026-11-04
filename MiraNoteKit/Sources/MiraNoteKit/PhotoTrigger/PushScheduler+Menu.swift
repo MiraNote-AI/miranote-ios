@@ -52,6 +52,11 @@ extension PushScheduler {
         stamp(pushId) { $0.madePageAt = $0.madePageAt ?? $1 }
     }
 
+    /// Every ledger row, oldest first (testers' views and UI-test probes).
+    public func ledgerEntries() -> [LedgerEntry] {
+        deps.ledger.load()
+    }
+
     private func stamp(_ pushId: String, _ change: (inout LedgerEntry, Date) -> Void) {
         let now = deps.now()
         try? deps.ledger.update(pushId) { change(&$0, now) }
