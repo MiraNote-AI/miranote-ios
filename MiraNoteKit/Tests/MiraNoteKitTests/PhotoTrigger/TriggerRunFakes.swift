@@ -57,16 +57,44 @@ struct NoPlaces: PlaceNaming {
     func name(for point: GeoPoint) async -> String? { nil }
 }
 
-final class FakeNotifier: TriggerNotifying, @unchecked Sendable {
+final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
     var allowed = true
     private let lock = NSLock()
     private var recordsList: [PushRecord] = []
+    private var identifiersList: [String] = []
+    private var pendingSet: Set<String> = []
+    private var removedPendingList: [String] = []
+    private var removedDeliveredList: [String] = []
     var scheduled: [PushRecord] { lock.withLock { recordsList } }
+    /// The identifier of each `schedule` call, in order.
+    var scheduledIdentifiers: [String] { lock.withLock { identifiersList } }
+    var removedPending: [String] { lock.withLock { removedPendingList } }
+    var removedDelivered: [String] { lock.withLock { removedDeliveredList } }
+    /// Pending ids; tests may put foreign ones (e.g. "other.x") in.
+    var pendingIds: Set<String> {
+        get { lock.withLock { pendingSet } }
+        set { lock.withLock { pendingSet = newValue } }
+    }
 
+    func isAllowed() async -> Bool { allowed }
     func requestPermission() async -> Bool { allowed }
-    func schedule(_ record: PushRecord) async -> Bool {
-        lock.withLock { recordsList.append(record) }
+    func pending() async -> Set<String> { pendingIds }
+    func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool {
+        lock.withLock {
+            recordsList.append(record)
+            identifiersList.append(identifier)
+            pendingSet.insert(identifier)
+        }
         return true
+    }
+    func removePending(_ identifiers: [String]) async {
+        lock.withLock {
+            removedPendingList += identifiers
+            pendingSet.subtract(identifiers)
+        }
+    }
+    func removeDelivered(_ identifiers: [String]) async {
+        lock.withLock { removedDeliveredList += identifiers }
     }
 }
 
@@ -93,6 +121,12 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
             jobs[job] = meta
             return job
         }
+    }
+
+    func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
+        var result: [String: ComposeJobStatus] = [:]
+        for id in jobIds { result[id] = try await poll(id) }
+        return result
     }
 
     func poll(_ jobId: String) async throws -> ComposeJobStatus {

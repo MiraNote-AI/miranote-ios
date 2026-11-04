@@ -157,6 +157,9 @@ final class TriggerRunTests: XCTestCase {
             func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
                 try await inner.submit(meta, photos: photos)
             }
+            func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
+                try await inner.pollMany(jobIds)
+            }
             func poll(_ jobId: String) async throws -> ComposeJobStatus {
                 if !expiredOnce { expiredOnce = true; return .expired }
                 return try await inner.poll(jobId)
@@ -302,6 +305,7 @@ extension TriggerRunTests {
         XCTAssertEqual(ids.count, 2)
         XCTAssertNotEqual(ids[0], ids[1])
         XCTAssertEqual(records.all().count, 2)
+        XCTAssertEqual(notifier.scheduledIdentifiers, ids.map { "pt." + $0 })
     }
 
     func testSecondPressWhileRunningIsIgnored() async {

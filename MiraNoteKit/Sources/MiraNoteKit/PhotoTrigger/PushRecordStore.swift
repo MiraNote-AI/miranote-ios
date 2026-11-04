@@ -14,9 +14,16 @@ public struct PushRecord: Codable, Equatable, Sendable {
     public let score: Double
     /// The push bucket's Chinese name.
     public let bucket: String
+    /// The push bucket's id; nil in records saved before phase 2.
+    public let bucketId: PushBucket?
+    /// The belongs-to day, "yyyy-MM-dd"; nil in older records.
+    public let belongsTo: String?
+    /// Pushed from a debug press; nil in older records.
+    public let isDebug: Bool?
 
     public init(pushId: String, memory: TriggerMemory, photoIds: [String: String], createdAt: Date, rank: Int,
-                score: Double, bucket: String) {
+                score: Double, bucket: String, bucketId: PushBucket? = nil, belongsTo: String? = nil,
+                isDebug: Bool? = nil) {
         self.pushId = pushId
         self.memory = memory
         self.photoIds = photoIds
@@ -24,6 +31,9 @@ public struct PushRecord: Codable, Equatable, Sendable {
         self.rank = rank
         self.score = score
         self.bucket = bucket
+        self.bucketId = bucketId
+        self.belongsTo = belongsTo
+        self.isDebug = isDebug
     }
 }
 

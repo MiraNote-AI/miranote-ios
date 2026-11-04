@@ -8,7 +8,7 @@ import UserNotifications
 /// first, the notification carries only its `pushId` (also its
 /// identifier), the title and body are the memory's, the cover is the peak
 /// photo, ten seconds out.
-struct LiveTriggerNotifier: TriggerNotifying {
+struct LiveTriggerNotifier: PushNotificationCenter {
     let photos: TriggerPhotoProviding
     static let delay: TimeInterval = 10
     static let thread = "photo-trigger"
@@ -17,7 +17,26 @@ struct LiveTriggerNotifier: TriggerNotifying {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) == true
     }
 
-    func schedule(_ record: PushRecord) async -> Bool {
+    func isAllowed() async -> Bool {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+    }
+
+    func pending() async -> Set<String> {
+        Set(await UNUserNotificationCenter.current().pendingNotificationRequests().map(\.identifier))
+    }
+
+    func removePending(_ identifiers: [String]) async {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: identifiers.filter(PushIdentifier.isOurs))
+    }
+
+    func removeDelivered(_ identifiers: [String]) async {
+        UNUserNotificationCenter.current()
+            .removeDeliveredNotifications(withIdentifiers: identifiers.filter(PushIdentifier.isOurs))
+    }
+
+    func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool {
         let content = UNMutableNotificationContent()
         content.title = record.memory.push.title
         content.body = record.memory.push.body
@@ -29,10 +48,10 @@ struct LiveTriggerNotifier: TriggerNotifying {
            let attachment = Self.attachment(image) {
             content.attachments = [attachment]
         }
-        let request = UNNotificationRequest(
-            identifier: record.pushId, content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: Self.delay, repeats: false)
-        )
+        content.relevanceScore = relevance
+        let trigger: UNNotificationTrigger = at.map { UNCalendarNotificationTrigger(dateMatching: $0, repeats: false) }
+            ?? UNTimeIntervalNotificationTrigger(timeInterval: Self.delay, repeats: false)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         do {
             try await UNUserNotificationCenter.current().add(request)
             return true

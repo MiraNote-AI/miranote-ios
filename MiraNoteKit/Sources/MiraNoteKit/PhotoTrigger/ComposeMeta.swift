@@ -51,10 +51,15 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
     /// Whether every photo not sent is represented by one that is.
     public let coversAll: Bool
     public let recentQuestionIds: [String]
+    /// The push bucket's id (`PushBucket.rawValue`).
+    public let bucket: String
+    /// The IANA time zone the times are local to.
+    public let tz: String
     public let photos: [Photo]
 
     public init(groupKey: String, date: String, weekday: Int, startTime: String, endTime: String, place: String?,
-                rawCount: Int, coversAll: Bool, recentQuestionIds: [String], photos: [Photo]) {
+                rawCount: Int, coversAll: Bool, recentQuestionIds: [String], bucket: String, tz: String,
+                photos: [Photo]) {
         self.groupKey = groupKey
         self.date = date
         self.weekday = weekday
@@ -64,11 +69,13 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
         self.rawCount = rawCount
         self.coversAll = coversAll
         self.recentQuestionIds = recentQuestionIds
+        self.bucket = bucket
+        self.tz = tz
         self.photos = photos
     }
 
     private enum CodingKeys: String, CodingKey {
-        case date, weekday, place, photos
+        case date, weekday, place, photos, bucket, tz
         case groupKey = "group_key"
         case startTime = "start_time"
         case endTime = "end_time"
@@ -89,6 +96,8 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
         try container.encode(rawCount, forKey: .rawCount)
         try container.encode(coversAll, forKey: .coversAll)
         try container.encode(recentQuestionIds, forKey: .recentQuestionIds)
+        try container.encode(bucket, forKey: .bucket)
+        try container.encode(tz, forKey: .tz)
         try container.encode(photos, forKey: .photos)
     }
 
@@ -104,7 +113,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
     /// order, and the number -> localIdentifier map the push record keeps.
     public static func build(
         fragment: Fragment, picks: [Preselected], analyses: [String: PhotoAnalysis], library: [String: LibraryAsset],
-        place: String?, recentQuestionIds: [String], calendar: Calendar
+        place: String?, bucket: PushBucket, recentQuestionIds: [String], calendar: Calendar
     ) -> (meta: ComposeMeta, photoIds: [String: String]) {
         let byID = Dictionary(fragment.photos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let ordered = picks.sorted { (byID[$0.id]?.takenAt ?? .distantPast) < (byID[$1.id]?.takenAt ?? .distantPast) }
@@ -128,7 +137,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
             groupKey: groupKey(fragment), date: fragment.belongsTo, weekday: weekday(fragment.belongsTo),
             startTime: clock(fragment.start, calendar), endTime: clock(fragment.end, calendar), place: place,
             rawCount: fragment.photos.count, coversAll: coversAll, recentQuestionIds: recentQuestionIds,
-            photos: photos
+            bucket: bucket.rawValue, tz: calendar.timeZone.identifier, photos: photos
         )
         return (meta, photoIds)
     }

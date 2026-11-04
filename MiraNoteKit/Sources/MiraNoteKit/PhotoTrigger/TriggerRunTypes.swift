@@ -32,12 +32,28 @@ public protocol PlaceNaming: Sendable {
     func name(for point: GeoPoint) async -> String?
 }
 
-/// Local notifications.
-public protocol TriggerNotifying: Sendable {
+/// Local notifications. Every identifier this feature adds starts with
+/// `PushIdentifier.prefix`; removals never touch anyone else's.
+public protocol PushNotificationCenter: Sendable {
+    func isAllowed() async -> Bool
     /// Asks the first time; false when notifications are off.
     func requestPermission() async -> Bool
-    /// Schedules the push for `record` (saved already) 10 s out.
-    func schedule(_ record: PushRecord) async -> Bool
+    /// Identifiers of every pending request (ours and others').
+    func pending() async -> Set<String>
+    /// Schedules the push for `record` (saved already) at the local
+    /// date/time `at`, or 10 s out when nil; false when it was not added.
+    func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool
+    func removePending(_ identifiers: [String]) async
+    func removeDelivered(_ identifiers: [String]) async
+}
+
+/// The notification identifiers this feature owns.
+public enum PushIdentifier {
+    public static let prefix = "pt."
+
+    public static func make(_ pushId: String) -> String { prefix + pushId }
+
+    public static func isOurs(_ identifier: String) -> Bool { identifier.hasPrefix(prefix) }
 }
 
 // MARK: - Progress
@@ -86,7 +102,7 @@ public struct TriggerDependencies: Sendable {
     public var analyzer: PhotoAnalyzing
     public var places: PlaceNaming
     public var client: ComposeClient
-    public var notifier: TriggerNotifying
+    public var notifier: PushNotificationCenter
     public var analyses: AnalysisStore
     public var records: PushRecordStore
     public var calendar: Calendar
@@ -101,7 +117,8 @@ public struct TriggerDependencies: Sendable {
 
     public init(
         library: PhotoLibraryReading, analyzer: PhotoAnalyzing, places: PlaceNaming, client: ComposeClient,
-        notifier: TriggerNotifying, analyses: AnalysisStore, records: PushRecordStore, calendar: Calendar = .current,
+        notifier: PushNotificationCenter, analyses: AnalysisStore, records: PushRecordStore,
+        calendar: Calendar = .current,
         now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
         fakeAI: @escaping @Sendable () -> Bool, zh: @escaping @Sendable (String) -> String,

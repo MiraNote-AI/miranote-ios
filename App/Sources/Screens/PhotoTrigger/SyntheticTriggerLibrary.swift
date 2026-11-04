@@ -140,6 +140,12 @@ struct UITestComposeClient: ComposeClient {
         return Double(arguments[index + 1]) ?? 0
     }
 
+    func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
+        var result: [String: ComposeJobStatus] = [:]
+        for id in jobIds { result[id] = try await poll(id) }
+        return result
+    }
+
     func poll(_ jobId: String) async throws -> ComposeJobStatus {
         let parts = jobId.split(separator: "|", maxSplits: 1).map(String.init)
         guard parts.count == 2, let submitted = Double(parts[0]), let data = Data(base64Encoded: parts[1]),
@@ -170,12 +176,18 @@ struct UITestComposeClient: ComposeClient {
 
 /// `-UITEST-TRIGGER`: notifications that are on (`-TRIGGER-NOTIFICATIONS-OFF`
 /// turns them off) and never reach the real notification centre.
-struct UITestNotifier: TriggerNotifying {
+struct UITestNotifier: PushNotificationCenter {
     func requestPermission() async -> Bool {
         !ProcessInfo.processInfo.arguments.contains("-TRIGGER-NOTIFICATIONS-OFF")
     }
 
-    func schedule(_ record: PushRecord) async -> Bool { true }
+    func isAllowed() async -> Bool { await requestPermission() }
+    func pending() async -> Set<String> { [] }
+    func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool {
+        true
+    }
+    func removePending(_ identifiers: [String]) async {}
+    func removeDelivered(_ identifiers: [String]) async {}
 }
 
 struct UITestPlaces: PlaceNaming {

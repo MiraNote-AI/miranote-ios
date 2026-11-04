@@ -12,7 +12,8 @@ final class ComposeMetaTests: XCTestCase {
     private func meta(place: String?) -> ComposeMeta {
         ComposeMeta(
             groupKey: "2026-10-18_8f3a0000", date: "2026-10-18", weekday: 6, startTime: "14:03", endTime: "17:40",
-            place: place, rawCount: 23, coversAll: true, recentQuestionIds: ["B4", "A2"],
+            place: place, rawCount: 23, coversAll: true, recentQuestionIds: ["B4", "A2"], bucket: "food",
+            tz: "America/Chicago",
             photos: [.init(id: "P1", takenAt: "2026-10-18T14:03:00-05:00", labels: ["food_drink", "tableware"],
                            faces: 0, favorite: true, edited: false, represents: 1)]
         )
@@ -21,11 +22,18 @@ final class ComposeMetaTests: XCTestCase {
     func testMetaEncodesSnakeCaseAndNullPlace() throws {
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: meta(place: nil).encoded()) as? [String: Any])
         XCTAssertEqual(Set(object.keys), ["group_key", "date", "weekday", "start_time", "end_time", "place",
-                                          "raw_count", "covers_all", "recent_question_ids", "photos"])
+                                          "raw_count", "covers_all", "recent_question_ids", "bucket", "tz",
+                                          "photos"])
         XCTAssertTrue(object["place"] is NSNull, "an unknown place is sent as null")
         let photo = try XCTUnwrap((object["photos"] as? [[String: Any]])?.first)
         XCTAssertEqual(Set(photo.keys), ["id", "taken_at", "labels", "faces", "favorite", "edited", "represents"])
         XCTAssertEqual(photo["taken_at"] as? String, "2026-10-18T14:03:00-05:00")
+    }
+
+    func testMetaCarriesBucketAndTimeZone() throws {
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: meta(place: nil).encoded()) as? [String: Any])
+        XCTAssertEqual(object["bucket"] as? String, "food")
+        XCTAssertEqual(object["tz"] as? String, "America/Chicago")
     }
 
     func testMetaHasNoCoordinates() throws {
@@ -52,7 +60,7 @@ final class ComposeMetaTests: XCTestCase {
                                   faces: 1, aesthetics: nil, isUtility: false, featurePrint: nil)
         let analyses = ["local-0/L0/001": first]
         let built = ComposeMeta.build(fragment: fragment, picks: picks, analyses: analyses, library: [:],
-                                      place: nil, recentQuestionIds: ["A1"], calendar: calendar)
+                                      place: nil, bucket: .food, recentQuestionIds: ["A1"], calendar: calendar)
         XCTAssertEqual(built.photoIds, ["P1": "local-0/L0/001", "P2": "local-2/L0/001", "P3": "local-3/L0/001"])
         let meta = built.meta
         XCTAssertTrue(meta.groupKey.hasPrefix("2026-10-18_"))
@@ -61,6 +69,8 @@ final class ComposeMetaTests: XCTestCase {
         XCTAssertEqual(meta.startTime, "14:03")
         XCTAssertEqual(meta.endTime, "15:03")
         XCTAssertEqual(meta.rawCount, 4)
+        XCTAssertEqual(meta.bucket, "food")
+        XCTAssertEqual(meta.tz, "America/Chicago")
         XCTAssertTrue(meta.coversAll)
         XCTAssertEqual(meta.photos.map(\.id), ["P1", "P2", "P3"])
         XCTAssertEqual(meta.photos[0].labels, ["food_drink", "tableware"])
@@ -68,7 +78,7 @@ final class ComposeMetaTests: XCTestCase {
         XCTAssertEqual(meta.photos[1].takenAt, "2026-10-18T14:43:00-05:00")
         // Leaving a unique photo out: no longer covers all.
         let fewer = ComposeMeta.build(fragment: fragment, picks: Array(picks.prefix(2)), analyses: [:], library: [:],
-                                      place: nil, recentQuestionIds: [], calendar: calendar)
+                                      place: nil, bucket: .food, recentQuestionIds: [], calendar: calendar)
         XCTAssertFalse(fewer.meta.coversAll)
     }
 
@@ -140,7 +150,8 @@ final class LiveComposeClientTests: XCTestCase {
     }
 
     private let meta = ComposeMeta(groupKey: "k", date: "2026-10-18", weekday: 7, startTime: "14:03", endTime: "15:00",
-                                   place: nil, rawCount: 3, coversAll: true, recentQuestionIds: [], photos: [])
+                                   place: nil, rawCount: 3, coversAll: true, recentQuestionIds: [], bucket: "food",
+                                   tz: "UTC", photos: [])
 
     func testSubmitBuildsMultipartWithMetaAndPhotos() async throws {
         var captured: URLRequest?
@@ -198,6 +209,28 @@ final class LiveComposeClientTests: XCTestCase {
         XCTAssertEqual(failed, .failed(reason: "timeout", message: "slow"))
     }
 
+    func testPollManyDecodesEachAndMissingIsExpired() async throws {
+        respond(200, #"{"jobs": {"a": {"status": "running"}, "b": {"status": "rejected", "#
+            + #""reason": "too_few_selected", "message": "few"}, "c": {"status": "expired"}}}"#)
+        let result = try await client.pollMany(["a", "b", "c", "d"])
+        XCTAssertEqual(result, ["a": .running, "b": .rejected(reason: "too_few_selected", message: "few"),
+                                "c": .expired, "d": .expired])
+    }
+
+    func testPollManyQueryJoinsIds() async throws {
+        var captured: URLRequest?
+        StubURLProtocol.handler = { request in
+            captured = request
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"jobs": {}}"#.utf8))
+        }
+        _ = try await client.pollMany(["a", "b", "c"])
+        let request = try XCTUnwrap(captured)
+        XCTAssertEqual(request.url?.path, "/collections/jobs")
+        XCTAssertEqual(request.url?.query, "ids=a,b,c")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer token")
+    }
+
     func test404IsExpired() async throws {
         respond(404, #"{"status": "expired"}"#)
         let status = try await client.poll("job-old")
@@ -245,5 +278,29 @@ final class LiveComposeClientTests: XCTestCase {
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.collections.absoluteString, "https://beta-collections.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.collectionsBaseURL.absoluteString, "http://localhost:8006")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.all.count, 5)
+    }
+}
+
+final class PushRecordCompatTests: XCTestCase {
+    func testOldPushRecordStillDecodes() throws {
+        let memory = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P2")
+        let record = PushRecord(pushId: "p", memory: memory, photoIds: ["P1": "a"],
+                                createdAt: Date(timeIntervalSince1970: 1), rank: 1, score: 0.5, bucket: "x",
+                                bucketId: .food, belongsTo: "2026-10-18", isDebug: true)
+        let encoded = try TriggerMemory.encoder.encode(record)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        for key in ["bucketId", "belongsTo", "isDebug"] { XCTAssertNotNil(object.removeValue(forKey: key), key) }
+        let stripped = try JSONSerialization.data(withJSONObject: object)
+        let old = try TriggerMemory.decoder.decode(PushRecord.self, from: stripped)
+        XCTAssertEqual(old.pushId, "p")
+        XCTAssertNil(old.bucketId)
+        XCTAssertNil(old.belongsTo)
+        XCTAssertNil(old.isDebug)
+    }
+
+    func testPushIdentifierPrefix() {
+        XCTAssertEqual(PushIdentifier.make("abc"), "pt.abc")
+        XCTAssertTrue(PushIdentifier.isOurs("pt.abc"))
+        XCTAssertFalse(PushIdentifier.isOurs("other.abc"))
     }
 }

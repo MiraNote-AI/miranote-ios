@@ -31,6 +31,9 @@ public protocol ComposeClient: Sendable {
     /// The job id.
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String
     func poll(_ jobId: String) async throws -> ComposeJobStatus
+    /// Every job in one request; an id the backend does not return reads
+    /// `.expired`.
+    func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus]
 }
 
 /// `ComposeClient` over the app's `HTTPClient`, which adds the beta token.
@@ -93,6 +96,31 @@ public struct LiveComposeClient: ComposeClient {
             return .expired
         }
         return try Self.status(from: data)
+    }
+
+    public func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
+        guard !jobIds.isEmpty else { return [:] }
+        var components = URLComponents(url: baseURL.appendingPathComponent("collections/jobs"),
+                                       resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "ids", value: jobIds.joined(separator: ","))]
+        guard let url = components?.url else { throw ComposeError.server(0) }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = Self.pollTimeout
+        let data = try await send(request)
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let jobs = object["jobs"] as? [String: Any]
+        else { throw ComposeError.server(200) }
+        var result: [String: ComposeJobStatus] = [:]
+        for id in jobIds {
+            guard let entry = jobs[id], JSONSerialization.isValidJSONObject(entry),
+                  let body = try? JSONSerialization.data(withJSONObject: entry)
+            else {
+                result[id] = .expired
+                continue
+            }
+            result[id] = try Self.status(from: body)
+        }
+        return result
     }
 
     static func status(from data: Data) throws -> ComposeJobStatus {

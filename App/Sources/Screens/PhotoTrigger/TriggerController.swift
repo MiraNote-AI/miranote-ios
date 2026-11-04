@@ -24,7 +24,7 @@ final class TriggerController {
     static let fakeAIKey = "photoTrigger.fakeAI"
 
     init(photos: TriggerPhotoProviding, library: PhotoLibraryReading, analyzer: PhotoAnalyzing, places: PlaceNaming,
-         client: ComposeClient, notifier: TriggerNotifying, analyses: AnalysisStore, records: PushRecordStore,
+         client: ComposeClient, notifier: PushNotificationCenter, analyses: AnalysisStore, records: PushRecordStore,
          fakeAI: Bool) {
         self.photos = photos
         self.records = records

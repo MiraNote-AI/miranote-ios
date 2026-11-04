@@ -66,7 +66,8 @@ struct ComposeSession {
         let kept = ComposeMeta(groupKey: meta.groupKey, date: meta.date, weekday: meta.weekday,
                                startTime: meta.startTime, endTime: meta.endTime, place: meta.place,
                                rawCount: meta.rawCount, coversAll: meta.coversAll && all,
-                               recentQuestionIds: meta.recentQuestionIds, photos: photos)
+                               recentQuestionIds: meta.recentQuestionIds, bucket: meta.bucket, tz: meta.tz,
+                               photos: photos)
         return (kept, numbers)
     }
 

@@ -101,6 +101,7 @@ public actor TriggerRun {
                                        distance: ranking.distance)
         let built = ComposeMeta.build(fragment: group.fragment, picks: picks, analyses: ranking.analyses,
                                       library: ranking.library, place: place,
+                                      bucket: group.score.bucket,
                                       recentQuestionIds: deps.records.recentQuestionIds(), calendar: calendar)
         let memory: TriggerMemory
         var photoIds = built.photoIds
@@ -123,7 +124,9 @@ public actor TriggerRun {
         } catch {
             return .stop(.backend(error.localizedDescription))
         }
-        guard await deps.notifier.schedule(record) else { return .stop(.notificationsOff) }
+        let identifier = PushIdentifier.make(record.pushId)
+        guard await deps.notifier.schedule(record, identifier: identifier, at: nil, relevance: group.score.total)
+        else { return .stop(.notificationsOff) }
         report(.scheduled(rank: group.rank, score: group.score.total))
         return .pushed
     }
