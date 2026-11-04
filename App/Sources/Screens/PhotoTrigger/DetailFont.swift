@@ -48,6 +48,23 @@ enum DetailFont: String, CaseIterable, Sendable {
         uiFont(named: currentName, size: size)
     }
 
+    /// PingFang SC ships with iOS and has these faces' line metrics (ascent
+    /// 1.06 em, descent 0.34 em; the system font's are lower).
+    static let metricsStandIn = "PingFangSC-Regular"
+
+    /// What a text block in `name` is measured with, when `name` is one of
+    /// these faces and it has not downloaded yet: the system font it shows
+    /// now and PingFang SC, so the box measured now (the taller of the two)
+    /// still holds the lines once the face lands -- the canvas grows a box
+    /// on open but never shrinks it, and a box shorter than its text cuts
+    /// the last line. nil otherwise: measure with the face itself.
+    nonisolated static func pendingMeasureFonts(
+        named name: String, size: CGFloat, available: (String) -> Bool = { UIFont(name: $0, size: 12) != nil }
+    ) -> [UIFont]? {
+        guard allCases.contains(where: { $0.postScriptName == name }), !available(name) else { return nil }
+        return [UIFont.systemFont(ofSize: size)] + [UIFont(name: metricsStandIn, size: size)].compactMap { $0 }
+    }
+
     /// Starts the download if the font is not on the device yet. Safe to
     /// call any number of times; a failure just leaves the system font.
     nonisolated static func prefetch() {
