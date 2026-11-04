@@ -217,6 +217,14 @@ final class LiveComposeClientTests: XCTestCase {
                                 "c": .expired, "d": .expired])
     }
 
+    func testPollManyOneBadEntryFailsOnlyThatJob() async throws {
+        respond(200, #"{"jobs": {"a": {"status": "running"}, "b": {"status": "ok"}, "c": 7}}"#)
+        let result = try await client.pollMany(["a", "b", "c"])
+        XCTAssertEqual(result["a"], .running)
+        XCTAssertEqual(result["b"], .failed(reason: "bad_response", message: ""), "ok without a memory")
+        XCTAssertEqual(result["c"], .expired, "not an object: as if missing")
+    }
+
     func testPollManyQueryJoinsIds() async throws {
         var captured: URLRequest?
         StubURLProtocol.handler = { request in

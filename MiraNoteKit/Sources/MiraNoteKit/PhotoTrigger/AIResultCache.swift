@@ -47,6 +47,17 @@ public struct AIResultCache: Sendable {
         try save(all)
     }
 
+    /// Every stored verdict by key, read once.
+    public func verdicts() -> [String: AIVerdict] {
+        load().mapValues(\.verdict)
+    }
+
+    /// Deletes the file (back to empty).
+    public func clear() throws {
+        guard FileManager.default.fileExists(atPath: file.path) else { return }
+        try FileManager.default.removeItem(at: file)
+    }
+
     /// Drops entries whose belongs-to day is more than 60 days before `today`.
     public func purge(today: String) throws {
         guard let limit = Self.dayNumber(today).map({ $0 - Self.keepDays }) else { return }

@@ -26,6 +26,21 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
         assetsList = list
     }
 
+    /// Adds a group of `count` photos 25 min apart from `start`, ids "<prefix>-<n>".
+    func add(_ prefix: String, start: Date, count: Int, location: GeoPoint? = nil) {
+        for index in 0..<count {
+            let takenAt = start.addingTimeInterval(Double(index) * 1500)
+            assetsList.append(LibraryAsset(id: "\(prefix)-\(index)", takenAt: takenAt, location: location,
+                                           isFavorite: false, isEdited: false, isScreenshot: false, isHidden: false,
+                                           isVideo: false, originalFilename: "IMG_\(index).HEIC", burstId: nil))
+        }
+    }
+
+    /// Drops every photo of the group "<prefix>-n".
+    func remove(_ prefix: String) {
+        assetsList.removeAll { $0.id.hasPrefix(prefix + "-") }
+    }
+
     func requestAccess() async -> PhotoAccess { access }
     private let lock = NSLock()
     private var knownLog: [[String: String]] = []
@@ -43,11 +58,16 @@ final class FakeAnalyzer: PhotoAnalyzing, @unchecked Sendable {
     private let lock = NSLock()
     private var analyzedIds: [String] = []
     var analyzed: [String] { lock.withLock { analyzedIds } }
+    /// Group prefix ("g3") -> its label; everything else is food.
+    var labels: [String: String] = [:]
 
     func analyze(_ id: String) async -> PhotoAnalysis? {
-        lock.withLock { analyzedIds.append(id) }
-        return PhotoAnalysis(id: id, labels: ["food"], broad: [.food_drink], faces: 0, aesthetics: nil,
-                             isUtility: false, featurePrint: nil)
+        let label = lock.withLock { () -> String in
+            analyzedIds.append(id)
+            return labels[String(id.split(separator: "-").first ?? "")] ?? "food"
+        }
+        return PhotoAnalysis(id: id, labels: [label], broad: BroadCategory.from(labels: [label]), faces: 0,
+                             aesthetics: nil, isUtility: false, featurePrint: nil)
     }
 
     func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? { nil }
@@ -55,6 +75,10 @@ final class FakeAnalyzer: PhotoAnalyzing, @unchecked Sendable {
 
 struct NoPlaces: PlaceNaming {
     func name(for point: GeoPoint) async -> String? { nil }
+}
+
+struct FixedPlace: PlaceNaming {
+    func name(for point: GeoPoint) async -> String? { "Riverside Park" }
 }
 
 final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
@@ -65,7 +89,10 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
     private var pendingSet: Set<String> = []
     private var removedPendingList: [String] = []
     private var removedDeliveredList: [String] = []
+    private var atList: [DateComponents?] = []
     var scheduled: [PushRecord] { lock.withLock { recordsList } }
+    /// The `at` of each `schedule` call, in order (nil: 10 s out).
+    var scheduledAt: [DateComponents?] { lock.withLock { atList } }
     /// The identifier of each `schedule` call, in order.
     var scheduledIdentifiers: [String] { lock.withLock { identifiersList } }
     var removedPending: [String] { lock.withLock { removedPendingList } }
@@ -83,6 +110,7 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
         lock.withLock {
             recordsList.append(record)
             identifiersList.append(identifier)
+            atList.append(at)
             pendingSet.insert(identifier)
         }
         return true
@@ -110,11 +138,16 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     private(set) var lastPhotoNumbers: [String] = []
     private var polls: [String: Int] = [:]
     private var jobs: [String: ComposeMeta] = [:]
+    private var eventList: [String] = []
+    /// "submit <date>" and "pollMany <n ids>", in order.
+    var events: [String] { lock.withLock { eventList } }
+    var pollManyCount: Int { events.filter { $0.hasPrefix("pollMany") }.count }
 
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
         try lock.withLock {
             if !submitErrors.isEmpty { throw submitErrors.removeFirst() }
             submitted.append(meta.date)
+            eventList.append("submit \(meta.date)")
             lastMeta = meta
             lastPhotoNumbers = photos.map(\.id)
             let job = "job-\(submitted.count)"
@@ -124,6 +157,7 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     }
 
     func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
+        lock.withLock { eventList.append("pollMany \(jobIds.count)") }
         var result: [String: ComposeJobStatus] = [:]
         for id in jobIds { result[id] = try await poll(id) }
         return result
@@ -155,4 +189,46 @@ final class SleepLog: @unchecked Sendable {
     private var all: [TimeInterval] = []
     var durations: [TimeInterval] { lock.withLock { all } }
     func record(_ duration: TimeInterval) { lock.withLock { all.append(duration) } }
+}
+
+/// A clock the injected sleep moves on: tests never wait for real.
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Date
+    init(_ start: Date) { value = start }
+    var now: Date {
+        get { lock.withLock { value } }
+        set { lock.withLock { value = newValue } }
+    }
+    func advance(_ seconds: TimeInterval) { lock.withLock { value = value.addingTimeInterval(seconds) } }
+}
+
+/// Runs `action` from inside the injected sleep (n = 1 for the first sleep).
+final class SleepHook: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var action: (@Sendable (Int) async -> Void)?
+    func fire() async {
+        let (number, action) = lock.withLock { () -> (Int, (@Sendable (Int) async -> Void)?) in
+            count += 1
+            return (count, self.action)
+        }
+        await action?(number)
+    }
+}
+
+/// The phone's time zone, changeable mid-test.
+final class ZoneBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: TimeZone
+    init(_ zone: TimeZone) { value = zone }
+    var zone: TimeZone {
+        get { lock.withLock { value } }
+        set { lock.withLock { value = newValue } }
+    }
+    var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        return calendar
+    }
 }

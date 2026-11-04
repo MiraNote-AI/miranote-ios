@@ -20,12 +20,41 @@ struct ComposeSession {
     /// The message of a group with too few readable photos (a catalog key).
     static let unreadableMessage = "Too few of its photos could be read"
 
-    let deps: TriggerDependencies
+    let library: PhotoLibraryReading
+    let client: ComposeClient
+    let sleep: @Sendable (TimeInterval) async throws -> Void
+
+    init(library: PhotoLibraryReading, client: ComposeClient,
+         sleep: @escaping @Sendable (TimeInterval) async throws -> Void) {
+        self.library = library
+        self.client = client
+        self.sleep = sleep
+    }
+
+    init(deps: TriggerDependencies) {
+        self.init(library: deps.library, client: deps.client, sleep: deps.sleep)
+    }
 
     /// What came back, and the numbering actually sent.
     struct Composed {
         let memory: TriggerMemory
         let photoIds: [String: String]
+    }
+
+    /// A group ready to submit: the meta of the photos that could be read,
+    /// their numbering, and their upload files.
+    struct Prepared: Sendable {
+        let meta: ComposeMeta
+        let photoIds: [String: String]
+        let photos: [UploadPhoto]
+
+        var uploads: [(id: String, jpeg: Data)] { photos.map { (id: $0.id, jpeg: $0.jpeg) } }
+    }
+
+    /// One prepared photo: its number in the request and its JPEG.
+    struct UploadPhoto: Sendable {
+        let id: String
+        let jpeg: Data
     }
 
     private enum Step {
@@ -38,7 +67,7 @@ struct ComposeSession {
     /// metadata), keyed by their localIdentifiers.
     private func uploads(_ meta: ComposeMeta, photoIds: [String: String]) async -> [String: Data] {
         var prepared: [String: Data] = [:]
-        let library = deps.library
+        let library = self.library
         for number in meta.photos.map(\.id) {
             guard let id = photoIds[number],
                   let data = await Self.first(within: Self.readTimeout, { await library.uploadData(for: id) }),
@@ -71,16 +100,22 @@ struct ComposeSession {
         return (kept, numbers)
     }
 
-    func run(_ meta: ComposeMeta, photoIds: [String: String]) async -> Result<Composed, TriggerAttemptBox> {
+    /// The photos read and the meta renumbered; nil when under three could be read.
+    func prepare(_ meta: ComposeMeta, photoIds: [String: String]) async -> Prepared? {
         let prepared = await uploads(meta, photoIds: photoIds)
         let sent = Self.keeping(meta, photoIds: photoIds, read: Set(prepared.keys))
-        guard sent.meta.photos.count >= FragmentGrouper.minimumUnique else {
+        guard sent.meta.photos.count >= FragmentGrouper.minimumUnique else { return nil }
+        let photos = sent.meta.photos.compactMap { photo in
+            sent.photoIds[photo.id].flatMap { prepared[$0] }.map { UploadPhoto(id: photo.id, jpeg: $0) }
+        }
+        return Prepared(meta: sent.meta, photoIds: sent.photoIds, photos: photos)
+    }
+
+    func run(_ meta: ComposeMeta, photoIds: [String: String]) async -> Result<Composed, TriggerAttemptBox> {
+        guard let sent = await prepare(meta, photoIds: photoIds) else {
             return .failure(TriggerAttemptBox(.rejected(Self.unreadableMessage)))
         }
-        let photos = sent.meta.photos.compactMap { photo in
-            sent.photoIds[photo.id].flatMap { prepared[$0] }.map { (id: photo.id, jpeg: $0) }
-        }
-        return await compose(sent.meta, photos: photos).map { Composed(memory: $0, photoIds: sent.photoIds) }
+        return await compose(sent.meta, photos: sent.uploads).map { Composed(memory: $0, photoIds: sent.photoIds) }
     }
 
     private func compose(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)])
@@ -94,7 +129,7 @@ struct ComposeSession {
         case .failure(let box): return .failure(box)
         }
         while waited < Self.budget {
-            try? await deps.sleep(Self.pollInterval)
+            try? await sleep(Self.pollInterval)
             waited += Self.pollInterval
             switch await pollOnce(jobId, waited: &waited, transportFailures: &transportFailures) {
             case .wait:
@@ -116,10 +151,10 @@ struct ComposeSession {
     private func pollOnce(_ jobId: String, waited: inout TimeInterval, transportFailures: inout Int) async -> Step {
         let status: ComposeJobStatus
         do {
-            status = try await deps.client.poll(jobId)
+            status = try await client.poll(jobId)
             transportFailures = 0
         } catch ComposeError.rateLimited {
-            try? await deps.sleep(Self.rateLimitWait)
+            try? await sleep(Self.rateLimitWait)
             waited += Self.rateLimitWait
             return .wait
         } catch ComposeError.unreachable {
@@ -140,21 +175,21 @@ struct ComposeSession {
     }
 
     /// The job id. No connection is tried again, 5 s apart, three times in all.
-    private func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)], waited: inout TimeInterval)
+    func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)], waited: inout TimeInterval)
         async -> Result<String, TriggerAttemptBox> {
         var transportFailures = 0
         while waited < Self.budget {
             do {
-                return .success(try await deps.client.submit(meta, photos: photos))
+                return .success(try await client.submit(meta, photos: photos))
             } catch ComposeError.rateLimited {
-                try? await deps.sleep(Self.rateLimitWait)
+                try? await sleep(Self.rateLimitWait)
                 waited += Self.rateLimitWait
             } catch ComposeError.unreachable {
                 transportFailures += 1
                 guard transportFailures < Self.transportRetries else {
                     return .failure(TriggerAttemptBox(.stop(.backendUnreachable)))
                 }
-                try? await deps.sleep(Self.pollInterval)
+                try? await sleep(Self.pollInterval)
                 waited += Self.pollInterval
             } catch {
                 return .failure(TriggerAttemptBox(.stop(Self.failure(for: error))))

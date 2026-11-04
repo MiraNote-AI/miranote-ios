@@ -5,11 +5,14 @@ public struct OutstandingJob: Codable, Equatable, Sendable {
     public var jobId: String
     public var submittedAt: Date
     public var slotDay: String
+    /// "P1" -> localIdentifier as sent; nil in jobs saved before it was kept.
+    public var photoIds: [String: String]?
 
-    public init(jobId: String, submittedAt: Date, slotDay: String) {
+    public init(jobId: String, submittedAt: Date, slotDay: String, photoIds: [String: String]? = nil) {
         self.jobId = jobId
         self.submittedAt = submittedAt
         self.slotDay = slotDay
+        self.photoIds = photoIds
     }
 }
 
@@ -68,6 +71,12 @@ public struct SchedulerStateStore: Sendable {
     public func save(_ state: SchedulerState) throws {
         try PhotoTriggerPaths.prepare(file.deletingLastPathComponent())
         try TriggerMemory.encoder.encode(state).write(to: file, options: .atomic)
+    }
+
+    /// Deletes the file (back to empty).
+    public func clear() throws {
+        guard FileManager.default.fileExists(atPath: file.path) else { return }
+        try FileManager.default.removeItem(at: file)
     }
 
     public func update(_ change: (inout SchedulerState) -> Void) throws {

@@ -32,7 +32,7 @@ public protocol ComposeClient: Sendable {
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String
     func poll(_ jobId: String) async throws -> ComposeJobStatus
     /// Every job in one request; an id the backend does not return reads
-    /// `.expired`.
+    /// `.expired`, an entry that does not decode `.failed("bad_response")`.
     func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus]
 }
 
@@ -44,6 +44,8 @@ public struct LiveComposeClient: ComposeClient {
     private let baseURL: URL
     static let submitTimeout: TimeInterval = 60
     static let pollTimeout: TimeInterval = 20
+    /// The reason of a batch entry that does not decode.
+    public static let badResponse = "bad_response"
 
     public init(http: HTTPClient = HTTPClient(), baseURL: URL = MiraNoteConfig.Backend.collectionsBaseURL) {
         self.http = http
@@ -118,7 +120,8 @@ public struct LiveComposeClient: ComposeClient {
                 result[id] = .expired
                 continue
             }
-            result[id] = try Self.status(from: body)
+            // One entry that does not decode fails that job alone, not the batch.
+            result[id] = (try? Self.status(from: body)) ?? .failed(reason: Self.badResponse, message: "")
         }
         return result
     }

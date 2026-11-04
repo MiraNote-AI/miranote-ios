@@ -97,8 +97,7 @@ public actor TriggerRun {
         if let center = group.fragment.center { place = await deps.places.name(for: center) }
         report(.askingAI(rank: group.rank, date: TriggerWords.shortDate(group.fragment.belongsTo), place: place,
                          count: group.fragment.uniqueCount))
-        let picks = Preselector.select(group.fragment, analyses: ranking.analyses, library: ranking.library,
-                                       distance: ranking.distance)
+        let picks = ranking.preselect(group.fragment)
         let built = ComposeMeta.build(fragment: group.fragment, picks: picks, analyses: ranking.analyses,
                                       library: ranking.library, place: place,
                                       bucket: group.score.bucket,
@@ -118,7 +117,8 @@ public actor TriggerRun {
         }
         let record = PushRecord(pushId: UUID().uuidString, memory: memory, photoIds: photoIds,
                                 createdAt: deps.now(), rank: group.rank, score: group.score.total,
-                                bucket: memory.bucket)
+                                bucket: memory.bucket, bucketId: group.score.bucket,
+                                belongsTo: group.fragment.belongsTo, isDebug: true)
         do {
             try deps.records.save(record)
         } catch {
@@ -145,17 +145,30 @@ struct TriggerAttemptBox: Error {
     init(_ attempt: TriggerAttempt) { self.attempt = attempt }
 }
 
-/// The library read, analysed, grouped and ranked for one press.
+/// The library read, analysed, grouped and ranked for one press or one
+/// scheduling run.
 struct TriggerRanking: Sendable {
     static let groupingDays: Double = 61
     static let thresholdDays: Double = 90
     static let placeDays: Double = 365
 
+    /// Pushable fragments ranked at `now` (the phase-1 press order).
     let groups: [RankedGroup]
+    /// Every fragment of the grouping, pushable or not.
+    let fragments: [Fragment]
+    /// Non-utility analyses of the recent photos.
     let analyses: [String: PhotoAnalysis]
     let library: [String: LibraryAsset]
     let prints: [String: Data]
     let analyzer: PhotoAnalyzing
+    /// Recent photos left out as documents, receipts and the like.
+    let utility: [String]
+    /// Recent non-utility photos, newest first.
+    let recentIds: [String]
+    /// The last 365 days' photo positions by belongs-to day (N).
+    let pastLocations: [(day: String, point: GeoPoint)]
+    /// The T the grouping used.
+    let threshold: ThresholdResult
 
     /// FeaturePrint distance between two photo ids.
     func distance(_ first: String, _ second: String) -> Float? {
@@ -163,65 +176,78 @@ struct TriggerRanking: Sendable {
         return analyzer.distance((first, one), (second, two))
     }
 
+    /// The fragment's preselected photos, as the AI would see them.
+    func preselect(_ fragment: Fragment) -> [Preselected] {
+        Preselector.select(fragment, analyses: analyses, library: library, distance: distance)
+    }
+
     static func make(_ deps: TriggerDependencies, report: (TriggerProgress) async -> Void) async -> TriggerRanking {
-        let now = deps.now()
-        let calendar = deps.calendar
+        await make(library: deps.library, analyzer: deps.analyzer, analyses: deps.analyses, now: deps.now(),
+                   calendar: deps.calendar, threshold: nil, groupingReport: deps.groupingReport, report: report)
+    }
+
+    // swiftlint:disable:next function_parameter_count
+    static func make(library reader: PhotoLibraryReading, analyzer: PhotoAnalyzing, analyses store: AnalysisStore,
+                     now: Date, calendar: Calendar, threshold stored: ThresholdResult?,
+                     groupingReport: (@Sendable (Data) -> Void)?,
+                     report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         let since = { (days: Double) in now.addingTimeInterval(-days * 86_400) }
-        let eligible = await deps.library.assets(since: since(placeDays), knownFilenames: deps.analyses.filenames())
+        let eligible = await reader.assets(since: since(placeDays), knownFilenames: store.filenames())
             .filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
-        let all = await analyze(recent, deps: deps, report: report)
+        let all = await analyze(recent, analyzer: analyzer, store: store, report: report)
         let analyses = all.filter { !$0.value.isUtility }
         let utility = Set(all.filter(\.value.isUtility).keys)
 
-        let gapDates = eligible.filter { !utility.contains($0.id) }.compactMap(\.takenAt)
-            .filter { $0 >= since(thresholdDays) }
-        let threshold = PersonalThreshold.compute(gaps: PersonalThreshold.gaps(between: gapDates))
+        let threshold = stored ?? {
+            let gapDates = eligible.filter { !utility.contains($0.id) }.compactMap(\.takenAt)
+                .filter { $0 >= since(thresholdDays) }
+            return PersonalThreshold.compute(gaps: PersonalThreshold.gaps(between: gapDates))
+        }()
         let groupable = recent.filter { !utility.contains($0.id) }.compactMap { asset in
             asset.takenAt.map {
                 GroupablePhoto(id: asset.id, takenAt: $0, location: asset.location, burstId: asset.burstId)
             }
         }
         let library = Dictionary(eligible.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let unranked = TriggerRanking(groups: [], analyses: analyses, library: library,
-                                      prints: analyses.compactMapValues(\.featurePrint), analyzer: deps.analyzer)
-        let grouping = FragmentGrouper.group(groupable, threshold: threshold, calendar: calendar,
-                                             distance: unranked.distance)
+        let prints = analyses.compactMapValues(\.featurePrint)
+        let distance = { (first: String, second: String) -> Float? in
+            guard let one = prints[first], let two = prints[second] else { return nil }
+            return analyzer.distance((first, one), (second, two))
+        }
+        let grouping = FragmentGrouper.group(groupable, threshold: threshold, calendar: calendar, distance: distance)
         let past = eligible.compactMap { asset -> (day: String, point: GeoPoint)? in
             guard let point = asset.location, let date = asset.takenAt else { return nil }
             return (FragmentGrouper.belongsTo(date, calendar: calendar), point)
         }
-        let scored = grouping.fragments.compactMap { fragment -> (Fragment, FragmentScore)? in
-            guard let score = FragmentScorer.score(fragment, analyses: analyses, library: library, at: now,
-                                                   calendar: calendar, pastLocations: past,
-                                                   bucket: FragmentScorer.bucket(of: fragment, analyses: analyses),
-                                                   multiplier: 1.0),
-                  score.pushable else { return nil }
-            return (fragment, score)
+        var scores: [String: FragmentScore] = [:]
+        for fragment in grouping.fragments {
+            scores[ComposeMeta.groupKey(fragment)] = FragmentScorer.score(
+                fragment, analyses: analyses, library: library, at: now, calendar: calendar, pastLocations: past,
+                bucket: FragmentScorer.bucket(of: fragment, analyses: analyses), multiplier: 1.0)
         }
-        if let sink = deps.groupingReport {
-            // Every scored fragment, pushable or not.
-            var scores: [String: FragmentScore] = [:]
-            for fragment in grouping.fragments {
-                scores[ComposeMeta.groupKey(fragment)] = FragmentScorer.score(
-                    fragment, analyses: analyses, library: library, at: now, calendar: calendar, pastLocations: past,
-                    bucket: FragmentScorer.bucket(of: fragment, analyses: analyses), multiplier: 1.0)
-            }
-            if let data = GroupingReport.make(grouping, scores: scores, library: library, utility: Array(utility),
-                                              calendar: calendar) { sink(data) }
+        if let sink = groupingReport,
+           let data = GroupingReport.make(grouping, scores: scores, library: library, utility: Array(utility),
+                                          calendar: calendar) {
+            sink(data)
+        }
+        let scored = grouping.fragments.compactMap { fragment -> (Fragment, FragmentScore)? in
+            guard let score = scores[ComposeMeta.groupKey(fragment)], score.pushable else { return nil }
+            return (fragment, score)
         }
         let groups = scored.sorted { $0.1.total > $1.1.total }.enumerated().map {
             RankedGroup(rank: $0.offset + 1, fragment: $0.element.0, score: $0.element.1)
         }
-        return TriggerRanking(groups: groups, analyses: analyses, library: library, prints: unranked.prints,
-                              analyzer: deps.analyzer)
+        let recentIds = groupable.sorted { $0.takenAt > $1.takenAt }.map(\.id)
+        return TriggerRanking(groups: groups, fragments: grouping.fragments, analyses: analyses, library: library,
+                              prints: prints, analyzer: analyzer, utility: utility.sorted(), recentIds: recentIds,
+                              pastLocations: past, threshold: threshold)
     }
 
     /// Every recent photo's analysis: saved ones from disk, the rest
     /// analysed now and saved one by one, so an interrupted run resumes.
-    private static func analyze(_ assets: [LibraryAsset], deps: TriggerDependencies,
+    private static func analyze(_ assets: [LibraryAsset], analyzer: PhotoAnalyzing, store: AnalysisStore,
                                 report: (TriggerProgress) async -> Void) async -> [String: PhotoAnalysis] {
-        let store = deps.analyses
         let saved = store.analyzedIds()
         var results: [String: PhotoAnalysis] = [:]
         var todo: [String] = []
@@ -236,7 +262,7 @@ struct TriggerRanking: Sendable {
         await report(.analyzing(done: done, total: assets.count))
         let names = Dictionary(assets.map { ($0.id, $0.originalFilename) }, uniquingKeysWith: { first, _ in first })
         for id in todo {
-            if let analysis = await deps.analyzer.analyze(id) {
+            if let analysis = await analyzer.analyze(id) {
                 // The file name goes with it: later presses need not ask PhotoKit.
                 let named = analysis.with(originalFilename: names[id] ?? nil)
                 try? store.save(named)

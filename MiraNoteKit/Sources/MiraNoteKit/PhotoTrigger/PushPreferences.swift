@@ -75,6 +75,12 @@ public struct PushPreferencesStore: Sendable {
         try TriggerMemory.encoder.encode(preferences).write(to: file, options: .atomic)
     }
 
+    /// Deletes the file (back to empty).
+    public func clear() throws {
+        guard FileManager.default.fileExists(atPath: file.path) else { return }
+        try FileManager.default.removeItem(at: file)
+    }
+
     public func update(_ change: (inout PushPreferences) -> Void) throws {
         var value = load()
         change(&value)

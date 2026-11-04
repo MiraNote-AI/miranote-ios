@@ -98,6 +98,12 @@ public struct PushLedgerStore: Sendable {
         try save(entries)
     }
 
+    /// Deletes the file (back to empty).
+    public func clear() throws {
+        guard FileManager.default.fileExists(atPath: file.path) else { return }
+        try FileManager.default.removeItem(at: file)
+    }
+
     /// Every entry, pretty-printed, ISO 8601 dates.
     public func exportJSON() throws -> Data {
         let encoder = JSONEncoder()

@@ -90,6 +90,12 @@ public struct PushRecordStore: TriggerMemorySource {
         all().prefix(limit).map(\.memory.ending.questionId).filter { !$0.isEmpty }
     }
 
+    /// Deletes every record.
+    public func removeAll() throws {
+        guard FileManager.default.fileExists(atPath: directory.path) else { return }
+        try FileManager.default.removeItem(at: directory)
+    }
+
     private func file(_ pushId: String) -> URL {
         // UUID strings are file-name safe; anything else is reduced to be.
         let safe = pushId.filter { $0.isLetter || $0.isNumber || $0 == "-" }
