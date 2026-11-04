@@ -13,6 +13,10 @@ struct LivePushNotificationCenter: PushNotificationCenter {
     let photos: TriggerPhotoProviding
     static let delay: TimeInterval = 10
     static let thread = "photo-trigger"
+    /// How long the cover may take (an iCloud photo downloads first); past
+    /// it the push goes out without one, so a stalled download never holds
+    /// up a scheduling run.
+    static let coverTimeout: TimeInterval = 10
 
     func requestPermission() async -> Bool {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) == true
@@ -45,9 +49,7 @@ struct LivePushNotificationCenter: PushNotificationCenter {
         content.interruptionLevel = .active
         content.threadIdentifier = Self.thread
         content.userInfo = ["pushId": record.pushId]
-        if let cover = record.memory.coverPhoto, let id = record.photoIds[cover.id],
-           let image = await photos.image(for: id, maxPixel: 1000, allowNetwork: true),
-           let attachment = Self.attachment(image) {
+        if let image = await Self.cover(of: record, photos: photos), let attachment = Self.attachment(image) {
             content.attachments = [attachment]
         }
         content.relevanceScore = relevance
@@ -66,6 +68,16 @@ struct LivePushNotificationCenter: PushNotificationCenter {
             return true
         } catch {
             return false
+        }
+    }
+
+    /// The record's cover photo, ~1000 px, or nil when it has none or it
+    /// does not arrive within `limit`.
+    static func cover(of record: PushRecord, photos: TriggerPhotoProviding,
+                      within limit: TimeInterval = coverTimeout) async -> UIImage? {
+        guard let cover = record.memory.coverPhoto, let id = record.photoIds[cover.id] else { return nil }
+        return await TimeLimit.first(within: limit) {
+            await photos.image(for: id, maxPixel: 1000, allowNetwork: true)
         }
     }
 

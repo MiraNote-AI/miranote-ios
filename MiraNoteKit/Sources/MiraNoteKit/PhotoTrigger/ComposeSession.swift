@@ -225,6 +225,17 @@ struct ComposeSession {
     }
 }
 
+/// `ComposeSession.first(within:)` for the app: async work that may never
+/// answer (PhotoKit, an iCloud download), bounded.
+public enum TimeLimit {
+    /// `work`'s answer, or nil when it takes longer than `seconds`. `work`
+    /// is not cancelled; its late answer is dropped.
+    public static func first<Value: Sendable>(within seconds: TimeInterval,
+                                              _ work: @escaping @Sendable () async -> Value?) async -> Value? {
+        await ComposeSession.first(within: seconds, work)
+    }
+}
+
 /// Resumes a continuation once, whoever comes first.
 private final class OnceContinuation<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
