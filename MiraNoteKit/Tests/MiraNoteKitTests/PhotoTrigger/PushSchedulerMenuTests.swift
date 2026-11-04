@@ -26,6 +26,48 @@ final class PushSchedulerMenuTests: PushSchedulerTestCase {
         XCTAssertEqual(log.runs().first?.trigger, "menu")
     }
 
+    /// Decision 8: an install whose gate is closed keeps the choice and takes
+    /// back what it rules out, but never reruns (no photos leave the phone).
+    func testMenuWithoutReplanSavesAndTakesBackButDoesNotRun() async throws {
+        addSpare()
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let runs = log.runs().count
+        let submitted = client.submitted.count
+        let scheduled = notifier.scheduled.count
+        let target = try XCTUnwrap(active.first { $0.belongsTo == day("g2") })
+        clock.advance(2 * 3600)
+        await scheduler.menu(.notThisDay, pushId: target.pushId, replan: false)
+        let entry = try XCTUnwrap(ledger.load().first { $0.pushId == target.pushId })
+        XCTAssertEqual(entry.removedReason, .menuDay)
+        XCTAssertEqual(entry.menuAction, .notThisDay)
+        XCTAssertTrue(notifier.removedPending.contains(target.identifier))
+        XCTAssertNotNil(preferences.load().blockedDays[day("g2")])
+        XCTAssertEqual(log.runs().count, runs, "no run")
+        XCTAssertEqual(client.submitted.count, submitted, "nothing sent to the backend")
+        XCTAssertEqual(notifier.scheduled.count, scheduled, "nothing scheduled")
+        XCTAssertEqual(active.count, 6, "the gap stays")
+    }
+
+    /// An App Store install over a TestFlight one: every pending push of ours
+    /// is taken back (ledger marked), other apps' requests stay.
+    func testTakeBackEveryPendingPush() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        _ = await scheduler.previewNext()
+        let before = active
+        XCTAssertEqual(before.count, 7)
+        notifier.pendingIds.insert("other.x")
+        await scheduler.takeBackEveryPendingPush()
+        XCTAssertTrue(active.isEmpty)
+        let entries = ledger.load()
+        for entry in before {
+            XCTAssertEqual(entries.first { $0.pushId == entry.pushId }?.removedReason, .appStore)
+        }
+        XCTAssertEqual(notifier.pendingIds, ["other.x"], "the debug copy goes too; others' requests stay")
+        XCTAssertFalse(notifier.removedPending.contains("other.x"))
+    }
+
     func testMenuBucketCancelsAndRefills() async throws {
         analyzer.labels = ["g2": "animal", "g4": "animal"]
         addSpare()

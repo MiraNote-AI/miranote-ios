@@ -20,6 +20,10 @@ enum InstallSource {
         /// development or TestFlight answer: a failing probe keeps them off
         /// (fail closed).
         var schedulesAutomatically: Bool
+        /// A definite App Store install (StoreKit said `.production`): pushes
+        /// a TestFlight build left pending are taken back. Never for a
+        /// failing probe.
+        var isAppStore = false
 
         static let closed = Gates(showsDebugEntry: false, schedulesAutomatically: false)
     }
@@ -28,7 +32,7 @@ enum InstallSource {
         if isDebugBuild { return Gates(showsDebugEntry: true, schedulesAutomatically: true) }
         do {
             let testing = try await probe.environment() != .production
-            return Gates(showsDebugEntry: testing, schedulesAutomatically: testing)
+            return Gates(showsDebugEntry: testing, schedulesAutomatically: testing, isAppStore: !testing)
         } catch {
             return Gates(showsDebugEntry: true, schedulesAutomatically: false)
         }

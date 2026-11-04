@@ -57,4 +57,16 @@ final class InstallSourceTests: XCTestCase {
         let schedules = await gates(debug: false, .failure(Failure())).schedulesAutomatically
         XCTAssertFalse(schedules, "an unknown install source asks nothing and schedules nothing")
     }
+
+    /// Only a definite App Store answer takes pending pushes back.
+    func testOnlyProductionIsAppStore() async {
+        let production = await gates(debug: false, .success(.production)).isAppStore
+        let sandbox = await gates(debug: false, .success(.sandbox)).isAppStore
+        let failed = await gates(debug: false, .failure(Failure())).isAppStore
+        let debug = await gates(debug: true, .success(.production)).isAppStore
+        XCTAssertTrue(production)
+        XCTAssertFalse(sandbox)
+        XCTAssertFalse(failed, "a failing probe may be TestFlight: its pushes stay")
+        XCTAssertFalse(debug)
+    }
 }

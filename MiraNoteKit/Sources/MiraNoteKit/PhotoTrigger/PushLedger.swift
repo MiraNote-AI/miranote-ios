@@ -6,6 +6,8 @@ public enum MenuAction: String, Codable, Sendable { case notThisDay, fewerLikeTh
 /// Why a scheduled push was taken back.
 public enum RemovalReason: String, Codable, Sendable {
     case replaced, menuDay, menuBucket, replan, timeZone, clearAll, missing
+    /// The app now runs as an App Store install (decision 8).
+    case appStore
 }
 
 /// One push, from being scheduled to what the user did with it. Place goes

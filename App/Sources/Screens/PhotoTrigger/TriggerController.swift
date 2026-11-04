@@ -36,6 +36,9 @@ final class TriggerController {
     @ObservationIgnored private let schedulesAutomatically: Bool
     @ObservationIgnored private let fakeAIFlag = FakeAIFlag()
     @ObservationIgnored private var background: BackgroundTime?
+    /// What this install may do (InstallSource), resolved once per launch;
+    /// nil until HomeFlow asks.
+    @ObservationIgnored private var gates: Task<InstallSource.Gates, Never>?
 
     static let fakeAIKey = "photoTrigger.fakeAI"
 
@@ -82,10 +85,31 @@ final class TriggerController {
         await scheduler.markOpened(pushId)
     }
 
+    /// The install's gates, resolved by `resolve` the first time and the same
+    /// answer after (HomeFlow may be made again). A definite App Store
+    /// install takes back the pushes a TestFlight build left pending: each
+    /// could only open a story whose menu leads to a run (decision 8).
+    func resolveGates(_ resolve: @escaping @Sendable () async -> InstallSource.Gates) async -> InstallSource.Gates {
+        if let gates { return await gates.value }
+        let task = Task { [scheduler] in
+            let gates = await resolve()
+            if gates.isAppStore { await scheduler.takeBackEveryPendingPush() }
+            return gates
+        }
+        gates = task
+        return await task.value
+    }
+
     /// The story menu's choice: the scheduler records it, takes back what it
-    /// rules out and replans at once.
-    func menu(_ action: MenuAction, pushId: String) {
-        Task { await scheduler.menu(action, pushId: pushId) }
+    /// rules out and -- only where this install may schedule automatically
+    /// (decision 8) -- replans at once. Gates not resolved: no replan.
+    @discardableResult
+    func menu(_ action: MenuAction, pushId: String) -> Task<Void, Never> {
+        let gates = self.gates
+        return Task { [scheduler] in
+            let replan = await gates?.value.schedulesAutomatically ?? false
+            await scheduler.menu(action, pushId: pushId, replan: replan)
+        }
     }
 
     /// The story reached its ending.

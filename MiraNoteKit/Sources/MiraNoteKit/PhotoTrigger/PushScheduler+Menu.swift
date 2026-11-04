@@ -9,7 +9,9 @@ extension PushScheduler {
     /// the nights refilled. Debug pushes count too. A record saved before
     /// phase 2 (no ledger row, no bucket or day of its own) takes its day
     /// from the memory's date; "fewer" needs a bucket and does nothing then.
-    public func menu(_ action: MenuAction, pushId: String) async {
+    /// `replan` false (an install that may not schedule, decision 8) does
+    /// all of that but leaves the nights unfilled: no run, no upload.
+    public func menu(_ action: MenuAction, pushId: String, replan: Bool = true) async {
         let entry = deps.ledger.load().first { $0.pushId == pushId }
         let record = deps.records.load(pushId)
         let day = entry?.belongsTo ?? record?.belongsTo ?? record.flatMap { Self.dayKey($0.memory.date) }
@@ -31,7 +33,17 @@ extension PushScheduler {
         case .notThisDay: await removeActive(.menuDay) { $0.belongsTo == day }
         case .fewerLikeThis: await removeActive(.menuBucket) { $0.bucket == bucket }
         }
+        guard replan else { return }
         await request(.menu)
+    }
+
+    /// An App Store install (decision 8): every pending push of ours is
+    /// taken back, scheduled ones marked in the ledger, so none can open a
+    /// story that leads to a run.
+    public func takeBackEveryPendingPush() async {
+        await removeActive(.appStore) { _ in true }
+        let ours = await deps.notifications.pending().filter(PushIdentifier.isOurs)
+        if !ours.isEmpty { await deps.notifications.removePending(ours.sorted()) }
     }
 
     /// `text` when it is a "yyyy-MM-dd" day (the memory's `date`), else nil.
