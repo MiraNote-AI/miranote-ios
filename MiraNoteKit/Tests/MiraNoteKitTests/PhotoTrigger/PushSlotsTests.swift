@@ -18,8 +18,11 @@ final class PushSlotsTests: XCTestCase {
     }
 
     func testWeekendIsSaturdaySundayWhateverTheLocale() {
-        var cal = calendar("Asia/Dubai")
-        cal.locale = Locale(identifier: "ar_AE")
+        var cal = calendar("Asia/Riyadh")
+        // ar_SA's CLDR weekend is Friday and Saturday (ar_AE's is already
+        // Saturday and Sunday), so `isDateInWeekend` would get Fri and Sun wrong.
+        cal.locale = Locale(identifier: "ar_SA")
+        XCTAssertTrue(cal.isDateInWeekend(date(11, 6, 21, 0, cal)), "the locale's weekend includes Friday")
         // 2026-11-05 Thu .. 11-11 Wed: Fri 6th 21:00, Sat 7th and Sun 8th 20:30.
         let slots = PushSlots.make(now: date(11, 5, 9, 0, cal), calendar: cal)
         XCTAssertEqual(slots.count, 7)

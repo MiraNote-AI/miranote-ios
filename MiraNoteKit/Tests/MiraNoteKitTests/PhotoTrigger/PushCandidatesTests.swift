@@ -80,7 +80,8 @@ final class PushCandidatesTests: XCTestCase {
             analyses: [:], library: [:], calendar: calendar, pastLocations: [], pushedDays: [],
             preferences: PushPreferences(), cache: { _ in nil })
         XCTAssertEqual(failure(result), .lowScore)
-        if case .success(let ok) = evaluate(fragment()) { XCTAssertGreaterThanOrEqual(ok.score.total, 0.40) }
+        guard case .success(let ok) = evaluate(fragment()) else { return XCTFail("the default group passes") }
+        XCTAssertGreaterThanOrEqual(ok.score.total, 0.40)
     }
 
     func testPushedDayExcludesItsOtherGroups() {
