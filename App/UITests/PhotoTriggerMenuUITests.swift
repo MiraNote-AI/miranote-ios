@@ -4,7 +4,8 @@ import XCTest
 /// The schedule is read from `debug.triggerSchedule`, a hidden DEBUG text
 /// ("slotDay=belongsTo;..."): the debug screen does not exist yet.
 extension PhotoTriggerUITests {
-    /// "美食饮品", the bucket of group A, as ASCII escapes (no CJK in Swift).
+    /// The zh-Hans name of the food bucket (group A's), as Unicode escapes:
+    /// Swift source stays ASCII (org rule 3).
     private var foodBucketName: String { "\u{7F8E}\u{98DF}\u{996E}\u{54C1}" }
 
     func testOtherBucketMenuHasOnlyNotThisDay() {
