@@ -94,10 +94,14 @@ public actor PushScheduler {
     var work = RunWork()
     /// Bumped by `clearAll`: a run of an older generation stops writing.
     var generation = 0
+    /// The generation the run in progress started in.
+    var runGeneration = 0
     var inBackground = false
     var previewCount = 0
     var outsideCursor: Int?
     var outsidePressing = false
+    /// The generation the current "try outside" press started in.
+    var outsideGeneration = 0
     var lastReport: LastRunReport?
     var lastRanking: TriggerRanking?
 
@@ -150,12 +154,14 @@ public actor PushScheduler {
 
     func runOnce(_ trigger: Trigger) async {
         let mine = generation
+        runGeneration = mine
         let started = deps.now()
         let calendar = deps.calendar()
         work = RunWork()
         var run = ScheduleRun(startedAt: started, finishedAt: started, trigger: trigger.rawValue)
         let allowed = await deps.notifications.isAllowed()
         await reconcile(allowed: allowed)
+        guard mine == generation else { return }
         // A job older than the backend keeps it is gone: submit again if needed.
         try? deps.state.update {
             $0.outstanding = $0.outstanding.filter {
@@ -165,6 +171,7 @@ public actor PushScheduler {
         let slots = PushSlots.make(now: started, calendar: calendar)
         let refusal: String? = await deps.library.requestAccess() == .denied ? "photosDenied"
             : allowed ? nil : "notificationsOff"
+        guard mine == generation else { return }
         if let refusal {
             run.error = refusal
             run.emptyDays = Dictionary(uniqueKeysWithValues: slots.map {
@@ -210,7 +217,10 @@ public actor PushScheduler {
     /// Settles the ledger with the notification center and clears pushes
     /// delivered and unopened for 48 h from the tray.
     func reconcile(allowed: Bool) async {
+        let mine = generation
         let pending = await deps.notifications.pending()
+        // Cleared meanwhile: the empty ledger stays empty.
+        guard mine == generation else { return }
         let settled = LedgerReconciler.reconcile(deps.ledger.load(), now: deps.now(), pending: pending,
                                                  notificationsAllowed: allowed)
         try? deps.ledger.save(settled.entries)
@@ -222,12 +232,13 @@ public actor PushScheduler {
     /// week old (then it is computed again and stored).
     func rank(now: Date, calendar: Calendar, report: (TriggerProgress) async -> Void = { _ in }) async
         -> TriggerRanking {
+        let mine = generation
         let state = deps.state.load()
         let stale = state.needsThreshold(now: now)
         let ranking = await TriggerRanking.make(
             library: deps.library, analyzer: deps.analyzer, analyses: deps.analyses, now: now, calendar: calendar,
             threshold: stale ? nil : state.threshold, groupingReport: deps.groupingReport, report: report)
-        if stale {
+        if stale, mine == generation {
             try? deps.state.update {
                 $0.threshold = ranking.threshold
                 $0.thresholdComputedAt = now

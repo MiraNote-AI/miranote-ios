@@ -284,8 +284,12 @@ extension PushScheduler {
         }
     }
 
+    /// Never while the app is in the background: a poll woken after a long
+    /// suspension can reach the actor before `appBecameActive` restarts the
+    /// budgets, and must not end jobs the backend still holds.
     private func isOverBudget(_ job: AIJob) -> Bool {
-        deps.now().timeIntervalSince(job.budgetFrom) >= ComposeSession.budget
+        guard !inBackground else { return false }
+        return deps.now().timeIntervalSince(job.budgetFrom) >= ComposeSession.budget
     }
 
     /// Ends every night whose job has waited 6 minutes, whatever the last

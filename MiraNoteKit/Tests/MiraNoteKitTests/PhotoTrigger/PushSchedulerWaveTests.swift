@@ -99,4 +99,82 @@ final class PushSchedulerWaveTests: PushSchedulerTestCase {
         await scheduler.appBecameActive()
         XCTAssertEqual(activeDays, allSeven, "suspended time does not use up the budget")
     }
+
+    /// After a long suspension the woken poll can reach the actor before
+    /// the scene's `appBecameActive`: it must not end the jobs over budget.
+    func testWokenPollBeforeReturnKeepsTheJobs() async throws {
+        client.scripts[day("g0")] = [.running, .running, .ok]
+        let scheduler = makeScheduler()
+        let clock = self.clock!
+        hook.action = { number in
+            guard number == 1 else { return }
+            await scheduler.appEnteredBackground()
+            clock.advance(3000)
+        }
+        await scheduler.appBecameActive()
+        // The scene's hop arrives last.
+        await scheduler.appBecameActive()
+        XCTAssertEqual(activeDays, allSeven, "the jobs were polled on, not ended")
+        XCTAssertEqual(client.submitted.count, 7, "no job was submitted again")
+        XCTAssertEqual(client.submitted.filter { $0 == day("g0") }.count, 1, "g0 kept its job id")
+        XCTAssertFalse(log.runs().flatMap(\.groups).contains { $0.outcome == .error })
+    }
+}
+
+/// `clearAll` while a run (or a debug push) waits on the system: the cleared
+/// stores stay empty (must-fix 2).
+final class PushSchedulerClearRaceTests: PushSchedulerTestCase {
+    private func assertCleared(file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(ledger.load().isEmpty, "ledger", file: file, line: line)
+        XCTAssertTrue(records.all().isEmpty, "records", file: file, line: line)
+        XCTAssertTrue(log.runs().isEmpty, "log", file: file, line: line)
+        XCTAssertEqual(log.counters(), ScheduleCounters(), "counters", file: file, line: line)
+        XCTAssertEqual(state.load(), SchedulerState(), "state", file: file, line: line)
+        XCTAssertTrue(notifier.pendingIds.isEmpty, "pending", file: file, line: line)
+    }
+
+    func testExpiryAfterClearDuringPollLeavesStoresEmpty() async throws {
+        client.scripts[day("g0")] = [.running, .ok]
+        let scheduler = makeScheduler()
+        hook.action = { number in
+            guard number == 1 else { return }
+            await scheduler.clearAll()
+            await scheduler.backgroundTimeExpired()
+        }
+        await scheduler.appBecameActive()
+        assertCleared()
+    }
+
+    func testClearDuringReconcileLeavesStoresEmpty() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        XCTAssertFalse(ledger.load().isEmpty)
+        clock.advance(2 * 3600)
+        notifier.onPendingOnce = { await scheduler.clearAll() }
+        await scheduler.appBecameActive()
+        assertCleared()
+    }
+
+    func testClearDuringDebugPushLeavesStoresEmpty() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        await scheduler.clearAll()
+        // Something to preview again, without the clear's own state.
+        await scheduler.appBecameActive()
+        XCTAssertFalse(ledger.load().isEmpty)
+        notifier.onSchedule = { await scheduler.clearAll() }
+        let result = await scheduler.previewNext()
+        XCTAssertEqual(result, .nothingScheduled, "the clear took the schedule away")
+        assertCleared()
+    }
+
+    func testClearDuringTryOutsideLeavesStoresEmpty() async throws {
+        let scheduler = makeScheduler()
+        notifier.onSchedule = { await scheduler.clearAll() }
+        var steps: [TriggerProgress] = []
+        for await step in await scheduler.tryOutside() { steps.append(step) }
+        XCTAssertEqual(steps.last, .failed(.noFragment), "\(steps)")
+        assertCleared()
+        XCTAssertTrue(cache.verdicts().isEmpty, "no verdict cached across the clear")
+    }
 }

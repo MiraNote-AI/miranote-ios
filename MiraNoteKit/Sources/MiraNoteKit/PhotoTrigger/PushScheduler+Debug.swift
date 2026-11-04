@@ -65,37 +65,49 @@ extension PushScheduler {
         guard !pairs.isEmpty else { return .nothingScheduled }
         let (entry, record) = pairs[previewCount % pairs.count]
         previewCount += 1
-        let pushed = await pushDebug(memory: record.memory, photoIds: record.photoIds, rank: record.rank,
-                                     score: entry.score, bucket: entry.bucket, belongsTo: entry.belongsTo,
-                                     groupKey: entry.groupKey, groupPhotos: entry.photoIds, place: entry.place)
-        guard pushed else { return .notificationsOff }
+        switch await pushDebug(memory: record.memory, photoIds: record.photoIds, rank: record.rank,
+                               score: entry.score, bucket: entry.bucket, belongsTo: entry.belongsTo,
+                               groupKey: entry.groupKey, groupPhotos: entry.photoIds, place: entry.place,
+                               generation: generation) {
+        case .pushed: break
+        case .refused: return .notificationsOff
+        case .cleared: return .nothingScheduled
+        }
         let calendar = deps.calendar()
         return .scheduled(slotDay: SchedulePlanner.day(entry.scheduledFor, calendar: calendar))
     }
 
     // swiftlint:disable function_parameter_count
-    /// Saves a debug record, schedules it 10 s out, writes its ledger row.
+    /// Saves a debug record, schedules it 10 s out, writes its ledger row --
+    /// unless `clearAll` ran since the press began (`generation`).
     func pushDebug(memory: TriggerMemory, photoIds: [String: String], rank: Int, score: FragmentScore,
                    bucket: PushBucket, belongsTo: String, groupKey: String, groupPhotos: [String],
-                   place: String?) async -> Bool {
+                   place: String?, generation mine: Int) async -> DebugPush {
+        guard mine == generation else { return .cleared }
         let pushId = UUID().uuidString
         let now = deps.now()
         let record = PushRecord(pushId: pushId, memory: memory, photoIds: photoIds, createdAt: now, rank: rank,
                                 score: score.total, bucket: memory.bucket.isEmpty ? deps.zh(bucket.catalogKey)
                                     : memory.bucket,
                                 bucketId: bucket, belongsTo: belongsTo, isDebug: true)
-        guard (try? deps.records.save(record)) != nil else { return false }
-        guard await deps.notifications.schedule(record, identifier: PushIdentifier.make(pushId), at: nil,
-                                                relevance: score.total)
+        guard (try? deps.records.save(record)) != nil else { return .refused }
+        let identifier = PushIdentifier.make(pushId)
+        guard await deps.notifications.schedule(record, identifier: identifier, at: nil, relevance: score.total)
         else {
             try? deps.records.remove(pushId)
-            return false
+            return .refused
+        }
+        guard mine == generation else {
+            // Cleared while it was being scheduled: take it back.
+            await deps.notifications.removePending([identifier])
+            try? deps.records.remove(pushId)
+            return .cleared
         }
         try? deps.ledger.append(LedgerEntry(
             pushId: pushId, isDebug: true, belongsTo: belongsTo, groupKey: groupKey, photoIds: groupPhotos,
             bucket: bucket, place: place, score: score, body: memory.push.body,
             questionId: memory.ending.questionId, scheduledFor: now.addingTimeInterval(Self.debugDelay)))
-        return true
+        return .pushed
     }
     // swiftlint:enable function_parameter_count
 
@@ -114,6 +126,7 @@ extension PushScheduler {
             return stream
         }
         outsidePressing = true
+        outsideGeneration = generation
         Task { await self.pressOutside(continuation) }
         return stream
     }
@@ -135,7 +148,7 @@ extension PushScheduler {
             ranking = last
         } else {
             ranking = await rank(now: now, calendar: calendar) { out.yield($0) }
-            lastRanking = ranking
+            if outsideGeneration == generation { lastRanking = ranking }
         }
         let outside = outsideCandidates(ranking, now: now, calendar: calendar)
         guard !outside.isEmpty else { return out.step(.failed(.noFragment)) }
@@ -222,15 +235,20 @@ extension PushScheduler {
                 return box.attempt
             }
         }
-        guard await pushDebug(memory: memory, photoIds: photoIds, rank: rank, score: candidate.score,
-                              bucket: candidate.bucket, belongsTo: candidate.belongsTo,
-                              groupKey: candidate.groupKey, groupPhotos: fragment.photos.map(\.id), place: place)
-        else { return .stop(.notificationsOff) }
+        switch await pushDebug(memory: memory, photoIds: photoIds, rank: rank, score: candidate.score,
+                               bucket: candidate.bucket, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
+                               groupPhotos: fragment.photos.map(\.id), place: place, generation: outsideGeneration) {
+        case .pushed: break
+        case .refused: return .stop(.notificationsOff)
+        // Cleared during the press: nothing of it is kept.
+        case .cleared: return .stop(.noFragment)
+        }
         out.yield(.scheduled(rank: rank, score: candidate.score.total))
         return .pushed
     }
 
     private func store(_ verdict: AIVerdict, _ candidate: PushCandidate) {
+        guard outsideGeneration == generation else { return }
         try? deps.cache.store(verdict, key: candidate.cacheKey, belongsTo: candidate.belongsTo, at: deps.now())
     }
 
@@ -271,6 +289,15 @@ extension PushScheduler {
             groups: groups, utilityPhotoIds: report?.utility ?? [], categories: report?.categories ?? .empty,
             threshold: report?.threshold, isRunning: isRunning)
     }
+}
+
+/// What became of a debug push.
+enum DebugPush {
+    case pushed
+    /// No record saved, or the system did not take the notification.
+    case refused
+    /// `clearAll` ran during the press: nothing of it is left.
+    case cleared
 }
 
 private extension AsyncStream<TriggerProgress>.Continuation {

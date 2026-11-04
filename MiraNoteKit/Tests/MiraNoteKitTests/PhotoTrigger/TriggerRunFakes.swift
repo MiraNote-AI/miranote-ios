@@ -87,6 +87,12 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
     var refuseSchedule = false
     /// Runs inside `schedule`, before it answers (races with the caller).
     var onSchedule: (@Sendable () async -> Void)?
+    private var onPendingOnceHook: (@Sendable () async -> Void)?
+    /// Runs inside the next `pending` call only, before it answers.
+    var onPendingOnce: (@Sendable () async -> Void)? {
+        get { lock.withLock { onPendingOnceHook } }
+        set { lock.withLock { onPendingOnceHook = newValue } }
+    }
     private let lock = NSLock()
     private var recordsList: [PushRecord] = []
     private var identifiersList: [String] = []
@@ -109,7 +115,14 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
 
     func isAllowed() async -> Bool { allowed }
     func requestPermission() async -> Bool { allowed }
-    func pending() async -> Set<String> { pendingIds }
+    func pending() async -> Set<String> {
+        let hook = lock.withLock { () -> (@Sendable () async -> Void)? in
+            defer { onPendingOnceHook = nil }
+            return onPendingOnceHook
+        }
+        await hook?()
+        return pendingIds
+    }
     func schedule(_ record: PushRecord, identifier: String, at: DateComponents?, relevance: Double) async -> Bool {
         if refuseSchedule { return false }
         lock.withLock {
