@@ -27,30 +27,6 @@ public struct PushRecord: Codable, Equatable, Sendable {
     }
 }
 
-/// One line of the push ledger (phase 2: "a pushed day is not pushed
-/// again", cooldowns, feedback). The shape is kept now; nothing writes it
-/// in phase 1.
-public struct PushLedgerEntry: Codable, Equatable, Sendable {
-    public let pushId: String
-    public let groupKey: String
-    public let belongsTo: String
-    public let bucket: String
-    public let deliverAt: Date
-    public let opened: Bool
-    public let madePage: Bool
-
-    public init(pushId: String, groupKey: String, belongsTo: String, bucket: String, deliverAt: Date, opened: Bool,
-                madePage: Bool) {
-        self.pushId = pushId
-        self.groupKey = groupKey
-        self.belongsTo = belongsTo
-        self.bucket = bucket
-        self.deliverAt = deliverAt
-        self.opened = opened
-        self.madePage = madePage
-    }
-}
-
 /// Where a tapped push finds its memory: by the id the notification
 /// carries. Never regroups and never calls the backend (handoff 7.6).
 public protocol TriggerMemorySource: Sendable {
