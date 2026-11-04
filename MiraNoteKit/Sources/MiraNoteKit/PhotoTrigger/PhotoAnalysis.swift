@@ -56,49 +56,53 @@ public enum BroadCategory: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// The push bucket it counts toward (handoff 7.3).
-    public var bucket: PushBucket {
+    /// The push bucket it counts toward; nil for `people`, which never votes.
+    public var bucket: PushBucket? {
         switch self {
-        case .food_drink: return .food
-        case .sky: return .sky
-        case .plant, .water: return .nature
-        case .animal: return .animals
-        case .people: return .people
+        case .food_drink, .tableware: return .food
+        case .sky, .plant, .water: return .scenery
+        case .animal: return .animal
         case .built, .street, .vehicle: return .city
-        case .interior, .tableware: return .home
-        case .event, .recreation: return .events
+        case .interior: return .indoor
+        case .event, .recreation: return .event
         case .art, .document: return .other
+        case .people: return nil
         }
     }
 }
 
-/// The nine push buckets (handoff 7.3), in the handoff's order, which also
-/// breaks ties. The Chinese name the user sees is content: the catalog's
-/// zh-Hans entry for `catalogKey`.
+/// The seven push buckets, in the order that also breaks ties. The Chinese
+/// name the user sees is content: the catalog's zh-Hans entry for
+/// `catalogKey`.
 public enum PushBucket: String, Codable, CaseIterable, Sendable {
-    case food, sky, nature, animals, people, city, home, events, other
+    case food, scenery, animal, city, indoor, event, other
 
     /// The English catalog key whose zh-Hans value is the bucket's name.
     public var catalogKey: String {
         switch self {
         case .food: return "Food and drink"
-        case .sky: return "Sky and sunsets"
-        case .nature: return "Nature and plants"
-        case .animals: return "Pets and animals"
-        case .people: return "People and gatherings"
-        case .city: return "City and buildings"
-        case .home: return "Indoors and home"
-        case .events: return "Events and shows"
+        case .scenery: return "Nature and scenery"
+        case .animal: return "Pets and animals"
+        case .city: return "City and streets"
+        case .indoor: return "Indoors and home"
+        case .event: return "Events and shows"
         case .other: return "Other"
         }
     }
 
-    /// The bucket most of the photos' categories map to; a tie goes to the
-    /// bucket listed first. Nothing at all is `other`.
+    /// The buckets one photo votes for: one vote per distinct bucket of its
+    /// categories, `people` never; `other` when it has none.
+    static func votes(of categories: Set<BroadCategory>) -> Set<PushBucket> {
+        let buckets = Set(categories.compactMap(\.bucket))
+        return buckets.isEmpty ? [.other] : buckets
+    }
+
+    /// The bucket most photos vote for; a tie goes to the bucket listed
+    /// first. No photos at all is `other`.
     public static func majority(of photos: [Set<BroadCategory>]) -> PushBucket {
         var counts: [PushBucket: Int] = [:]
         for categories in photos {
-            for category in categories { counts[category.bucket, default: 0] += 1 }
+            for bucket in votes(of: categories) { counts[bucket, default: 0] += 1 }
         }
         guard let best = counts.values.max() else { return .other }
         return allCases.first { counts[$0] == best } ?? .other
@@ -149,5 +153,12 @@ public struct PhotoAnalysis: Codable, Equatable, Sendable {
     /// neutral 0.5 without one.
     public var quality: Double {
         aesthetics.map { ($0 + 1) / 2 } ?? 0.5
+    }
+
+    /// The photo's single bucket for the category report: the first in
+    /// bucket order among its categories, `other` when none.
+    public var photoBucket: PushBucket {
+        let votes = PushBucket.votes(of: broad)
+        return PushBucket.allCases.first { votes.contains($0) } ?? .other
     }
 }

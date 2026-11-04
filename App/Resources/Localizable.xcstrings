@@ -1095,14 +1095,14 @@
         }
       }
     },
-    "City and buildings" : {
+    "City and streets" : {
       "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "城市与建筑"
+            "value" : "城市街头"
           }
         }
       }
@@ -1754,7 +1754,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "活动与演出"
+            "value" : "活动演出"
           }
         }
       }
@@ -2277,7 +2277,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "室内与居家"
+            "value" : "室内居家"
           }
         }
       }
@@ -2871,14 +2871,14 @@
         }
       }
     },
-    "Nature and plants" : {
+    "Nature and scenery" : {
       "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自然与植物"
+            "value" : "自然风光"
           }
         }
       }
@@ -3446,18 +3446,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "蜜桃 · 珊瑚 · 丁香紫"
-          }
-        }
-      }
-    },
-    "People and gatherings" : {
-      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "人物与聚会"
           }
         }
       }
@@ -4537,18 +4525,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "天空蓝"
-          }
-        }
-      }
-    },
-    "Sky and sunsets" : {
-      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "天空与日落"
           }
         }
       }
