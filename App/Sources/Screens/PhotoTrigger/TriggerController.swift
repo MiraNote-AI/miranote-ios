@@ -269,17 +269,16 @@ struct TriggerPermissions: Sendable {
 private final class BackgroundTime {
     private var task: UIBackgroundTaskIdentifier = .invalid
 
-    /// `onExpire` runs first when iOS says the time is up.
+    /// When iOS says the time is up, `onExpire` gets at most
+    /// `BoundedWait.expiryGrace` and the task is ended inside the handler
+    /// whatever it did: iOS kills an app that overruns. If `onExpire` is
+    /// slower it goes on after (or on the next wake).
     func begin(onExpire: (@Sendable () async -> Void)?) {
         task = UIApplication.shared.beginBackgroundTask(withName: "photo-trigger") { [weak self] in
             // iOS calls this on the main thread.
             MainActor.assumeIsolated {
-                guard let onExpire else { return self?.end() ?? () }
-                // Ended after the scheduler has noted what was left out.
-                Task { @MainActor in
-                    await onExpire()
-                    self?.end()
-                }
+                if let onExpire { BoundedWait.run(atMost: BoundedWait.expiryGrace, onExpire) }
+                self?.end()
             }
         }
     }
@@ -288,6 +287,26 @@ private final class BackgroundTime {
         guard task != .invalid else { return }
         UIApplication.shared.endBackgroundTask(task)
         task = .invalid
+    }
+}
+
+/// Async work the calling thread waits for, but never longer than a limit.
+enum BoundedWait {
+    /// What a background-time expiry handler gives the scheduler: a quick
+    /// actor hop and two small file writes fit well inside.
+    static let expiryGrace: TimeInterval = 0.5
+
+    /// Starts `work` off the calling thread and blocks for it at most
+    /// `limit` seconds; true when it finished in time. `work` is never
+    /// cancelled: it may finish after this returns.
+    @discardableResult
+    static func run(atMost limit: TimeInterval, _ work: @escaping @Sendable () async -> Void) -> Bool {
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            await work()
+            done.signal()
+        }
+        return done.wait(timeout: .now() + limit) == .success
     }
 }
 

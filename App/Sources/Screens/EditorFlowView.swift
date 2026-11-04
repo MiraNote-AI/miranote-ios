@@ -190,8 +190,9 @@ struct HomeFlow: View {
     /// One per launch (`shared`), however often HomeFlow is re-made.
     @State private var trigger = TriggerController.shared
     @State private var router = TriggerLaunchRouter.shared
-    /// The debug entry: development and TestFlight builds (InstallSource).
-    @State private var showsTriggerEntry = false
+    /// The debug entry and automatic scheduling: development and TestFlight
+    /// builds (InstallSource).
+    @State private var triggerGates = InstallSource.Gates.closed
 
     /// A note addressed within its collection, for stack navigation.
     private struct NoteRef: Hashable {
@@ -326,7 +327,7 @@ struct HomeFlow: View {
                 onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
                 onOpenProfile: { path.append(AccountRoute.profile) },
-                triggerEntry: showsTriggerEntry ? TriggerDebugEntry(controller: trigger) : nil
+                triggerEntry: triggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -391,10 +392,10 @@ struct HomeFlow: View {
         .environment(\.theme, Theme(appearance: settings.appearance))
         .task {
             guard Self.triggerEntryAllowed else { return }
-            showsTriggerEntry = await InstallSource.showsDebugEntry(isDebugBuild: InstallSource.isDebugBuild,
-                                                                   probe: AppTransactionProbe())
+            triggerGates = await InstallSource.gates(isDebugBuild: InstallSource.isDebugBuild,
+                                                     probe: AppTransactionProbe())
         }
-        .triggerLifecycle(trigger, enabled: showsTriggerEntry)
+        .triggerLifecycle(trigger, enabled: triggerGates.schedulesAutomatically)
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil)) { await openPendingPush() }
@@ -518,6 +519,8 @@ extension HomeFlow {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-UITEST") { return arguments.contains("-UITEST-TRIGGER") }
+        // The unit tests' host app: no prompts, no live library or backend.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return false }
         #endif
         return true
     }

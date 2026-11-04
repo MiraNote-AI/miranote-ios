@@ -5,18 +5,32 @@ protocol InstallSourceProbe: Sendable {
     func environment() async throws -> AppStore.Environment
 }
 
-/// The photo trigger's debug entry shows in development and TestFlight
-/// builds and never in an App Store download (handoff 7.5). TestFlight is
-/// StoreKit's sandbox environment. A probe that fails -- likely on a
-/// simulator or a development build -- shows it: hiding a test tool from
-/// a tester is the worse mistake.
+/// The photo trigger runs in development and TestFlight builds and never in
+/// an App Store download (handoff 7.5, decision 8). TestFlight is StoreKit's
+/// sandbox environment.
 enum InstallSource {
-    static func showsDebugEntry(isDebugBuild: Bool, probe: InstallSourceProbe) async -> Bool {
-        if isDebugBuild { return true }
+    /// What this install may do.
+    struct Gates: Equatable {
+        /// The Home debug card. A probe that fails -- likely on a simulator
+        /// or a development build -- shows it: hiding a test tool from a
+        /// tester is the worse mistake (fail open, as in phase 1).
+        var showsDebugEntry: Bool
+        /// Automatic scheduling and the first-launch Photos and notification
+        /// prompts. These reach real users, so they need a definite
+        /// development or TestFlight answer: a failing probe keeps them off
+        /// (fail closed).
+        var schedulesAutomatically: Bool
+
+        static let closed = Gates(showsDebugEntry: false, schedulesAutomatically: false)
+    }
+
+    static func gates(isDebugBuild: Bool, probe: InstallSourceProbe) async -> Gates {
+        if isDebugBuild { return Gates(showsDebugEntry: true, schedulesAutomatically: true) }
         do {
-            return try await probe.environment() != .production
+            let testing = try await probe.environment() != .production
+            return Gates(showsDebugEntry: testing, schedulesAutomatically: testing)
         } catch {
-            return true
+            return Gates(showsDebugEntry: true, schedulesAutomatically: false)
         }
     }
 
