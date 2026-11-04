@@ -25,6 +25,10 @@ enum InstallSource {
         /// failing probe.
         var isAppStore = false
 
+        /// The debug entry or automatic pushes: some way into the story and
+        /// its ending can show.
+        var triggerCanShow: Bool { showsDebugEntry || schedulesAutomatically }
+
         static let closed = Gates(showsDebugEntry: false, schedulesAutomatically: false)
     }
 

@@ -69,4 +69,15 @@ final class InstallSourceTests: XCTestCase {
         XCTAssertFalse(failed, "a failing probe may be TestFlight: its pushes stay")
         XCTAssertFalse(debug)
     }
+
+    /// The ending's font is fetched only where the trigger can show.
+    func testTriggerCanShowOnlyWhereAGateIsOpen() async {
+        let production = await gates(debug: false, .success(.production)).triggerCanShow
+        let sandbox = await gates(debug: false, .success(.sandbox)).triggerCanShow
+        let failed = await gates(debug: false, .failure(Failure())).triggerCanShow
+        XCTAssertFalse(production, "an App Store install fetches no font")
+        XCTAssertTrue(sandbox)
+        XCTAssertTrue(failed, "the debug card shows (fail open)")
+        XCTAssertFalse(InstallSource.Gates.closed.triggerCanShow)
+    }
 }
