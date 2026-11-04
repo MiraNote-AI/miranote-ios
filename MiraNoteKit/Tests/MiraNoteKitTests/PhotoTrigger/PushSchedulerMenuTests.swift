@@ -44,6 +44,48 @@ final class PushSchedulerMenuTests: PushSchedulerTestCase {
         XCTAssertEqual(active.count, 7)
     }
 
+    /// A record saved before phase 2: no ledger row, no bucket id, no
+    /// belongs-to day -- only the memory's own date.
+    private func saveOldRecord(date: String) throws -> String {
+        let base = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P2")
+        let memory = TriggerMemory(id: "old", date: date, daypart: base.daypart, push: base.push, story: base.story,
+                                   ending: base.ending)
+        let record = PushRecord(pushId: "old-push", memory: memory, photoIds: [:], createdAt: start, rank: 1,
+                                score: 0.5, bucket: "food")
+        try records.save(record)
+        return record.pushId
+    }
+
+    func testMenuDayOnAnOldRecordUsesTheMemoryDate() async throws {
+        addSpare()
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        XCTAssertTrue(activeDays.contains(day("g2")))
+        let pushId = try saveOldRecord(date: day("g2"))
+        await scheduler.menu(.notThisDay, pushId: pushId)
+        XCTAssertNotNil(preferences.load().blockedDays[day("g2")], "the memory's day is blocked")
+        XCTAssertFalse(activeDays.contains(day("g2")), "its scheduled push is taken back")
+        XCTAssertEqual(active.count, 7, "and the night refilled")
+    }
+
+    func testMenuFewerOnAnOldRecordDoesNothing() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let before = active
+        let pushId = try saveOldRecord(date: day("g2"))
+        await scheduler.menu(.fewerLikeThis, pushId: pushId)
+        XCTAssertTrue(preferences.load().fewer.isEmpty, "no bucket to cool down")
+        XCTAssertEqual(active, before)
+    }
+
+    func testMenuDayOnAnOldRecordWithABadDateDoesNothing() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let pushId = try saveOldRecord(date: "Nov 1")
+        await scheduler.menu(.notThisDay, pushId: pushId)
+        XCTAssertTrue(preferences.load().blockedDays.isEmpty)
+    }
+
     func testMenuFromDebugPushStillApplies() async throws {
         addSpare()
         let scheduler = makeScheduler()

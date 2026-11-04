@@ -6,19 +6,22 @@ extension PushScheduler {
     /// Applies the menu's choice: "not this day" blocks the push's
     /// belongs-to day for good, "fewer like this" cools its bucket down
     /// (never `other`). The pushes it rules out are taken back at once and
-    /// the nights refilled. Debug pushes count too.
+    /// the nights refilled. Debug pushes count too. A record saved before
+    /// phase 2 (no ledger row, no bucket or day of its own) takes its day
+    /// from the memory's date; "fewer" needs a bucket and does nothing then.
     public func menu(_ action: MenuAction, pushId: String) async {
         let entry = deps.ledger.load().first { $0.pushId == pushId }
         let record = deps.records.load(pushId)
-        guard let day = entry?.belongsTo ?? record?.belongsTo,
-              let bucket = entry?.bucket ?? record?.bucketId else { return }
-        if action == .fewerLikeThis, bucket == .other { return }
+        let day = entry?.belongsTo ?? record?.belongsTo ?? record.flatMap { Self.dayKey($0.memory.date) }
+        let bucket = entry?.bucket ?? record?.bucketId
         let now = deps.now()
-        try? deps.preferences.update { preferences in
-            switch action {
-            case .notThisDay: preferences.blockedDays[day] = now
-            case .fewerLikeThis: preferences.fewer[bucket] = now
-            }
+        switch action {
+        case .notThisDay:
+            guard let day else { return }
+            try? deps.preferences.update { $0.blockedDays[day] = now }
+        case .fewerLikeThis:
+            guard let bucket, bucket != .other else { return }
+            try? deps.preferences.update { $0.fewer[bucket] = now }
         }
         try? deps.ledger.update(pushId) {
             $0.menuAction = action
@@ -29,6 +32,14 @@ extension PushScheduler {
         case .fewerLikeThis: await removeActive(.menuBucket) { $0.bucket == bucket }
         }
         await request(.menu)
+    }
+
+    /// `text` when it is a "yyyy-MM-dd" day (the memory's `date`), else nil.
+    static func dayKey(_ text: String) -> String? {
+        let parts = text.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3, parts.map(\.count) == [4, 2, 2],
+              parts.allSatisfy({ $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isNumber) }) else { return nil }
+        return text
     }
 
     // MARK: What the user did with a push (ledger only: no learning)
