@@ -7,10 +7,9 @@ import SwiftUI
 /// button that keeps the day (handoff 7.7).
 struct TriggerEndingText: View {
     /// The detail line's face, shared with the canvas draft's detail block:
-    /// Lora, a bundled serif unlike the body face. (iOS ships no Chinese
-    /// serif, so Chinese glyphs fall back to the system face; the size and
-    /// colour still set the line apart.)
-    nonisolated static let detailFont = "Lora"
+    /// an on-demand Chinese serif (`DetailFont`), the system font until it
+    /// has downloaded.
+    nonisolated static var detailFont: String { DetailFont.currentName }
     nonisolated static let detailSize: CGFloat = 18
 
     let ending: TriggerMemory.Ending
@@ -34,7 +33,7 @@ struct TriggerEndingText: View {
 
             if !ending.detail.isEmpty {
                 Text(ending.detail)
-                    .font(Font(TextFace.uiFont(name: Self.detailFont, size: Self.detailSize)))
+                    .font(Font(DetailFont.uiFont(named: Self.detailFont, size: Self.detailSize)))
                     .foregroundStyle(Palette.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)

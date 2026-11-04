@@ -6,6 +6,9 @@ struct MiraNoteApp: App {
     init() {
         // The photo trigger's push shows as a banner even with the app open.
         TriggerNotificationPresenter.shared.install()
+        // Fetch the detail sentence's Chinese serif early; the system font
+        // shows until it lands.
+        DetailFont.prefetch()
     }
 
     var body: some Scene {
