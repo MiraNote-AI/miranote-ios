@@ -189,8 +189,10 @@ struct TriggerRanking: Sendable {
             return (FragmentGrouper.belongsTo(date, calendar: calendar), point)
         }
         let scored = grouping.fragments.compactMap { fragment -> (Fragment, FragmentScore)? in
-            guard let score = FragmentScorer.score(fragment, analyses: analyses, library: library, now: now,
-                                                   calendar: calendar, pastLocations: past),
+            guard let score = FragmentScorer.score(fragment, analyses: analyses, library: library, at: now,
+                                                   calendar: calendar, pastLocations: past,
+                                                   bucket: FragmentScorer.bucket(of: fragment, analyses: analyses),
+                                                   multiplier: 1.0),
                   score.pushable else { return nil }
             return (fragment, score)
         }
@@ -199,7 +201,8 @@ struct TriggerRanking: Sendable {
             var scores: [String: FragmentScore] = [:]
             for fragment in grouping.fragments {
                 scores[ComposeMeta.groupKey(fragment)] = FragmentScorer.score(
-                    fragment, analyses: analyses, library: library, now: now, calendar: calendar, pastLocations: past)
+                    fragment, analyses: analyses, library: library, at: now, calendar: calendar, pastLocations: past,
+                    bucket: FragmentScorer.bucket(of: fragment, analyses: analyses), multiplier: 1.0)
             }
             if let data = GroupingReport.make(grouping, scores: scores, library: library, utility: Array(utility),
                                               calendar: calendar) { sink(data) }

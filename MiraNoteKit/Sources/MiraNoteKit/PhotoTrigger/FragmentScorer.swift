@@ -4,12 +4,19 @@ import Foundation
 // The scorer takes every input it weighs, plainly.
 // swiftlint:disable identifier_name function_parameter_count
 
-/// A fragment's score: each dimension 0...1 and the weighted total.
-public struct FragmentScore: Equatable, Sendable {
+/// A fragment's score: each dimension 0...1, the weighted base and the
+/// bucket multiplier.
+public struct FragmentScore: Equatable, Sendable, Codable {
     /// Recency, story, people, place novelty, user marks, aesthetics.
     public let r, s, p, n, u, a: Double
+    /// The weighted sum of the six dimensions.
+    public let base: Double
+    /// The bucket's multiplier ("fewer" x0.6 after its block, else 1.0).
+    public let multiplier: Double
+    public let bucket: PushBucket
+    /// `base * multiplier`.
     public let total: Double
-    /// Whole days from the fragment's day to today (both by the 4 am rule).
+    /// Whole days from the fragment's day to the slot's day (both by the 4 am rule).
     public let days: Int
     /// Clears the 0.40 bar.
     public let pushable: Bool
@@ -17,7 +24,7 @@ public struct FragmentScore: Equatable, Sendable {
 
 /// Ranks fragments (R5b-1 2.5's structure with handoff 7.3's numbers):
 /// `total = 0.25 R + 0.20 S + 0.15 P + 0.15 N + 0.15 U + 0.10 A`, every
-/// bucket multiplier 1.0 for now.
+/// scaled by the bucket multiplier, with recency measured against the push slot.
 public enum FragmentScorer {
     public struct Weights: Equatable, Sendable {
         public let recency, story, people, novelty, user, aesthetics: Double
@@ -29,18 +36,24 @@ public enum FragmentScorer {
     public static let windowDays = 60
     /// A new moment after a pause this long (S's k).
     public static let momentGap: TimeInterval = 20 * 60
+    /// The last photo must be at least this long before the slot.
+    public static let minimumAge: TimeInterval = 12 * 3600
     static let novelRadiusKm = 0.5
 
     /// Nil when a hard filter rules the fragment out: under three unique
-    /// photos, or not 1-60 days old. `pastLocations` are the last 365 days'
-    /// photo positions by belongs-to day; the fragment's own day is ignored.
+    /// photos, under 12 h from its last photo to the slot, or more than 60
+    /// days from its day to the slot's day. `pastLocations` are the last 365
+    /// days' photo positions by belongs-to day; the fragment's own day is
+    /// ignored.
     public static func score(
         _ fragment: Fragment, analyses: [String: PhotoAnalysis], library: [String: LibraryAsset],
-        now: Date, calendar: Calendar, pastLocations: [(day: String, point: GeoPoint)]
+        at slot: Date, calendar: Calendar, pastLocations: [(day: String, point: GeoPoint)],
+        bucket: PushBucket, multiplier: Double
     ) -> FragmentScore? {
-        guard fragment.uniqueCount >= FragmentGrouper.minimumUnique else { return nil }
-        let days = daysBetween(fragment.belongsTo, FragmentGrouper.belongsTo(now, calendar: calendar))
-        guard let days, let r = recency(days: Double(days)) else { return nil }
+        guard fragment.uniqueCount >= FragmentGrouper.minimumUnique,
+              slot.timeIntervalSince(fragment.end) >= minimumAge else { return nil }
+        let days = daysBetween(fragment.belongsTo, FragmentGrouper.belongsTo(slot, calendar: calendar))
+        guard let days, let r = recency(days: days) else { return nil }
 
         let unique = fragment.uniquePhotos
         let s = story(fragment)
@@ -56,17 +69,23 @@ public enum FragmentScorer {
 
         let total = weights.recency * r + weights.story * s + weights.people * p + weights.novelty * n
             + weights.user * u + weights.aesthetics * a
-        return FragmentScore(r: r, s: s, p: p, n: n, u: u, a: a, total: total, days: days, pushable: total >= bar)
+        let scaled = total * multiplier
+        return FragmentScore(r: r, s: s, p: p, n: n, u: u, a: a, base: total, multiplier: multiplier,
+                             bucket: bucket, total: scaled, days: days, pushable: scaled >= bar)
     }
 
-    /// R by days since the fragment: under 1 none; 1-2 half; 2-10 full;
-    /// then a straight fall to 0.3 at 60; past 60 none.
-    public static func recency(days: Double) -> Double? {
+    /// The push bucket the fragment's unique photos vote for.
+    public static func bucket(of fragment: Fragment, analyses: [String: PhotoAnalysis]) -> PushBucket {
+        PushBucket.majority(of: fragment.uniquePhotos.map { analyses[$0.id]?.broad ?? [] })
+    }
+
+    /// R by whole days from the fragment's day to the slot's day: up to 10
+    /// full, then a straight fall to 0.3 at 60; past 60 (or negative) none.
+    public static func recency(days: Int) -> Double? {
         switch days {
-        case ..<1: return nil
-        case ..<2: return 0.5
+        case ..<0: return nil
         case ...10: return 1.0
-        case ...Double(windowDays): return 1.0 - 0.7 * (days - 10) / Double(windowDays - 10)
+        case ...windowDays: return 1.0 - 0.7 * Double(days - 10) / Double(windowDays - 10)
         default: return nil
         }
     }

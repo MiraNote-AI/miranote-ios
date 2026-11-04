@@ -45,11 +45,12 @@ final class FragmentScorerTests: XCTestCase {
     }
 
     private func score(_ fragment: Fragment, now: Date, favorite: Set<String> = [], faces: [String: Int] = [:],
-                       aesthetics: [String: Double] = [:], past: [(day: String, point: GeoPoint)] = [])
+                       aesthetics: [String: Double] = [:], past: [(day: String, point: GeoPoint)] = [],
+                       multiplier: Double = 1.0)
         -> FragmentScore? {
         FragmentScorer.score(fragment, analyses: analyses(fragment, faces: faces, aesthetics: aesthetics),
-                             library: library(fragment, favorite: favorite), now: now, calendar: calendar,
-                             pastLocations: past)
+                             library: library(fragment, favorite: favorite), at: now, calendar: calendar,
+                             pastLocations: past, bucket: .other, multiplier: multiplier)
     }
 
     func testWeightsSumAndMatchDecision() {
@@ -64,28 +65,48 @@ final class FragmentScorerTests: XCTestCase {
                        + weights.aesthetics, 1, accuracy: 1e-9)
     }
 
-    func testUnderOneDayNotPushable() {
-        XCTAssertNil(score(fragment(on: 18), now: day(18, 22)))
-        XCTAssertNotNil(score(fragment(on: 17), now: day(18, 9)), "yesterday is a day ago")
+    func testElevenFiftyNineHoursIsOutTwelveIsIn() {
+        // The fragment ends 15:30 on the 10th (4 photos, 30 min apart from 14:00).
+        let frag = fragment(on: 10)
+        XCTAssertNil(score(frag, now: day(11, 3, 29)), "11 h 59 min")
+        XCTAssertNotNil(score(frag, now: day(11, 3, 30)), "12 h")
     }
 
-    func testOverSixtyDaysNotPushable() {
-        // 2026-08-01 to 2026-10-01 is 61 days.
-        let old = fragment(on: 1)
-        XCTAssertNil(score(old, now: day(1, 12, month: 12)))
-        XCTAssertNil(score(old, now: day(1, 12, month: 10).addingTimeInterval(86_400 * 61)))
-        XCTAssertNotNil(score(old, now: day(30, 12, month: 11)), "60 days still counts")
+    func testRecencyFlatToTenDays() {
+        for days in [0, 1, 10] { XCTAssertEqual(FragmentScorer.recency(days: days), 1.0) }
     }
 
-    func testRecencyCurve() {
-        XCTAssertNil(FragmentScorer.recency(days: 0.5))
-        XCTAssertEqual(FragmentScorer.recency(days: 1.5), 0.5)
-        XCTAssertEqual(FragmentScorer.recency(days: 2), 1.0)
-        XCTAssertEqual(FragmentScorer.recency(days: 5), 1.0)
-        XCTAssertEqual(FragmentScorer.recency(days: 10), 1.0)
+    func testRecencyLinearToSixtyDays() throws {
         XCTAssertEqual(try XCTUnwrap(FragmentScorer.recency(days: 35)), 0.65, accuracy: 1e-9)
         XCTAssertEqual(try XCTUnwrap(FragmentScorer.recency(days: 60)), 0.3, accuracy: 1e-9)
+    }
+
+    func testOverSixtyDaysIsOut() {
         XCTAssertNil(FragmentScorer.recency(days: 61))
+        // 2026-10-01 to 2026-11-30 is 60 days; to 2026-12-01 is 61.
+        let old = fragment(on: 1)
+        XCTAssertNotNil(score(old, now: day(30, 21, month: 11)), "60 days still counts")
+        XCTAssertNil(score(old, now: day(1, 21, month: 12)))
+    }
+
+    func testMultiplierScalesTotal() throws {
+        let frag = fragment(on: 10, count: 10, spacing: 25)
+        let plain = try XCTUnwrap(score(frag, now: day(15), favorite: ["p3"], faces: ["p1": 2]))
+        let fewer = try XCTUnwrap(score(frag, now: day(15), favorite: ["p3"], faces: ["p1": 2], multiplier: 0.6))
+        XCTAssertEqual(fewer.base, plain.base, accuracy: 1e-9)
+        XCTAssertEqual(fewer.total, plain.base * 0.6, accuracy: 1e-9)
+        XCTAssertEqual(fewer.multiplier, 0.6)
+        // Base 0.6 x 0.6 = 0.36 is under the bar.
+        XCTAssertLessThan(0.6 * 0.6, FragmentScorer.bar)
+    }
+
+    func testBarIsInclusive() throws {
+        let frag = fragment(on: 10, count: 10, spacing: 25)
+        let base = try XCTUnwrap(score(frag, now: day(15))).base
+        let exact = try XCTUnwrap(score(frag, now: day(15), multiplier: 0.40 / base))
+        XCTAssertTrue(exact.pushable, "total \(exact.total)")
+        let under = try XCTUnwrap(score(frag, now: day(15), multiplier: 0.399 / base))
+        XCTAssertFalse(under.pushable)
     }
 
     func testBelowPointFourNotPushable() throws {
@@ -101,7 +122,7 @@ final class FragmentScorerTests: XCTestCase {
         let rich = fragment(on: 10, count: 10, spacing: 25)
         let high = try XCTUnwrap(score(rich, now: day(15), favorite: ["p3"], faces: ["p1": 2, "p2": 1]))
         XCTAssertTrue(high.pushable)
-        XCTAssertEqual(high.total, 0.25 * high.r + 0.20 * high.s + 0.15 * high.p + 0.15 * high.n
+        XCTAssertEqual(high.base, 0.25 * high.r + 0.20 * high.s + 0.15 * high.p + 0.15 * high.n
                        + 0.15 * high.u + 0.10 * high.a, accuracy: 1e-9)
     }
 
