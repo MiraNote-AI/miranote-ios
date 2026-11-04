@@ -61,6 +61,29 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5))
     }
 
+    /// R4: an edited draft is autosaved when the app leaves, so a kill
+    /// in the background keeps it: back on Home after the relaunch, filed,
+    /// and the ledger says a page was made.
+    func testEditedPushDraftBackgroundedAndKilledIsFiled() {
+        openDraft()
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("my own words")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.staticTexts["my own words"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 2)
+        app.terminate()
+        launch(keep: true)
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8), "the page is on Home")
+        waitForLedger(made: true)
+        let log = app.buttons["collection.Daily Log"]
+        XCTAssertTrue(log.waitForExistence(timeout: 4))
+        log.tap()
+        XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5), "the page was filed")
+    }
+
     func testEditedPushDraftIsFiledOnBack() {
         openDraft()
         app.buttons["mode.text"].tap()
