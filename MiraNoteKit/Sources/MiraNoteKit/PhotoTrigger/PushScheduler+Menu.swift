@@ -87,7 +87,10 @@ extension PushScheduler {
 
     // MARK: Leaving the app
 
-    public func appEnteredBackground() {
+    /// `sequence` as in `appBecameActive`: a background call that lands
+    /// after a newer return to the front is ignored.
+    public func appEnteredBackground(sequence: Int? = nil) {
+        guard isCurrentPhase(sequence) else { return }
         inBackground = true
     }
 

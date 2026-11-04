@@ -206,8 +206,18 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
 final class SleepLog: @unchecked Sendable {
     private let lock = NSLock()
     private var all: [TimeInterval] = []
+    private var cancelledCount = 0
     var durations: [TimeInterval] { lock.withLock { all } }
+    /// Sleeps asked for by a cancelled task.
+    var cancelled: Int { lock.withLock { cancelledCount } }
     func record(_ duration: TimeInterval) { lock.withLock { all.append(duration) } }
+    /// Counts one; the count so far.
+    func recordCancelled() -> Int {
+        lock.withLock {
+            cancelledCount += 1
+            return cancelledCount
+        }
+    }
 }
 
 /// A clock the injected sleep moves on: tests never wait for real.

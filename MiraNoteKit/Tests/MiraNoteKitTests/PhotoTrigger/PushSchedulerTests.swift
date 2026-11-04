@@ -56,6 +56,13 @@ class PushSchedulerTestCase: XCTestCase {
             ledger: ledger, preferences: preferences, cache: cache, log: log, state: state, lastRun: lastRun,
             calendar: { zone.calendar }, now: { clock.now },
             sleep: { seconds in
+                if Task.isCancelled {
+                    // Task.sleep throws at once and no time passes -- past
+                    // 100 such sleeps the clock moves, so a loop that ignores
+                    // the cancel still ends (and its test fails, not hangs).
+                    if sleeps.recordCancelled() > 100 { clock.advance(seconds) }
+                    throw CancellationError()
+                }
                 clock.advance(seconds)
                 sleeps.record(seconds)
                 await hook.fire()

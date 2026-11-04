@@ -97,6 +97,9 @@ public actor PushScheduler {
     /// The generation the run in progress started in.
     var runGeneration = 0
     var inBackground = false
+    /// The newest scene-phase change heard (`appBecameActive` /
+    /// `appEnteredBackground` `sequence`): an older one arriving late is stale.
+    var phaseSequence = 0
     var previewCount = 0
     var outsideCursor: Int?
     var outsidePressing = false
@@ -114,7 +117,10 @@ public actor PushScheduler {
     /// The app came to the front: run unless a full run finished within
     /// the hour -- except when the last run left nights unfilled, or the
     /// time zone changed (then every scheduled push is taken back first).
-    public func appBecameActive() async {
+    /// `sequence` orders it against `appEnteredBackground`: a call older than
+    /// the last phase change heard does nothing (nil: always current).
+    public func appBecameActive(sequence: Int? = nil) async {
+        guard isCurrentPhase(sequence) else { return }
         if inBackground { restartBudgets() }
         inBackground = false
         let state = deps.state.load()
@@ -125,6 +131,15 @@ public actor PushScheduler {
         }
         guard gateOpen(state) else { return }
         await request(.foreground)
+    }
+
+    /// Records `sequence` as the newest phase change; false when a newer one
+    /// was heard already.
+    func isCurrentPhase(_ sequence: Int?) -> Bool {
+        guard let sequence else { return true }
+        guard sequence > phaseSequence else { return false }
+        phaseSequence = sequence
+        return true
     }
 
     func gateOpen(_ state: SchedulerState) -> Bool {

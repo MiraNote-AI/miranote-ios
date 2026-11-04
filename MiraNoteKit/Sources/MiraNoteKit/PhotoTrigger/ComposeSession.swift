@@ -128,7 +128,8 @@ struct ComposeSession {
         case .success(let id): jobId = id
         case .failure(let box): return .failure(box)
         }
-        while waited < Self.budget {
+        // A cancelled task's sleeps return at once: stop instead of polling nonstop.
+        while waited < Self.budget, !Task.isCancelled {
             try? await sleep(Self.pollInterval)
             waited += Self.pollInterval
             switch await pollOnce(jobId, waited: &waited, transportFailures: &transportFailures) {
@@ -178,7 +179,8 @@ struct ComposeSession {
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)], waited: inout TimeInterval)
         async -> Result<String, TriggerAttemptBox> {
         var transportFailures = 0
-        while waited < Self.budget {
+        // A cancelled task's sleeps return at once: stop instead of polling nonstop.
+        while waited < Self.budget, !Task.isCancelled {
             do {
                 return .success(try await client.submit(meta, photos: photos))
             } catch ComposeError.rateLimited {

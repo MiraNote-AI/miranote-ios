@@ -4,11 +4,13 @@ extension PushScheduler {
     // MARK: Walking the nights
 
     /// Decides every night: kept, cached, or sent to the AI; then polls the
-    /// jobs, scheduling each night as its answer comes back.
+    /// jobs, scheduling each night as its answer comes back. A cancelled
+    /// task stops polling (its sleeps would return at once): the nights
+    /// still waiting count as AI errors and the next return runs again.
     func walk(_ context: RunContext) async {
         work.orphans = orphanClaims()
         await settle(context)
-        while work.days.contains(where: \.isWaiting), context.generation == generation {
+        while work.days.contains(where: \.isWaiting), context.generation == generation, !Task.isCancelled {
             await pollWave(context)
             guard context.generation == generation else { return }
             await settle(context)

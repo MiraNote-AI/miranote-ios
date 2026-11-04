@@ -39,6 +39,9 @@ final class TriggerController {
     /// What this install may do (InstallSource), resolved once per launch;
     /// nil until HomeFlow asks.
     @ObservationIgnored private var gates: Task<InstallSource.Gates, Never>?
+    /// Bumped at each scene-phase change the scheduler hears of: its hops
+    /// may land out of order, and it ignores one older than the last.
+    @ObservationIgnored private var phaseSequence = 0
 
     static let fakeAIKey = "photoTrigger.fakeAI"
 
@@ -68,16 +71,23 @@ final class TriggerController {
     /// quick switch away does not freeze it half-way.
     func sceneBecameActive() async {
         guard schedulesAutomatically else { return }
+        let sequence = nextPhase()
         await permissions.askFirstLaunch()
         let time = BackgroundTime()
         background = time
         time.begin { [scheduler] in await scheduler.backgroundTimeExpired() }
-        await scheduler.appBecameActive()
+        await scheduler.appBecameActive(sequence: sequence)
         time.end()
     }
 
     func sceneEnteredBackground() {
-        Task { await scheduler.appEnteredBackground() }
+        let sequence = nextPhase()
+        Task { [scheduler] in await scheduler.appEnteredBackground(sequence: sequence) }
+    }
+
+    private func nextPhase() -> Int {
+        phaseSequence += 1
+        return phaseSequence
     }
 
     /// A tapped push: the ledger learns it was opened before the story opens.

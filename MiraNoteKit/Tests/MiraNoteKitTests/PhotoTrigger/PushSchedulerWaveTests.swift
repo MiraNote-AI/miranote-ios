@@ -119,6 +119,72 @@ final class PushSchedulerWaveTests: PushSchedulerTestCase {
         XCTAssertEqual(client.submitted.filter { $0 == day("g0") }.count, 1, "g0 kept its job id")
         XCTAssertFalse(log.runs().flatMap(\.groups).contains { $0.outcome == .error })
     }
+
+    /// Background (2) then front (3), but 3's hop reaches the actor first:
+    /// the late background call must not leave the budgets off.
+    func testBackgroundCallLandingAfterTheReturnIsIgnored() async {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive(sequence: 1)
+        await scheduler.appBecameActive(sequence: 3)
+        await scheduler.appEnteredBackground(sequence: 2)
+        let inBackground = await scheduler.inBackground
+        XCTAssertFalse(inBackground)
+    }
+
+    func testStaleReturnToTheFrontDoesNothing() async {
+        let scheduler = makeScheduler()
+        await scheduler.appEnteredBackground(sequence: 2)
+        await scheduler.appBecameActive(sequence: 1)
+        let inBackground = await scheduler.inBackground
+        XCTAssertTrue(inBackground, "the app is in the background")
+        XCTAssertTrue(log.runs().isEmpty, "no run from a stale call")
+        await scheduler.appBecameActive(sequence: 3)
+        XCTAssertEqual(log.runs().count, 1)
+        let back = await scheduler.inBackground
+        XCTAssertFalse(back)
+    }
+
+    /// A run whose task is cancelled: its sleeps return at once, so the
+    /// wave must stop instead of polling nonstop. The jobs stay outstanding
+    /// and the next return runs again.
+    func testCancelledRunStopsPolling() async throws {
+        for group in allSeven { client.scripts[group] = [.running] }
+        let scheduler = makeScheduler()
+        let box = CancelBox()
+        hook.action = { number in if number == 2 { box.cancel() } }
+        let task = Task { await scheduler.appBecameActive() }
+        box.set(task)
+        await task.value
+        XCTAssertEqual(sleeps.cancelled, 0, "no sleep after the cancel")
+        XCTAssertLessThanOrEqual(client.pollManyCount, 2)
+        XCTAssertEqual(log.runs().count, 1)
+        XCTAssertEqual(Set(log.runs().first.map { Array($0.emptyDays.values) } ?? []), ["aiError"])
+        XCTAssertTrue(state.load().lastRunLeftDaysUnfilled, "the next return runs again")
+        XCTAssertEqual(state.load().outstanding.count, 7, "the jobs are picked up then")
+    }
+}
+
+/// Cancels a task, also one handed over after the cancel was asked for.
+private final class CancelBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: Task<Void, Never>?
+    private var wanted = false
+
+    func set(_ task: Task<Void, Never>) {
+        let cancel = lock.withLock { () -> Bool in
+            self.task = task
+            return wanted
+        }
+        if cancel { task.cancel() }
+    }
+
+    func cancel() {
+        let task = lock.withLock { () -> Task<Void, Never>? in
+            wanted = true
+            return self.task
+        }
+        task?.cancel()
+    }
 }
 
 /// `clearAll` while a run (or a debug push) waits on the system: the cleared
