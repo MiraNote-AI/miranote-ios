@@ -55,9 +55,11 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
         self.notOpened = false
     }
 
-    /// Scheduled and still waiting: not removed, not delivered, not a debug push.
+    /// Scheduled and still waiting: not removed, not delivered, not dropped
+    /// by iOS (`notDeliveredReason`), not a debug push. Only an active push
+    /// holds its group and belongs-to day.
     public var isActive: Bool {
-        removedAt == nil && removedReason == nil && deliveredAt == nil && !isDebug
+        removedAt == nil && removedReason == nil && deliveredAt == nil && notDeliveredReason == nil && !isDebug
     }
 }
 

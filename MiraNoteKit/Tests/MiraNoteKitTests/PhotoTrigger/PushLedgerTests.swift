@@ -51,6 +51,7 @@ final class PushLedgerTests: XCTestCase {
         XCTAssertNil(out[0].deliveredAt)
         XCTAssertEqual(out[0].notDeliveredReason, "notificationsOff")
         XCTAssertTrue(LedgerReconciler.pushedDays(out).isEmpty)
+        XCTAssertFalse(out[0].isActive, "dropped by iOS: it no longer holds its group or day")
     }
 
     func testNotificationsOffReasonIsTerminal() {

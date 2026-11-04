@@ -192,6 +192,36 @@ final class PushSchedulerTests: PushSchedulerTestCase {
         XCTAssertEqual(run.emptyDays.count, 7)
     }
 
+    /// Risk R10: a push iOS dropped while notifications were off leaves its
+    /// day pushable; its group and day are free for the next allowed run.
+    func testPushMissedWithNotificationsOffFreesItsGroupAndDay() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let tonight = try XCTUnwrap(active.first)
+        XCTAssertEqual(tonight.belongsTo, day("g0"))
+        notifier.allowed = false
+        clock.now = tonight.scheduledFor.addingTimeInterval(3600)
+        notifier.pendingIds.remove(tonight.identifier)
+        await scheduler.appBecameActive()
+        let dead = try XCTUnwrap(ledger.load().first { $0.pushId == tonight.pushId })
+        XCTAssertEqual(dead.notDeliveredReason, "notificationsOff")
+        XCTAssertFalse(dead.isActive)
+
+        notifier.allowed = true
+        let preview = await scheduler.previewNext()
+        let tomorrow = PushSlots.make(now: clock.now, calendar: zone.calendar)[0]
+        XCTAssertEqual(preview, .scheduled(slotDay: SchedulePlanner.day(tomorrow, calendar: zone.calendar)),
+                       "the preview skips the dead push")
+        XCTAssertNotEqual(notifier.scheduled.last?.belongsTo, day("g0"))
+
+        clock.advance(10 * 60)
+        await scheduler.appBecameActive()
+        XCTAssertTrue(active.contains { $0.belongsTo == day("g0") && $0.pushId != tonight.pushId },
+                      "the missed day is scheduled again")
+        XCTAssertEqual(Set(activeDays).count, activeDays.count)
+        XCTAssertEqual(activeDays.count, 7)
+    }
+
     func testPhotosDeniedLogsError() async throws {
         library.access = .denied
         await makeScheduler().appBecameActive()
