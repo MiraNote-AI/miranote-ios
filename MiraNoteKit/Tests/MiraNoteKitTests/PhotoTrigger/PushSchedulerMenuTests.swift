@@ -143,6 +143,26 @@ final class PushSchedulerMenuTests: PushSchedulerTestCase {
         XCTAssertFalse(activeDays.contains(tonight.belongsTo))
     }
 
+    /// D5: "Fewer like this" on a debug push still applies.
+    func testFewerLikeThisFromDebugPushStillApplies() async throws {
+        analyzer.labels = ["g0": "animal"]
+        addSpare()
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let tonight = try XCTUnwrap(active.first)
+        XCTAssertEqual(tonight.bucket, .animal)
+        let preview = await scheduler.previewNext()
+        XCTAssertEqual(preview, .scheduled(slotDay: "2025-10-31"))
+        let debug = try XCTUnwrap(ledger.load().first(where: \.isDebug))
+        XCTAssertEqual(debug.bucket, .animal)
+        await scheduler.menu(.fewerLikeThis, pushId: debug.pushId)
+        XCTAssertNotNil(preferences.load().fewer[.animal])
+        XCTAssertEqual(ledger.load().first { $0.pushId == debug.pushId }?.menuAction, .fewerLikeThis)
+        XCTAssertEqual(ledger.load().first { $0.pushId == tonight.pushId }?.removedReason, .menuBucket)
+        XCTAssertTrue(notifier.removedPending.contains(tonight.identifier))
+        XCTAssertFalse(active.contains { $0.bucket == .animal })
+    }
+
     func testFewerLikeThisIsIgnoredForOther() async throws {
         analyzer.labels = ["g0": "art"]
         let scheduler = makeScheduler()

@@ -111,6 +111,49 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
         XCTAssertTrue(state.load().outstanding.isEmpty)
     }
 
+    /// C9: a job older than an hour is not polled; the group is submitted anew.
+    func testJobOlderThanAnHourIsSubmittedAgain() async throws {
+        let ids = (0..<9).map { "g0-\($0)" }
+        let meta = ComposeMeta(groupKey: "k", date: day("g0"), weekday: 1, startTime: "", endTime: "", place: nil,
+                               rawCount: 9, coversAll: true, recentQuestionIds: [], bucket: "food", tz: "",
+                               photos: [])
+        let job = try await client.submit(meta, photos: [])
+        try state.update {
+            $0.outstanding[AIResultCache.key(ids)] = OutstandingJob(
+                jobId: job, submittedAt: start.addingTimeInterval(-3700), slotDay: "2025-10-31")
+        }
+        await makeScheduler().appBecameActive()
+        XCTAssertEqual(client.submitted.filter { $0 == day("g0") }.count, 2, "the earlier submit and a new one")
+        XCTAssertEqual(try XCTUnwrap(log.runs().first).aiSent, 7, "g0 went out again")
+        XCTAssertEqual(activeDays, allSeven, "g0's night is scheduled from the new result")
+        XCTAssertTrue(state.load().outstanding.isEmpty)
+        XCTAssertEqual(log.counters().leftBeforeResult, 0)
+    }
+
+    /// E4: one real run's log entry carries every field.
+    func testScheduleRunCarriesEveryField() async throws {
+        client.scripts[day("g0")] = [.running, .rejected]
+        client.scripts[day("g1")] = [.running, .ok]
+        await makeScheduler().appBecameActive()
+        let run = try XCTUnwrap(log.runs().first)
+        XCTAssertEqual(run.startedAt, start)
+        XCTAssertEqual(run.finishedAt, clock.now)
+        XCTAssertLessThan(run.startedAt, run.finishedAt)
+        XCTAssertEqual(run.trigger, "foreground")
+        XCTAssertGreaterThan(run.fragments, 0)
+        XCTAssertGreaterThan(run.candidates, 0)
+        XCTAssertGreaterThan(run.aiSent, 0)
+        XCTAssertNil(run.error)
+        let rejected = try XCTUnwrap(run.groups.first { $0.belongsTo == day("g0") })
+        XCTAssertEqual(rejected.outcome, .rejected)
+        XCTAssertGreaterThan(rejected.seconds, 0, "the seconds from submit to answer")
+        XCTAssertEqual(try XCTUnwrap(run.groups.first { $0.belongsTo == day("g1") }).outcome, .ok)
+        XCTAssertFalse(run.scheduledDays.isEmpty)
+        XCTAssertFalse(run.emptyDays.isEmpty, "the night g0's refusal left empty")
+        XCTAssertTrue(run.emptyDays.values.allSatisfy { !$0.isEmpty })
+        XCTAssertEqual(Set(run.scheduledDays).union(run.emptyDays.keys).count, 7)
+    }
+
     func testLeftBeforeResultCounts() async throws {
         for group in allSeven { client.scripts[group] = [.running, .running, .ok] }
         let scheduler = makeScheduler()

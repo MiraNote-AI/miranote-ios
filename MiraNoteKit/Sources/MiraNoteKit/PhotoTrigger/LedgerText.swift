@@ -32,10 +32,17 @@ public enum LedgerText {
             + "\(run.candidates), ai \(run.aiSent) | scheduled: \(days)"
         let empty = run.emptyDays.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }
         if !empty.isEmpty { line += " | empty: " + empty.joined(separator: ", ") }
-        let errors = run.groups.filter { $0.outcome == .error }.map { $0.message ?? "error" }
-            + (run.error.map { [$0] } ?? [])
+        let errors = (run.groups.filter { $0.outcome == .error }.map { $0.message ?? "error" }
+            + (run.error.map { [$0] } ?? [])).map(safe)
         if !errors.isEmpty { line += " | errors: " + errors.joined(separator: "; ") }
         return line
+    }
+
+    /// A backend's words can echo a credential: such a line is not copied.
+    private static func safe(_ message: String) -> String {
+        let lower = message.lowercased()
+        let secret = ["bearer", "token", "api_key", "apikey", "api-key", "sk-", "authorization"]
+        return secret.contains { lower.contains($0) } ? "error (text withheld)" : message
     }
 
     private static func stamp(_ date: Date) -> String {

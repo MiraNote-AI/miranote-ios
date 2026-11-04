@@ -47,8 +47,15 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
     /// The known file names each press passed in.
     var knownFilenames: [[String: String]] { lock.withLock { knownLog } }
 
+    private var sinceLog: [Date] = []
+    /// The `since` date of each library query, in order.
+    var sinceDates: [Date] { lock.withLock { sinceLog } }
+
     func assets(since date: Date, knownFilenames: [String: String]) async -> [LibraryAsset] {
-        lock.withLock { knownLog.append(knownFilenames) }
+        lock.withLock {
+            knownLog.append(knownFilenames)
+            sinceLog.append(date)
+        }
         return assetsList.filter { ($0.takenAt ?? .distantPast) >= date }
     }
     func uploadData(for id: String) async -> Data? { unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG }

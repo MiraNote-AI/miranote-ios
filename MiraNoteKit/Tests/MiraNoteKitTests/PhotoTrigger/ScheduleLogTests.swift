@@ -76,4 +76,22 @@ final class ScheduleLogTests: XCTestCase {
         XCTAssertTrue(text.contains("timeout"))
         XCTAssertEqual(text.split(separator: "\n").count, 4)
     }
+
+    /// E3: whatever a run carried, the copied text holds no key or token.
+    func testCopiedTextHoldsNoSecret() throws {
+        let entry = PushLedgerTests.entry(at: base)
+        var value = run(1)
+        value.error = "Authorization: Bearer abc.def"
+        value.groups = [
+            .init(slotDay: "2026-11-05", groupKey: "g", belongsTo: "2026-10-30", outcome: .error, seconds: 2,
+                  message: "401 token expired, api_key=sk-live-123 apiKey=zz"),
+            .init(slotDay: "2026-11-06", groupKey: "h", belongsTo: "2026-10-29", outcome: .error, seconds: 2,
+                  message: "timeout")
+        ]
+        let text = LedgerText.copy(entries: [entry], runs: [value], counters: ScheduleCounters())
+        for word in ["bearer", "token", "api_key", "apikey", "sk-"] {
+            XCTAssertNil(text.range(of: word, options: .caseInsensitive), word)
+        }
+        XCTAssertTrue(text.contains("timeout"), "harmless error text stays")
+    }
 }

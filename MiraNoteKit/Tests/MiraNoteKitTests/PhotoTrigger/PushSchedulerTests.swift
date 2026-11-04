@@ -329,3 +329,21 @@ final class PushSchedulerTests: PushSchedulerTestCase {
         XCTAssertEqual(activeDays, allSeven, "every store reads empty and the run goes on")
     }
 }
+
+// MARK: - The 60-day window
+
+extension PushSchedulerTests {
+    /// A5: every run asks the library again; nothing is cached between opens.
+    func testEveryRunQueriesTheLibraryForTheLastSixtyDays() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        XCTAssertEqual(library.sinceDates.count, 1)
+        clock.advance(2 * 3600)
+        await scheduler.appBecameActive()
+        let dates = library.sinceDates
+        XCTAssertEqual(dates.count, 2, "two runs, two queries")
+        XCTAssertLessThanOrEqual(dates[0], start.addingTimeInterval(-60 * 86_400))
+        XCTAssertLessThanOrEqual(dates[1], clock.now.addingTimeInterval(-60 * 86_400))
+        XCTAssertGreaterThan(dates[1], dates[0], "measured from each run's own now")
+    }
+}
