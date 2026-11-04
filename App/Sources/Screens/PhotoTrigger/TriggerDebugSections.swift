@@ -2,7 +2,8 @@ import MiraNoteKit
 import SwiftUI
 
 /// "Scheduled pushes": the next seven nights, each with its push or why it
-/// is empty (acceptance F2).
+/// is empty (acceptance F2) -- after tonight's push while it is under 30 min
+/// away (no longer one of the seven, still to come).
 struct TriggerScheduledSection: View {
     let snapshot: SchedulerSnapshot?
 

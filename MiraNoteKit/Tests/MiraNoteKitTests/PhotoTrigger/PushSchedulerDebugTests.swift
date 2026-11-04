@@ -197,6 +197,25 @@ final class PushSchedulerDebugTests: PushSchedulerTestCase {
         XCTAssertEqual(again.days[1].emptyReason, "aiError")
     }
 
+    /// Under 30 min to tonight's slot it is no longer one of the seven
+    /// nights, but its push is still to come: the page keeps showing it.
+    func testSnapshotKeepsTonightsPushUnderHalfAnHourAway() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let tonight = try XCTUnwrap(active.first)
+        clock.now = tonight.scheduledFor.addingTimeInterval(-20 * 60)
+        var snapshot = await scheduler.snapshot()
+        XCTAssertEqual(snapshot.days.count, 8, "tonight, then the next seven nights")
+        XCTAssertEqual(snapshot.days.first?.entry, tonight)
+        XCTAssertEqual(snapshot.days.first?.slot, tonight.scheduledFor)
+        XCTAssertEqual(Set(snapshot.days.map(\.slotDay)).count, 8)
+
+        clock.now = tonight.scheduledFor.addingTimeInterval(60)
+        snapshot = await scheduler.snapshot()
+        XCTAssertEqual(snapshot.days.count, 7, "gone once it has gone out")
+        XCTAssertFalse(snapshot.days.contains { $0.entry?.pushId == tonight.pushId })
+    }
+
     func testLastRunLoadsEmptyFromGarbage() throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data("[1,".utf8).write(to: folder.appendingPathComponent("last-run.json"))

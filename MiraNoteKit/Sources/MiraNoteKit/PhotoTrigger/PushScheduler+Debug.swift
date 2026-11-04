@@ -254,7 +254,8 @@ extension PushScheduler {
 
     // MARK: Snapshot
 
-    /// The debug page's view: the next seven nights, the log, counters,
+    /// The debug page's view: the next seven nights (after tonight's push
+    /// when it is under 30 min away and so not one of them), the log, counters,
     /// preferences and the last run's fragments with what became of them.
     /// Built from stored results; never regroups.
     public func snapshot() -> SchedulerSnapshot {
@@ -263,7 +264,14 @@ extension PushScheduler {
         if lastReport == nil { lastReport = deps.lastRun.load() }
         let report = lastReport
         let active = deps.ledger.load().filter(\.isActive)
-        let days = PushSlots.make(now: now, calendar: calendar).map { slot -> SchedulerSnapshot.Day in
+        var slots = PushSlots.make(now: now, calendar: calendar)
+        // Tonight's push under 30 min away is not one of the nights, yet still to come.
+        let tonight = active.filter { $0.scheduledFor >= now && calendar.isDate($0.scheduledFor, inSameDayAs: now) }
+            .min { $0.scheduledFor < $1.scheduledFor }
+        if let tonight, !slots.contains(where: { calendar.isDate($0, inSameDayAs: now) }) {
+            slots.insert(tonight.scheduledFor, at: 0)
+        }
+        let days = slots.map { slot -> SchedulerSnapshot.Day in
             let day = SchedulePlanner.day(slot, calendar: calendar)
             let entry = active.filter { calendar.isDate($0.scheduledFor, inSameDayAs: slot) }
                 .min { $0.scheduledFor < $1.scheduledFor }
