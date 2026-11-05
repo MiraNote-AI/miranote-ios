@@ -1,8 +1,11 @@
+import Foundation
 import MiraNoteKit
 
 /// A push opened: its id, the memory with any deleted photos taken out,
 /// and where its photos are in the library.
 struct TriggerOpening {
+    /// This opening of the push: a story opened again is another one.
+    let id = UUID()
     let pushId: String
     let memory: TriggerMemory
     let photoIds: [String: String]

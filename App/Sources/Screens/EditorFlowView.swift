@@ -194,6 +194,8 @@ struct HomeFlow: View {
     /// The debug entry and automatic scheduling: development and TestFlight
     /// builds (InstallSource).
     @State private var triggerGates = InstallSource.Gates.closed
+    /// The ending's button turning its story into a canvas draft.
+    @State private var keeper = TriggerKeep()
 
     /// A note addressed within its collection, for stack navigation.
     private struct NoteRef: Hashable {
@@ -554,7 +556,7 @@ extension HomeFlow {
         PhotoTriggerView(memory: opening.memory, bucketName: opening.bucketName,
                          allowsFewer: opening.allowsFewer, photoIds: opening.photoIds,
                          library: trigger.photos, onClose: { route = nil },
-                         onKeep: { keepTrigger($0, photoIds: opening.photoIds, pushId: opening.pushId) },
+                         onKeep: { keepTrigger($0, opening: opening) },
                          onMenu: { trigger.menu($0, pushId: opening.pushId) },
                          onFinished: { trigger.storyFinished(opening.pushId) })
     }
@@ -565,15 +567,27 @@ extension HomeFlow {
         if router.pending == pushId { router.pending = nil }
     }
 
-    /// The ending's button: the photos and words as a canvas draft.
-    private func keepTrigger(_ memory: TriggerMemory, photoIds: [String: String], pushId: String) {
+    /// The ending's button: the photos and words as a canvas draft, opened
+    /// only over the story that asked for it (`TriggerKeep`).
+    private func keepTrigger(_ memory: TriggerMemory, opening: TriggerOpening) {
         let photos = trigger.photos
+        let covers = TriggerKeep.Covers(
+            story: { storyOnScreen },
+            isEmpty: { route == nil },
+            close: { route = nil },
+            open: { route = .draft($0.page, prompts: $0.prompts, pushId: opening.pushId) },
+            discard: { _ in }
+        )
         Task { @MainActor in
-            let draft = await TriggerDraftMaker.make(memory, photoIds: photoIds, photos: photos)
-            route = nil
-            // Swap covers only after this one is gone.
-            try? await Task.sleep(for: .milliseconds(300))
-            route = .draft(draft.page, prompts: draft.prompts, pushId: pushId)
+            await keeper.keep(opening.id, make: {
+                await TriggerDraftMaker.make(memory, photoIds: opening.photoIds, photos: photos)
+            }, covers: covers)
         }
+    }
+
+    /// The story on screen, if the cover is one.
+    private var storyOnScreen: UUID? {
+        if case .trigger(let opening) = route { return opening.id }
+        return nil
     }
 }
