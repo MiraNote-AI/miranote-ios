@@ -58,7 +58,7 @@ public final class CanvasViewModel {
     /// One undo step: the canvas elements plus the page background.
     // The backdrop and its description travel together: restoring one
     // without the other leaves the page describing a picture it lost.
-    private struct UndoSnapshot: Equatable {
+    fileprivate struct UndoSnapshot: Equatable {
         let items: [CanvasItem]
         let backgroundFileName: String
         let backgroundSummary: String
@@ -80,27 +80,6 @@ public final class CanvasViewModel {
         /// later without an undo step, so it never sets two steps apart.
         func sameEdits(as other: UndoSnapshot) -> Bool {
             withoutPhotoDescriptions == other.withoutPhotoDescriptions
-        }
-
-        /// `sameEdits`, also blind to what text fits did to an element and
-        /// to a move shorter than `stray`: each element is put back where
-        /// `other` has it when it is that close.
-        func sameEdits(as other: UndoSnapshot, ignoringMovesUnder stray: CGFloat) -> Bool {
-            let places = Dictionary(other.items.map { ($0.id, $0.position) }, uniquingKeysWith: { first, _ in first })
-            func settled(_ items: [CanvasItem], snapping: Bool) -> [CanvasItem] {
-                items.map { item in
-                    var plain = item
-                    plain.fitOffset = nil
-                    plain.clearance = nil
-                    if snapping, let place = places[item.id],
-                       hypot(item.position.x - place.x, item.position.y - place.y) < stray {
-                        plain.position = place
-                    }
-                    return plain
-                }
-            }
-            return replacingItems(settled(items, snapping: true))
-                .sameEdits(as: other.replacingItems(settled(other.items, snapping: false)))
         }
 
         private var withoutPhotoDescriptions: UndoSnapshot {
@@ -171,37 +150,6 @@ public final class CanvasViewModel {
     /// as given.
     private var filedItems: [CanvasItem] {
         memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
-    }
-
-    /// Moves shorter than this leave an element where it was: a finger that
-    /// slid while tapping, not a new place.
-    public static let strayMoveDistance: CGFloat = 8
-
-    /// Nothing of the writer's on the page since it opened: a step undone,
-    /// a block opened for writing with nothing typed, a new block still
-    /// empty, a color only previewed and a move under `strayMoveDistance`
-    /// all leave it as it arrived. The page's own work -- text fitted to its
-    /// measure, a photo's description landing -- never counts.
-    public var isAsArrived: Bool {
-        var now = currentSnapshot.replacingItems(
-            memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
-        )
-        if let origin = pagePreviewOrigin {
-            now = UndoSnapshot(items: now.items, backgroundFileName: origin.backgroundFileName,
-                               backgroundSummary: origin.backgroundSummary,
-                               paper: now.paper, pageColorName: origin.pageColorName)
-        }
-        return now.sameEdits(as: arrival, ignoringMovesUnder: Self.strayMoveDistance)
-    }
-
-    /// The arrival page fitted as the page is (`fitTextHeights`): the fit on
-    /// open moves what is below a block that grew, on both alike.
-    func refitArrival(_ height: (CanvasItem) -> CGFloat?) {
-        arrival = arrival.replacingItems(TextFit.apply(to: arrival.items, height: height))
-    }
-
-    public var contentBottom: CGFloat {
-        memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
     }
 
     // MARK: Undo
@@ -814,5 +762,65 @@ private extension CanvasItem {
             return block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return false
+    }
+}
+
+extension CanvasViewModel {
+    public var contentBottom: CGFloat {
+        memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
+    }
+}
+
+// MARK: - The page as it arrived (push drafts)
+
+extension CanvasViewModel {
+    /// Moves shorter than this leave an element where it was: a finger that
+    /// slid while tapping, not a new place.
+    public static let strayMoveDistance: CGFloat = 8
+
+    /// Nothing of the writer's on the page since it opened: a step undone,
+    /// a block opened for writing with nothing typed, a new block still
+    /// empty, a color only previewed and a move under `strayMoveDistance`
+    /// all leave it as it arrived. The page's own work -- text fitted to its
+    /// measure, a photo's description landing -- never counts.
+    public var isAsArrived: Bool {
+        var now = currentSnapshot.replacingItems(
+            memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
+        )
+        if let origin = pagePreviewOrigin {
+            now = UndoSnapshot(items: now.items, backgroundFileName: origin.backgroundFileName,
+                               backgroundSummary: origin.backgroundSummary,
+                               paper: now.paper, pageColorName: origin.pageColorName)
+        }
+        return now.sameEdits(as: arrival, ignoringMovesUnder: Self.strayMoveDistance)
+    }
+
+    /// The arrival page fitted as the page is (`fitTextHeights`): the fit on
+    /// open moves what is below a block that grew, on both alike.
+    func refitArrival(_ height: (CanvasItem) -> CGFloat?) {
+        arrival = arrival.replacingItems(TextFit.apply(to: arrival.items, height: height))
+    }
+}
+
+extension CanvasViewModel.UndoSnapshot {
+    /// `sameEdits`, also blind to what text fits did to an element and
+    /// to a move shorter than `stray`: each element is put back where
+    /// `other` has it when it is that close.
+    func sameEdits(as other: Self, ignoringMovesUnder stray: CGFloat) -> Bool {
+        let places = Dictionary(other.items.map { ($0.id, $0.position) }, uniquingKeysWith: { first, _ in first })
+        func settled(_ items: [CanvasItem], snapping: Bool) -> [CanvasItem] {
+            items.map { item in
+                var plain = item
+                plain.fitOffset = nil
+                plain.clearance = nil
+                if snapping, let place = places[item.id],
+                   hypot(item.position.x - place.x, item.position.y - place.y) < stray {
+                    plain.position = place
+                }
+                return plain
+            }
+        }
+        return replacingItems(settled(items, snapping: true))
+            .sameEdits(as: other.replacingItems(settled(other.items, snapping: false)))
     }
 }

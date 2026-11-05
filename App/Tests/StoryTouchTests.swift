@@ -9,11 +9,11 @@ final class StoryTouchTests: XCTestCase {
     private let width: CGFloat = 390
 
     private func lift(after seconds: TimeInterval, dx: CGFloat = 0, dy: CGFloat = 0,
-                      x: CGFloat = 300) -> StoryTouch.Outcome? {
+                      liftX: CGFloat = 300) -> StoryTouch.Outcome? {
         var touch = StoryTouch()
         XCTAssertTrue(touch.down(at: start))
         return touch.lift(at: start.addingTimeInterval(seconds), translation: CGSize(width: dx, height: dy),
-                          x: x, width: width)
+                          liftX: liftX, width: width)
     }
 
     func testOnlyTheFirstMovePauses() {
@@ -23,8 +23,8 @@ final class StoryTouchTests: XCTestCase {
     }
 
     func testQuickTapsStep() {
-        XCTAssertEqual(lift(after: 0.1, x: 300), .forward)
-        XCTAssertEqual(lift(after: 0.1, x: 60), .back)
+        XCTAssertEqual(lift(after: 0.1, liftX: 300), .forward)
+        XCTAssertEqual(lift(after: 0.1, liftX: 60), .back)
     }
 
     func testSwipesStep() {
@@ -40,7 +40,7 @@ final class StoryTouchTests: XCTestCase {
         var touch = StoryTouch()
         XCTAssertTrue(touch.down(at: start))
         XCTAssertEqual(touch.cancel(), .resume, "the story must not stay paused")
-        XCTAssertNil(touch.lift(at: start.addingTimeInterval(2), translation: .zero, x: 300, width: width),
+        XCTAssertNil(touch.lift(at: start.addingTimeInterval(2), translation: .zero, liftX: 300, width: width),
                      "that touch is over")
         XCTAssertTrue(touch.down(at: start.addingTimeInterval(3)), "the next touch pauses again")
     }
@@ -51,7 +51,7 @@ final class StoryTouchTests: XCTestCase {
         XCTAssertEqual(lift(after: 0.1), .forward)
         var lifted = StoryTouch()
         _ = lifted.down(at: start)
-        _ = lifted.lift(at: start.addingTimeInterval(0.1), translation: .zero, x: 300, width: width)
+        _ = lifted.lift(at: start.addingTimeInterval(0.1), translation: .zero, liftX: 300, width: width)
         XCTAssertNil(lifted.cancel(), "a lifted touch is not cancelled after")
     }
 }

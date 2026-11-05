@@ -322,12 +322,6 @@ struct HomeFlow: View {
         if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
     }
 
-    private func makeMoodJudge() -> MoodJudge {
-        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
-        moodJudge = judge
-        return judge
-    }
-
     var body: some View {
         NavigationStack(path: $path) {
             HomeView(
@@ -499,6 +493,12 @@ struct HomeFlow: View {
 }
 
 extension HomeFlow {
+    private func makeMoodJudge() -> MoodJudge {
+        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
+        moodJudge = judge
+        return judge
+    }
+
     /// Text the page `route` opens holds only to prompt the writer.
     private static func prompts(of route: Route) -> [CanvasItem.ID: String] {
         if case .draft(_, let prompts, _) = route { return prompts }

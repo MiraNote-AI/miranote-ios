@@ -383,7 +383,8 @@ extension PhotoTriggerView {
                 if touch.down(at: .now) { clock.pause() }
             }
             .onEnded { value in
-                let outcome = touch.lift(at: .now, translation: value.translation, x: value.location.x, width: width)
+                let outcome = touch.lift(at: .now, translation: value.translation,
+                                         liftX: value.location.x, width: width)
                 if let outcome { follow(outcome) }
             }
     }

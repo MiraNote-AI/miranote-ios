@@ -24,16 +24,16 @@ struct StoryTouch {
         return true
     }
 
-    /// The finger lifted at `x` of a story `width` wide; nil when no touch
-    /// was on (one already taken away).
-    mutating func lift(at date: Date, translation: CGSize, x: CGFloat, width: CGFloat) -> Outcome? {
+    /// The finger lifted at `liftX` of a story `width` wide; nil when no
+    /// touch was on (one already taken away).
+    mutating func lift(at date: Date, translation: CGSize, liftX: CGFloat, width: CGFloat) -> Outcome? {
         guard let start = downAt else { return nil }
         downAt = nil
         let held = date.timeIntervalSince(start)
         let dx = translation.width
         let dy = translation.height
         if abs(dx) > Self.swipeDistance, abs(dx) > abs(dy) { return dx < 0 ? .forward : .back }
-        if held < Self.tapLimit, abs(dx) < 10, abs(dy) < 10 { return x < width / 3 ? .back : .forward }
+        if held < Self.tapLimit, abs(dx) < 10, abs(dy) < 10 { return liftX < width / 3 ? .back : .forward }
         return .resume
     }
 
