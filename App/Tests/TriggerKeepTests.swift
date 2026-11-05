@@ -3,7 +3,8 @@ import XCTest
 @testable import MiraNote
 
 /// The ending's Keep, from the story to its canvas draft: the draft opens
-/// only over the story that asked for it, never over a cover opened since.
+/// only over the story that asked for it, never over a cover opened since,
+/// and no push opens while one cover gives way to the other.
 @MainActor
 final class TriggerKeepTests: XCTestCase {
     /// HomeFlow's covers, as the keep sees them.
@@ -116,6 +117,24 @@ final class TriggerKeepTests: XCTestCase {
         XCTAssertEqual(screen.cover, .editor)
         XCTAssertTrue(screen.opened.isEmpty)
         XCTAssertEqual(screen.discarded.count, 1)
+    }
+
+    /// From the story's close to the draft's open no push may open: Home
+    /// is bare for that pause, and a push opened in it would be swapped
+    /// away by the draft.
+    func testNoPushOpensWhileSwitching() async {
+        let story = UUID()
+        let screen = Screen()
+        screen.cover = .story(story)
+        let keep = TriggerKeep(gap: .milliseconds(300))
+        XCTAssertTrue(keep.mayOpenPush(coverUp: false))
+        let task = Task { await keep.keep(story, make: { self.draft }, covers: screen.covers) }
+        while screen.closes == 0 { await Task.yield() }
+        XCTAssertNil(screen.cover, "Home is bare in the pause")
+        XCTAssertFalse(keep.mayOpenPush(coverUp: false), "a pending push waits")
+        await task.value
+        XCTAssertFalse(keep.mayOpenPush(coverUp: true), "the draft is the cover now")
+        XCTAssertTrue(keep.mayOpenPush(coverUp: false))
     }
 
     func testCoverUpHoldsAPush() {

@@ -400,7 +400,9 @@ struct HomeFlow: View {
         .triggerLifecycle(trigger, enabled: triggerGates.schedulesAutomatically)
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
-        .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil)) { await openPendingPush() }
+        .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
+            await openPendingPush()
+        }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
         .background { TriggerScheduleProbe(controller: trigger) }
@@ -535,7 +537,7 @@ extension HomeFlow {
     /// story) the push waits in `router.pending` and opens once that cover
     /// has closed: tearing it down would lose an unsaved page.
     private func openPendingPush() async {
-        guard let pushId = router.pending, route == nil else { return }
+        guard let pushId = router.pending, keeper.mayOpenPush(coverUp: route != nil) else { return }
         let records = trigger.records
         guard let record = pushId == "latest" ? records.latest() : records.record(pushId) else {
             return finishPending(pushId)
@@ -545,7 +547,7 @@ extension HomeFlow {
         guard let memory = record.memory.replacingMissing(present: numbers) else { return finishPending(pushId) }
         // A cover may have opened, or a newer push arrived, while the library
         // was asked: then this one waits (or gives way) and runs again.
-        guard route == nil, router.pending == pushId else { return }
+        guard keeper.mayOpenPush(coverUp: route != nil), router.pending == pushId else { return }
         finishPending(pushId)
         route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds,
                                         bucketId: record.bucketId))

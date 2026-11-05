@@ -6,6 +6,8 @@ import Observation
 /// The draft is made while the story stays up, and it opens only over the
 /// story that asked for it: closed meanwhile, or given way to another
 /// cover, the draft is dropped and nothing the writer opened is closed.
+/// While the story's cover gives way to the draft's, no push opens: Home
+/// is bare for that pause, and a story opened in it would be lost.
 @MainActor
 @Observable
 final class TriggerKeep {
@@ -24,18 +26,22 @@ final class TriggerKeep {
 
     /// The story's cover is gone before the draft's comes up.
     private let gap: Duration
+    /// From the story's close to the draft's open.
+    private(set) var switching = false
 
     init(gap: Duration = .milliseconds(300)) {
         self.gap = gap
     }
 
     /// Whether a pending push may open its story now.
-    func mayOpenPush(coverUp: Bool) -> Bool { !coverUp }
+    func mayOpenPush(coverUp: Bool) -> Bool { !coverUp && !switching }
 
     /// `make`s the draft of `story`, then swaps the story's cover for it.
     func keep(_ story: UUID, make: () async -> TriggerDraft, covers: Covers) async {
         let draft = await make()
         guard covers.story() == story else { return covers.discard(draft) }
+        switching = true
+        defer { switching = false }
         covers.close()
         try? await Task.sleep(for: gap)
         // A page opened in the pause is the writer's: it stays.
