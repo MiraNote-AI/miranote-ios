@@ -12,6 +12,16 @@ public enum AIVerdict: Codable, Equatable, Sendable {
         if case .ok(let memory, _) = self { return memory.isFakeMade }
         return false
     }
+
+    /// A memory the backend wrote under other copy rules than the phone's
+    /// (`generation.copyVersion`): never stored, or the phone's key would
+    /// keep words of the old rules.
+    var isOtherCopy: Bool {
+        if case .ok(let memory, _) = self, let generation = memory.generation {
+            return generation.copyVersion != TriggerMemory.copyVersion
+        }
+        return false
+    }
 }
 
 /// AI verdicts by photo set, so the same photos never cost a second call.
@@ -53,7 +63,9 @@ public struct AIResultCache: Sendable {
         load()[key].flatMap { $0.verdict.isFakeMade ? nil : $0.verdict }
     }
 
+    /// A memory written under other copy rules is not stored.
     public func store(_ verdict: AIVerdict, key: String, belongsTo: String, at: Date) throws {
+        guard !verdict.isOtherCopy else { return }
         var all = load()
         all[key] = Entry(verdict: verdict, belongsTo: belongsTo, storedAt: at)
         try save(all)

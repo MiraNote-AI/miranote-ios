@@ -43,6 +43,24 @@ final class AIResultCacheTests: XCTestCase {
         XCTAssertEqual(cache.verdict("fake"), ok)
     }
 
+    /// An answer written under other copy rules than the phone's is never
+    /// kept: its words would be reused under the phone's key.
+    func testOkUnderOtherCopyRulesIsNotCached() throws {
+        let cache = AIResultCache(file: tempFile())
+        let base = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P1")
+        func memory(_ version: String) -> TriggerMemory {
+            TriggerMemory(id: base.id, date: base.date, daypart: base.daypart, push: base.push, story: base.story,
+                          ending: base.ending, generation: .init(bodySource: "llm", questionSource: "llm",
+                                                                 model: "m", costCny: 0, latencyMs: 0,
+                                                                 copyVersion: version))
+        }
+        try cache.store(.ok(memory: memory("copy_v1"), photoIds: [:]), key: "old", belongsTo: "2026-10-30", at: now)
+        XCTAssertNil(cache.verdict("old"))
+        try cache.store(.ok(memory: memory(TriggerMemory.copyVersion), photoIds: [:]), key: "new",
+                        belongsTo: "2026-10-30", at: now)
+        XCTAssertNotNil(cache.verdict("new"))
+    }
+
     func testRejectedIsCached() throws {
         let cache = AIResultCache(file: tempFile())
         let rejected = AIVerdict.rejected(reason: "sensitive", message: "no")
