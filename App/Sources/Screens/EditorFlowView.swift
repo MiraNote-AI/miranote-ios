@@ -16,6 +16,8 @@ struct EditorFlowView: View {
     /// writer touched it (or tapped Done), and `onMadePage` tells the ledger.
     var pushId: String?
     var onMadePage: (String) -> Void = { _ in }
+    /// A push draft left as it arrived: nothing of it is filed.
+    var onDiscardDraft: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var editor: CanvasViewModel
@@ -45,10 +47,12 @@ struct EditorFlowView: View {
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
         services: ServiceContainer = .mock,
         pushId: String? = nil,
-        onMadePage: @escaping (String) -> Void = { _ in }
+        onMadePage: @escaping (String) -> Void = { _ in },
+        onDiscardDraft: @escaping () -> Void = {}
     ) {
         self.pushId = pushId
         self.onMadePage = onMadePage
+        self.onDiscardDraft = onDiscardDraft
         self.onExit = onExit
         self.onComplete = onComplete
         self.onAutosave = onAutosave
@@ -107,7 +111,12 @@ struct EditorFlowView: View {
     /// Back: an untouched push draft leaves nothing behind; anything else
     /// is Done's filing.
     private func back() {
-        if isUntouchedPushDraft { onExit() } else { finish() }
+        if isUntouchedPushDraft {
+            onDiscardDraft()
+            onExit()
+        } else {
+            finish()
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -440,7 +449,9 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services),
                     pushId: Self.pushId(of: presented),
-                    onMadePage: { trigger.madePage($0) }
+                    onMadePage: { trigger.madePage($0) },
+                    // The page as drafted: its photo copies are the draft's own.
+                    onDiscardDraft: { TriggerDraftMaker.discard(memory) }
                 )
                 .environment(\.theme, Theme(appearance: .system))
             case .trigger(let opening):
@@ -582,7 +593,7 @@ extension HomeFlow {
             isEmpty: { route == nil },
             close: { route = nil },
             open: { route = .draft($0.page, prompts: $0.prompts, pushId: opening.pushId) },
-            discard: { _ in }
+            discard: { TriggerDraftMaker.discard($0.page) }
         )
         Task { @MainActor in
             await keeper.keep(opening.id, make: {

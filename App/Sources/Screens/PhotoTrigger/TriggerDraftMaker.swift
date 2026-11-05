@@ -17,4 +17,13 @@ enum TriggerDraftMaker {
         }
         return TriggerDraftBuilder.draft(memory: memory, imageFiles: files, detailFont: TriggerEndingText.detailFont)
     }
+
+    /// A draft `make` made that is not kept (left untouched, or never
+    /// opened): its photo copies are deleted. Pass the page as it was
+    /// made, so only those files go.
+    static func discard(_ page: Memory, store: ImageFileStore = ImageFileStore()) {
+        for item in page.items {
+            if case .image(let ref) = item.content { store.delete(fileName: ref.fileName) }
+        }
+    }
 }
