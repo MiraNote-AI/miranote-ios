@@ -65,14 +65,26 @@ enum DetailFont: String, CaseIterable, Sendable {
         return [UIFont.systemFont(ofSize: size)] + [UIFont(name: metricsStandIn, size: size)].compactMap { $0 }
     }
 
-    /// Starts the download if the font is not on the device yet. Safe to
-    /// call any number of times; a failure just leaves the system font.
+    /// Starts the downloads of the ending's two faces (this one and the
+    /// question's) if they are not on the device yet. Safe to call any
+    /// number of times; a failure just leaves the system font.
     nonisolated static func prefetch() {
-        let name = currentName
-        guard UIFont(name: name, size: 12) == nil else { return }
-        let descriptor = CTFontDescriptorCreateWithNameAndSize(name as CFString, 0)
-        CTFontDescriptorMatchFontDescriptorsWithProgressHandler(
-            [descriptor] as CFArray, nil
-        ) { _, _ in true }
+        for name in [currentName, QuestionFont.postScriptName] where UIFont(name: name, size: 12) == nil {
+            let descriptor = CTFontDescriptorCreateWithNameAndSize(name as CFString, 0)
+            CTFontDescriptorMatchFontDescriptorsWithProgressHandler(
+                [descriptor] as CFArray, nil
+            ) { _, _ in true }
+        }
+    }
+}
+
+/// The ending question's face (decision 11-05): Weibei SC, an on-demand
+/// Apple font like the detail line's, its square brush strokes set apart
+/// from the Kaiti detail above it. The system font until it has downloaded.
+enum QuestionFont {
+    static let postScriptName = "WeibeiSC-Bold"
+
+    nonisolated static func uiFont(size: CGFloat) -> UIFont {
+        DetailFont.uiFont(named: postScriptName, size: size)
     }
 }

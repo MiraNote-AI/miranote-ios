@@ -10,6 +10,13 @@ final class DetailFontTests: XCTestCase {
         XCTAssertEqual(DetailFont.songti.postScriptName, "STSongti-SC-Regular")
     }
 
+    func testQuestionIsWeibeiFallingBackToSystemFontAtItsSize() {
+        XCTAssertEqual(QuestionFont.postScriptName, "WeibeiSC-Bold")
+        let font = QuestionFont.uiFont(size: 22)
+        XCTAssertEqual(font.pointSize, 22, accuracy: 0.001)
+        XCTAssertTrue([QuestionFont.postScriptName, UIFont.systemFont(ofSize: 22).fontName].contains(font.fontName))
+    }
+
     func testUnavailableNameFallsBackToSystemFont() {
         let font = DetailFont.uiFont(named: "Not-A-Real-Font-Regular", size: 22)
         XCTAssertEqual(font.pointSize, 22, accuracy: 0.001)

@@ -43,9 +43,7 @@ struct TriggerEndingText: View {
             }
 
             Text(ending.question)
-                // No Chinese serif ships with iOS: the serif design keeps the
-                // Latin quiet and falls back to the system face for Chinese.
-                .font(.system(size: 22, weight: .regular, design: .serif))
+                .font(Font(QuestionFont.uiFont(size: 22)))
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
