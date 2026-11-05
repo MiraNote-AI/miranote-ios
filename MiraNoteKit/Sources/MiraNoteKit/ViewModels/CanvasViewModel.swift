@@ -108,13 +108,14 @@ public final class CanvasViewModel {
     private static let historyCap = 50
 
     /// Text a page arrived with only to prompt the writer (the photo
-    /// trigger's question): item id -> its words as given. Filed only once
-    /// rewritten; left as given, it is not part of the page.
-    private let prompts: [CanvasItem.ID: String]
+    /// trigger's question), filed once the writer has written anything on
+    /// the page -- rewriting it, or any other text; with no words of
+    /// theirs, it is not part of the page (handoff refine 5.3).
+    private let prompts: PagePrompts
 
     public init(memory: Memory, prompts: [CanvasItem.ID: String] = [:]) {
         self.memory = memory
-        self.prompts = prompts
+        self.prompts = PagePrompts(given: prompts, items: memory.items)
     }
 
     public var items: [CanvasItem] { memory.items }
@@ -379,10 +380,40 @@ public final class CanvasViewModel {
 
 // MARK: - Prompts
 
+/// A page's prompts: item id -> its words as given, and (with any) every
+/// text block's words as the page arrived, to tell the writer's words from
+/// the page's own.
+private struct PagePrompts {
+    let given: [CanvasItem.ID: String]
+    let arrived: [CanvasItem.ID: String]
+
+    init(given: [CanvasItem.ID: String], items: [CanvasItem]) {
+        self.given = given
+        arrived = given.isEmpty ? [:] : Self.texts(items)
+    }
+
+    /// Some text block holds words the page did not arrive with: a block
+    /// rewritten, or a new one with words in it.
+    func hasWritersWords(_ items: [CanvasItem]) -> Bool {
+        Self.texts(items).contains { id, text in
+            arrived[id] != text && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    static func texts(_ items: [CanvasItem]) -> [CanvasItem.ID: String] {
+        var texts: [CanvasItem.ID: String] = [:]
+        for item in items {
+            if case .text(let block) = item.content { texts[item.id] = block.text }
+        }
+        return texts
+    }
+}
+
 private extension CanvasViewModel {
+    /// A prompt as given on a page the writer has put no words on.
     func isUntouchedPrompt(_ item: CanvasItem) -> Bool {
-        guard let given = prompts[item.id], case .text(let block) = item.content else { return false }
-        return block.text == given
+        guard let given = prompts.given[item.id], case .text(let block) = item.content else { return false }
+        return block.text == given && !prompts.hasWritersWords(memory.items)
     }
 }
 

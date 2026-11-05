@@ -7,8 +7,8 @@ import Foundation
 /// (the peak in the big cell), the detail line in the ending's detail
 /// font (none when empty), and the question at 17 pt in the body face.
 /// Real text, so a page saved untouched keeps the fact and detail lines;
-/// the question is a prompt (`TriggerDraft.prompts`), filed only once
-/// rewritten (user decision 2026-11-01).
+/// the question is a prompt (`TriggerDraft.prompts`), filed only once the
+/// writer has put words on the page (user decisions 2026-11-01, 11-04).
 public enum TriggerDraftBuilder {
     public static let margin: CGFloat = 20
     static let top: CGFloat = 24

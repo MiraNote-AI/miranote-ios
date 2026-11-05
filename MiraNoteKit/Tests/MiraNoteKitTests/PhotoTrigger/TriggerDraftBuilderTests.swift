@@ -104,7 +104,7 @@ final class TriggerDraftBuilderTests: XCTestCase {
     }
 
     /// Saved untouched, the page keeps the fact and detail lines but not
-    /// the question (user decision 2026-11-01).
+    /// the question (user decision 2026-11-01; acceptance R6).
     @MainActor
     func testUntouchedQuestionIsNotFiled() {
         let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
@@ -129,6 +129,56 @@ final class TriggerDraftBuilderTests: XCTestCase {
         XCTAssertEqual(texts(filed).map(\.block.text).sorted(),
                        ["10.18 \u{00B7} Arboretum", "What else? The rain, mostly."])
         XCTAssertEqual(filed.body, "What else? The rain, mostly.")
+    }
+
+    /// Words of the writer's anywhere on the page keep the question as the
+    /// page's prompt, left as given (handoff refine 5.3, acceptance R6).
+    @MainActor
+    func testQuestionIsFiledWhenTheWriterAddsText() {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
+                                              imageFiles: files(3), detailFont: "Lora")
+        let canvas = CanvasViewModel(memory: draft.page, prompts: draft.prompts)
+        canvas.addText("The rain came at four.", at: CGPoint(x: 160, y: 900))
+        let filed = canvas.composedMemory()
+        XCTAssertEqual(texts(filed).map(\.block.text).sorted(),
+                       ["10.18 \u{00B7} Arboretum", "Light on the arch", "The rain came at four.", "What else?"])
+        XCTAssertEqual(images(filed).count, 3)
+    }
+
+    @MainActor
+    func testQuestionIsFiledWhenTheWriterRewritesTheDetail() throws {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
+                                              imageFiles: files(3), detailFont: "Lora")
+        let canvas = CanvasViewModel(memory: draft.page, prompts: draft.prompts)
+        let detail = try XCTUnwrap(texts(draft.page).first { $0.block.text == "Light on the arch" })
+        canvas.setText(itemID: detail.item.id, to: "Light on the arch, and then rain")
+        XCTAssertTrue(texts(canvas.composedMemory()).contains { $0.block.text == "What else?" })
+    }
+
+    /// Changes without words (a photo moved, an empty block) leave the
+    /// question out, as an untouched page does.
+    @MainActor
+    func testQuestionIsLeftOutWhenNothingWasWritten() throws {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
+                                              imageFiles: files(3), detailFont: "Lora")
+        let canvas = CanvasViewModel(memory: draft.page, prompts: draft.prompts)
+        let photo = try XCTUnwrap(images(draft.page).first)
+        canvas.move(itemID: photo.item.id, to: CGPoint(x: 120, y: 400))
+        canvas.addText("   ", at: CGPoint(x: 160, y: 900))
+        let filed = canvas.composedMemory()
+        XCTAssertFalse(texts(filed).contains { $0.block.text == "What else?" })
+        XCTAssertTrue(texts(filed).contains { $0.block.text == "Light on the arch" })
+        XCTAssertEqual(images(filed).count, 3)
+    }
+
+    /// A page made by hand has no prompt: everything on it is filed.
+    @MainActor
+    func testPageWithoutPromptsFilesEveryText() {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: ""), imageFiles: files(3),
+                                              detailFont: "Lora")
+        let canvas = CanvasViewModel(memory: draft.page)
+        XCTAssertEqual(texts(canvas.composedMemory()).map(\.block.text).sorted(),
+                       ["10.18 \u{00B7} Arboretum", "What else?"])
     }
 
     func testPhotosWithoutAFileAreLeftOut() {
