@@ -161,6 +161,8 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     var scripts: [String: [Answer]] = [:]
     var questions: [TriggerMemory.Ending.Question]?
     var submitErrors: [ComposeError] = []
+    /// Thrown by the next polls, one per `poll` or `pollMany` call.
+    var pollErrors: [ComposeError] = []
     private(set) var submitted: [String] = []
     private(set) var lastMeta: ComposeMeta?
     /// Every meta submitted, in order.
@@ -188,13 +190,23 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     }
 
     func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
-        lock.withLock { eventList.append("pollMany \(jobIds.count)") }
+        try lock.withLock {
+            eventList.append("pollMany \(jobIds.count)")
+            if !pollErrors.isEmpty { throw pollErrors.removeFirst() }
+        }
         var result: [String: ComposeJobStatus] = [:]
-        for id in jobIds { result[id] = try await poll(id) }
+        for id in jobIds { result[id] = try answer(id) }
         return result
     }
 
     func poll(_ jobId: String) async throws -> ComposeJobStatus {
+        try lock.withLock {
+            if !pollErrors.isEmpty { throw pollErrors.removeFirst() }
+        }
+        return try answer(jobId)
+    }
+
+    private func answer(_ jobId: String) throws -> ComposeJobStatus {
         try lock.withLock {
             guard let meta = jobs[jobId] else { return .expired }
             let script = scripts[meta.date] ?? [.ok]

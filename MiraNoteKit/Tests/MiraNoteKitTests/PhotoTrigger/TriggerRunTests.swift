@@ -332,6 +332,22 @@ extension TriggerRunTests {
         XCTAssertEqual(Array(sleeps.durations.prefix(2)), [5, 5], "two waits before the third try")
     }
 
+    func testPollRetriesAGatewayErrorOrANonJSONBody() async {
+        client.pollErrors = [.server(502), .server(200)]
+        let run = makeRun()
+        await run.pushTop()
+        let runHistory = await run.history
+        XCTAssertEqual(scheduledRanks(runHistory), [1])
+    }
+
+    func testThreeServerErrorsInARowStopThePoll() async {
+        client.pollErrors = [.server(500), .server(503), .server(502)]
+        let run = makeRun()
+        await run.pushTop()
+        let runHistory = await run.history
+        XCTAssertEqual(runHistory.last, .failed(.backend("HTTP 502")))
+    }
+
     func testUnreadablePhotosAreLeftOutAndRenumbered() async throws {
         library.unreadable = ["g0-1", "g0-4"]
         let run = makeRun()

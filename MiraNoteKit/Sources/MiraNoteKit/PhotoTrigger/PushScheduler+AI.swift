@@ -273,19 +273,19 @@ extension PushScheduler {
         return false
     }
 
-    /// A 429 waits 10 s; no connection three polls in a row, or any other
-    /// error, ends every night still waiting.
+    /// A 429 waits 10 s; no connection, a server error or a body that is
+    /// not JSON three polls in a row (`ComposeSession.isTransient`), or any
+    /// other error at once, ends every night still waiting.
     private func pollFailed(_ error: Error) async {
-        switch error as? ComposeError {
-        case .rateLimited:
+        if case .rateLimited = error as? ComposeError {
             try? await deps.sleep(ComposeSession.rateLimitWait)
-        case .unreachable:
+            return
+        }
+        if ComposeSession.isTransient(error) {
             work.transportFailures += 1
             guard work.transportFailures >= ComposeSession.transportRetries else { return }
-            endAllWaiting(message: Self.describe(.stop(.backendUnreachable)))
-        default:
-            endAllWaiting(message: Self.describe(.stop(ComposeSession.failure(for: error))))
         }
+        endAllWaiting(message: Self.describe(.stop(ComposeSession.failure(for: error))))
     }
 
     /// Never while the app is in the background: a poll woken after a long
