@@ -256,6 +256,10 @@ public actor PushScheduler {
             }
         }
         let unfilled = run.emptyDays.values.contains { $0 == "aiError" || $0 == "leftBeforeResult" }
+        // Counted when the background time ran out (iOS may end the app then); the
+        // nights scheduled after all, the process having lived, no longer count.
+        let stillLeft = run.emptyDays.values.filter { $0 == "leftBeforeResult" }.count
+        if work.leftDays.count > stillLeft { try? deps.log.bumpLeftBeforeResult(by: stillLeft - work.leftDays.count) }
         saveReport(context, emptyDays: run.emptyDays, calendar: calendar)
         finish(run, generation: mine, calendar: calendar, unfilled: unfilled)
     }

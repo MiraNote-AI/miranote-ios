@@ -103,7 +103,8 @@ extension PushScheduler {
     /// iOS is about to suspend the app: every night whose job is still out
     /// counts as "left before the result" (decision 7) and the next return
     /// to the front runs again. The run is not cancelled: if the process
-    /// lives, polling resumes on return.
+    /// lives, polling resumes on return, and a night scheduled after all
+    /// stops counting when the run ends.
     public func backgroundTimeExpired() async {
         // A run cleared while suspended writes nothing into the cleared stores.
         guard isRunning, runGeneration == generation else { return }
