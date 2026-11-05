@@ -138,6 +138,58 @@ final class PreselectorTests: XCTestCase {
         XCTAssertNotEqual(reasons["f2"], .person)
     }
 
+    /// The floor holds when one moment per slot left no room: a person
+    /// photo in a moment of its own takes the last moment's slot.
+    func testPersonFloorWhenMomentsFillEverySlot() {
+        var test = Scenario()
+        // Twelve moments 25 minutes apart, two photos each; moment 5 is one person photo.
+        for moment in 0..<12 {
+            let base = Double(moment) * 25
+            if moment == 5 {
+                test.add("m5", Spec(minute: base, faces: 2, broad: [.people]))
+                continue
+            }
+            test.add("m\(moment)a", Spec(minute: base, broad: [.sky]))
+            test.add("m\(moment)b", Spec(minute: base + 1, broad: [.sky]))
+        }
+        let selected = test.select()
+        XCTAssertEqual(selected.count, 10)
+        XCTAssertEqual(reasons(selected)["m5"], .person)
+        XCTAssertTrue(selected.contains { $0.id.hasPrefix("m0") }, "the first moment stays")
+        XCTAssertTrue(selected.contains { $0.id.hasPrefix("m11") }, "the last moment stays")
+    }
+
+    /// A person photo in a moment already picked takes that moment's
+    /// slot: every moment stays covered.
+    func testPersonFloorSwapsWithinItsMoment() {
+        var test = Scenario()
+        for moment in 0..<10 {
+            test.add("m\(moment)", Spec(minute: Double(moment) * 30, aesthetics: 1))
+            test.add("m\(moment)x", Spec(minute: Double(moment) * 30 + 1, aesthetics: 0.9))
+        }
+        test.add("face", Spec(minute: 92, aesthetics: -1, faces: 1))
+        let selected = test.select()
+        XCTAssertEqual(selected.count, 10)
+        XCTAssertEqual(reasons(selected)["face"], .person)
+        XCTAssertNil(reasons(selected)["m3"], "moment 3's pick gave way")
+        for moment in 0..<10 {
+            XCTAssertTrue(selected.contains { $0.id == "m\(moment)" || $0.id == "face" && moment == 3 },
+                          "moment \(moment) covered")
+        }
+    }
+
+    /// Marked photos never give way to the floor.
+    func testPersonFloorKeepsMarkedPhotos() {
+        var test = Scenario()
+        for moment in 0..<10 {
+            test.add("m\(moment)", Spec(minute: Double(moment) * 30, aesthetics: 1, favorite: moment < 3))
+        }
+        test.add("face", Spec(minute: 1, aesthetics: -1, faces: 1))
+        let selected = test.select()
+        XCTAssertEqual(reasons(selected)["face"], .person)
+        XCTAssertEqual(Set(selected.filter { $0.reason == .marked }.map(\.id)), ["m0", "m1", "m2"])
+    }
+
     // Step 5.
     func testFillUsesMmr() {
         var test = Scenario()
