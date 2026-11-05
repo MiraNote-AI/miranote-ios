@@ -340,6 +340,16 @@ extension TriggerRunTests {
         XCTAssertEqual(scheduledRanks(runHistory), [1])
     }
 
+    /// A failed job with no message shows its reason, as the scheduler does.
+    func testFailedJobWithoutAMessageShowsItsReason() async {
+        let run = makeRun()
+        client.failedMessage = ""
+        client.scripts[day(ofGroup: 0)] = [.failed("model_error")]
+        await run.pushTop()
+        let runHistory = await run.history
+        XCTAssertEqual(runHistory.last, .failed(.backend("model_error")))
+    }
+
     func testThreeServerErrorsInARowStopThePoll() async {
         client.pollErrors = [.server(500), .server(503), .server(502)]
         let run = makeRun()

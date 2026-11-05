@@ -156,11 +156,13 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
 /// the last repeated. Groups with no script come back ok, with `questions`
 /// as their candidates when set.
 final class FakeClient: ComposeClient, @unchecked Sendable {
-    enum Answer { case running, ok, rejected, expired, rateLimited, timeoutError }
+    enum Answer { case running, ok, rejected, expired, rateLimited, timeoutError, failed(String) }
     private let lock = NSLock()
     var scripts: [String: [Answer]] = [:]
     var questions: [TriggerMemory.Ending.Question]?
     var submitErrors: [ComposeError] = []
+    /// The message of a `.failed` answer.
+    var failedMessage = "failed"
     /// Thrown by the next polls, one per `poll` or `pollMany` call.
     var pollErrors: [ComposeError] = []
     private(set) var submitted: [String] = []
@@ -218,6 +220,7 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
             case .expired: return .expired
             case .rateLimited: throw ComposeError.rateLimited
             case .timeoutError: return .failed(reason: "timeout", message: "slow")
+            case .failed(let reason): return .failed(reason: reason, message: failedMessage)
             case .ok:
                 let memory = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P2")
                 let ending = questions.map {

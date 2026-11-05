@@ -252,6 +252,32 @@ final class LiveComposeClientTests: XCTestCase {
         XCTAssertEqual(status, .expired)
     }
 
+    /// Only the backend's own "expired" answer is an expired job: a 404 page
+    /// from a wrong route or the tunnel is a server error, not a resubmit.
+    func test404WithoutTheExpiredBodyIsAServerError() async {
+        for body in ["<html>Not Found</html>", #"{"detail": "Not Found"}"#, ""] {
+            respond(404, body)
+            do {
+                let status = try await client.poll("job-1")
+                XCTFail("\(body): expected a server error, got \(status)")
+            } catch {
+                XCTAssertEqual(error as? ComposeError, .server(404), body)
+            }
+        }
+    }
+
+    /// A 400 whose body is a page, not the backend's JSON: no markup as the message.
+    func testBadRequestWithAPageBodyHasNoMessage() async {
+        respond(400, "<html><body>Bad Request</body></html>")
+        do {
+            _ = try await client.submit(meta, photos: [])
+            XCTFail("expected bad request")
+        } catch {
+            XCTAssertEqual(error as? ComposeError, .badRequest(""))
+            XCTAssertEqual(ComposeSession.failure(for: error), .backend("HTTP 400"))
+        }
+    }
+
     func test429IsRateLimited() async {
         respond(429, #"{"detail": "slow down"}"#)
         do {

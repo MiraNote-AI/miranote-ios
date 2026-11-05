@@ -172,7 +172,9 @@ struct ComposeSession {
         case .ok(let memory): return .done(.success(memory))
         case .rejected(_, let message): return .done(.failure(TriggerAttemptBox(.rejected(message))))
         case .failed(let reason, let message):
-            return .done(.failure(TriggerAttemptBox(.stop(reason == "timeout" ? .aiTimeout : .backend(message)))))
+            let failure: TriggerFailure = reason == "timeout" ? .aiTimeout
+                : .backend(message.isEmpty ? reason : message)
+            return .done(.failure(TriggerAttemptBox(.stop(failure))))
         case .expired: return .resubmit
         }
     }
@@ -231,7 +233,7 @@ struct ComposeSession {
         switch error as? ComposeError {
         case .unreachable, .none: return .backendUnreachable
         case .unauthorized: return .unauthorized
-        case .badRequest(let message): return .backend(message)
+        case .badRequest(let message): return .backend(message.isEmpty ? "HTTP 400" : message)
         case .rateLimited: return .aiTimeout
         case .server(let status): return .backend("HTTP \(status)")
         }

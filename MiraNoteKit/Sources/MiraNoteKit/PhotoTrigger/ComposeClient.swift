@@ -9,7 +9,8 @@ public enum ComposeJobStatus: Equatable, Sendable {
     case rejected(reason: String, message: String)
     /// The job failed (`timeout`, `model_error`, `bad_request`).
     case failed(reason: String, message: String)
-    /// Unknown or older than 15 minutes (404): submit again.
+    /// Unknown or older than 15 minutes (404 `{"status": "expired"}`):
+    /// submit again.
     case expired
 }
 
@@ -18,7 +19,8 @@ public enum ComposeError: Error, Equatable, Sendable {
     case unreachable
     /// 429: wait and ask again.
     case rateLimited
-    /// 400: the meta or photos were refused; the backend's message.
+    /// 400: the meta or photos were refused; the backend's message ("" when
+    /// the body carries none).
     case badRequest(String)
     /// 401: the build's beta token is missing or wrong.
     case unauthorized
@@ -93,11 +95,21 @@ public struct LiveComposeClient: ComposeClient {
         request.timeoutInterval = Self.pollTimeout
         let data: Data
         do {
-            data = try await send(request)
-        } catch ComposeError.server(404) {
+            data = try await http.send(request)
+        } catch BackendError.server(status: 404, let detail) where Self.isExpired(detail) {
             return .expired
+        } catch let error as BackendError {
+            // Any other 404 (a wrong route, the tunnel's page) is a server error.
+            throw Self.composeError(error)
         }
         return try Self.status(from: data)
+    }
+
+    /// The backend's own answer for a job it no longer knows.
+    private static func isExpired(_ detail: String?) -> Bool {
+        guard let data = detail?.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return object["status"] as? String == "expired"
     }
 
     public func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
@@ -152,24 +164,30 @@ public struct LiveComposeClient: ComposeClient {
         do {
             return try await http.send(request)
         } catch let error as BackendError {
-            switch error {
-            case .unreachable, .timedOut: throw ComposeError.unreachable
-            case .decoding: throw ComposeError.server(200)
-            case .server(let status, let detail):
-                switch status {
-                case 400: throw ComposeError.badRequest(Self.message(in: detail) ?? "")
-                case 401: throw ComposeError.unauthorized
-                case 429: throw ComposeError.rateLimited
-                default: throw ComposeError.server(status)
-                }
+            throw Self.composeError(error)
+        }
+    }
+
+    private static func composeError(_ error: BackendError) -> ComposeError {
+        switch error {
+        case .unreachable, .timedOut: return .unreachable
+        case .decoding: return .server(200)
+        case .server(let status, let detail):
+            switch status {
+            case 400: return .badRequest(message(in: detail) ?? "")
+            case 401: return .unauthorized
+            case 429: return .rateLimited
+            default: return .server(status)
             }
         }
     }
 
+    /// The backend's `message`; nil when the body is not its JSON (a
+    /// proxy's page is never shown as the message).
     private static func message(in detail: String?) -> String? {
         guard let data = detail?.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return detail }
-        return object["message"] as? String ?? detail
+        else { return nil }
+        return object["message"] as? String
     }
 }
