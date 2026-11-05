@@ -496,3 +496,46 @@ final class PushSchedulerZoneChangeMidRunTests: PushSchedulerTestCase {
         assertOnNewZoneSlots()
     }
 }
+
+// MARK: - A request the ledger never heard of
+
+/// Killed between adding a night's notification and writing its ledger
+/// row: the next run takes the request back, or the night gets two pushes.
+final class PushSchedulerOrphanRequestTests: PushSchedulerTestCase {
+    func testRequestWithoutALedgerRowIsTakenBack() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let tonight = try XCTUnwrap(active.first)
+        let record = try XCTUnwrap(records.load(tonight.pushId))
+        let orphan = PushRecord(pushId: "killed", memory: record.memory, photoIds: record.photoIds,
+                                createdAt: clock.now, rank: 1, score: 0.5, bucket: record.bucket)
+        try records.save(orphan)
+        notifier.pendingIds.formUnion(["pt.killed", "other.x"])
+        clock.advance(2 * 3600)
+        await scheduler.appBecameActive()
+        XCTAssertTrue(notifier.removedPending.contains("pt.killed"))
+        XCTAssertNil(records.load("killed"))
+        XCTAssertTrue(notifier.pendingIds.contains("other.x"), "another feature's request is never touched")
+        XCTAssertFalse(notifier.removedPending.contains("other.x"))
+        XCTAssertEqual(notifier.pendingIds.filter(PushIdentifier.isOurs), Set(active.map(\.identifier)))
+    }
+
+    /// A debug push between its notification and its ledger row is not an
+    /// orphan: a run reconciling meanwhile leaves it.
+    func testDebugPushBeingAddedIsLeftAlone() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let calls = CallCounter()
+        notifier.onSchedule = {
+            guard calls.bump() == 1 else { return }
+            await scheduler.replan()
+        }
+        let result = await scheduler.previewNext()
+        notifier.onSchedule = nil
+        guard case .scheduled = result else { return XCTFail("previewed") }
+        let debug = try XCTUnwrap(ledger.load().first(where: \.isDebug))
+        XCTAssertTrue(notifier.pendingIds.contains(debug.identifier))
+        XCTAssertFalse(notifier.removedPending.contains(debug.identifier))
+        XCTAssertEqual(log.runs().first?.trigger, "replan", "a run reconciled while it was added")
+    }
+}

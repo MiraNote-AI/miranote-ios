@@ -69,6 +69,8 @@ extension PushScheduler {
             return
         }
         let identifier = PushIdentifier.make(pushId)
+        adding.insert(identifier)
+        defer { adding.remove(identifier) }
         let parts = context.calendar.dateComponents([.year, .month, .day, .hour, .minute], from: plan.slot)
         guard await deps.notifications.schedule(record, identifier: identifier, at: parts,
                                                 relevance: candidate.score.total)

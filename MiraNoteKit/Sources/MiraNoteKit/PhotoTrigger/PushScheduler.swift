@@ -107,6 +107,9 @@ public actor PushScheduler {
     var outsideGeneration = 0
     var lastReport: LastRunReport?
     var lastRanking: TriggerRanking?
+    /// Notifications being added whose ledger row is not written yet: not
+    /// orphans to `reconcile`.
+    var adding: Set<String> = []
 
     public init(_ dependencies: SchedulerDependencies) {
         deps = dependencies
@@ -269,8 +272,11 @@ public actor PushScheduler {
         }
     }
 
-    /// Settles the ledger with the notification center and clears pushes
-    /// delivered and unopened for 48 h from the tray.
+    /// Settles the ledger with the notification center, clears pushes
+    /// delivered and unopened for 48 h from the tray, and takes back a
+    /// pending request of ours the ledger does not hold (added right before
+    /// the app was killed, before its row was written; or taken back in the
+    /// ledger only). Other features' requests are never touched.
     func reconcile(allowed: Bool) async {
         let mine = generation
         let pending = await deps.notifications.pending()
@@ -279,8 +285,16 @@ public actor PushScheduler {
         let settled = LedgerReconciler.reconcile(deps.ledger.load(), now: deps.now(), pending: pending,
                                                  notificationsAllowed: allowed)
         try? deps.ledger.save(settled.entries)
+        let held = Set(settled.entries.filter { $0.removedAt == nil && $0.removedReason == nil }.map(\.identifier))
+        let rows = Set(settled.entries.map(\.identifier))
+        let orphans = pending.filter { PushIdentifier.isOurs($0) && !held.contains($0) && !adding.contains($0) }
         let ours = settled.clearDelivered.filter(PushIdentifier.isOurs)
         if !ours.isEmpty { await deps.notifications.removeDelivered(ours) }
+        guard !orphans.isEmpty else { return }
+        await deps.notifications.removePending(orphans.sorted())
+        for identifier in orphans where !rows.contains(identifier) {
+            try? deps.records.remove(String(identifier.dropFirst(PushIdentifier.prefix.count)))
+        }
     }
 
     /// Analyses new photos and regroups, with the stored T unless it is a

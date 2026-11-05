@@ -125,6 +125,8 @@ extension PushScheduler {
                                 bucketId: bucket, belongsTo: belongsTo, isDebug: true)
         guard (try? deps.records.save(record)) != nil else { return .refused }
         let identifier = PushIdentifier.make(pushId)
+        adding.insert(identifier)
+        defer { adding.remove(identifier) }
         guard await deps.notifications.schedule(record, identifier: identifier, at: nil, relevance: score.total)
         else {
             try? deps.records.remove(pushId)
