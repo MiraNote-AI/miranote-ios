@@ -87,6 +87,19 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
         XCTAssertEqual(log.runs().first?.emptyDays.values.sorted(), ["aiError"])
     }
 
+    /// Slow photo reads (iCloud downloads) before the submit do not use up
+    /// the 6 minutes the job has to answer.
+    func testPhotoReadsDoNotUseTheJobBudget() async throws {
+        library = FakeLibrary(now: start, groups: [9])
+        let clock = self.clock!
+        library.onRead = { _ in clock.advance(50) }
+        await makeScheduler().appBecameActive()
+        XCTAssertEqual(activeDays, [day("g0")], "nine reads of 50 s, then the answer at the first poll")
+        let outcome = try XCTUnwrap(log.runs().first?.groups.first)
+        XCTAssertEqual(outcome.outcome, .ok)
+        XCTAssertLessThan(outcome.seconds, 60, "timed from the submit")
+    }
+
     func testRateLimitWaitsTenSeconds() async {
         client.scripts[day("g0")] = [.rateLimited, .ok]
         await makeScheduler().appBecameActive()

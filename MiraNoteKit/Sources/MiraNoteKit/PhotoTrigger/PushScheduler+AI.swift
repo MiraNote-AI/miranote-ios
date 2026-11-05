@@ -200,8 +200,10 @@ extension PushScheduler {
         var waited: TimeInterval = 0
         switch await session.submit(prepared.meta, photos: prepared.uploads, waited: &waited) {
         case .success(let jobId):
+            // Timed from the submit: slow photo reads (iCloud) do not use up the job's 6 minutes.
+            let submitted = deps.now()
             let job = AIJob(candidate: ask.candidate, jobId: jobId, prepared: prepared, photoIds: prepared.photoIds,
-                            place: place, startedAt: now, budgetFrom: ask.budgetFrom ?? now,
+                            place: place, startedAt: submitted, budgetFrom: ask.budgetFrom ?? submitted,
                             resubmitted: ask.resubmitted)
             return .job(job, submitted: true)
         case .failure(let box):

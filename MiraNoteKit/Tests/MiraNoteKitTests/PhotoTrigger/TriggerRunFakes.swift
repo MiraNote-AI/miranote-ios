@@ -58,7 +58,12 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
         }
         return assetsList.filter { ($0.takenAt ?? .distantPast) >= date }
     }
-    func uploadData(for id: String) async -> Data? { unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG }
+    /// Runs as each photo is read (a test clock moved: a slow iCloud read).
+    var onRead: (@Sendable (String) -> Void)?
+    func uploadData(for id: String) async -> Data? {
+        onRead?(id)
+        return unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG
+    }
 }
 
 final class FakeAnalyzer: PhotoAnalyzing, @unchecked Sendable {
