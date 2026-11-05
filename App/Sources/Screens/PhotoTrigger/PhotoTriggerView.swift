@@ -34,18 +34,17 @@ struct PhotoTriggerView: View {
     @State private var phase: TriggerStage.Phase = .loading
     @State private var index = 0
     @State private var clock = StoryClock()
-    /// When the finger now on the story went down; nil when none is.
-    @State private var touchStart: Date?
+    /// The finger on the story, if any.
+    @State private var touch = StoryTouch()
+    /// True while the story's gesture runs: back to false without a lift
+    /// when the system takes the touch away.
+    @GestureState private var touching = false
     @State private var menuShown = false
     /// The "..." menu's answer, at the foot of the screen for a moment.
     @State private var note: MenuNote?
     /// The button was pressed and the draft is being made.
     @State private var keeping = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// A held finger that has not moved is a pause, not a tap, after this.
-    private static let tapLimit: TimeInterval = 0.25
-    private static let swipeDistance: CGFloat = 50
 
     var body: some View {
         // The outer reader keeps the safe area so it can report the insets;
@@ -72,6 +71,10 @@ struct PhotoTriggerView: View {
             Button("Cancel", role: .cancel) {}
         }
         .task(id: note) { await holdNote() }
+        .onChange(of: touching) {
+            // Ended without a lift (a call, Control Center): play on.
+            if !touching, let outcome = touch.cancel() { follow(outcome) }
+        }
     }
 
     // MARK: Layers
@@ -369,28 +372,27 @@ extension PhotoTriggerView {
 
     // MARK: Gestures
 
-    /// One gesture for the whole story: the finger going down pauses; a
-    /// quick still lift is a tap (left third back, the rest forward); a
-    /// sideways drag is a swipe; anything else was a hold, and play resumes.
+    /// One gesture for the whole story (`StoryTouch`): the finger going
+    /// down pauses; a quick still lift is a tap (left third back, the rest
+    /// forward); a sideways drag is a swipe; anything else was a hold, and
+    /// play resumes -- also when the touch is taken away (`touching`).
     private func storyGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($touching) { _, state, _ in state = true }
             .onChanged { _ in
-                guard touchStart == nil else { return }
-                touchStart = .now
-                clock.pause()
+                if touch.down(at: .now) { clock.pause() }
             }
             .onEnded { value in
-                let held = Date.now.timeIntervalSince(touchStart ?? .now)
-                touchStart = nil
-                let dx = value.translation.width
-                let dy = value.translation.height
-                if abs(dx) > Self.swipeDistance, abs(dx) > abs(dy) {
-                    if dx < 0 { advance() } else { goBack() }
-                } else if held < Self.tapLimit, abs(dx) < 10, abs(dy) < 10 {
-                    if value.location.x < width / 3 { goBack() } else { advance() }
-                } else {
-                    clock.resume()
-                }
+                let outcome = touch.lift(at: .now, translation: value.translation, x: value.location.x, width: width)
+                if let outcome { follow(outcome) }
             }
+    }
+
+    private func follow(_ outcome: StoryTouch.Outcome) {
+        switch outcome {
+        case .forward: advance()
+        case .back: goBack()
+        case .resume: clock.resume()
+        }
     }
 }
