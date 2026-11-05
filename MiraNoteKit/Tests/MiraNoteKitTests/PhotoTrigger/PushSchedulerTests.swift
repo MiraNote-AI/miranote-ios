@@ -448,3 +448,51 @@ final class PushSchedulerZoneDayTests: PushSchedulerTestCase {
                        "a blocked day pushed after all")
     }
 }
+
+// MARK: - A time-zone change while a run plans
+
+/// The zone changes while a run is scheduling its nights (the process lived
+/// in the background): the old run stops writing, and every push left is
+/// on a slot of the new zone.
+final class PushSchedulerZoneChangeMidRunTests: PushSchedulerTestCase {
+    /// Moves to Shanghai and returns to the front while the second night's
+    /// notification is being added.
+    private func changeZoneAtSecondSchedule(_ scheduler: PushScheduler) {
+        let calls = CallCounter()
+        let zone = self.zone!
+        notifier.onSchedule = {
+            guard calls.bump() == 2 else { return }
+            zone.zone = TimeZone(identifier: "Asia/Shanghai")!
+            await scheduler.appBecameActive()
+        }
+    }
+
+    private func assertOnNewZoneSlots(file: StaticString = #filePath, line: UInt = #line) {
+        notifier.onSchedule = nil
+        let slots = Set(PushSlots.make(now: clock.now, calendar: zone.calendar))
+        XCTAssertEqual(active.count, 7, file: file, line: line)
+        XCTAssertTrue(active.allSatisfy { slots.contains($0.scheduledFor) }, "every push on a new-zone slot",
+                      file: file, line: line)
+        let ours = notifier.pendingIds.filter(PushIdentifier.isOurs)
+        XCTAssertEqual(ours, Set(active.map(\.identifier)), "no old-zone request left", file: file, line: line)
+        XCTAssertEqual(state.load().timeZoneId, "Asia/Shanghai", file: file, line: line)
+        XCTAssertEqual(log.runs().first?.trigger, "timeZone", file: file, line: line)
+    }
+
+    func testZoneChangeDuringTheFirstRun() async throws {
+        let scheduler = makeScheduler()
+        changeZoneAtSecondSchedule(scheduler)
+        await scheduler.appBecameActive()
+        assertOnNewZoneSlots()
+    }
+
+    func testZoneChangeDuringALaterRun() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        XCTAssertEqual(state.load().timeZoneId, "America/Chicago")
+        clock.advance(600)
+        changeZoneAtSecondSchedule(scheduler)
+        await scheduler.replan()
+        assertOnNewZoneSlots()
+    }
+}

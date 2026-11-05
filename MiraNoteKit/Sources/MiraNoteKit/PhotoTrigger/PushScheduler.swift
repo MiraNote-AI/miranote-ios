@@ -131,6 +131,13 @@ public actor PushScheduler {
         let unfaked = deps.fakeAI() ? false : await takeBackFakeCopy()
         let zone = deps.calendar().timeZone.identifier
         if let old = state.timeZoneId, old != zone {
+            // A run still planning in the old zone stops writing, as after `clearAll`.
+            generation += 1
+            // Recorded at once, so it happens once; killed before the run ends, the next return still runs.
+            try? deps.state.update {
+                $0.timeZoneId = zone
+                $0.lastRunLeftDaysUnfilled = true
+            }
             await removeActive(.timeZone) { _ in true }
             return await request(.timeZone)
         }
@@ -201,6 +208,8 @@ public actor PushScheduler {
         let calendar = deps.calendar()
         work = RunWork()
         var run = ScheduleRun(startedAt: started, finishedAt: started, trigger: trigger.rawValue)
+        // The zone this run plans in: a change from it is caught even before the first run ends.
+        try? deps.state.update { $0.timeZoneId = calendar.timeZone.identifier }
         let allowed = await deps.notifications.isAllowed()
         await reconcile(allowed: allowed)
         guard mine == generation else { return }
