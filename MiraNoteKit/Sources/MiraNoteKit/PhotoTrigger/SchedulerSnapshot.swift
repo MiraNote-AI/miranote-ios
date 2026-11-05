@@ -76,6 +76,9 @@ public struct SchedulerSnapshot: Equatable, Sendable {
         public let entry: LedgerEntry?
         /// Why the night is empty (the last run's reason), when it is.
         public let emptyReason: String?
+        /// The push's ending as saved: the question asked, its type and the
+        /// other candidates; nil without a push or its record.
+        public let ending: TriggerMemory.Ending?
     }
 
     /// A fragment of the last run, with what has become of it since.

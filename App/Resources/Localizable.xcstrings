@@ -61,6 +61,18 @@
         }
       }
     },
+    "%@: every question type was taken nearby; the first was asked" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：备选问题的类型前后两晚都用过，用了第 1 个"
+          }
+        }
+      }
+    },
     "%lld days left" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -478,6 +490,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AI 没通过：%@"
+          }
+        }
+      }
+    },
+    "Also: %@ (%@)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备选：%1$@（%2$@）"
+          }
+        }
+      }
+    },
+    "Another kind" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
           }
         }
       }
@@ -2371,6 +2407,18 @@
         }
       }
     },
+    "How it was found" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "怎么找到的"
+          }
+        }
+      }
+    },
     "HUE" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2555,6 +2603,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "第 %lld 张图片"
+          }
+        }
+      }
+    },
+    "Imagined" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个角度想象"
           }
         }
       }
@@ -3313,6 +3373,18 @@
         }
       }
     },
+    "Next time" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次"
+          }
+        }
+      }
+    },
     "Next week" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3615,6 +3687,18 @@
         }
       }
     },
+    "One detail up close" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放大一个细节"
+          }
+        }
+      }
+    },
     "One long page" : {
       "comment" : "PDF layout.",
       "extractionState" : "manual",
@@ -3634,6 +3718,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "其中一张保留了背景。都在这里，任选一张吧。"
+          }
+        }
+      }
+    },
+    "One word, one number" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一个词、一个数"
           }
         }
       }
@@ -3714,6 +3810,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开 Mira 对话"
+          }
+        }
+      }
+    },
+    "Order of things" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先后顺序"
           }
         }
       }
@@ -3802,6 +3910,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已绘制"
+          }
+        }
+      }
+    },
+    "People there" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有人在场"
           }
         }
       }
@@ -4325,6 +4445,18 @@
         }
       }
     },
+    "Question (%@): %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "问题（%1$@）：%2$@"
+          }
+        }
+      }
+    },
     "Quick starts" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4760,6 +4892,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "玫瑰木"
+          }
+        }
+      }
+    },
+    "Sounds" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音"
           }
         }
       }
@@ -5621,6 +5765,18 @@
         }
       }
     },
+    "The body's feel" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身体感受"
+          }
+        }
+      }
+    },
     "The camera isn't available here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6206,6 +6362,18 @@
         }
       }
     },
+    "Unknown type" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型不明"
+          }
+        }
+      }
+    },
     "Untitled" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6317,6 +6485,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我的巴黎之旅是什么时候？"
+          }
+        }
+      }
+    },
+    "Where to or from" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "去向、来路"
           }
         }
       }

@@ -30,6 +30,7 @@ struct TriggerScheduledSection: View {
                     .font(.miraCaption).foregroundStyle(Palette.textSecondary)
                 Text("From \(TriggerWords.shortDate(entry.belongsTo))")
                     .font(.miraCaption).foregroundStyle(Palette.textSecondary)
+                if let ending = day.ending { questions(ending) }
             } else {
                 TriggerDebugText.emptyReason(day.emptyReason)
                     .font(.miraCaption).foregroundStyle(Palette.textSecondary)
@@ -38,6 +39,18 @@ struct TriggerScheduledSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(day.entry == nil ? "debug.empty.\(day.slotDay)" : "debug.push.\(day.slotDay)")
+    }
+
+    /// The question asked, its type, and the candidates it was picked from.
+    @ViewBuilder private func questions(_ ending: TriggerMemory.Ending) -> some View {
+        let kind = TriggerDebugText.questionKind(type: ending.questionType, source: ending.questionSource)
+        Text("Question (\(kind)): \(ending.question)")
+            .font(.miraCaption).foregroundStyle(Palette.ink)
+        ForEach(Array(ending.otherQuestions.enumerated()), id: \.offset) { _, other in
+            let otherKind = TriggerDebugText.questionKind(type: other.type, source: other.source)
+            Text("Also: \(other.text) (\(otherKind))")
+                .font(.miraCaption).foregroundStyle(Palette.textSecondary)
+        }
     }
 }
 
@@ -82,6 +95,11 @@ struct TriggerLogSection: View {
                 }
                 .font(.miraCaption)
                 .foregroundStyle(group.outcome == .error ? Color.debugError : Palette.textSecondary)
+            }
+            ForEach(Array(run.questionClashes.enumerated()), id: \.offset) { _, clash in
+                let day = TriggerWords.shortDate(clash.slotDay)
+                Text("\(day): every question type was taken nearby; the first was asked")
+                    .font(.miraCaption).foregroundStyle(Palette.textSecondary)
             }
             ForEach(run.emptyDays.sorted { $0.key < $1.key }, id: \.key) { day, code in
                 HStack(spacing: 4) {

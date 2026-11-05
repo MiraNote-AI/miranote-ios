@@ -279,7 +279,8 @@ extension PushScheduler {
             let entry = active.filter { calendar.isDate($0.scheduledFor, inSameDayAs: slot) }
                 .min { $0.scheduledFor < $1.scheduledFor }
             return SchedulerSnapshot.Day(slot: slot, slotDay: day, entry: entry,
-                                         emptyReason: entry == nil ? report?.emptyDays[day] : nil)
+                                         emptyReason: entry == nil ? report?.emptyDays[day] : nil,
+                                         ending: entry.flatMap { deps.records.load($0.pushId)?.memory.ending })
         }
         let verdicts = deps.cache.verdicts()
         let scheduled = Dictionary(

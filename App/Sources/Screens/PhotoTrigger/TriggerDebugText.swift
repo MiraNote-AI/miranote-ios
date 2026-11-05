@@ -50,6 +50,21 @@ enum TriggerDebugText {
         }
     }
 
+    /// The question types' names (handoff refine 4.2), by id.
+    private static let questionTypes: [String: LocalizedStringResource] = [
+        "order": "Order of things", "sound": "Sounds", "route": "Where to or from", "found": "How it was found",
+        "zoom": "One detail up close", "next_time": "Next time", "people": "People there",
+        "body": "The body's feel", "imagine": "Imagined", "one_word": "One word, one number",
+        "other": "Another kind", "": "Unknown type"
+    ]
+
+    /// A question type's name, and its source when it is a fallback
+    /// ("..., fallback_B1"); an unknown id as it is.
+    static func questionKind(type: String, source: String) -> String {
+        let name = questionTypes[type].map { String(appCopy: $0) } ?? type
+        return source.isEmpty || source == "llm" ? name : "\(name), \(source)"
+    }
+
     static func bucket(_ bucket: PushBucket) -> String {
         TriggerContent.zh(bucket.catalogKey)
     }
