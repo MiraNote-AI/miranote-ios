@@ -42,13 +42,24 @@ final class PushCandidatesTests: XCTestCase {
     }
 
     private func evaluate(_ fragment: Fragment, slot: Date? = nil, bucket: PushBucket = .scenery,
-                          pushed: Set<String> = [], prefs: PushPreferences = PushPreferences(),
+                          pushed: Set<String> = [], pushedPhotos: Set<String> = [],
+                          prefs: PushPreferences = PushPreferences(),
                           faces: Int = 2, cache: @escaping (String) -> AIVerdict? = { _ in nil })
         -> Result<PushCandidate, Ineligible> {
         PushCandidates.evaluate(
             fragment, bucket: bucket, aiPhotoIds: fragment.photos.map(\.id), at: slot ?? at(12, 21),
             analyses: analyses(fragment, faces: faces), library: library(fragment), calendar: calendar,
-            pastLocations: [], pushedDays: pushed, preferences: prefs, cache: cache)
+            pastLocations: [], pushedDays: pushed, pushedPhotos: pushedPhotos, preferences: prefs, cache: cache)
+    }
+
+    /// Day keys are local dates of the zone that wrote them: the photos of a
+    /// delivered or blocked push rule a group out whatever day it falls on now.
+    func testPhotosOfAPushedOrBlockedPushRuleTheGroupOut() {
+        let frag = fragment()
+        XCTAssertEqual(failure(evaluate(frag, pushedPhotos: ["d10p2"])), .pushedDay)
+        XCTAssertNil(failure(evaluate(frag, pushedPhotos: ["d11p2"])))
+        let blocked = PushPreferences(blockedDays: ["2026-10-09": at(9)], blockedPhotos: ["2026-10-09": ["d10p0"]])
+        XCTAssertEqual(failure(evaluate(frag, prefs: blocked)), .blockedDay)
     }
 
     private func failure(_ result: Result<PushCandidate, Ineligible>) -> Ineligible? {

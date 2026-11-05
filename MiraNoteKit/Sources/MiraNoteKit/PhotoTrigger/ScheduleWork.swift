@@ -107,6 +107,7 @@ struct RunContext: Sendable {
     let candidateCount: Int
     let preferences: PushPreferences
     let pushedDays: Set<String>
+    let pushedPhotos: Set<String>
     let firstSlot: Date
 }
 

@@ -47,7 +47,10 @@ extension PushScheduler {
 
     /// Clears one blocked day (debug page).
     public func unblockDay(_ day: String) {
-        try? deps.preferences.update { $0.blockedDays[day] = nil }
+        try? deps.preferences.update {
+            $0.blockedDays[day] = nil
+            $0.blockedPhotos[day] = nil
+        }
     }
 
     /// Clears one "fewer like this" (debug page).
@@ -194,7 +197,8 @@ extension PushScheduler {
             ranking.fragments, aiPhotoIds: { ranking.preselect($0).map(\.id) }, at: now,
             analyses: ranking.analyses, library: ranking.library, calendar: calendar,
             pastLocations: ranking.pastLocations, pushedDays: LedgerReconciler.pushedDays(entries),
-            preferences: deps.preferences.load(), cache: { _ in nil })
+            pushedPhotos: LedgerReconciler.pushedPhotos(entries), preferences: deps.preferences.load(),
+            cache: { _ in nil })
             .filter { !scheduled.contains($0.groupKey) }
     }
 

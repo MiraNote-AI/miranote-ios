@@ -297,7 +297,7 @@ public actor PushScheduler {
     /// blocked, a bucket cooling down since they were scheduled).
     func dropDisallowed() async {
         let preferences = deps.preferences.load()
-        await removeActive(.menuDay) { preferences.isBlocked($0.belongsTo) }
+        await removeActive(.menuDay) { preferences.isBlocked($0.belongsTo, photoIds: $0.photoIds) }
         await removeActive(.menuBucket) { preferences.multiplier(for: $0.bucket, at: $0.scheduledFor) == nil }
     }
 
@@ -329,6 +329,7 @@ public actor PushScheduler {
         let preferences = deps.preferences.load()
         let entries = deps.ledger.load()
         let pushed = LedgerReconciler.pushedDays(entries)
+        let pushedPhotos = LedgerReconciler.pushedPhotos(entries)
         let verdicts = deps.cache.verdicts()
         var picks: [String: [Preselected]] = [:]
         for fragment in ranking.fragments { picks[ComposeMeta.groupKey(fragment)] = ranking.preselect(fragment) }
@@ -337,8 +338,8 @@ public actor PushScheduler {
             bySlot[slot] = PushCandidates.ranked(
                 ranking.fragments, aiPhotoIds: { (picks[ComposeMeta.groupKey($0)] ?? []).map(\.id) }, at: slot,
                 analyses: ranking.analyses, library: ranking.library, calendar: calendar,
-                pastLocations: ranking.pastLocations, pushedDays: pushed, preferences: preferences,
-                cache: { verdicts[$0] })
+                pastLocations: ranking.pastLocations, pushedDays: pushed, pushedPhotos: pushedPhotos,
+                preferences: preferences, cache: { verdicts[$0] })
         }
         let lastBucket = entries.filter { $0.deliveredAt != nil && !$0.isDebug }
             .max { ($0.deliveredAt ?? .distantPast) < ($1.deliveredAt ?? .distantPast) }?.bucket
@@ -350,7 +351,7 @@ public actor PushScheduler {
         let candidates = Set(bySlot.values.flatMap { $0.map(\.groupKey) }).count
         return RunContext(ranking: ranking, picks: picks, calendar: calendar, generation: generation,
                           candidateCount: candidates, preferences: preferences, pushedDays: pushed,
-                          firstSlot: slots.first ?? now)
+                          pushedPhotos: pushedPhotos, firstSlot: slots.first ?? now)
     }
 
     /// Keeps the debug page's view of this run, in memory and on disk.
@@ -365,7 +366,8 @@ public actor PushScheduler {
             let result = PushCandidates.evaluate(
                 fragment, bucket: bucket, aiPhotoIds: ids, at: slot, analyses: ranking.analyses,
                 library: ranking.library, calendar: calendar, pastLocations: ranking.pastLocations,
-                pushedDays: context.pushedDays, preferences: context.preferences, cache: { verdicts[$0] })
+                pushedDays: context.pushedDays, pushedPhotos: context.pushedPhotos, preferences: context.preferences,
+                cache: { verdicts[$0] })
             let score = FragmentScorer.score(
                 fragment, analyses: ranking.analyses, library: ranking.library, at: slot, calendar: calendar,
                 pastLocations: ranking.pastLocations, bucket: bucket,

@@ -16,11 +16,16 @@ extension PushScheduler {
         let record = deps.records.load(pushId)
         let day = entry?.belongsTo ?? record?.belongsTo ?? record.flatMap { Self.dayKey($0.memory.date) }
         let bucket = entry?.bucket ?? record?.bucketId
+        // The day key is a local date: the photos keep the block across a time-zone change.
+        let photos = entry?.photoIds ?? record.map { $0.photoIds.values.sorted() } ?? []
         let now = deps.now()
         switch action {
         case .notThisDay:
             guard let day else { return }
-            try? deps.preferences.update { $0.blockedDays[day] = now }
+            try? deps.preferences.update {
+                $0.blockedDays[day] = now
+                if !photos.isEmpty { $0.blockedPhotos[day] = photos }
+            }
         case .fewerLikeThis:
             guard let bucket, bucket != .other else { return }
             try? deps.preferences.update { $0.fewer[bucket] = now }
@@ -30,7 +35,8 @@ extension PushScheduler {
             $0.menuActionAt = now
         }
         switch action {
-        case .notThisDay: await removeActive(.menuDay) { $0.belongsTo == day }
+        case .notThisDay:
+            await removeActive(.menuDay) { $0.belongsTo == day || !Set($0.photoIds).isDisjoint(with: photos) }
         case .fewerLikeThis: await removeActive(.menuBucket) { $0.bucket == bucket }
         }
         guard replan else { return }

@@ -175,4 +175,10 @@ public enum LedgerReconciler {
     public static func pushedDays(_ entries: [LedgerEntry]) -> Set<String> {
         Set(entries.filter { $0.deliveredAt != nil && !$0.isDebug }.map(\.belongsTo))
     }
+
+    /// The photos of delivered, non-debug pushes: a group holding one was
+    /// pushed, whatever day a time-zone change now puts it on.
+    public static func pushedPhotos(_ entries: [LedgerEntry]) -> Set<String> {
+        Set(entries.filter { $0.deliveredAt != nil && !$0.isDebug }.flatMap(\.photoIds))
+    }
 }

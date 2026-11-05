@@ -5,6 +5,10 @@ import Foundation
 public struct PushPreferences: Codable, Equatable, Sendable {
     /// Belongs-to day ("yyyy-MM-dd") -> when it was blocked.
     public var blockedDays: [String: Date]
+    /// Blocked day -> the blocked push's photos (localIdentifiers). Day keys
+    /// are local dates of the zone they were written in: after a time-zone
+    /// change the same photos may fall on another day, and still stay out.
+    public var blockedPhotos: [String: [String]]
     /// Bucket -> when "fewer like this" was chosen.
     public var fewer: [PushBucket: Date]
 
@@ -12,13 +16,21 @@ public struct PushPreferences: Codable, Equatable, Sendable {
     static let fewerBlockSeconds: TimeInterval = 30 * 86_400
     static let fewerMultiplier = 0.6
 
-    public init(blockedDays: [String: Date] = [:], fewer: [PushBucket: Date] = [:]) {
+    public init(blockedDays: [String: Date] = [:], blockedPhotos: [String: [String]] = [:],
+                fewer: [PushBucket: Date] = [:]) {
         self.blockedDays = blockedDays
+        self.blockedPhotos = blockedPhotos
         self.fewer = fewer
     }
 
     public func isBlocked(_ day: String) -> Bool {
         blockedDays[day] != nil
+    }
+
+    /// The day is blocked, or any of the photos was in a blocked push.
+    public func isBlocked(_ day: String, photoIds: [String]) -> Bool {
+        guard !isBlocked(day) else { return true }
+        return blockedPhotos.values.contains { !Set($0).isDisjoint(with: photoIds) }
     }
 
     /// nil while the bucket is blocked (under 30 days since "fewer"), 0.6
@@ -28,12 +40,14 @@ public struct PushPreferences: Codable, Equatable, Sendable {
         return date.timeIntervalSince(since) < Self.fewerBlockSeconds ? nil : Self.fewerMultiplier
     }
 
-    private enum CodingKeys: String, CodingKey { case blockedDays, fewer }
+    private enum CodingKeys: String, CodingKey { case blockedDays, blockedPhotos, fewer }
 
     // Bucket-keyed dictionaries encode as arrays by default: use string keys.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         blockedDays = try container.decodeIfPresent([String: Date].self, forKey: .blockedDays) ?? [:]
+        // Written before blocked photos: the days alone.
+        blockedPhotos = try container.decodeIfPresent([String: [String]].self, forKey: .blockedPhotos) ?? [:]
         let raw = try container.decodeIfPresent([String: Date].self, forKey: .fewer) ?? [:]
         fewer = Dictionary(uniqueKeysWithValues: raw.compactMap { key, date in
             PushBucket(rawValue: key).map { ($0, date) }
@@ -43,6 +57,7 @@ public struct PushPreferences: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(blockedDays, forKey: .blockedDays)
+        try container.encode(blockedPhotos, forKey: .blockedPhotos)
         try container.encode(Dictionary(uniqueKeysWithValues: fewer.map { ($0.key.rawValue, $0.value) }),
                              forKey: .fewer)
     }

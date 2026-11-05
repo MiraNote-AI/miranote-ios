@@ -25,11 +25,15 @@ public enum PushCandidates {
 
     /// Runs the rules in order: too few photos, too recent (under 12 h to the
     /// slot), too old (over 60 days), day already pushed, day blocked, bucket
-    /// cooling down, score under the bar, cached AI refusal.
+    /// cooling down, score under the bar, cached AI refusal. A group holding
+    /// a photo of a delivered push (`pushedPhotos`) or of a blocked one counts
+    /// as that day too: day keys are local dates of the zone they were
+    /// written in, and a time-zone change can move the same photos to
+    /// another day.
     public static func evaluate(
         _ fragment: Fragment, bucket: PushBucket, aiPhotoIds: [String], at slot: Date,
         analyses: [String: PhotoAnalysis], library: [String: LibraryAsset], calendar: Calendar,
-        pastLocations: [(day: String, point: GeoPoint)], pushedDays: Set<String>,
+        pastLocations: [(day: String, point: GeoPoint)], pushedDays: Set<String>, pushedPhotos: Set<String> = [],
         preferences: PushPreferences, cache: (String) -> AIVerdict?
     ) -> Result<PushCandidate, Ineligible> {
         if fragment.uniqueCount < FragmentGrouper.minimumUnique { return .failure(.tooFewPhotos) }
@@ -37,8 +41,11 @@ public enum PushCandidates {
         let days = FragmentScorer.daysBetween(fragment.belongsTo, FragmentGrouper.belongsTo(slot, calendar: calendar))
         guard let days, days >= 0 else { return .failure(.tooRecent) }
         if days > FragmentScorer.windowDays { return .failure(.tooOld) }
-        if pushedDays.contains(fragment.belongsTo) { return .failure(.pushedDay) }
-        if preferences.isBlocked(fragment.belongsTo) { return .failure(.blockedDay) }
+        let ids = fragment.photos.map(\.id)
+        if pushedDays.contains(fragment.belongsTo) || ids.contains(where: pushedPhotos.contains) {
+            return .failure(.pushedDay)
+        }
+        if preferences.isBlocked(fragment.belongsTo, photoIds: ids) { return .failure(.blockedDay) }
         guard let multiplier = preferences.multiplier(for: bucket, at: slot) else {
             return .failure(.bucketCooldown)
         }
@@ -59,7 +66,7 @@ public enum PushCandidates {
     public static func ranked(
         _ fragments: [Fragment], aiPhotoIds: (Fragment) -> [String], at slot: Date,
         analyses: [String: PhotoAnalysis], library: [String: LibraryAsset], calendar: Calendar,
-        pastLocations: [(day: String, point: GeoPoint)], pushedDays: Set<String>,
+        pastLocations: [(day: String, point: GeoPoint)], pushedDays: Set<String>, pushedPhotos: Set<String> = [],
         preferences: PushPreferences, cache: (String) -> AIVerdict?
     ) -> [PushCandidate] {
         fragments.compactMap { fragment -> PushCandidate? in
@@ -67,7 +74,7 @@ public enum PushCandidates {
             let result = evaluate(
                 fragment, bucket: bucket, aiPhotoIds: aiPhotoIds(fragment), at: slot, analyses: analyses,
                 library: library, calendar: calendar, pastLocations: pastLocations, pushedDays: pushedDays,
-                preferences: preferences, cache: cache)
+                pushedPhotos: pushedPhotos, preferences: preferences, cache: cache)
             return try? result.get()
         }
         .sorted(by: isRankedBefore)

@@ -413,3 +413,38 @@ final class PushSchedulerFiredPushTests: PushSchedulerTestCase {
         try assertDelivered(tonight)
     }
 }
+
+// MARK: - Day keys across a time-zone change
+
+/// Belongs-to days are local dates of the zone of the run that wrote them:
+/// after a zone change the same photos may fall on another day. A delivered
+/// or blocked push still rules its photos out.
+final class PushSchedulerZoneDayTests: PushSchedulerTestCase {
+    func testDeliveredPhotosAreNotPushedAgainAfterAZoneChange() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let tonight = try XCTUnwrap(active.first)
+        clock.now = tonight.scheduledFor.addingTimeInterval(3600)
+        notifier.pendingIds.remove(tonight.identifier)
+        await scheduler.markOpened(tonight.pushId)
+        zone.zone = TimeZone(identifier: "Pacific/Honolulu")!
+        XCTAssertNotEqual(day("g0"), tonight.belongsTo, "the group falls on another day in the new zone")
+        await scheduler.appBecameActive()
+        XCTAssertFalse(active.contains { !Set($0.photoIds).isDisjoint(with: tonight.photoIds) },
+                       "the same photos pushed twice")
+    }
+
+    func testBlockedPhotosStayBlockedAfterAZoneChange() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let first = try XCTUnwrap(active.first)
+        await scheduler.menu(.notThisDay, pushId: first.pushId)
+        XCTAssertEqual(preferences.load().blockedPhotos[first.belongsTo], first.photoIds)
+        clock.advance(600)
+        zone.zone = TimeZone(identifier: "Pacific/Honolulu")!
+        await scheduler.appBecameActive()
+        XCTAssertEqual(log.runs().first?.trigger, "timeZone")
+        XCTAssertFalse(active.contains { !Set($0.photoIds).isDisjoint(with: first.photoIds) },
+                       "a blocked day pushed after all")
+    }
+}
