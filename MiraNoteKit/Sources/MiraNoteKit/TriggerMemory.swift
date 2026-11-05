@@ -12,7 +12,7 @@ import Foundation
 public struct TriggerMemory: Codable, Equatable, Sendable {
     /// The copy rules the phone expects (`generation.copyVersion`); part of
     /// the AI cache key, so a change of rules never reuses older words.
-    public static let copyVersion = "copy_v2"
+    public static let copyVersion = "copy_v3"  // copy_v3: question refine 2026-11-05
 
     public struct Push: Codable, Equatable, Sendable {
         public let title: String
@@ -144,7 +144,7 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
         public let model: String
         public let costCny: Double
         public let latencyMs: Int
-        /// The copy rules the words follow ("copy_v2"); "" before versions.
+        /// The copy rules the words follow ("copy_v3"); "" before versions.
         public let copyVersion: String
 
         public init(bodySource: String, questionSource: String, model: String, costCny: Double, latencyMs: Int,

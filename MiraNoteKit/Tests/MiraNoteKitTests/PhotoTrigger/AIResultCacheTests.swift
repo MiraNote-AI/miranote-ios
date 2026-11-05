@@ -71,7 +71,7 @@ final class AIResultCacheTests: XCTestCase {
     /// Words written under other copy rules never come back for the same
     /// photos (handoff refine 5.4, acceptance R7).
     func testKeyChangesWithTheCopyVersion() throws {
-        XCTAssertEqual(TriggerMemory.copyVersion, "copy_v2")
+        XCTAssertEqual(TriggerMemory.copyVersion, "copy_v3")
         XCTAssertNotEqual(AIResultCache.key(["a", "b"], copyVersion: "copy_v1"), AIResultCache.key(["a", "b"]))
         XCTAssertNotEqual(AIResultCache.key(["a", "b"], copyVersion: ""), AIResultCache.key(["a", "b"]))
         let cache = AIResultCache(file: tempFile())

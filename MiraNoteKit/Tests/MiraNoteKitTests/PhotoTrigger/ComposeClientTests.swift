@@ -197,7 +197,7 @@ final class LiveComposeClientTests: XCTestCase {
         guard case .ok(let memory) = status else { return XCTFail("\(status)") }
         XCTAssertEqual(memory.ending.questions.map(\.type), ["zoom", "sound", "route"])
         XCTAssertEqual(memory.ending.questions.map(\.source), ["llm", "llm", "llm"])
-        XCTAssertEqual(memory.generation?.copyVersion, "copy_v2")
+        XCTAssertEqual(memory.generation?.copyVersion, "copy_v3")
         XCTAssertEqual(memory.peak?.id, "P9")
     }
 

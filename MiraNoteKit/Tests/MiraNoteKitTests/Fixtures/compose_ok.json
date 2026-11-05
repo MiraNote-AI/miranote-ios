@@ -57,7 +57,7 @@
       "model": "qwen3.7-flash",
       "costCny": 0.005,
       "latencyMs": 41000,
-      "copyVersion": "copy_v2"
+      "copyVersion": "copy_v3"
     }
   }
 }

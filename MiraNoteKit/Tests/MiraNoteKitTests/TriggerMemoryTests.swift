@@ -63,7 +63,7 @@ final class TriggerMemoryTests: XCTestCase {
         XCTAssertEqual(memory.ending.question, memory.ending.questions[0].text)
         XCTAssertEqual(memory.ending.questionType, "zoom")
         XCTAssertEqual(memory.ending.questionSource, "llm")
-        XCTAssertEqual(memory.generation?.copyVersion, "copy_v2")
+        XCTAssertEqual(memory.generation?.copyVersion, "copy_v3")
         XCTAssertFalse(memory.ending.detail.isEmpty)
         XCTAssertFalse(memory.bucket.isEmpty)
         XCTAssertEqual(memory.storyPhotos.map(\.id), ["P9", "P2"])
