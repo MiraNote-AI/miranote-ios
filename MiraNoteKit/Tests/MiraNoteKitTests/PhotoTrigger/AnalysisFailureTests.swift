@@ -107,4 +107,34 @@ final class AnalysisFailureTests: XCTestCase {
         XCTAssertEqual(AnalysisStore(directory: folder).failures(), ["g0-0": now])
         XCTAssertFalse(AnalysisStore(directory: folder).analyzedIds().contains("g0-0"))
     }
+
+    // MARK: Pruning
+
+    func testResultsOfPhotosGoneFromTheLibraryAreDropped() async {
+        let library = FakeLibrary(now: now, groups: [6, 5])
+        _ = await rank(library, FlakyAnalyzer(failing: ["g1-0"]), at: now)
+        XCTAssertEqual(store.analyzedIds().count, 10)
+        library.remove("g1")
+        library.assetsList.removeAll { $0.id == "g0-5" }
+        _ = await rank(library, FlakyAnalyzer(failing: []), at: now.addingTimeInterval(3600))
+        XCTAssertEqual(store.analyzedIds(), Set((0..<5).map { "g0-\($0)" }))
+        XCTAssertEqual(store.failures(), [:], "a failure of a photo gone goes too")
+    }
+
+    func testAnEmptyFetchPrunesNothing() async {
+        let library = FakeLibrary(now: now, groups: [6])
+        _ = await rank(library, FlakyAnalyzer(failing: ["g0-0"]), at: now)
+        library.assetsList = []
+        _ = await rank(library, FlakyAnalyzer(failing: []), at: now.addingTimeInterval(3600))
+        XCTAssertEqual(store.analyzedIds().count, 5, "no access or a PhotoKit error is not an empty library")
+        XCTAssertEqual(store.failures().count, 1)
+    }
+
+    func testLoadAllReadsEverySavedResult() throws {
+        let one = PhotoAnalysis(id: "ABC/L0/001", labels: [], broad: [], faces: 1, aesthetics: nil,
+                                isUtility: false, featurePrint: nil, originalFilename: "IMG_1.HEIC")
+        try store.save(one)
+        try store.saveFailures(["x": now])
+        XCTAssertEqual(store.loadAll(), ["ABC/L0/001": one])
+    }
 }

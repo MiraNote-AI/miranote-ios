@@ -199,10 +199,18 @@ struct TriggerRanking: Sendable {
                      groupingReport: (@Sendable (Data) -> Void)?,
                      report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         let since = { (days: Double) in now.addingTimeInterval(-days * 86_400) }
-        let eligible = await reader.assets(since: since(placeDays), knownFilenames: store.filenames())
-            .filter { LibraryFilter.eligible($0, now: now) }
+        // The saved results are read once: their file names spare PhotoKit
+        // calls, the recent ones need no analysis.
+        let saved = store.loadAll()
+        let fetched = await reader.assets(since: since(placeDays),
+                                          knownFilenames: saved.compactMapValues(\.originalFilename))
+        let eligible = fetched.filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
-        let all = await analyze(recent, analyzer: analyzer, store: store, now: now, report: report)
+        let all = await analyze(recent, saved: saved, analyzer: analyzer, store: store, now: now, report: report)
+        // What the library no longer holds (deleted, or past the window)
+        // goes. Callers run only with access; an empty fetch -- a PhotoKit
+        // error, access just taken away -- is never read as an empty library.
+        if !fetched.isEmpty { store.prune(keeping: Set(fetched.map(\.id))) }
         let analyses = all.filter { !$0.value.isUtility }
         let utility = Set(all.filter(\.value.isUtility).keys)
 
@@ -225,10 +233,7 @@ struct TriggerRanking: Sendable {
             return analyzer.distance((first, one), (second, two))
         }
         let grouping = FragmentGrouper.group(groupable, threshold: threshold, calendar: calendar, distance: distance)
-        let past = eligible.compactMap { asset -> PastLocation? in
-            guard let point = asset.location, let date = asset.takenAt else { return nil }
-            return PastLocation(id: asset.id, day: FragmentGrouper.belongsTo(date, calendar: calendar), point: point)
-        }
+        let past = pastLocations(eligible, calendar: calendar)
         var scores: [String: FragmentScore] = [:]
         for fragment in grouping.fragments {
             scores[ComposeMeta.groupKey(fragment)] = FragmentScorer.score(
@@ -253,18 +258,27 @@ struct TriggerRanking: Sendable {
                               pastLocations: past, threshold: threshold)
     }
 
+    /// Where each photo was, by its belongs-to day (place novelty).
+    private static func pastLocations(_ assets: [LibraryAsset], calendar: Calendar) -> [PastLocation] {
+        assets.compactMap { asset in
+            guard let point = asset.location, let date = asset.takenAt else { return nil }
+            return PastLocation(id: asset.id, day: FragmentGrouper.belongsTo(date, calendar: calendar), point: point)
+        }
+    }
+
+    // swiftlint:disable function_parameter_count
     /// Every recent photo's analysis: saved ones from disk, the rest
     /// analysed now and saved one by one, so an interrupted run resumes.
     /// A photo that fails is written down and left alone for a day.
-    private static func analyze(_ assets: [LibraryAsset], analyzer: PhotoAnalyzing, store: AnalysisStore, now: Date,
+    private static func analyze(_ assets: [LibraryAsset], saved: [String: PhotoAnalysis], analyzer: PhotoAnalyzing,
+                                store: AnalysisStore, now: Date,
                                 report: (TriggerProgress) async -> Void) async -> [String: PhotoAnalysis] {
-        let saved = store.analyzedIds()
         var failures = store.failures()
         var results: [String: PhotoAnalysis] = [:]
         var todo: [String] = []
         var waiting = 0
         for asset in assets {
-            if saved.contains(asset.id), let analysis = store.load(asset.id) {
+            if let analysis = saved[asset.id] {
                 results[asset.id] = analysis
             } else if let failed = failures[asset.id], (0..<retryAfter).contains(now.timeIntervalSince(failed)) {
                 waiting += 1
@@ -297,4 +311,5 @@ struct TriggerRanking: Sendable {
         if unsaved > 0 { try? store.saveFailures(failures) }
         return results
     }
+    // swiftlint:enable function_parameter_count
 }
