@@ -172,8 +172,8 @@ struct TriggerRanking: Sendable {
     let utility: [String]
     /// Recent analysed non-utility photos, newest first.
     let recentIds: [String]
-    /// The last 90 days' photo positions by belongs-to day (N).
-    let pastLocations: [(day: String, point: GeoPoint)]
+    /// The last 90 days' photo positions by photo and belongs-to day (N).
+    let pastLocations: [PastLocation]
     /// The T the grouping used.
     let threshold: ThresholdResult
 
@@ -225,9 +225,9 @@ struct TriggerRanking: Sendable {
             return analyzer.distance((first, one), (second, two))
         }
         let grouping = FragmentGrouper.group(groupable, threshold: threshold, calendar: calendar, distance: distance)
-        let past = eligible.compactMap { asset -> (day: String, point: GeoPoint)? in
+        let past = eligible.compactMap { asset -> PastLocation? in
             guard let point = asset.location, let date = asset.takenAt else { return nil }
-            return (FragmentGrouper.belongsTo(date, calendar: calendar), point)
+            return PastLocation(id: asset.id, day: FragmentGrouper.belongsTo(date, calendar: calendar), point: point)
         }
         var scores: [String: FragmentScore] = [:]
         for fragment in grouping.fragments {
