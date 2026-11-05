@@ -8,6 +8,11 @@ protocol InstallSourceProbe: Sendable {
 /// The photo trigger runs in development and TestFlight builds and never in
 /// an App Store download (handoff 7.5, decision 8). TestFlight is StoreKit's
 /// sandbox environment.
+///
+/// BEFORE THE FIRST APP STORE RELEASE: the whole feature is off in App Store
+/// builds because the AI calls still go to the internal test backend with a
+/// teammate passcode. When the production backend is in place, turn the App
+/// Store case on in `gates(isDebugBuild:probe:)` (decision 11-04).
 enum InstallSource {
     /// What this install may do.
     struct Gates: Equatable {
