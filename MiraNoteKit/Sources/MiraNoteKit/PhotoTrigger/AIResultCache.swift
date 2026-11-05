@@ -15,7 +15,9 @@ public enum AIVerdict: Codable, Equatable, Sendable {
 }
 
 /// AI verdicts by photo set, so the same photos never cost a second call.
-/// One JSON file; a missing or damaged file loads as empty. A memory the
+/// One JSON file; a missing file loads as empty, an entry that does not
+/// decode is skipped, and a damaged file is moved aside before anything
+/// is written over it (as `PushLedgerStore`). A memory the
 /// fake AI made, stored by an older build, reads as absent: the backend is
 /// asked again and its answer takes the key.
 public struct AIResultCache: Sendable {
@@ -92,9 +94,17 @@ public struct AIResultCache: Sendable {
     }
 
     private func load() -> [String: Entry] {
-        guard let data = try? Data(contentsOf: file),
-              let value = try? TriggerMemory.decoder.decode([String: Entry].self, from: data) else { return [:] }
-        return value
+        guard let data = try? Data(contentsOf: file) else { return [:] }
+        guard let all = try? TriggerMemory.decoder.decode([String: Lenient<Entry>].self, from: data) else {
+            PhotoTriggerPaths.setAside(file)
+            return [:]
+        }
+        let entries = all.compactMapValues(\.value)
+        if entries.count < all.count {
+            PhotoTriggerPaths.setAside(file)
+            try? save(entries)
+        }
+        return entries
     }
 
     private func save(_ entries: [String: Entry]) throws {

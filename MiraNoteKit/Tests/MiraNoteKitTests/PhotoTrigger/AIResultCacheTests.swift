@@ -78,6 +78,35 @@ final class AIResultCacheTests: XCTestCase {
         XCTAssertNotNil(cache.verdict("new"))
     }
 
+    /// One entry that does not decode costs that entry: the rest still
+    /// answer, survive the next store, and the file as it was is kept aside.
+    func testOneBadEntryCostsThatEntryOnly() throws {
+        let file = tempFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let good = #"{"verdict":{"rejected":{"reason":"sensitive","message":"m"}},"belongsTo":"2026-10-18","#
+            + #""storedAt":"2026-10-19T00:00:00Z"}"#
+        let bad = #"{"verdict":{"ok":{"memory":{"id":"x"},"photoIds":{}}},"belongsTo":"2026-10-18","#
+            + #""storedAt":"2026-10-19T00:00:00Z"}"#
+        let damaged = Data("{\"k1\":\(good),\"k2\":\(good),\"k3\":\(bad)}".utf8)
+        try damaged.write(to: file)
+        let cache = AIResultCache(file: file)
+        XCTAssertEqual(Set(cache.verdicts().keys), ["k1", "k2"])
+        try cache.store(.rejected(reason: "r", message: "m"), key: "k4", belongsTo: "2026-10-20", at: now)
+        XCTAssertEqual(Set(cache.verdicts().keys), ["k1", "k2", "k4"])
+        let aside = try XCTUnwrap(PushLedgerTests.setAside(file).first)
+        XCTAssertEqual(try Data(contentsOf: aside), damaged)
+    }
+
+    func testUnparsableCacheIsSetAsideNotOverwritten() throws {
+        let file = tempFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{{{".utf8).write(to: file)
+        let cache = AIResultCache(file: file)
+        try cache.store(ok, key: "k", belongsTo: "2026-10-30", at: now)
+        XCTAssertEqual(cache.verdict("k"), ok)
+        XCTAssertEqual(try PushLedgerTests.setAside(file).map { try Data(contentsOf: $0) }, [Data("{{{".utf8)])
+    }
+
     func testCacheLoadsEmptyFromGarbage() throws {
         let file = tempFile()
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)

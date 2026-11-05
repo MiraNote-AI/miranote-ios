@@ -151,6 +151,44 @@ final class PushLedgerTests: XCTestCase {
         XCTAssertEqual(PushLedgerStore(file: tempFile()).load(), [])
     }
 
+    /// The files next to `file` it was set aside as.
+    static func setAside(_ file: URL) throws -> [URL] {
+        let folder = file.deletingLastPathComponent()
+        return try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(file.lastPathComponent + ".corrupt-") }
+    }
+
+    /// A row this build cannot read (a newer build's removal reason) costs
+    /// that row, not the history: the rest loads, and the file as it was
+    /// is kept aside before anything is written.
+    func testOneBadRowCostsThatRowOnly() throws {
+        let file = tempFile()
+        let store = PushLedgerStore(file: file)
+        try store.save([Self.entry("A", at: now), Self.entry("B", at: now)])
+        var rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [[String: Any]])
+        rows[1]["removedReason"] = "someFutureReason"
+        let damaged = try JSONSerialization.data(withJSONObject: rows)
+        try damaged.write(to: file)
+        XCTAssertEqual(store.load().map(\.pushId), ["A"])
+        try store.append(Self.entry("C", at: now))
+        XCTAssertEqual(store.load().map(\.pushId), ["A", "C"])
+        let aside = try XCTUnwrap(Self.setAside(file).first)
+        XCTAssertEqual(try Data(contentsOf: aside), damaged)
+    }
+
+    /// A file that does not parse at all is moved aside, never written over.
+    func testUnparsableLedgerIsSetAsideNotOverwritten() throws {
+        let file = tempFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("[{ nope".utf8).write(to: file)
+        let store = PushLedgerStore(file: file)
+        try store.append(Self.entry("A", at: now))
+        XCTAssertEqual(store.load().map(\.pushId), ["A"])
+        let aside = try Self.setAside(file)
+        XCTAssertEqual(aside.count, 1)
+        XCTAssertEqual(try aside.first.map { try Data(contentsOf: $0) }, Data("[{ nope".utf8))
+    }
+
     func testStoreIsExcludedFromBackup() throws {
         let file = tempFile()
         try PushLedgerStore(file: file).append(Self.entry(at: now))

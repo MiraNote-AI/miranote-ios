@@ -89,4 +89,27 @@ public enum PhotoTriggerPaths {
         var marked = directory
         try marked.setResourceValues(values)
     }
+
+    /// Moves `file` aside as `<name>.corrupt-<ms since 1970>`: what could
+    /// not be read is kept for a look, and the next save starts a new file
+    /// instead of writing over it.
+    static func setAside(_ file: URL) {
+        let folder = file.deletingLastPathComponent()
+        let name = "\(file.lastPathComponent).corrupt-\(Int(Date().timeIntervalSince1970 * 1000))"
+        var target = folder.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: target.path) {
+            target = folder.appendingPathComponent("\(name)-\(UUID().uuidString)")
+        }
+        try? FileManager.default.moveItem(at: file, to: target)
+    }
+}
+
+/// One element of a stored list or map, nil when it does not decode: a
+/// row this build cannot read costs that row, not the file.
+struct Lenient<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: Decoder) throws {
+        value = try? Value(from: decoder)
+    }
 }
