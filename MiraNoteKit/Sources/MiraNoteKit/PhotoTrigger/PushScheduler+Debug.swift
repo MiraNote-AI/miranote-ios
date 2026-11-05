@@ -45,17 +45,19 @@ extension PushScheduler {
         lastRanking = nil
     }
 
-    /// Clears one blocked day (debug page).
-    public func unblockDay(_ day: String) {
+    /// Clears one blocked day (debug page); the nights are refilled at once.
+    public func unblockDay(_ day: String) async {
         try? deps.preferences.update {
             $0.blockedDays[day] = nil
             $0.blockedPhotos[day] = nil
         }
+        await request(.replan)
     }
 
-    /// Clears one "fewer like this" (debug page).
-    public func clearFewer(_ bucket: PushBucket) {
+    /// Clears one "fewer like this" (debug page); the nights are refilled at once.
+    public func clearFewer(_ bucket: PushBucket) async {
         try? deps.preferences.update { $0.fewer[bucket] = nil }
+        await request(.replan)
     }
 
     // MARK: Fake AI off

@@ -167,6 +167,32 @@ final class PushSchedulerDebugTests: PushSchedulerTestCase {
         XCTAssertEqual(log.runs().first?.trigger, "replan")
     }
 
+    /// Clearing a blocked day or a "fewer" on the debug page refills the
+    /// nights at once.
+    func testUnblockingADayReplans() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let target = try XCTUnwrap(active.first { $0.belongsTo == day("g2") })
+        await scheduler.menu(.notThisDay, pushId: target.pushId)
+        XCTAssertFalse(activeDays.contains(day("g2")))
+        clock.advance(600)
+        await scheduler.unblockDay(day("g2"))
+        XCTAssertEqual(preferences.load(), PushPreferences())
+        XCTAssertEqual(log.runs().first?.trigger, "replan")
+        XCTAssertTrue(activeDays.contains(day("g2")), "the day is planned again")
+    }
+
+    func testClearingFewerReplans() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        await scheduler.menu(.fewerLikeThis, pushId: try XCTUnwrap(active.first).pushId)
+        XCTAssertTrue(active.isEmpty, "every group is food")
+        clock.advance(600)
+        await scheduler.clearFewer(.food)
+        XCTAssertEqual(log.runs().first?.trigger, "replan")
+        XCTAssertEqual(activeDays, allSeven)
+    }
+
     func testClearAllForgetsAllButTheAnalyses() async throws {
         let scheduler = makeScheduler()
         await scheduler.appBecameActive()
