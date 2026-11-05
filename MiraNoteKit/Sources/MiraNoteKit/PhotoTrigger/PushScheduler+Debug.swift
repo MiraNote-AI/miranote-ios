@@ -55,6 +55,32 @@ extension PushScheduler {
         try? deps.preferences.update { $0.fewer[bucket] = nil }
     }
 
+    // MARK: Fake AI off
+
+    /// The fake-AI switch was turned off while the app is open: the pushes
+    /// it wrote are composed again with the real AI, as on the next return.
+    public func fakeAITurnedOff() async {
+        guard !deps.fakeAI(), await takeBackFakeCopy() else { return }
+        await request(.fakeAIOff)
+    }
+
+    /// With the fake AI off: the pushes it wrote that are not yet locked
+    /// are taken back, so the run that follows asks the backend for them
+    /// (the fake words never enter the cache). Debug pushes stay. True when
+    /// any push was taken back.
+    func takeBackFakeCopy() async -> Bool {
+        let now = deps.now()
+        let fake = Set(deps.ledger.load()
+            .filter { $0.isActive && $0.scheduledFor.timeIntervalSince(now) > SchedulePlanner.lockWindow }
+            .filter { deps.records.load($0.pushId)?.memory.isFakeMade == true }
+            .map(\.pushId))
+        guard !fake.isEmpty else { return false }
+        // Killed before the run ends: the next return still runs.
+        try? deps.state.update { $0.lastRunLeftDaysUnfilled = true }
+        await removeActive(.fakeAIOff) { fake.contains($0.pushId) }
+        return true
+    }
+
     // MARK: Preview
 
     /// The Nth press sends a copy of the Nth scheduled push in night order
@@ -199,7 +225,8 @@ extension PushScheduler {
     }
 
     /// The cached verdict when the photo set has one, else the AI (5 s
-    /// polls, as phase 1), cached; a pass is pushed in 10 s.
+    /// polls, as phase 1), cached -- the fake AI's never; a pass is pushed
+    /// in 10 s.
     private func attemptOutside(_ candidate: PushCandidate, rank: Int, ranking: TriggerRanking, calendar: Calendar,
                                 out: AsyncStream<TriggerProgress>.Continuation) async -> TriggerAttempt {
         let fragment = candidate.fragment
@@ -220,10 +247,10 @@ extension PushScheduler {
         case .rejected(_, let message):
             return .rejected(message)
         case nil where deps.fakeAI():
+            // Not cached: the backend is asked once the switch is off.
             memory = FakeAIMemory.build(meta: built.meta, photoIds: built.photoIds, picks: picks, calendar: calendar,
                                         zh: deps.zh)
             photoIds = built.photoIds
-            store(.ok(memory: memory, photoIds: photoIds), candidate)
         case nil:
             let session = ComposeSession(library: deps.library, client: deps.client, sleep: deps.sleep)
             switch await session.run(built.meta, photoIds: built.photoIds) {

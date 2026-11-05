@@ -257,8 +257,8 @@ extension TriggerRunTests {
         XCTAssertEqual(memory.ending.questionSource, "fallback_B1")
         XCTAssertEqual(memory.ending.questionType, "one_word")
         XCTAssertEqual(memory.ending.detail, "")
-        let body = "[\(TriggerContentKey.photosThatDay)]".replacingOccurrences(of: "%lld", with: "10")
-        XCTAssertEqual(memory.push.body, body)
+        XCTAssertEqual(memory.push.body, "[10 photos, a [Tuesday] [Morning]]",
+                       "F0: the count, then the cover photo's weekday and daypart")
         XCTAssertEqual(memory.story.photos.count, 8, "ten preselected, the eight best")
         XCTAssertEqual(memory.story.photos.filter(\.isPeak).count, 1)
         XCTAssertEqual(memory.bucket, "[Food and drink]")
@@ -282,6 +282,14 @@ extension TriggerRunTests {
         XCTAssertTrue(memory.ending.question.contains(word))
         XCTAssertTrue(memory.ending.ctaLabel.contains(word))
         XCTAssertEqual(memory.ending.factLine, TriggerWords.shortDate(memory.date))
+        let weekday = "[\(TriggerContentKey.weekday(calendar.component(.weekday, from: peak.takenAt)))]"
+        XCTAssertTrue(memory.push.body.hasSuffix(" \(weekday) \(word)]"), "the body's weekday is the cover's")
+    }
+
+    func testWeekdayKeysFollowTheCalendar() {
+        XCTAssertEqual([1, 2, 6, 7].map(TriggerContentKey.weekday), ["Sunday", "Monday", "Friday", "Saturday"])
+        XCTAssertEqual(TriggerContentKey.weekdays.count, 7)
+        XCTAssertTrue(Set(TriggerContentKey.weekdays).isSubset(of: TriggerContentKey.all))
     }
 
     func testPushIdIsNewEachTime() async {

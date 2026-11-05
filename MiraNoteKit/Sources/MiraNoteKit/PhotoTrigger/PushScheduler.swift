@@ -75,7 +75,7 @@ public struct SchedulerDependencies: Sendable {
 public actor PushScheduler {
     /// Why a run started (`ScheduleRun.trigger`).
     public enum Trigger: String, Sendable {
-        case foreground, menu, replan, timeZone, clearAll, copyUpgrade
+        case foreground, menu, replan, timeZone, clearAll, copyUpgrade, fakeAIOff
     }
 
     /// A full run from the front at most this often.
@@ -116,9 +116,10 @@ public actor PushScheduler {
 
     /// The app came to the front: run unless a full run finished within
     /// the hour -- except when the last run left nights unfilled, the time
-    /// zone changed (then every scheduled push is taken back first), or the
+    /// zone changed (then every scheduled push is taken back first), the
     /// copy rules changed since the pushes were written (then those not yet
-    /// locked are, once).
+    /// locked are, once), or the fake AI is off and wrote some of them (then
+    /// those not yet locked are).
     /// `sequence` orders it against `appEnteredBackground`: a call older than
     /// the last phase change heard does nothing (nil: always current).
     public func appBecameActive(sequence: Int? = nil) async {
@@ -127,12 +128,14 @@ public actor PushScheduler {
         inBackground = false
         let state = deps.state.load()
         let upgraded = state.copyVersion != TriggerMemory.copyVersion ? await takeBackOlderCopy() : false
+        let unfaked = deps.fakeAI() ? false : await takeBackFakeCopy()
         let zone = deps.calendar().timeZone.identifier
         if let old = state.timeZoneId, old != zone {
             await removeActive(.timeZone) { _ in true }
             return await request(.timeZone)
         }
         if upgraded { return await request(.copyUpgrade) }
+        if unfaked { return await request(.fakeAIOff) }
         guard gateOpen(state) else { return }
         await request(.foreground)
     }

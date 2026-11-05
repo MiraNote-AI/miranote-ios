@@ -81,6 +81,35 @@ final class PushSchedulerDebugTests: PushSchedulerTestCase {
         guard case .ok = cache.verdict(key) else { return XCTFail("the answer is cached") }
     }
 
+    /// The fake AI's words for a group outside are never cached; with the
+    /// switch off the backend is asked, even when an older build cached
+    /// them.
+    func testTryOutsideNeverReusesFakeWords() async throws {
+        addOutside()
+        fake = true
+        let faked = makeScheduler()
+        await faked.appBecameActive()
+        let first = await press(faked)
+        guard case .scheduled(1, _) = first.last else { return XCTFail("\(first)") }
+        XCTAssertTrue(client.submitted.isEmpty)
+        XCTAssertTrue(cache.verdicts().isEmpty, "the fake AI's words never enter the cache")
+        let debug = try XCTUnwrap(ledger.load().first(where: \.isDebug))
+        let record = try XCTUnwrap(records.load(debug.pushId))
+        XCTAssertTrue(record.memory.isFakeMade)
+        let key = AIResultCache.key((0..<3).map { "g7-\($0)" })
+        try cache.store(.ok(memory: record.memory, photoIds: record.photoIds), key: key, belongsTo: day("g7"),
+                        at: clock.now)
+
+        fake = false
+        let real = makeScheduler()
+        let second = await press(real)
+        XCTAssertEqual(asked(second), [TriggerWords.shortDate(day("g7"))])
+        guard case .scheduled(1, _) = second.last else { return XCTFail("\(second)") }
+        XCTAssertEqual(client.submitted, [day("g7")], "the backend is asked")
+        guard case .ok(let memory, _) = cache.verdict(key) else { return XCTFail("the answer is cached") }
+        XCTAssertFalse(memory.isFakeMade)
+    }
+
     func testTryOutsideWrapsWithNotice() async throws {
         addOutside()
         client.scripts[day("g8")] = [.rejected]

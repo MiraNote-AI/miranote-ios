@@ -6,10 +6,18 @@ import Foundation
 public enum AIVerdict: Codable, Equatable, Sendable {
     case ok(memory: TriggerMemory, photoIds: [String: String])
     case rejected(reason: String, message: String)
+
+    /// A memory the fake AI made: never stored, read as absent.
+    var isFakeMade: Bool {
+        if case .ok(let memory, _) = self { return memory.isFakeMade }
+        return false
+    }
 }
 
 /// AI verdicts by photo set, so the same photos never cost a second call.
-/// One JSON file; a missing or damaged file loads as empty.
+/// One JSON file; a missing or damaged file loads as empty. A memory the
+/// fake AI made, stored by an older build, reads as absent: the backend is
+/// asked again and its answer takes the key.
 public struct AIResultCache: Sendable {
     private struct Entry: Codable {
         var verdict: AIVerdict
@@ -40,7 +48,7 @@ public struct AIResultCache: Sendable {
     }
 
     public func verdict(_ key: String) -> AIVerdict? {
-        load()[key]?.verdict
+        load()[key].flatMap { $0.verdict.isFakeMade ? nil : $0.verdict }
     }
 
     public func store(_ verdict: AIVerdict, key: String, belongsTo: String, at: Date) throws {
@@ -51,7 +59,7 @@ public struct AIResultCache: Sendable {
 
     /// Every stored verdict by key, read once.
     public func verdicts() -> [String: AIVerdict] {
-        load().mapValues(\.verdict)
+        load().compactMapValues { $0.verdict.isFakeMade ? nil : $0.verdict }
     }
 
     /// Deletes the file (back to empty).

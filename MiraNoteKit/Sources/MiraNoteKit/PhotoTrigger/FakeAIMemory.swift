@@ -4,8 +4,9 @@ import Foundation
 /// always (handoff 7.0): the app looks these up in the zh-Hans catalog,
 /// whatever the app language, and hands the Kit the lookup as `zh`.
 public enum TriggerContentKey {
-    /// F0, the body without a detail line: "you took N photos that day".
-    public static let photosThatDay = "You took %lld photos that day"
+    /// F0, the body without a detail line: "N photos, a Friday night" --
+    /// the count, then the cover photo's weekday and daypart.
+    public static let photosOnWeekday = "%1$lld photos, a %2$@ %3$@"
     /// Question B1: three keywords for that part of the day.
     public static let threeWords = "Three words for that %@: __, __, __"
     /// The ending's button: keep this part of the day.
@@ -21,9 +22,18 @@ public enum TriggerContentKey {
         }
     }
 
+    /// The weekdays, Sunday first (`Calendar` weekday 1).
+    public static let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    /// A weekday by its `Calendar` number (1 is Sunday).
+    public static func weekday(_ number: Int) -> String {
+        weekdays[((number - 1) % 7 + 7) % 7]
+    }
+
     /// Every key, for the catalog test.
     public static var all: [String] {
-        [photosThatDay, threeWords, keepThis] + Daypart.allCases.map(daypart) + PushBucket.allCases.map(\.catalogKey)
+        [photosOnWeekday, threeWords, keepThis] + Daypart.allCases.map(daypart) + weekdays
+            + PushBucket.allCases.map(\.catalogKey)
     }
 }
 
@@ -47,8 +57,12 @@ public enum TriggerWords {
 /// The fake-AI switch's memory, built on the phone with no backend
 /// (handoff 7.5): up to eight of the preselected photos, the best-scoring
 /// one as the peak, no detail line (body F0), question B1 (`one_word`).
+/// Never cached: the backend's answer for the same photos must not lose
+/// to it once the switch is off (`AIResultCache`).
 public enum FakeAIMemory {
     public static let maxPhotos = 8
+    /// `generation.bodySource` of every memory built here.
+    public static let source = "fake"
 
     /// - Parameters:
     ///   - meta: the meta that would have been sent (numbers, times, place).
@@ -75,8 +89,11 @@ public enum FakeAIMemory {
         let byScore = scored.sorted { $0.score != $1.score ? $0.score > $1.score : $0.at < $1.at }
         let chosen = Array(byScore.prefix(maxPhotos)).sorted { $0.at < $1.at }
         let peak = byScore.first
-        let daypart = Daypart(hour: calendar.component(.hour, from: peak?.at ?? .now))
+        // The cover's time gives the daypart and the body's weekday.
+        let coverAt = peak?.at ?? .now
+        let daypart = Daypart(hour: calendar.component(.hour, from: coverAt))
         let when = zh(TriggerContentKey.daypart(daypart))
+        let weekday = zh(TriggerContentKey.weekday(calendar.component(.weekday, from: coverAt)))
         let fact = TriggerWords.factLine(day: meta.date, place: meta.place)
         let bucket = PushBucket.majority(of: chosen.map { number in
             Set((metaPhotos[number.number]?.labels ?? []).compactMap(BroadCategory.init(rawValue:)))
@@ -87,7 +104,7 @@ public enum FakeAIMemory {
         return TriggerMemory(
             id: meta.groupKey, date: meta.date, daypart: daypart, bucket: zh(bucket.catalogKey),
             push: .init(title: fact + TriggerWords.separator + when,
-                        body: String(format: zh(TriggerContentKey.photosThatDay), meta.rawCount),
+                        body: String(format: zh(TriggerContentKey.photosOnWeekday), meta.rawCount, weekday, when),
                         coverPhotoId: peak?.number ?? ""),
             story: .init(firstFrameLabel: fact, photos: photos),
             ending: .init(factLine: fact, detail: "",
@@ -95,7 +112,14 @@ public enum FakeAIMemory {
                                             type: "one_word", source: "fallback_B1")],
                           ctaLabel: String(format: zh(TriggerContentKey.keepThis), when)),
             facts: [:],
-            generation: .init(bodySource: "fake", questionSource: "fake", model: "on-device", costCny: 0, latencyMs: 0)
+            generation: .init(bodySource: source, questionSource: source, model: "on-device", costCny: 0,
+                              latencyMs: 0)
         )
     }
+}
+
+extension TriggerMemory {
+    /// Built on the phone by the fake-AI switch (`FakeAIMemory`), not by
+    /// the backend.
+    public var isFakeMade: Bool { generation?.bodySource == FakeAIMemory.source }
 }

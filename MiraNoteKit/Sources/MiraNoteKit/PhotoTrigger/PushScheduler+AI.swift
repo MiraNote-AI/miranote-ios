@@ -159,8 +159,8 @@ extension PushScheduler {
             }
             work.days[index].state = .waiting(job)
         case .fake(let memory, let photoIds, let place):
-            let verdict = AIVerdict.ok(memory: memory, photoIds: photoIds)
-            remember(verdict, candidate)
+            // Known to this run only: the fake AI's words never enter the cache.
+            work.verdicts[candidate.cacheKey] = .ok(memory: memory, photoIds: photoIds)
             log(index, candidate, .ok, since: deps.now())
             await schedule(index, candidate, memory: memory, photoIds: photoIds, place: place, context: context)
         case .unreadable:

@@ -23,8 +23,14 @@ final class TriggerController {
     private(set) var steps: [TriggerProgress] = []
     private(set) var notice: Notice?
     private(set) var isRunning = false
+    /// Read by the scheduler from its next step on. Turned off, the pushes
+    /// the fake AI wrote are composed again with the real AI.
     var fakeAI: Bool {
-        didSet { AppSettings.storeDefaults.set(fakeAI, forKey: Self.fakeAIKey) }
+        didSet {
+            AppSettings.storeDefaults.set(fakeAI, forKey: Self.fakeAIKey)
+            fakeAIFlag.value = fakeAI
+            if oldValue, !fakeAI { fakeAITurnedOff() }
+        }
     }
 
     let photos: TriggerPhotoProviding
@@ -134,6 +140,18 @@ final class TriggerController {
         return Task { [scheduler] in
             let replan = await gates?.value.schedulesAutomatically ?? false
             await scheduler.menu(action, pushId: pushId, replan: replan)
+        }
+    }
+
+    /// The switch went off with the app open: the scheduler takes back what
+    /// the fake AI wrote and runs at once -- only where this install
+    /// schedules automatically (decision 8), as coming to the front does.
+    private func fakeAITurnedOff() {
+        guard schedulesAutomatically else { return }
+        let gates = self.gates
+        Task { [scheduler] in
+            guard await gates?.value.schedulesAutomatically ?? false else { return }
+            await scheduler.fakeAITurnedOff()
         }
     }
 

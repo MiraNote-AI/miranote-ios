@@ -309,15 +309,16 @@ final class PushSchedulerTests: PushSchedulerTestCase {
         XCTAssertEqual(state.load().thresholdComputedAt, clock.now, "a week on: T computed again")
     }
 
-    func testFakeAIIsUsedAndCached() async throws {
+    func testFakeAIIsUsedNeverCached() async throws {
         fake = true
         await makeScheduler().appBecameActive()
         XCTAssertTrue(client.submitted.isEmpty)
         XCTAssertEqual(activeDays, allSeven)
-        let key = AIResultCache.key((0..<9).map { "g0-\($0)" })
-        guard case .ok(let memory, _) = cache.verdict(key) else { return XCTFail("cached like ok") }
+        let memory = try XCTUnwrap(records.load(try XCTUnwrap(active.first).pushId)).memory
+        XCTAssertTrue(memory.isFakeMade)
         XCTAssertEqual(memory.ending.questions.map(\.source), ["fallback_B1"])
         XCTAssertEqual(memory.ending.questionType, "one_word")
+        XCTAssertTrue(cache.verdicts().isEmpty, "the fake AI's words never enter the cache")
     }
 
     func testStoresLoadEmptyFromGarbage() async throws {

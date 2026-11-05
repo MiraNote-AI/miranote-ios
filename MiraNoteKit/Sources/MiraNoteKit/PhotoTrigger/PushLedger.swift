@@ -10,6 +10,8 @@ public enum RemovalReason: String, Codable, Sendable {
     case appStore
     /// Written under older copy rules: composed again (handoff refine 5.4).
     case copyUpgrade
+    /// Written by the fake AI, now switched off: composed again.
+    case fakeAIOff
 }
 
 /// One push, from being scheduled to what the user did with it. Place goes

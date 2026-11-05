@@ -1,6 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%1$lld photos, a %2$@ %3$@" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push body when there is no detail line; the photo count, then the cover photo's weekday (Friday) and daypart (night).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld 张照片，一个%2$@的%3$@"
+          }
+        }
+      }
+    },
     "%@ and %@" : {
       "comment" : "VoiceOver: a display font and a body font.",
       "extractionState" : "manual",
@@ -2280,6 +2292,18 @@
         }
       }
     },
+    "Friday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周五"
+          }
+        }
+      }
+    },
     "From %@" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -3171,6 +3195,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MiraNote 的 AI 服务器没有运行。它在一台需要有人启动的 Mac 上，请告诉团队。"
+          }
+        }
+      }
+    },
+    "Monday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周一"
           }
         }
       }
@@ -4896,6 +4932,18 @@
         }
       }
     },
+    "Saturday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周六"
+          }
+        }
+      }
+    },
     "Sounds" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -5465,6 +5513,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请先停止录音。"
+          }
+        }
+      }
+    },
+    "Sunday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周日"
           }
         }
       }
@@ -6116,6 +6176,18 @@
         }
       }
     },
+    "Thursday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周四"
+          }
+        }
+      }
+    },
     "Tidied the layout." : {
       "comment" : "Result sheet: what changed.",
       "extractionState" : "manual",
@@ -6231,6 +6303,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再试一次"
+          }
+        }
+      }
+    },
+    "Tuesday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周二"
           }
         }
       }
@@ -6444,6 +6528,18 @@
         }
       }
     },
+    "Wednesday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周三"
+          }
+        }
+      }
+    },
     "Week" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6636,18 +6732,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可以从一种心情、一张照片、一段语音，或一个零散的想法开始。"
-          }
-        }
-      }
-    },
-    "You took %lld photos that day" : {
-      "comment" : "Photo trigger CONTENT (always shown in Chinese): push body when there is no detail line.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "那天你拍了 %lld 张照片"
           }
         }
       }

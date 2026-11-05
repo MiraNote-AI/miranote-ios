@@ -20,6 +20,29 @@ final class AIResultCacheTests: XCTestCase {
         XCTAssertNil(cache.verdict(AIResultCache.key(["a", "b", "d"])))
     }
 
+    /// The same memory as made by the fake AI.
+    private var fakeMade: AIVerdict {
+        let base = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P1")
+        let memory = TriggerMemory(
+            id: base.id, date: base.date, daypart: base.daypart, push: base.push, story: base.story,
+            ending: base.ending,
+            generation: .init(bodySource: FakeAIMemory.source, questionSource: FakeAIMemory.source,
+                              model: "on-device", costCny: 0, latencyMs: 0))
+        return .ok(memory: memory, photoIds: ["P1": "a"])
+    }
+
+    /// A fake-AI memory an older build stored reads as absent, so the
+    /// backend is asked; its answer then takes the key.
+    func testFakeMadeMemoryReadsAsAbsent() throws {
+        let cache = AIResultCache(file: tempFile())
+        try cache.store(fakeMade, key: "fake", belongsTo: "2026-10-30", at: now)
+        try cache.store(ok, key: "real", belongsTo: "2026-10-30", at: now)
+        XCTAssertNil(cache.verdict("fake"))
+        XCTAssertEqual(cache.verdicts(), ["real": ok])
+        try cache.store(ok, key: "fake", belongsTo: "2026-10-30", at: now)
+        XCTAssertEqual(cache.verdict("fake"), ok)
+    }
+
     func testRejectedIsCached() throws {
         let cache = AIResultCache(file: tempFile())
         let rejected = AIVerdict.rejected(reason: "sensitive", message: "no")
