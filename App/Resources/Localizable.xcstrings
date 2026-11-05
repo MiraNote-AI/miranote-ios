@@ -2,7 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "%1$lld photos, a %2$@ %3$@" : {
-      "comment" : "Photo trigger CONTENT (always Chinese): push body when there is no detail line; the photo count, then the cover photo's weekday (Friday) and daypart (night).",
+      "comment" : "Photo trigger CONTENT (always Chinese): push body when there is no detail line; the photo count, then the weekday of the group's day (Friday) and the cover photo's daypart (night).",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {

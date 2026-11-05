@@ -5,7 +5,7 @@ import Foundation
 /// whatever the app language, and hands the Kit the lookup as `zh`.
 public enum TriggerContentKey {
     /// F0, the body without a detail line: "N photos, a Friday night" --
-    /// the count, then the cover photo's weekday and daypart.
+    /// the count, then the group's belongs-to weekday and the cover's daypart.
     public static let photosOnWeekday = "%1$lld photos, a %2$@ %3$@"
     /// Question B1: three keywords for that part of the day.
     public static let threeWords = "Three words for that %@: __, __, __"
@@ -89,11 +89,13 @@ public enum FakeAIMemory {
         let byScore = scored.sorted { $0.score != $1.score ? $0.score > $1.score : $0.at < $1.at }
         let chosen = Array(byScore.prefix(maxPhotos)).sorted { $0.at < $1.at }
         let peak = byScore.first
-        // The cover's time gives the daypart and the body's weekday.
+        // The cover's time gives the daypart; the body's weekday is the group's
+        // belongs-to day's (a photo before 04:00 is the night before), as the backend's.
         let coverAt = peak?.at ?? .now
         let daypart = Daypart(hour: calendar.component(.hour, from: coverAt))
         let when = zh(TriggerContentKey.daypart(daypart))
-        let weekday = zh(TriggerContentKey.weekday(calendar.component(.weekday, from: coverAt)))
+        // `meta.weekday` is 1 Monday ... 7 Sunday; the keys go by `Calendar` (1 Sunday).
+        let weekday = zh(TriggerContentKey.weekday(meta.weekday % 7 + 1))
         let fact = TriggerWords.factLine(day: meta.date, place: meta.place)
         let bucket = PushBucket.majority(of: chosen.map { number in
             Set((metaPhotos[number.number]?.labels ?? []).compactMap(BroadCategory.init(rawValue:)))
