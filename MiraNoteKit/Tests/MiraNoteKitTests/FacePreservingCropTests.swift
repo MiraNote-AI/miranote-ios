@@ -33,10 +33,13 @@ final class FacePreservingCropTests: XCTestCase {
         XCTAssertLessThan(frame.height, phone.height)
     }
 
-    func testLandscapeAndSquareShowWholePortraitFills() {
+    func testCameraPhotosShowWholeNarrowerOnesFill() {
         XCTAssertTrue(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 4000, height: 3000)))
         XCTAssertTrue(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 3000, height: 3000)))
-        XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 3000, height: 4000)))
+        // A 3:4 camera portrait, full size and as resized for the story (decision 11-05).
+        XCTAssertTrue(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 3024, height: 4032)))
+        XCTAssertTrue(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 1350, height: 1800)))
+        XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 1200, height: 1800)))
         XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: CGSize(width: 1080, height: 1920)))
         XCTAssertFalse(FacePreservingCrop.showsWhole(imageSize: .zero))
     }

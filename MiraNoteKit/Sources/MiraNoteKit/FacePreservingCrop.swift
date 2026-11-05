@@ -15,11 +15,13 @@ public enum FacePreservingCrop {
         case unknown
     }
 
-    /// Full screen in the story, a landscape or square photo is shown whole
-    /// over a blurred fill of itself and only a portrait one fills
-    /// (decisions 10-24; the prototype's 0.8 width-to-height line).
+    /// Full screen in the story, a photo is shown whole over a blurred fill
+    /// of itself; only one narrower than a 3:4 camera portrait (a 9:16
+    /// screenshot, a 2:3 crop, a long image) fills (decisions 10-24, widened
+    /// 11-05: a 3:4 portrait filling the screen lost about 40% of its width).
+    /// The line sits a little under 3:4 so a resized 3:4 still counts.
     public static func showsWhole(imageSize: CGSize) -> Bool {
-        imageSize.height > 0 && imageSize.width / imageSize.height >= 0.8
+        imageSize.height > 0 && imageSize.width / imageSize.height >= 0.74
     }
 
     /// Breathing room kept around the faces, as a fraction of their size.
