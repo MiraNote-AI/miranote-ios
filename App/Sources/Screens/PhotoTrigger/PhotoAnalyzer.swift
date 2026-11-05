@@ -23,8 +23,10 @@ struct PhotoAnalyzer: PhotoAnalyzing {
     func analyze(_ id: String) async -> PhotoAnalysis? {
         guard let image = await photos.image(for: id, maxPixel: Self.thumbnailPixel, allowNetwork: false),
               let cgImage = image.cgImage else { return nil }
-        guard var analysis = await Self.classic(cgImage, id: id) else { return nil }
-        if #available(iOS 18.0, *), let scores = await Self.aesthetics(cgImage) {
+        // The bitmap is stored as shot; Vision needs to know which way is up.
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        guard var analysis = await Self.classic(cgImage, orientation: orientation, id: id) else { return nil }
+        if #available(iOS 18.0, *), let scores = await Self.aesthetics(cgImage, orientation: orientation) {
             analysis = PhotoAnalysis(id: id, labels: analysis.labels, broad: analysis.broad, faces: analysis.faces,
                                      aesthetics: scores.overall, isUtility: scores.isUtility || analysis.isUtility,
                                      featurePrint: analysis.featurePrint)
@@ -45,7 +47,8 @@ struct PhotoAnalyzer: PhotoAnalyzing {
     }
 
     /// FeaturePrint, labels and faces in one pass.
-    private static func classic(_ image: CGImage, id: String) async -> PhotoAnalysis? {
+    private static func classic(_ image: CGImage, orientation: CGImagePropertyOrientation,
+                                id: String) async -> PhotoAnalysis? {
         await withCheckedContinuation { continuation in
             work.async {
                 let featurePrint = VNGenerateImageFeaturePrintRequest()
@@ -57,7 +60,7 @@ struct PhotoAnalyzer: PhotoAnalyzing {
                 requests.forEach(useCPU)
                 #endif
                 do {
-                    try VNImageRequestHandler(cgImage: image).perform(requests)
+                    try VNImageRequestHandler(cgImage: image, orientation: orientation).perform(requests)
                 } catch {
                     continuation.resume(returning: nil)
                     return
@@ -88,12 +91,14 @@ struct PhotoAnalyzer: PhotoAnalyzing {
     }
 
     @available(iOS 18.0, *)
-    private static func aesthetics(_ image: CGImage) async -> (overall: Double, isUtility: Bool)? {
+    private static func aesthetics(_ image: CGImage, orientation: CGImagePropertyOrientation) async
+        -> (overall: Double, isUtility: Bool)? {
         #if targetEnvironment(simulator)
         // The simulator cannot run the model: treated as iOS 17 (handoff 7.1).
         return nil
         #else
-        guard let observation = try? await CalculateImageAestheticsScoresRequest().perform(on: image) else {
+        guard let observation = try? await CalculateImageAestheticsScoresRequest()
+            .perform(on: image, orientation: orientation) else {
             return nil
         }
         return (Double(observation.overallScore), observation.isUtility)
@@ -126,5 +131,22 @@ private final class FeaturePrintCache: @unchecked Sendable {
                                                                          from: data) else { return nil }
         cache.setObject(observation, forKey: id as NSString)
         return observation
+    }
+}
+
+extension CGImagePropertyOrientation {
+    /// The EXIF orientation of a UIKit one (their raw values differ).
+    init(_ orientation: UIImage.Orientation) {
+        switch orientation {
+        case .up: self = .up
+        case .upMirrored: self = .upMirrored
+        case .down: self = .down
+        case .downMirrored: self = .downMirrored
+        case .left: self = .left
+        case .leftMirrored: self = .leftMirrored
+        case .right: self = .right
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
+        }
     }
 }
