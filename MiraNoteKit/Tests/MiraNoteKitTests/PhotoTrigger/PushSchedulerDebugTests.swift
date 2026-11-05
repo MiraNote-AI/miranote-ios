@@ -193,6 +193,22 @@ final class PushSchedulerDebugTests: PushSchedulerTestCase {
         XCTAssertEqual(activeDays, allSeven)
     }
 
+    /// The stores are empty before the first await of a clear: nothing in
+    /// flight meanwhile reads the old ledger or writes into the cleared one.
+    func testClearAllWipesTheStoresBeforeWaitingOnTheSystem() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let ledger = self.ledger
+        let records = self.records
+        let seen = SleepLog()
+        notifier.onPendingOnce = {
+            seen.record(ledger.load().isEmpty && records.all().isEmpty ? 1 : 0)
+        }
+        await scheduler.clearAll()
+        XCTAssertEqual(seen.durations, [1])
+        XCTAssertTrue(notifier.pendingIds.filter(PushIdentifier.isOurs).isEmpty, "every request still taken back")
+    }
+
     func testClearAllForgetsAllButTheAnalyses() async throws {
         let scheduler = makeScheduler()
         await scheduler.appBecameActive()

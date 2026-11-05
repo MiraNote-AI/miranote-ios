@@ -21,16 +21,10 @@ extension PushScheduler {
     public func clearAll() async {
         generation += 1
         pendingRerun = nil
-        let pending = await deps.notifications.pending()
-        var ours = Set(pending.filter(PushIdentifier.isOurs))
-        let entries = deps.ledger.load()
-        ours.formUnion(entries.map(\.identifier).filter(PushIdentifier.isOurs))
+        // The stores go before the first await: nothing running meanwhile
+        // reads them or writes into what is about to be cleared.
+        var ours = Set(deps.ledger.load().map(\.identifier).filter(PushIdentifier.isOurs))
         ours.formUnion(deps.records.all().map { PushIdentifier.make($0.pushId) })
-        let identifiers = ours.sorted()
-        if !identifiers.isEmpty {
-            await deps.notifications.removePending(identifiers)
-            await deps.notifications.removeDelivered(identifiers)
-        }
         try? deps.ledger.clear()
         try? deps.preferences.clear()
         try? deps.cache.clear()
@@ -43,6 +37,11 @@ extension PushScheduler {
         outsideCursor = nil
         lastReport = nil
         lastRanking = nil
+        ours.formUnion(await deps.notifications.pending().filter(PushIdentifier.isOurs))
+        let identifiers = ours.sorted()
+        guard !identifiers.isEmpty else { return }
+        await deps.notifications.removePending(identifiers)
+        await deps.notifications.removeDelivered(identifiers)
     }
 
     /// Clears one blocked day (debug page); the nights are refilled at once.
