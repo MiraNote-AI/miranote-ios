@@ -44,14 +44,17 @@ class PushSchedulerTestCase: XCTestCase {
     var state: SchedulerStateStore { SchedulerStateStore(file: folder.appendingPathComponent("state.json")) }
     var lastRun: LastRunStore { LastRunStore(file: folder.appendingPathComponent("last-run.json")) }
 
-    func makeScheduler() -> PushScheduler {
+    /// `fakeAI` switches mid-test when given; else `fake` as the scheduler is made.
+    func makeScheduler(client other: ComposeClient? = nil, notifications: PushNotificationCenter? = nil,
+                       fakeAI flag: FlagBox? = nil) -> PushScheduler {
         let clock = self.clock!
         let sleeps = self.sleeps!
         let hook = self.hook!
         let zone = self.zone!
         let fake = self.fake
         return PushScheduler(SchedulerDependencies(
-            library: library, analyzer: analyzer, places: places, client: client, notifications: notifier,
+            library: library, analyzer: analyzer, places: places, client: other ?? client,
+            notifications: notifications ?? notifier,
             analyses: AnalysisStore(directory: folder.appendingPathComponent("analysis")), records: records,
             ledger: ledger, preferences: preferences, cache: cache, log: log, state: state, lastRun: lastRun,
             calendar: { zone.calendar }, now: { clock.now },
@@ -67,7 +70,7 @@ class PushSchedulerTestCase: XCTestCase {
                 sleeps.record(seconds)
                 await hook.fire()
             },
-            fakeAI: { fake }, zh: { "[\($0)]" }))
+            fakeAI: { flag?.value ?? fake }, zh: { "[\($0)]" }))
     }
 
     /// The belongs-to day of group `prefix`.
@@ -354,5 +357,59 @@ extension PushSchedulerTests {
     func testLibraryQueryReachesBackNinetyDaysForPlaces() async throws {
         await makeScheduler().appBecameActive()
         XCTAssertEqual(library.sinceDates, [start.addingTimeInterval(-90 * 86_400)])
+    }
+}
+
+// MARK: - Take-backs never touch a push that already fired
+
+/// A push whose time has passed was delivered (or dropped by iOS): a
+/// take-back must leave it for the reconcile, or its day is pushed again.
+final class PushSchedulerFiredPushTests: PushSchedulerTestCase {
+    /// Tonight's push, fired `after` seconds ago and gone from the pending list.
+    private func fireTonight(after seconds: TimeInterval) async throws -> (PushScheduler, LedgerEntry) {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let tonight = try XCTUnwrap(active.first)
+        clock.now = tonight.scheduledFor.addingTimeInterval(seconds)
+        notifier.pendingIds.remove(tonight.identifier)
+        return (scheduler, tonight)
+    }
+
+    private func assertDelivered(_ fired: LedgerEntry, file: StaticString = #filePath, line: UInt = #line) throws {
+        let row = try XCTUnwrap(ledger.load().first { $0.pushId == fired.pushId }, file: file, line: line)
+        XCTAssertNil(row.removedReason, "a fired push is not taken back", file: file, line: line)
+        XCTAssertEqual(row.deliveredAt, fired.scheduledFor, file: file, line: line)
+        XCTAssertFalse(active.contains { $0.belongsTo == fired.belongsTo }, "its day is not pushed again",
+                       file: file, line: line)
+    }
+
+    func testTimeZoneTakeBackKeepsAFiredPushDelivered() async throws {
+        let (scheduler, tonight) = try await fireTonight(after: 2 * 3600)
+        zone.zone = TimeZone(identifier: "America/New_York")!
+        await scheduler.appBecameActive()
+        XCTAssertEqual(log.runs().first?.trigger, "timeZone")
+        try assertDelivered(tonight)
+    }
+
+    func testReplanKeepsAFiredPushDelivered() async throws {
+        let (scheduler, tonight) = try await fireTonight(after: 600)
+        await scheduler.replan()
+        try assertDelivered(tonight)
+    }
+
+    func testFewerLikeThisKeepsAFiredPushOfTheBucketDelivered() async throws {
+        let (scheduler, tonight) = try await fireTonight(after: 600)
+        let other = try XCTUnwrap(active.last)
+        XCTAssertEqual(other.bucket, tonight.bucket)
+        await scheduler.menu(.fewerLikeThis, pushId: other.pushId)
+        XCTAssertEqual(ledger.load().first { $0.pushId == other.pushId }?.removedReason, .menuBucket)
+        try assertDelivered(tonight)
+    }
+
+    func testNotThisDayKeepsAFiredPushOfTheDayDelivered() async throws {
+        let (scheduler, tonight) = try await fireTonight(after: 600)
+        await scheduler.menu(.notThisDay, pushId: tonight.pushId)
+        XCTAssertNotNil(preferences.load().blockedDays[tonight.belongsTo])
+        try assertDelivered(tonight)
     }
 }

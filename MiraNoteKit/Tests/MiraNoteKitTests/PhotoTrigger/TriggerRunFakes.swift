@@ -277,3 +277,27 @@ final class ZoneBox: @unchecked Sendable {
         return calendar
     }
 }
+
+/// A switch the test flips while the code under test reads it.
+final class FlagBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag: Bool
+    init(_ value: Bool) { flag = value }
+    var value: Bool {
+        get { lock.withLock { flag } }
+        set { lock.withLock { flag = newValue } }
+    }
+}
+
+/// Counts calls from any task.
+final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    /// Counts one; the count so far.
+    func bump() -> Int {
+        lock.withLock {
+            count += 1
+            return count
+        }
+    }
+}

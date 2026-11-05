@@ -299,12 +299,15 @@ public actor PushScheduler {
     }
 
     /// Takes back every active (non-debug) push `matching`: pending
-    /// request removed, ledger row marked.
+    /// request removed, ledger row marked. A push whose time has passed
+    /// already fired (or iOS dropped it): it is left for the reconcile to
+    /// settle, so a delivered day never reads as taken back.
     func removeActive(_ reason: RemovalReason, matching: (LedgerEntry) -> Bool) async {
         let now = deps.now()
         var entries = deps.ledger.load()
         var identifiers: [String] = []
-        for index in entries.indices where entries[index].isActive && matching(entries[index]) {
+        for index in entries.indices
+        where entries[index].isActive && entries[index].scheduledFor > now && matching(entries[index]) {
             entries[index].removedReason = reason
             entries[index].removedAt = now
             identifiers.append(entries[index].identifier)
