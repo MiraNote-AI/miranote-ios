@@ -75,7 +75,9 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
 }
 
 /// The ledger as one JSON file (an array of entries) under Application
-/// Support. A missing or damaged file loads as empty.
+/// Support. A missing file loads as empty. A row that does not decode is
+/// skipped; a file that does not parse, or has such rows, is first moved
+/// aside (`PhotoTriggerPaths.setAside`), so no save writes over the history.
 public struct PushLedgerStore: Sendable {
     private let file: URL
 
@@ -89,9 +91,18 @@ public struct PushLedgerStore: Sendable {
     }
 
     public func load() -> [LedgerEntry] {
-        guard let data = try? Data(contentsOf: file),
-              let value = try? TriggerMemory.decoder.decode([LedgerEntry].self, from: data) else { return [] }
-        return value
+        guard let data = try? Data(contentsOf: file) else { return [] }
+        guard let rows = try? TriggerMemory.decoder.decode([Lenient<LedgerEntry>].self, from: data) else {
+            PhotoTriggerPaths.setAside(file)
+            return []
+        }
+        let entries = rows.compactMap(\.value)
+        if entries.count < rows.count {
+            // The rows that could be read are the ledger from now on.
+            PhotoTriggerPaths.setAside(file)
+            try? save(entries)
+        }
+        return entries
     }
 
     public func save(_ entries: [LedgerEntry]) throws {
@@ -163,5 +174,11 @@ public enum LedgerReconciler {
     /// Belongs-to days of delivered, non-debug pushes: a day is pushed once.
     public static func pushedDays(_ entries: [LedgerEntry]) -> Set<String> {
         Set(entries.filter { $0.deliveredAt != nil && !$0.isDebug }.map(\.belongsTo))
+    }
+
+    /// The photos of delivered, non-debug pushes: a group holding one was
+    /// pushed, whatever day a time-zone change now puts it on.
+    public static func pushedPhotos(_ entries: [LedgerEntry]) -> Set<String> {
+        Set(entries.filter { $0.deliveredAt != nil && !$0.isDebug }.flatMap(\.photoIds))
     }
 }

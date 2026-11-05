@@ -12,10 +12,22 @@ public enum AIVerdict: Codable, Equatable, Sendable {
         if case .ok(let memory, _) = self { return memory.isFakeMade }
         return false
     }
+
+    /// A memory the backend wrote under other copy rules than the phone's
+    /// (`generation.copyVersion`): never stored, or the phone's key would
+    /// keep words of the old rules.
+    var isOtherCopy: Bool {
+        if case .ok(let memory, _) = self, let generation = memory.generation {
+            return generation.copyVersion != TriggerMemory.copyVersion
+        }
+        return false
+    }
 }
 
 /// AI verdicts by photo set, so the same photos never cost a second call.
-/// One JSON file; a missing or damaged file loads as empty. A memory the
+/// One JSON file; a missing file loads as empty, an entry that does not
+/// decode is skipped, and a damaged file is moved aside before anything
+/// is written over it (as `PushLedgerStore`). A memory the
 /// fake AI made, stored by an older build, reads as absent: the backend is
 /// asked again and its answer takes the key.
 public struct AIResultCache: Sendable {
@@ -51,7 +63,9 @@ public struct AIResultCache: Sendable {
         load()[key].flatMap { $0.verdict.isFakeMade ? nil : $0.verdict }
     }
 
+    /// A memory written under other copy rules is not stored.
     public func store(_ verdict: AIVerdict, key: String, belongsTo: String, at: Date) throws {
+        guard !verdict.isOtherCopy else { return }
         var all = load()
         all[key] = Entry(verdict: verdict, belongsTo: belongsTo, storedAt: at)
         try save(all)
@@ -92,9 +106,17 @@ public struct AIResultCache: Sendable {
     }
 
     private func load() -> [String: Entry] {
-        guard let data = try? Data(contentsOf: file),
-              let value = try? TriggerMemory.decoder.decode([String: Entry].self, from: data) else { return [:] }
-        return value
+        guard let data = try? Data(contentsOf: file) else { return [:] }
+        guard let all = try? TriggerMemory.decoder.decode([String: Lenient<Entry>].self, from: data) else {
+            PhotoTriggerPaths.setAside(file)
+            return [:]
+        }
+        let entries = all.compactMapValues(\.value)
+        if entries.count < all.count {
+            PhotoTriggerPaths.setAside(file)
+            try? save(entries)
+        }
+        return entries
     }
 
     private func save(_ entries: [String: Entry]) throws {

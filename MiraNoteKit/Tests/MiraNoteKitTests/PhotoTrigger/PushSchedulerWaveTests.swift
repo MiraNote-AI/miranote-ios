@@ -164,6 +164,48 @@ final class PushSchedulerWaveTests: PushSchedulerTestCase {
     }
 }
 
+/// A batch poll that fails: a gateway error or a body that is not JSON is
+/// a blip like no connection -- the jobs are kept until three in a row.
+final class PushSchedulerPollBlipTests: PushSchedulerTestCase {
+    private func run(_ failures: [ComposeError]) async {
+        for group in allSeven { client.scripts[group] = [.running, .ok] }
+        client.pollErrors = failures
+        await makeScheduler().appBecameActive()
+    }
+
+    func testOneGatewayErrorKeepsTheJobs() async {
+        await run([.server(502)])
+        XCTAssertEqual(activeDays, allSeven, "the next poll answers every night")
+        XCTAssertEqual(client.submitted.count, 7, "no job forgotten and sent again")
+        XCTAssertTrue(state.load().outstanding.isEmpty)
+    }
+
+    func testOneNonJSONBodyKeepsTheJobs() async {
+        await run([.server(200)])
+        XCTAssertEqual(activeDays, allSeven)
+        XCTAssertEqual(client.submitted.count, 7)
+    }
+
+    func testTwoMixedBlipsKeepTheJobs() async {
+        await run([.unreachable, .server(523)])
+        XCTAssertEqual(activeDays, allSeven)
+    }
+
+    func testThreeServerErrorsInARowEndTheWaitingNights() async throws {
+        await run([.server(500), .unreachable, .server(502)])
+        XCTAssertTrue(active.isEmpty)
+        let run = try XCTUnwrap(log.runs().first)
+        XCTAssertEqual(Set(run.emptyDays.values), ["aiError"])
+        XCTAssertEqual(Set(run.groups.compactMap(\.message)), ["HTTP 502"])
+    }
+
+    func testAClientErrorStillEndsTheNightsAtOnce() async throws {
+        await run([.unauthorized])
+        XCTAssertTrue(active.isEmpty)
+        XCTAssertEqual(client.pollManyCount, 1)
+    }
+}
+
 /// Cancels a task, also one handed over after the cancel was asked for.
 private final class CancelBox: @unchecked Sendable {
     private let lock = NSLock()

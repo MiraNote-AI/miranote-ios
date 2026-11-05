@@ -87,6 +87,19 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
         XCTAssertEqual(log.runs().first?.emptyDays.values.sorted(), ["aiError"])
     }
 
+    /// Slow photo reads (iCloud downloads) before the submit do not use up
+    /// the 6 minutes the job has to answer.
+    func testPhotoReadsDoNotUseTheJobBudget() async throws {
+        library = FakeLibrary(now: start, groups: [9])
+        let clock = self.clock!
+        library.onRead = { _ in clock.advance(50) }
+        await makeScheduler().appBecameActive()
+        XCTAssertEqual(activeDays, [day("g0")], "nine reads of 50 s, then the answer at the first poll")
+        let outcome = try XCTUnwrap(log.runs().first?.groups.first)
+        XCTAssertEqual(outcome.outcome, .ok)
+        XCTAssertLessThan(outcome.seconds, 60, "timed from the submit")
+    }
+
     func testRateLimitWaitsTenSeconds() async {
         client.scripts[day("g0")] = [.rateLimited, .ok]
         await makeScheduler().appBecameActive()
@@ -159,18 +172,20 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
         let scheduler = makeScheduler()
         let state = self.state
         let flags = SleepLog()
+        let log = self.log
         hook.action = { number in
             guard number == 1 else { return }
             await scheduler.appEnteredBackground()
             await scheduler.backgroundTimeExpired()
             flags.record(state.load().lastRunLeftDaysUnfilled ? 1 : 0)
+            flags.record(Double(log.counters().leftBeforeResult))
         }
         await scheduler.appBecameActive()
-        XCTAssertEqual(log.counters().leftBeforeResult, 7)
-        XCTAssertEqual(flags.durations, [1], "marked unfilled at once, in case iOS ends the app")
+        XCTAssertEqual(flags.durations, [1, 7], "marked and counted at once, in case iOS ends the app")
         let run = try XCTUnwrap(log.runs().first)
         XCTAssertEqual(run.groups.filter { $0.outcome == .left }.count, 7)
         XCTAssertEqual(activeDays, allSeven, "the process lived: polling went on")
+        XCTAssertEqual(log.counters().leftBeforeResult, 0, "every night was scheduled after all: none counts")
     }
 
     func testLeftBeforeResultEmptyNightSaysSo() async throws {
@@ -180,5 +195,6 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
         await scheduler.appBecameActive()
         XCTAssertEqual(log.runs().first?.emptyDays.values.sorted(), ["leftBeforeResult"])
         XCTAssertTrue(state.load().lastRunLeftDaysUnfilled)
+        XCTAssertEqual(log.counters().leftBeforeResult, 1, "only the night left empty counts")
     }
 }

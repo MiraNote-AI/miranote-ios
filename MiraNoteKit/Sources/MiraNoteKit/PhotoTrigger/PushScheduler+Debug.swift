@@ -21,16 +21,10 @@ extension PushScheduler {
     public func clearAll() async {
         generation += 1
         pendingRerun = nil
-        let pending = await deps.notifications.pending()
-        var ours = Set(pending.filter(PushIdentifier.isOurs))
-        let entries = deps.ledger.load()
-        ours.formUnion(entries.map(\.identifier).filter(PushIdentifier.isOurs))
+        // The stores go before the first await: nothing running meanwhile
+        // reads them or writes into what is about to be cleared.
+        var ours = Set(deps.ledger.load().map(\.identifier).filter(PushIdentifier.isOurs))
         ours.formUnion(deps.records.all().map { PushIdentifier.make($0.pushId) })
-        let identifiers = ours.sorted()
-        if !identifiers.isEmpty {
-            await deps.notifications.removePending(identifiers)
-            await deps.notifications.removeDelivered(identifiers)
-        }
         try? deps.ledger.clear()
         try? deps.preferences.clear()
         try? deps.cache.clear()
@@ -43,24 +37,38 @@ extension PushScheduler {
         outsideCursor = nil
         lastReport = nil
         lastRanking = nil
+        ours.formUnion(await deps.notifications.pending().filter(PushIdentifier.isOurs))
+        let identifiers = ours.sorted()
+        guard !identifiers.isEmpty else { return }
+        await deps.notifications.removePending(identifiers)
+        await deps.notifications.removeDelivered(identifiers)
     }
 
-    /// Clears one blocked day (debug page).
-    public func unblockDay(_ day: String) {
-        try? deps.preferences.update { $0.blockedDays[day] = nil }
+    /// Clears one blocked day (debug page); the nights are refilled at once.
+    public func unblockDay(_ day: String) async {
+        try? deps.preferences.update {
+            $0.blockedDays[day] = nil
+            $0.blockedPhotos[day] = nil
+        }
+        await request(.replan)
     }
 
-    /// Clears one "fewer like this" (debug page).
-    public func clearFewer(_ bucket: PushBucket) {
+    /// Clears one "fewer like this" (debug page); the nights are refilled at once.
+    public func clearFewer(_ bucket: PushBucket) async {
         try? deps.preferences.update { $0.fewer[bucket] = nil }
+        await request(.replan)
     }
 
     // MARK: Fake AI off
 
     /// The fake-AI switch was turned off while the app is open: the pushes
     /// it wrote are composed again with the real AI, as on the next return.
+    /// A run in progress may still be scheduling fake ones: it is followed
+    /// by a run that takes them back, even when none has landed yet.
     public func fakeAITurnedOff() async {
-        guard !deps.fakeAI(), await takeBackFakeCopy() else { return }
+        guard !deps.fakeAI() else { return }
+        let taken = await takeBackFakeCopy()
+        guard taken || isRunning else { return }
         await request(.fakeAIOff)
     }
 
@@ -118,6 +126,8 @@ extension PushScheduler {
                                 bucketId: bucket, belongsTo: belongsTo, isDebug: true)
         guard (try? deps.records.save(record)) != nil else { return .refused }
         let identifier = PushIdentifier.make(pushId)
+        adding.insert(identifier)
+        defer { adding.remove(identifier) }
         guard await deps.notifications.schedule(record, identifier: identifier, at: nil, relevance: score.total)
         else {
             try? deps.records.remove(pushId)
@@ -190,7 +200,8 @@ extension PushScheduler {
             ranking.fragments, aiPhotoIds: { ranking.preselect($0).map(\.id) }, at: now,
             analyses: ranking.analyses, library: ranking.library, calendar: calendar,
             pastLocations: ranking.pastLocations, pushedDays: LedgerReconciler.pushedDays(entries),
-            preferences: deps.preferences.load(), cache: { _ in nil })
+            pushedPhotos: LedgerReconciler.pushedPhotos(entries), preferences: deps.preferences.load(),
+            cache: { _ in nil })
             .filter { !scheduled.contains($0.groupKey) }
     }
 

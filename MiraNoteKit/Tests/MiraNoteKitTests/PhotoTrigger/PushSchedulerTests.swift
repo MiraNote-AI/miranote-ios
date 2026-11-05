@@ -44,14 +44,17 @@ class PushSchedulerTestCase: XCTestCase {
     var state: SchedulerStateStore { SchedulerStateStore(file: folder.appendingPathComponent("state.json")) }
     var lastRun: LastRunStore { LastRunStore(file: folder.appendingPathComponent("last-run.json")) }
 
-    func makeScheduler() -> PushScheduler {
+    /// `fakeAI` switches mid-test when given; else `fake` as the scheduler is made.
+    func makeScheduler(client other: ComposeClient? = nil, notifications: PushNotificationCenter? = nil,
+                       fakeAI flag: FlagBox? = nil) -> PushScheduler {
         let clock = self.clock!
         let sleeps = self.sleeps!
         let hook = self.hook!
         let zone = self.zone!
         let fake = self.fake
         return PushScheduler(SchedulerDependencies(
-            library: library, analyzer: analyzer, places: places, client: client, notifications: notifier,
+            library: library, analyzer: analyzer, places: places, client: other ?? client,
+            notifications: notifications ?? notifier,
             analyses: AnalysisStore(directory: folder.appendingPathComponent("analysis")), records: records,
             ledger: ledger, preferences: preferences, cache: cache, log: log, state: state, lastRun: lastRun,
             calendar: { zone.calendar }, now: { clock.now },
@@ -67,7 +70,7 @@ class PushSchedulerTestCase: XCTestCase {
                 sleeps.record(seconds)
                 await hook.fire()
             },
-            fakeAI: { fake }, zh: { "[\($0)]" }))
+            fakeAI: { flag?.value ?? fake }, zh: { "[\($0)]" }))
     }
 
     /// The belongs-to day of group `prefix`.

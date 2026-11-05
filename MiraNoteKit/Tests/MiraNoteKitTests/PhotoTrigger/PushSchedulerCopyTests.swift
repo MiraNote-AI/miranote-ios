@@ -152,6 +152,39 @@ final class PushSchedulerFakeAIOffTests: PushSchedulerTestCase {
         XCTAssertEqual(client.submitted.count, 7)
     }
 
+    /// The switch turned off while a fake-AI run schedules its nights (the
+    /// third night's notification being added): no fake push is left, and
+    /// every night is composed by the backend.
+    func testSwitchOffMidRunLeavesNoFakePush() async throws {
+        try await switchOffMidRun(atSchedule: 3)
+    }
+
+    /// The same before any fake push reached the ledger: there is nothing
+    /// to take back yet, and still the run that follows composes them all.
+    func testSwitchOffBeforeTheFirstFakePushLandsLeavesNone() async throws {
+        try await switchOffMidRun(atSchedule: 1)
+    }
+
+    private func switchOffMidRun(atSchedule number: Int, file: StaticString = #filePath,
+                                 line: UInt = #line) async throws {
+        let flag = FlagBox(true)
+        let scheduler = makeScheduler(fakeAI: flag)
+        let calls = CallCounter()
+        notifier.onSchedule = {
+            guard calls.bump() == number else { return }
+            flag.value = false
+            await scheduler.fakeAITurnedOff()
+        }
+        await scheduler.appBecameActive()
+        notifier.onSchedule = nil
+        XCTAssertEqual(log.runs().first?.trigger, "fakeAIOff", file: file, line: line)
+        XCTAssertFalse(active.contains { records.load($0.pushId)?.memory.isFakeMade ?? true }, "no fake copy left",
+                       file: file, line: line)
+        XCTAssertEqual(activeDays, allSeven, file: file, line: line)
+        let ours = notifier.pendingIds.filter(PushIdentifier.isOurs)
+        XCTAssertEqual(ours, Set(active.map(\.identifier)), "no fake request left pending", file: file, line: line)
+    }
+
     /// An older build cached the fake AI's words: a real run asks the
     /// backend anyway, and its answers replace them.
     func testFakeWordsInTheCacheAreNotReused() async throws {

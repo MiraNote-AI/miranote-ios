@@ -200,8 +200,10 @@ extension PushScheduler {
         var waited: TimeInterval = 0
         switch await session.submit(prepared.meta, photos: prepared.uploads, waited: &waited) {
         case .success(let jobId):
+            // Timed from the submit: slow photo reads (iCloud) do not use up the job's 6 minutes.
+            let submitted = deps.now()
             let job = AIJob(candidate: ask.candidate, jobId: jobId, prepared: prepared, photoIds: prepared.photoIds,
-                            place: place, startedAt: now, budgetFrom: ask.budgetFrom ?? now,
+                            place: place, startedAt: submitted, budgetFrom: ask.budgetFrom ?? submitted,
                             resubmitted: ask.resubmitted)
             return .job(job, submitted: true)
         case .failure(let box):
@@ -273,19 +275,19 @@ extension PushScheduler {
         return false
     }
 
-    /// A 429 waits 10 s; no connection three polls in a row, or any other
-    /// error, ends every night still waiting.
+    /// A 429 waits 10 s; no connection, a server error or a body that is
+    /// not JSON three polls in a row (`ComposeSession.isTransient`), or any
+    /// other error at once, ends every night still waiting.
     private func pollFailed(_ error: Error) async {
-        switch error as? ComposeError {
-        case .rateLimited:
+        if case .rateLimited = error as? ComposeError {
             try? await deps.sleep(ComposeSession.rateLimitWait)
-        case .unreachable:
+            return
+        }
+        if ComposeSession.isTransient(error) {
             work.transportFailures += 1
             guard work.transportFailures >= ComposeSession.transportRetries else { return }
-            endAllWaiting(message: Self.describe(.stop(.backendUnreachable)))
-        default:
-            endAllWaiting(message: Self.describe(.stop(ComposeSession.failure(for: error))))
         }
+        endAllWaiting(message: Self.describe(.stop(ComposeSession.failure(for: error))))
     }
 
     /// Never while the app is in the background: a poll woken after a long

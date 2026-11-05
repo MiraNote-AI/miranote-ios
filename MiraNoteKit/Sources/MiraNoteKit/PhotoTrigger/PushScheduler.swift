@@ -107,6 +107,9 @@ public actor PushScheduler {
     var outsideGeneration = 0
     var lastReport: LastRunReport?
     var lastRanking: TriggerRanking?
+    /// Notifications being added whose ledger row is not written yet: not
+    /// orphans to `reconcile`.
+    var adding: Set<String> = []
 
     public init(_ dependencies: SchedulerDependencies) {
         deps = dependencies
@@ -131,6 +134,13 @@ public actor PushScheduler {
         let unfaked = deps.fakeAI() ? false : await takeBackFakeCopy()
         let zone = deps.calendar().timeZone.identifier
         if let old = state.timeZoneId, old != zone {
+            // A run still planning in the old zone stops writing, as after `clearAll`.
+            generation += 1
+            // Recorded at once, so it happens once; killed before the run ends, the next return still runs.
+            try? deps.state.update {
+                $0.timeZoneId = zone
+                $0.lastRunLeftDaysUnfilled = true
+            }
             await removeActive(.timeZone) { _ in true }
             return await request(.timeZone)
         }
@@ -201,6 +211,8 @@ public actor PushScheduler {
         let calendar = deps.calendar()
         work = RunWork()
         var run = ScheduleRun(startedAt: started, finishedAt: started, trigger: trigger.rawValue)
+        // The zone this run plans in: a change from it is caught even before the first run ends.
+        try? deps.state.update { $0.timeZoneId = calendar.timeZone.identifier }
         let allowed = await deps.notifications.isAllowed()
         await reconcile(allowed: allowed)
         guard mine == generation else { return }
@@ -250,25 +262,15 @@ public actor PushScheduler {
         var run = run
         run.finishedAt = deps.now()
         try? deps.log.append(run)
+        // Counted when the background time ran out (iOS may end the app then); the
+        // nights scheduled after all, the process having lived, no longer count.
+        let stillLeft = run.emptyDays.values.filter { $0 == "leftBeforeResult" }.count
+        if work.leftDays.count > stillLeft { try? deps.log.bumpLeftBeforeResult(by: stillLeft - work.leftDays.count) }
         try? deps.state.update {
             $0.lastFullRunAt = run.startedAt
             $0.lastRunLeftDaysUnfilled = unfilled
             $0.timeZoneId = calendar.timeZone.identifier
         }
-    }
-
-    /// Settles the ledger with the notification center and clears pushes
-    /// delivered and unopened for 48 h from the tray.
-    func reconcile(allowed: Bool) async {
-        let mine = generation
-        let pending = await deps.notifications.pending()
-        // Cleared meanwhile: the empty ledger stays empty.
-        guard mine == generation else { return }
-        let settled = LedgerReconciler.reconcile(deps.ledger.load(), now: deps.now(), pending: pending,
-                                                 notificationsAllowed: allowed)
-        try? deps.ledger.save(settled.entries)
-        let ours = settled.clearDelivered.filter(PushIdentifier.isOurs)
-        if !ours.isEmpty { await deps.notifications.removeDelivered(ours) }
     }
 
     /// Analyses new photos and regroups, with the stored T unless it is a
@@ -290,30 +292,6 @@ public actor PushScheduler {
         return ranking
     }
 
-    /// Takes back scheduled pushes the preferences no longer allow (a day
-    /// blocked, a bucket cooling down since they were scheduled).
-    func dropDisallowed() async {
-        let preferences = deps.preferences.load()
-        await removeActive(.menuDay) { preferences.isBlocked($0.belongsTo) }
-        await removeActive(.menuBucket) { preferences.multiplier(for: $0.bucket, at: $0.scheduledFor) == nil }
-    }
-
-    /// Takes back every active (non-debug) push `matching`: pending
-    /// request removed, ledger row marked.
-    func removeActive(_ reason: RemovalReason, matching: (LedgerEntry) -> Bool) async {
-        let now = deps.now()
-        var entries = deps.ledger.load()
-        var identifiers: [String] = []
-        for index in entries.indices where entries[index].isActive && matching(entries[index]) {
-            entries[index].removedReason = reason
-            entries[index].removedAt = now
-            identifiers.append(entries[index].identifier)
-        }
-        guard !identifiers.isEmpty else { return }
-        try? deps.ledger.save(entries)
-        await deps.notifications.removePending(identifiers.filter(PushIdentifier.isOurs))
-    }
-
     // MARK: Planning
 
     /// Ranks every fragment for every slot and lays the nights out.
@@ -323,6 +301,7 @@ public actor PushScheduler {
         let preferences = deps.preferences.load()
         let entries = deps.ledger.load()
         let pushed = LedgerReconciler.pushedDays(entries)
+        let pushedPhotos = LedgerReconciler.pushedPhotos(entries)
         let verdicts = deps.cache.verdicts()
         var picks: [String: [Preselected]] = [:]
         for fragment in ranking.fragments { picks[ComposeMeta.groupKey(fragment)] = ranking.preselect(fragment) }
@@ -331,8 +310,8 @@ public actor PushScheduler {
             bySlot[slot] = PushCandidates.ranked(
                 ranking.fragments, aiPhotoIds: { (picks[ComposeMeta.groupKey($0)] ?? []).map(\.id) }, at: slot,
                 analyses: ranking.analyses, library: ranking.library, calendar: calendar,
-                pastLocations: ranking.pastLocations, pushedDays: pushed, preferences: preferences,
-                cache: { verdicts[$0] })
+                pastLocations: ranking.pastLocations, pushedDays: pushed, pushedPhotos: pushedPhotos,
+                preferences: preferences, cache: { verdicts[$0] })
         }
         let lastBucket = entries.filter { $0.deliveredAt != nil && !$0.isDebug }
             .max { ($0.deliveredAt ?? .distantPast) < ($1.deliveredAt ?? .distantPast) }?.bucket
@@ -344,7 +323,7 @@ public actor PushScheduler {
         let candidates = Set(bySlot.values.flatMap { $0.map(\.groupKey) }).count
         return RunContext(ranking: ranking, picks: picks, calendar: calendar, generation: generation,
                           candidateCount: candidates, preferences: preferences, pushedDays: pushed,
-                          firstSlot: slots.first ?? now)
+                          pushedPhotos: pushedPhotos, firstSlot: slots.first ?? now)
     }
 
     /// Keeps the debug page's view of this run, in memory and on disk.
@@ -359,7 +338,8 @@ public actor PushScheduler {
             let result = PushCandidates.evaluate(
                 fragment, bucket: bucket, aiPhotoIds: ids, at: slot, analyses: ranking.analyses,
                 library: ranking.library, calendar: calendar, pastLocations: ranking.pastLocations,
-                pushedDays: context.pushedDays, preferences: context.preferences, cache: { verdicts[$0] })
+                pushedDays: context.pushedDays, pushedPhotos: context.pushedPhotos, preferences: context.preferences,
+                cache: { verdicts[$0] })
             let score = FragmentScorer.score(
                 fragment, analyses: ranking.analyses, library: ranking.library, at: slot, calendar: calendar,
                 pastLocations: ranking.pastLocations, bucket: bucket,

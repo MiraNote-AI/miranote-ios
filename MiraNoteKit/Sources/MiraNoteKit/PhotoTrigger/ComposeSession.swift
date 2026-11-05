@@ -6,7 +6,8 @@ import Foundation
 /// then poll every 5 s for up to 6 minutes of waiting (the backend's own
 /// cap is 5 minutes, per the 2026-11-01 contract change). A 429 waits 10 s;
 /// an expired job is submitted once more; a submit or poll cut short (no
-/// connection, the app went to the background) is tried up to three times.
+/// connection, the app went to the background) is tried up to three times,
+/// as is a poll answered by a server error or a body that is not JSON.
 /// The budget counts the waits, so time spent suspended in the background
 /// does not use it up.
 struct ComposeSession {
@@ -158,11 +159,12 @@ struct ComposeSession {
             try? await sleep(Self.rateLimitWait)
             waited += Self.rateLimitWait
             return .wait
-        } catch ComposeError.unreachable {
+        } catch {
+            guard Self.isTransient(error) else {
+                return .done(.failure(TriggerAttemptBox(.stop(Self.failure(for: error)))))
+            }
             transportFailures += 1
             guard transportFailures >= Self.transportRetries else { return .wait }
-            return .done(.failure(TriggerAttemptBox(.stop(.backendUnreachable))))
-        } catch {
             return .done(.failure(TriggerAttemptBox(.stop(Self.failure(for: error)))))
         }
         switch status {
@@ -170,7 +172,9 @@ struct ComposeSession {
         case .ok(let memory): return .done(.success(memory))
         case .rejected(_, let message): return .done(.failure(TriggerAttemptBox(.rejected(message))))
         case .failed(let reason, let message):
-            return .done(.failure(TriggerAttemptBox(.stop(reason == "timeout" ? .aiTimeout : .backend(message)))))
+            let failure: TriggerFailure = reason == "timeout" ? .aiTimeout
+                : .backend(message.isEmpty ? reason : message)
+            return .done(.failure(TriggerAttemptBox(.stop(failure))))
         case .expired: return .resubmit
         }
     }
@@ -214,11 +218,22 @@ struct ComposeSession {
         }
     }
 
+    /// A poll error worth asking again: no connection, a server or gateway
+    /// error (5xx, a tunnel's 52x), or a body that is not the JSON asked for
+    /// (a captive portal's page). It counts toward `transportRetries`.
+    static func isTransient(_ error: Error) -> Bool {
+        switch error as? ComposeError {
+        case .unreachable: return true
+        case .server(let status): return status >= 500 || status == 200
+        default: return false
+        }
+    }
+
     static func failure(for error: Error) -> TriggerFailure {
         switch error as? ComposeError {
         case .unreachable, .none: return .backendUnreachable
         case .unauthorized: return .unauthorized
-        case .badRequest(let message): return .backend(message)
+        case .badRequest(let message): return .backend(message.isEmpty ? "HTTP 400" : message)
         case .rateLimited: return .aiTimeout
         case .server(let status): return .backend("HTTP \(status)")
         }

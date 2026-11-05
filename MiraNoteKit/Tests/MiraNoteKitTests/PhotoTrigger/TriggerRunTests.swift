@@ -282,8 +282,8 @@ extension TriggerRunTests {
         XCTAssertTrue(memory.ending.question.contains(word))
         XCTAssertTrue(memory.ending.ctaLabel.contains(word))
         XCTAssertEqual(memory.ending.factLine, TriggerWords.shortDate(memory.date))
-        let weekday = "[\(TriggerContentKey.weekday(calendar.component(.weekday, from: peak.takenAt)))]"
-        XCTAssertTrue(memory.push.body.hasSuffix(" \(weekday) \(word)]"), "the body's weekday is the cover's")
+        let weekday = "[\(TriggerContentKey.weekday(ComposeMeta.weekday(memory.date) % 7 + 1))]"
+        XCTAssertTrue(memory.push.body.hasSuffix(" \(weekday) \(word)]"), "the body's weekday is the group's day's")
     }
 
     func testWeekdayKeysFollowTheCalendar() {

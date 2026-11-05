@@ -58,7 +58,12 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
         }
         return assetsList.filter { ($0.takenAt ?? .distantPast) >= date }
     }
-    func uploadData(for id: String) async -> Data? { unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG }
+    /// Runs as each photo is read (a test clock moved: a slow iCloud read).
+    var onRead: (@Sendable (String) -> Void)?
+    func uploadData(for id: String) async -> Data? {
+        onRead?(id)
+        return unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG
+    }
 }
 
 final class FakeAnalyzer: PhotoAnalyzing, @unchecked Sendable {
@@ -156,11 +161,15 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
 /// the last repeated. Groups with no script come back ok, with `questions`
 /// as their candidates when set.
 final class FakeClient: ComposeClient, @unchecked Sendable {
-    enum Answer { case running, ok, rejected, expired, rateLimited, timeoutError }
+    enum Answer { case running, ok, rejected, expired, rateLimited, timeoutError, failed(String) }
     private let lock = NSLock()
     var scripts: [String: [Answer]] = [:]
     var questions: [TriggerMemory.Ending.Question]?
     var submitErrors: [ComposeError] = []
+    /// The message of a `.failed` answer.
+    var failedMessage = "failed"
+    /// Thrown by the next polls, one per `poll` or `pollMany` call.
+    var pollErrors: [ComposeError] = []
     private(set) var submitted: [String] = []
     private(set) var lastMeta: ComposeMeta?
     /// Every meta submitted, in order.
@@ -188,13 +197,23 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     }
 
     func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus] {
-        lock.withLock { eventList.append("pollMany \(jobIds.count)") }
+        try lock.withLock {
+            eventList.append("pollMany \(jobIds.count)")
+            if !pollErrors.isEmpty { throw pollErrors.removeFirst() }
+        }
         var result: [String: ComposeJobStatus] = [:]
-        for id in jobIds { result[id] = try await poll(id) }
+        for id in jobIds { result[id] = try answer(id) }
         return result
     }
 
     func poll(_ jobId: String) async throws -> ComposeJobStatus {
+        try lock.withLock {
+            if !pollErrors.isEmpty { throw pollErrors.removeFirst() }
+        }
+        return try answer(jobId)
+    }
+
+    private func answer(_ jobId: String) throws -> ComposeJobStatus {
         try lock.withLock {
             guard let meta = jobs[jobId] else { return .expired }
             let script = scripts[meta.date] ?? [.ok]
@@ -206,6 +225,7 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
             case .expired: return .expired
             case .rateLimited: throw ComposeError.rateLimited
             case .timeoutError: return .failed(reason: "timeout", message: "slow")
+            case .failed(let reason): return .failed(reason: reason, message: failedMessage)
             case .ok:
                 let memory = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P2")
                 let ending = questions.map {
@@ -275,5 +295,29 @@ final class ZoneBox: @unchecked Sendable {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = zone
         return calendar
+    }
+}
+
+/// A switch the test flips while the code under test reads it.
+final class FlagBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag: Bool
+    init(_ value: Bool) { flag = value }
+    var value: Bool {
+        get { lock.withLock { flag } }
+        set { lock.withLock { flag = newValue } }
+    }
+}
+
+/// Counts calls from any task.
+final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    /// Counts one; the count so far.
+    func bump() -> Int {
+        lock.withLock {
+            count += 1
+            return count
+        }
     }
 }
