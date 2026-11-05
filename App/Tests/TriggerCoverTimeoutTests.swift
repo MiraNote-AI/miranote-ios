@@ -26,7 +26,8 @@ final class TriggerCoverTimeoutTests: XCTestCase {
             id: "m", date: "2025-10-09", daypart: .afternoon,
             push: .init(title: "t", body: "b", coverPhotoId: "P2"),
             story: .init(firstFrameLabel: "f", photos: photos),
-            ending: .init(factLine: "f", detail: "", question: "q", questionId: "B1", ctaLabel: "c"))
+            ending: .init(factLine: "f", detail: "",
+                          questions: [.init(text: "q", type: "one_word", source: "fallback_B1")], ctaLabel: "c"))
         return PushRecord(pushId: "p", memory: memory, photoIds: ["P1": "a", "P2": "b", "P3": "c"],
                           createdAt: start, rank: 1, score: 0.5, bucket: "food")
     }

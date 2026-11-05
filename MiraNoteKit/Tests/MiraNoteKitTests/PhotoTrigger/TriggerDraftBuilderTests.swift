@@ -8,8 +8,8 @@ final class TriggerDraftBuilderTests: XCTestCase {
         let base = TriggerMemoryTests.memory(ids: ids, peak: "P3")
         return TriggerMemory(
             id: "m", date: "2026-10-18", daypart: .afternoon, bucket: "b", push: base.push, story: base.story,
-            ending: .init(factLine: "10.18 \u{00B7} Arboretum", detail: detail, question: "What else?",
-                          questionId: "A1", ctaLabel: "Keep"),
+            ending: .init(factLine: "10.18 \u{00B7} Arboretum", detail: detail,
+                          questions: [.init(text: "What else?", type: "zoom", source: "llm")], ctaLabel: "Keep"),
             facts: ["P1": "a bench", "P3": "the arch"]
         )
     }

@@ -50,7 +50,10 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
     public let rawCount: Int
     /// Whether every photo not sent is represented by one that is.
     public let coversAll: Bool
-    public let recentQuestionIds: [String]
+    /// The question types fixed on the two nights either side of the night
+    /// this group may land on (`QuestionPicker.nearbyTypes`); the backend
+    /// steers away from them. Always sent, empty or not.
+    public let recentQuestionTypes: [String]
     /// The push bucket's id (`PushBucket.rawValue`).
     public let bucket: String
     /// The IANA time zone the times are local to.
@@ -58,7 +61,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
     public let photos: [Photo]
 
     public init(groupKey: String, date: String, weekday: Int, startTime: String, endTime: String, place: String?,
-                rawCount: Int, coversAll: Bool, recentQuestionIds: [String], bucket: String, tz: String,
+                rawCount: Int, coversAll: Bool, recentQuestionTypes: [String], bucket: String, tz: String,
                 photos: [Photo]) {
         self.groupKey = groupKey
         self.date = date
@@ -68,7 +71,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
         self.place = place
         self.rawCount = rawCount
         self.coversAll = coversAll
-        self.recentQuestionIds = recentQuestionIds
+        self.recentQuestionTypes = recentQuestionTypes
         self.bucket = bucket
         self.tz = tz
         self.photos = photos
@@ -81,7 +84,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
         case endTime = "end_time"
         case rawCount = "raw_count"
         case coversAll = "covers_all"
-        case recentQuestionIds = "recent_question_ids"
+        case recentQuestionTypes = "recent_question_types"
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -95,7 +98,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
         try container.encode(place, forKey: .place)
         try container.encode(rawCount, forKey: .rawCount)
         try container.encode(coversAll, forKey: .coversAll)
-        try container.encode(recentQuestionIds, forKey: .recentQuestionIds)
+        try container.encode(recentQuestionTypes, forKey: .recentQuestionTypes)
         try container.encode(bucket, forKey: .bucket)
         try container.encode(tz, forKey: .tz)
         try container.encode(photos, forKey: .photos)
@@ -113,7 +116,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
     /// order, and the number -> localIdentifier map the push record keeps.
     public static func build(
         fragment: Fragment, picks: [Preselected], analyses: [String: PhotoAnalysis], library: [String: LibraryAsset],
-        place: String?, bucket: PushBucket, recentQuestionIds: [String], calendar: Calendar
+        place: String?, bucket: PushBucket, recentQuestionTypes: [String], calendar: Calendar
     ) -> (meta: ComposeMeta, photoIds: [String: String]) {
         let byID = Dictionary(fragment.photos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let ordered = picks.sorted { (byID[$0.id]?.takenAt ?? .distantPast) < (byID[$1.id]?.takenAt ?? .distantPast) }
@@ -136,7 +139,7 @@ public struct ComposeMeta: Codable, Equatable, Sendable {
         let meta = ComposeMeta(
             groupKey: groupKey(fragment), date: fragment.belongsTo, weekday: weekday(fragment.belongsTo),
             startTime: clock(fragment.start, calendar), endTime: clock(fragment.end, calendar), place: place,
-            rawCount: fragment.photos.count, coversAll: coversAll, recentQuestionIds: recentQuestionIds,
+            rawCount: fragment.photos.count, coversAll: coversAll, recentQuestionTypes: recentQuestionTypes,
             bucket: bucket.rawValue, tz: calendar.timeZone.identifier, photos: photos
         )
         return (meta, photoIds)

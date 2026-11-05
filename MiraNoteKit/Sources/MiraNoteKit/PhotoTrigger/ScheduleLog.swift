@@ -26,6 +26,22 @@ public struct ScheduleRun: Codable, Equatable, Sendable {
         }
     }
 
+    /// A night whose every candidate question had a type already asked on
+    /// a night nearby: it asks the first anyway (handoff refine 4.3).
+    public struct QuestionClash: Codable, Equatable, Sendable {
+        public var slotDay: String
+        /// The candidates' types, in the backend's order.
+        public var types: [String]
+        /// The types fixed on the nights nearby.
+        public var nearby: [String]
+
+        public init(slotDay: String, types: [String], nearby: [String]) {
+            self.slotDay = slotDay
+            self.types = types
+            self.nearby = nearby
+        }
+    }
+
     public var startedAt: Date
     public var finishedAt: Date
     /// `foreground`, `menu`, `replan`, `timeZone`, `clearAll`.
@@ -39,10 +55,12 @@ public struct ScheduleRun: Codable, Equatable, Sendable {
     /// `leftBeforeResult`, `notificationsOff`, `photosDenied`.
     public var emptyDays: [String: String]
     public var error: String?
+    /// Nights that asked a question whose type was taken nearby.
+    public var questionClashes: [QuestionClash]
 
     public init(startedAt: Date, finishedAt: Date, trigger: String, fragments: Int = 0, candidates: Int = 0,
                 aiSent: Int = 0, groups: [GroupOutcome] = [], scheduledDays: [String] = [],
-                emptyDays: [String: String] = [:], error: String? = nil) {
+                emptyDays: [String: String] = [:], error: String? = nil, questionClashes: [QuestionClash] = []) {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.trigger = trigger
@@ -53,6 +71,28 @@ public struct ScheduleRun: Codable, Equatable, Sendable {
         self.scheduledDays = scheduledDays
         self.emptyDays = emptyDays
         self.error = error
+        self.questionClashes = questionClashes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case startedAt, finishedAt, trigger, fragments, candidates, aiSent, groups, scheduledDays, emptyDays, error
+        case questionClashes
+    }
+
+    /// Runs logged before question clashes were kept decode with none.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        startedAt = try container.decode(Date.self, forKey: .startedAt)
+        finishedAt = try container.decode(Date.self, forKey: .finishedAt)
+        trigger = try container.decode(String.self, forKey: .trigger)
+        fragments = try container.decode(Int.self, forKey: .fragments)
+        candidates = try container.decode(Int.self, forKey: .candidates)
+        aiSent = try container.decode(Int.self, forKey: .aiSent)
+        groups = try container.decode([GroupOutcome].self, forKey: .groups)
+        scheduledDays = try container.decode([String].self, forKey: .scheduledDays)
+        emptyDays = try container.decode([String: String].self, forKey: .emptyDays)
+        error = try container.decodeIfPresent(String.self, forKey: .error)
+        questionClashes = try container.decodeIfPresent([QuestionClash].self, forKey: .questionClashes) ?? []
     }
 
     /// A run error, or a group that failed.

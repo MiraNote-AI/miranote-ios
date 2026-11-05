@@ -24,6 +24,24 @@ final class ScheduleLogTests: XCTestCase {
         XCTAssertEqual(runs.last?.fragments, 5)
     }
 
+    /// Runs logged before question clashes were kept still load; the
+    /// clashes a run noted come back.
+    func testQuestionClashesPersistAndOldRunsLoad() throws {
+        let file = tempFile()
+        var noted = run(1)
+        noted.questionClashes = [.init(slotDay: "2026-11-06", types: ["order", "sound"], nearby: ["sound", "order"])]
+        try ScheduleLogStore(file: file).append(noted)
+        XCTAssertEqual(ScheduleLogStore(file: file).runs(), [noted])
+
+        let data = try TriggerMemory.encoder.encode([run(2)])
+        var rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        rows[0]["questionClashes"] = nil
+        let old = try JSONSerialization.data(withJSONObject: rows)
+        let runs = try TriggerMemory.decoder.decode([ScheduleRun].self, from: old)
+        XCTAssertEqual(runs.first?.questionClashes, [])
+        XCTAssertEqual(runs.first?.fragments, 2)
+    }
+
     func testCountersPersist() throws {
         let file = tempFile()
         try ScheduleLogStore(file: file).bumpLeftBeforeResult(by: 2)

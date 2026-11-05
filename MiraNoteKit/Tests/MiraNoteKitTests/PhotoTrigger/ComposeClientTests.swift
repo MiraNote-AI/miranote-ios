@@ -12,7 +12,7 @@ final class ComposeMetaTests: XCTestCase {
     private func meta(place: String?) -> ComposeMeta {
         ComposeMeta(
             groupKey: "2026-10-18_8f3a0000", date: "2026-10-18", weekday: 6, startTime: "14:03", endTime: "17:40",
-            place: place, rawCount: 23, coversAll: true, recentQuestionIds: ["B4", "A2"], bucket: "food",
+            place: place, rawCount: 23, coversAll: true, recentQuestionTypes: ["order", "sound"], bucket: "food",
             tz: "America/Chicago",
             photos: [.init(id: "P1", takenAt: "2026-10-18T14:03:00-05:00", labels: ["food_drink", "tableware"],
                            faces: 0, favorite: true, edited: false, represents: 1)]
@@ -22,9 +22,10 @@ final class ComposeMetaTests: XCTestCase {
     func testMetaEncodesSnakeCaseAndNullPlace() throws {
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: meta(place: nil).encoded()) as? [String: Any])
         XCTAssertEqual(Set(object.keys), ["group_key", "date", "weekday", "start_time", "end_time", "place",
-                                          "raw_count", "covers_all", "recent_question_ids", "bucket", "tz",
+                                          "raw_count", "covers_all", "recent_question_types", "bucket", "tz",
                                           "photos"])
         XCTAssertTrue(object["place"] is NSNull, "an unknown place is sent as null")
+        XCTAssertEqual(object["recent_question_types"] as? [String], ["order", "sound"])
         let photo = try XCTUnwrap((object["photos"] as? [[String: Any]])?.first)
         XCTAssertEqual(Set(photo.keys), ["id", "taken_at", "labels", "faces", "favorite", "edited", "represents"])
         XCTAssertEqual(photo["taken_at"] as? String, "2026-10-18T14:03:00-05:00")
@@ -60,7 +61,7 @@ final class ComposeMetaTests: XCTestCase {
                                   faces: 1, aesthetics: nil, isUtility: false, featurePrint: nil)
         let analyses = ["local-0/L0/001": first]
         let built = ComposeMeta.build(fragment: fragment, picks: picks, analyses: analyses, library: [:],
-                                      place: nil, bucket: .food, recentQuestionIds: ["A1"], calendar: calendar)
+                                      place: nil, bucket: .food, recentQuestionTypes: ["zoom"], calendar: calendar)
         XCTAssertEqual(built.photoIds, ["P1": "local-0/L0/001", "P2": "local-2/L0/001", "P3": "local-3/L0/001"])
         let meta = built.meta
         XCTAssertTrue(meta.groupKey.hasPrefix("2026-10-18_"))
@@ -71,6 +72,7 @@ final class ComposeMetaTests: XCTestCase {
         XCTAssertEqual(meta.rawCount, 4)
         XCTAssertEqual(meta.bucket, "food")
         XCTAssertEqual(meta.tz, "America/Chicago")
+        XCTAssertEqual(meta.recentQuestionTypes, ["zoom"])
         XCTAssertTrue(meta.coversAll)
         XCTAssertEqual(meta.photos.map(\.id), ["P1", "P2", "P3"])
         XCTAssertEqual(meta.photos[0].labels, ["food_drink", "tableware"])
@@ -78,8 +80,11 @@ final class ComposeMetaTests: XCTestCase {
         XCTAssertEqual(meta.photos[1].takenAt, "2026-10-18T14:43:00-05:00")
         // Leaving a unique photo out: no longer covers all.
         let fewer = ComposeMeta.build(fragment: fragment, picks: Array(picks.prefix(2)), analyses: [:], library: [:],
-                                      place: nil, bucket: .food, recentQuestionIds: [], calendar: calendar)
+                                      place: nil, bucket: .food, recentQuestionTypes: [], calendar: calendar)
         XCTAssertFalse(fewer.meta.coversAll)
+        // No question fixed nearby: the field is still sent, empty.
+        let empty = try XCTUnwrap(JSONSerialization.jsonObject(with: fewer.meta.encoded()) as? [String: Any])
+        XCTAssertEqual(empty["recent_question_types"] as? [String], [])
     }
 
     func testUploadImageIsAtMost768AndHasNoGps() throws {
@@ -150,7 +155,7 @@ final class LiveComposeClientTests: XCTestCase {
     }
 
     private let meta = ComposeMeta(groupKey: "k", date: "2026-10-18", weekday: 7, startTime: "14:03", endTime: "15:00",
-                                   place: nil, rawCount: 3, coversAll: true, recentQuestionIds: [], bucket: "food",
+                                   place: nil, rawCount: 3, coversAll: true, recentQuestionTypes: [], bucket: "food",
                                    tz: "UTC", photos: [])
 
     func testSubmitBuildsMultipartWithMetaAndPhotos() async throws {
@@ -190,7 +195,9 @@ final class LiveComposeClientTests: XCTestCase {
         let status = try await client.poll("job-1")
         XCTAssertEqual(path, "/collections/jobs/job-1")
         guard case .ok(let memory) = status else { return XCTFail("\(status)") }
-        XCTAssertEqual(memory.ending.questionId, "A1")
+        XCTAssertEqual(memory.ending.questions.map(\.type), ["zoom", "sound", "route"])
+        XCTAssertEqual(memory.ending.questions.map(\.source), ["llm", "llm", "llm"])
+        XCTAssertEqual(memory.generation?.copyVersion, "copy_v2")
         XCTAssertEqual(memory.peak?.id, "P9")
     }
 

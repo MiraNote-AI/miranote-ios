@@ -84,12 +84,6 @@ public struct PushRecordStore: TriggerMemorySource {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    /// The question ids of the last `limit` pushes, newest first: the
-    /// backend avoids them (handoff 5.1 `recent_question_ids`).
-    public func recentQuestionIds(limit: Int = 5) -> [String] {
-        all().prefix(limit).map(\.memory.ending.questionId).filter { !$0.isEmpty }
-    }
-
     /// Deletes one record; an unknown id changes nothing.
     public func remove(_ pushId: String) throws {
         let url = file(pushId)

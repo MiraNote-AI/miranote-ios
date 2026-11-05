@@ -34,10 +34,12 @@ extension PushScheduler {
     // MARK: Scheduling
 
     // swiftlint:disable function_parameter_count
-    /// Saves the record, schedules the night's notification, writes the
-    /// ledger row, then takes back the push it replaces.
-    func schedule(_ index: Int, _ candidate: PushCandidate, memory: TriggerMemory, photoIds: [String: String],
-                  place: String?, context: RunContext) async {
+    /// Picks the question for the night, saves the record, schedules the
+    /// night's notification, writes the ledger row, then takes back the
+    /// push it replaces. Nights are scheduled one at a time on the actor,
+    /// so each pick sees the ledger rows of the picks before it.
+    func schedule(_ index: Int, _ candidate: PushCandidate, memory answered: TriggerMemory,
+                  photoIds: [String: String], place: String?, context: RunContext) async {
         guard context.generation == generation else { return }
         let plan = work.days[index].plan
         // The wave may have run into the hour before the old push fires: it stays.
@@ -47,6 +49,8 @@ extension PushScheduler {
             return
         }
         let fallback: DayState = plan.existing == nil ? .empty("notificationsOff") : .kept
+        let nearby = QuestionPicker.nearbyTypes(deps.ledger.load(), around: plan.slot, calendar: context.calendar)
+        let (memory, clashed) = QuestionPicker.picking(answered, nearby: nearby)
         let pushId = UUID().uuidString
         let record = PushRecord(
             pushId: pushId, memory: memory, photoIds: photoIds, createdAt: deps.now(), rank: index + 1,
@@ -75,8 +79,12 @@ extension PushScheduler {
         try? deps.ledger.append(LedgerEntry(
             pushId: pushId, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
             photoIds: candidate.fragment.photos.map(\.id), bucket: candidate.bucket, place: place,
-            score: candidate.score, body: memory.push.body, questionId: memory.ending.questionId,
-            scheduledFor: plan.slot))
+            score: candidate.score, body: memory.push.body, question: memory.ending.question,
+            questionType: memory.ending.questionType, scheduledFor: plan.slot))
+        if clashed {
+            work.questionClashes.append(ScheduleRun.QuestionClash(
+                slotDay: plan.slotDay, types: answered.ending.questions.map(\.type), nearby: nearby))
+        }
         if let existing = plan.existing {
             await removeActive(.replaced) { $0.pushId == existing.pushId }
         }

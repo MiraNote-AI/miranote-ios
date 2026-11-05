@@ -26,7 +26,11 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
     public var place: String?
     public var score: FragmentScore
     public var body: String
-    public var questionId: String
+    /// The question the push asks, as picked for its night; nil in
+    /// entries written before question types.
+    public var question: String?
+    /// Its type id (`QuestionPicker`); nil in entries written before types.
+    public var questionType: String?
     public var scheduledFor: Date
     public var deliveredAt: Date?
     public var notDeliveredReason: String?
@@ -40,8 +44,8 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
     public var notOpened: Bool
 
     public init(pushId: String, isDebug: Bool = false, belongsTo: String, groupKey: String, photoIds: [String],
-                bucket: PushBucket, place: String?, score: FragmentScore, body: String, questionId: String,
-                scheduledFor: Date) {
+                bucket: PushBucket, place: String?, score: FragmentScore, body: String, question: String,
+                questionType: String, scheduledFor: Date) {
         self.pushId = pushId
         self.identifier = "pt." + pushId
         self.isDebug = isDebug
@@ -52,7 +56,8 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
         self.place = place
         self.score = score
         self.body = body
-        self.questionId = questionId
+        self.question = question
+        self.questionType = questionType
         self.scheduledFor = scheduledFor
         self.notOpened = false
     }

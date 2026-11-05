@@ -105,8 +105,8 @@ extension PushScheduler {
         }
         try? deps.ledger.append(LedgerEntry(
             pushId: pushId, isDebug: true, belongsTo: belongsTo, groupKey: groupKey, photoIds: groupPhotos,
-            bucket: bucket, place: place, score: score, body: memory.push.body,
-            questionId: memory.ending.questionId, scheduledFor: now.addingTimeInterval(Self.debugDelay)))
+            bucket: bucket, place: place, score: score, body: memory.push.body, question: memory.ending.question,
+            questionType: memory.ending.questionType, scheduledFor: now.addingTimeInterval(Self.debugDelay)))
         return .pushed
     }
     // swiftlint:enable function_parameter_count
@@ -207,9 +207,11 @@ extension PushScheduler {
         out.yield(.askingAI(rank: rank, date: TriggerWords.shortDate(fragment.belongsTo), place: place,
                             count: fragment.uniqueCount))
         let picks = ranking.preselect(fragment)
+        // A debug push goes out tonight: its question keeps off the nights around today.
+        let nearby = QuestionPicker.nearbyTypes(deps.ledger.load(), around: deps.now(), calendar: calendar)
         let built = ComposeMeta.build(fragment: fragment, picks: picks, analyses: ranking.analyses,
                                       library: ranking.library, place: place, bucket: candidate.bucket,
-                                      recentQuestionIds: deps.records.recentQuestionIds(), calendar: calendar)
+                                      recentQuestionTypes: nearby, calendar: calendar)
         let memory: TriggerMemory
         let photoIds: [String: String]
         switch deps.cache.verdict(candidate.cacheKey) {
@@ -235,7 +237,8 @@ extension PushScheduler {
                 return box.attempt
             }
         }
-        switch await pushDebug(memory: memory, photoIds: photoIds, rank: rank, score: candidate.score,
+        switch await pushDebug(memory: QuestionPicker.picking(memory, nearby: nearby).memory, photoIds: photoIds,
+                               rank: rank, score: candidate.score,
                                bucket: candidate.bucket, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
                                groupPhotos: fragment.photos.map(\.id), place: place, generation: outsideGeneration) {
         case .pushed: break

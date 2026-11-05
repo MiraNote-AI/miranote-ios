@@ -80,6 +80,8 @@ struct AIAsk: Sendable {
     let day: Int
     let candidate: PushCandidate
     let picks: [Preselected]
+    /// `ComposeMeta.recentQuestionTypes` for the night asked for.
+    let recentTypes: [String]
     /// A job of the same photos submitted under an hour ago (after a relaunch).
     let resume: OutstandingJob?
     let prepared: ComposeSession.Prepared?
@@ -122,4 +124,6 @@ struct RunWork: Sendable {
     var leftDays: Set<Int> = []
     /// Groups whose trip to the AI failed this run: not sent again for another night.
     var failedGroups: Set<String> = []
+    /// Nights whose every candidate question clashed with a night nearby.
+    var questionClashes: [ScheduleRun.QuestionClash] = []
 }

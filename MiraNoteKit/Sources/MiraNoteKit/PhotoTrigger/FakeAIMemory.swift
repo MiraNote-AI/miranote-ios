@@ -46,7 +46,7 @@ public enum TriggerWords {
 
 /// The fake-AI switch's memory, built on the phone with no backend
 /// (handoff 7.5): up to eight of the preselected photos, the best-scoring
-/// one as the peak, no detail line (body F0), question B1.
+/// one as the peak, no detail line (body F0), question B1 (`one_word`).
 public enum FakeAIMemory {
     public static let maxPhotos = 8
 
@@ -91,7 +91,8 @@ public enum FakeAIMemory {
                         coverPhotoId: peak?.number ?? ""),
             story: .init(firstFrameLabel: fact, photos: photos),
             ending: .init(factLine: fact, detail: "",
-                          question: String(format: zh(TriggerContentKey.threeWords), when), questionId: "B1",
+                          questions: [.init(text: String(format: zh(TriggerContentKey.threeWords), when),
+                                            type: "one_word", source: "fallback_B1")],
                           ctaLabel: String(format: zh(TriggerContentKey.keepThis), when)),
             facts: [:],
             generation: .init(bodySource: "fake", questionSource: "fake", model: "on-device", costCny: 0, latencyMs: 0)

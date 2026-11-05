@@ -140,11 +140,27 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 }
 
 /// `-UITEST-TRIGGER` with the fake AI off: a backend that answers at once
-/// with a memory that has a detail line. `-TRIGGER-BACKEND-DOWN` cannot be
-/// reached; `-TRIGGER-REJECT` turns every group down; `-TRIGGER-SLOW-AI <s>`
-/// keeps each job running for that many seconds.
+/// with a memory that has a detail line and three candidate questions, the
+/// copy_v2 shape. `-TRIGGER-BACKEND-DOWN` cannot be reached;
+/// `-TRIGGER-REJECT` turns every group down; `-TRIGGER-SLOW-AI <s>` keeps
+/// each job running for that many seconds; `-TRIGGER-DETAIL <words>` is the
+/// detail line and push body (screenshots of a long line).
 struct UITestComposeClient: ComposeClient {
     private let arguments = ProcessInfo.processInfo.arguments
+
+    /// Every group gets the same three: nights side by side take turns
+    /// (zoom, order, found, zoom...), which shows the picker at work.
+    private static let questions = [
+        TriggerMemory.Ending.Question(text: "What was on the table?", type: "zoom", source: "llm"),
+        TriggerMemory.Ending.Question(text: "Which dish went first?", type: "order", source: "llm"),
+        TriggerMemory.Ending.Question(text: "How did you find the place?", type: "found", source: "llm")
+    ]
+
+    private var detail: String {
+        guard let index = arguments.firstIndex(of: "-TRIGGER-DETAIL"), arguments.indices.contains(index + 1)
+        else { return "A quiet light on the table" }
+        return arguments[index + 1]
+    }
 
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
         if arguments.contains("-TRIGGER-BACKEND-DOWN") { throw ComposeError.unreachable }
@@ -182,12 +198,12 @@ struct UITestComposeClient: ComposeClient {
         let fact = TriggerWords.factLine(day: meta.date, place: meta.place)
         return .ok(TriggerMemory(
             id: meta.groupKey, date: meta.date, daypart: .afternoon, bucket: "Food and drink",
-            push: .init(title: fact + TriggerWords.separator + "afternoon", body: "A quiet light on the table",
-                        coverPhotoId: peak),
+            push: .init(title: fact + TriggerWords.separator + "afternoon", body: detail, coverPhotoId: peak),
             story: .init(firstFrameLabel: fact, photos: photos),
-            ending: .init(factLine: fact, detail: "A quiet light on the table", question: "What was on the table?",
-                          questionId: "A1", ctaLabel: "Keep this afternoon"),
-            facts: Dictionary(uniqueKeysWithValues: chosen.map { ($0.id, "A painted block, \($0.id)") }),
+            ending: .init(factLine: fact, detail: detail, questions: Self.questions, ctaLabel: "Keep this afternoon"),
+            facts: Dictionary(uniqueKeysWithValues: chosen.map {
+                ($0.id, "Subject: a painted block; description: block \($0.id); people: 0")
+            }),
             generation: .init(bodySource: "llm", questionSource: "llm", model: "uitest", costCny: 0, latencyMs: 0)
         ))
     }

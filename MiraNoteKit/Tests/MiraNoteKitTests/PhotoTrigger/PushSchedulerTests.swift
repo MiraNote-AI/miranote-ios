@@ -270,7 +270,8 @@ final class PushSchedulerTests: PushSchedulerTestCase {
         XCTAssertEqual(entry.place, "Riverside Park")
         XCTAssertGreaterThanOrEqual(entry.score.total, 0.40)
         XCTAssertEqual(entry.body, "b")
-        XCTAssertEqual(entry.questionId, "B1")
+        XCTAssertEqual(entry.question, "q")
+        XCTAssertEqual(entry.questionType, "one_word")
         XCTAssertEqual(entry.scheduledFor, PushSlots.make(now: start, calendar: zone.calendar)[0])
         let record = try XCTUnwrap(records.load(entry.pushId))
         XCTAssertEqual(record.bucketId, .food)
@@ -315,7 +316,8 @@ final class PushSchedulerTests: PushSchedulerTestCase {
         XCTAssertEqual(activeDays, allSeven)
         let key = AIResultCache.key((0..<9).map { "g0-\($0)" })
         guard case .ok(let memory, _) = cache.verdict(key) else { return XCTFail("cached like ok") }
-        XCTAssertEqual(memory.ending.questionId, "B1")
+        XCTAssertEqual(memory.ending.questions.map(\.source), ["fallback_B1"])
+        XCTAssertEqual(memory.ending.questionType, "one_word")
     }
 
     func testStoresLoadEmptyFromGarbage() async throws {

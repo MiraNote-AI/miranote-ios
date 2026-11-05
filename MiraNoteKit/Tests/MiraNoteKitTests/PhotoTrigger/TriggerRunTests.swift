@@ -254,7 +254,8 @@ extension TriggerRunTests {
         XCTAssertEqual(client.submitted, [], "the fake AI never calls the backend")
         let record = try XCTUnwrap(notifier.scheduled.first)
         let memory = record.memory
-        XCTAssertEqual(memory.ending.questionId, "B1")
+        XCTAssertEqual(memory.ending.questionSource, "fallback_B1")
+        XCTAssertEqual(memory.ending.questionType, "one_word")
         XCTAssertEqual(memory.ending.detail, "")
         let body = "[\(TriggerContentKey.photosThatDay)]".replacingOccurrences(of: "%lld", with: "10")
         XCTAssertEqual(memory.push.body, body)
@@ -281,20 +282,6 @@ extension TriggerRunTests {
         XCTAssertTrue(memory.ending.question.contains(word))
         XCTAssertTrue(memory.ending.ctaLabel.contains(word))
         XCTAssertEqual(memory.ending.factLine, TriggerWords.shortDate(memory.date))
-    }
-
-    func testRecentQuestionIdsFromLastFiveRecords() throws {
-        let store = records
-        for index in 0..<7 {
-            let base = TriggerMemoryTests.memory(ids: ["01", "02", "03"], peak: "01")
-            let memory = TriggerMemory(
-                id: "m\(index)", date: base.date, daypart: base.daypart, push: base.push, story: base.story,
-                ending: .init(factLine: "f", detail: "", question: "q", questionId: "Q\(index)", ctaLabel: "c"))
-            try store.save(PushRecord(pushId: UUID().uuidString, memory: memory, photoIds: [:],
-                                      createdAt: now.addingTimeInterval(Double(index)), rank: 1, score: 0.5,
-                                      bucket: ""))
-        }
-        XCTAssertEqual(store.recentQuestionIds(), ["Q6", "Q5", "Q4", "Q3", "Q2"])
     }
 
     func testPushIdIsNewEachTime() async {

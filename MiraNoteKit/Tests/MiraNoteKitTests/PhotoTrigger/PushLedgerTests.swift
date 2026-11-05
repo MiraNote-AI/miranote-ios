@@ -17,7 +17,8 @@ final class PushLedgerTests: XCTestCase {
     static func entry(_ id: String = "A", day: String = "2026-10-30", at: Date, debug: Bool = false) -> LedgerEntry {
         LedgerEntry(pushId: id, isDebug: debug, belongsTo: day, groupKey: "g-\(id)",
                     photoIds: ["LOCAL-1/L0/001", "LOCAL-2/L0/001"], bucket: .scenery, place: "Arboretum",
-                    score: score(), body: "Body", questionId: "A1", scheduledFor: at)
+                    score: score(), body: "Body", question: "What else?", questionType: "zoom",
+                    scheduledFor: at)
     }
 
     private func reconcile(_ entries: [LedgerEntry], pending: Set<String> = [], allowed: Bool = true) -> [LedgerEntry] {
@@ -116,12 +117,30 @@ final class PushLedgerTests: XCTestCase {
         let array = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
         let keys = Set(try XCTUnwrap(array.first).keys)
         for key in ["pushId", "identifier", "isDebug", "belongsTo", "groupKey", "photoIds", "bucket", "place",
-                    "score", "body", "questionId", "scheduledFor", "notOpened", "menuAction", "removedReason"] {
+                    "score", "body", "question", "questionType", "scheduledFor", "notOpened", "menuAction",
+                    "removedReason"] {
             XCTAssertTrue(keys.contains(key), key)
         }
         XCTAssertTrue(text.contains("2027-01-15T08:00:00Z"))
         let back = try TriggerMemory.decoder.decode([LedgerEntry].self, from: data)
         XCTAssertEqual(back, [entry])
+    }
+
+    /// A ledger written before question types (`questionId`) still loads:
+    /// its rows have no question and no type.
+    func testLedgerFromBeforeQuestionTypesLoads() throws {
+        let data = try TriggerMemory.encoder.encode([Self.entry(at: now)])
+        var rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        rows[0]["question"] = nil
+        rows[0]["questionType"] = nil
+        rows[0]["questionId"] = "A1"
+        let file = tempFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: rows).write(to: file)
+        let loaded = PushLedgerStore(file: file).load()
+        XCTAssertEqual(loaded.map(\.pushId), ["A"])
+        XCTAssertNil(loaded.first?.question)
+        XCTAssertNil(loaded.first?.questionType)
     }
 
     func testLedgerLoadsEmptyFromGarbage() throws {

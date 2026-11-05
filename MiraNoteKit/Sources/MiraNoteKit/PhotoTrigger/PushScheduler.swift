@@ -205,6 +205,7 @@ public actor PushScheduler {
         guard mine == generation else { return }
         run.groups = work.outcomes
         run.aiSent = work.aiSent
+        run.questionClashes = work.questionClashes
         for day in work.days {
             switch day.state {
             case .scheduled, .kept: run.scheduledDays.append(day.plan.slotDay)

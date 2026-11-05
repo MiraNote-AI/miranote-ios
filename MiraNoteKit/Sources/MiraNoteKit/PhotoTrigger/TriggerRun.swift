@@ -101,7 +101,8 @@ public actor TriggerRun {
         let built = ComposeMeta.build(fragment: group.fragment, picks: picks, analyses: ranking.analyses,
                                       library: ranking.library, place: place,
                                       bucket: group.score.bucket,
-                                      recentQuestionIds: deps.records.recentQuestionIds(), calendar: calendar)
+                                      // A press outside the nights: none around it.
+                                      recentQuestionTypes: [], calendar: calendar)
         let memory: TriggerMemory
         var photoIds = built.photoIds
         if deps.fakeAI() {

@@ -109,10 +109,14 @@ extension PushScheduler {
     private func send(_ indices: [Int], context: RunContext, resubmitting: [Int: AIJob] = [:]) async {
         let now = deps.now()
         let outstanding = deps.state.load().outstanding
+        let entries = deps.ledger.load()
         let asks = indices.compactMap { index -> AIAsk? in
+            // The questions fixed so far around the night this group may land on.
+            let nearby = QuestionPicker.nearbyTypes(entries, around: work.days[index].plan.slot,
+                                                    calendar: context.calendar)
             if let job = resubmitting[index] {
                 return AIAsk(day: index, candidate: job.candidate, picks: context.picks[job.candidate.groupKey] ?? [],
-                             resume: nil, prepared: job.prepared, budgetFrom: job.budgetFrom,
+                             recentTypes: nearby, resume: nil, prepared: job.prepared, budgetFrom: job.budgetFrom,
                              resubmitted: true)
             }
             guard case .asking(let candidate) = work.days[index].state else { return nil }
@@ -120,15 +124,14 @@ extension PushScheduler {
                 now.timeIntervalSince($0.submittedAt) < Self.jobLifetime ? $0 : nil
             }
             return AIAsk(day: index, candidate: candidate, picks: context.picks[candidate.groupKey] ?? [],
-                         resume: fresh, prepared: nil, budgetFrom: nil, resubmitted: false)
+                         recentTypes: nearby, resume: fresh, prepared: nil, budgetFrom: nil, resubmitted: false)
         }
         let deps = self.deps
         let fake = deps.fakeAI()
-        let recent = deps.records.recentQuestionIds()
         let results = await withTaskGroup(of: (AIAsk, AISent).self) { group in
             for ask in asks {
                 group.addTask {
-                    (ask, await Self.send(ask, deps: deps, context: context, fake: fake, recent: recent, now: now))
+                    (ask, await Self.send(ask, deps: deps, context: context, fake: fake, now: now))
                 }
             }
             var all: [(AIAsk, AISent)] = []
@@ -168,17 +171,17 @@ extension PushScheduler {
         }
     }
 
-    // swiftlint:disable function_parameter_count
     /// One night's photos read and submitted, off the actor.
     private static func send(_ ask: AIAsk, deps: SchedulerDependencies, context: RunContext, fake: Bool,
-                             recent: [String], now: Date) async -> AISent {
+                             now: Date) async -> AISent {
         let fragment = ask.candidate.fragment
         var place: String?
         if let center = fragment.center { place = await deps.places.name(for: center) }
         let ranking = context.ranking
         let built = ComposeMeta.build(fragment: fragment, picks: ask.picks, analyses: ranking.analyses,
                                       library: ranking.library, place: place, bucket: ask.candidate.bucket,
-                                      recentQuestionIds: recent, calendar: context.calendar)
+                                      recentQuestionTypes: ask.recentTypes,
+                                      calendar: context.calendar)
         if fake {
             let memory = FakeAIMemory.build(meta: built.meta, photoIds: built.photoIds, picks: ask.picks,
                                             calendar: context.calendar, zh: deps.zh)
@@ -205,7 +208,6 @@ extension PushScheduler {
             return .failed(Self.describe(box.attempt))
         }
     }
-    // swiftlint:enable function_parameter_count
 
     // MARK: Polling
 

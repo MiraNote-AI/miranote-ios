@@ -23,6 +23,7 @@ public enum LedgerText {
         if entry.isDebug { actions.append("debug") }
         let score = String(format: "%.2f", entry.score.total)
         return [entry.belongsTo, stamp(entry.scheduledFor), entry.bucket.rawValue, entry.place ?? "-", score,
+                "question \(entry.questionType ?? "-")",
                 actions.isEmpty ? "scheduled" : actions.joined(separator: ", ")].joined(separator: " | ")
     }
 
@@ -35,6 +36,8 @@ public enum LedgerText {
         let errors = (run.groups.filter { $0.outcome == .error }.map { $0.message ?? "error" }
             + (run.error.map { [$0] } ?? [])).map(safe)
         if !errors.isEmpty { line += " | errors: " + errors.joined(separator: "; ") }
+        let clashes = run.questionClashes.map { "\($0.slotDay) \($0.types.joined(separator: "/"))" }
+        if !clashes.isEmpty { line += " | question types taken nearby: " + clashes.joined(separator: ", ") }
         return line
     }
 

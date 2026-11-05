@@ -44,7 +44,9 @@ final class TriggerMemoryTests: XCTestCase {
     func testOldJSONDecodesWithDefaults() throws {
         let memory = try TriggerMemory.decode(Data(json.utf8))
         XCTAssertEqual(memory.ending.detail, "")
-        XCTAssertEqual(memory.ending.questionId, "")
+        XCTAssertEqual(memory.ending.question, "What else?")
+        XCTAssertEqual(memory.ending.questionType, "")
+        XCTAssertEqual(memory.ending.questions.map(\.text), ["What else?"])
         XCTAssertEqual(memory.bucket, "")
         XCTAssertEqual(memory.facts, [:])
         XCTAssertNil(memory.generation)
@@ -56,13 +58,54 @@ final class TriggerMemoryTests: XCTestCase {
         let memoryData = try JSONSerialization.data(withJSONObject: try XCTUnwrap(object["memory"]))
         let memory = try TriggerMemory.decode(memoryData)
         XCTAssertEqual(memory.daypart, .evening)
-        XCTAssertEqual(memory.ending.questionId, "A1")
+        XCTAssertEqual(memory.ending.questions.map(\.type), ["zoom", "sound", "route"])
+        // Before a night picks: the backend's first.
+        XCTAssertEqual(memory.ending.question, memory.ending.questions[0].text)
+        XCTAssertEqual(memory.ending.questionType, "zoom")
+        XCTAssertEqual(memory.ending.questionSource, "llm")
+        XCTAssertEqual(memory.generation?.copyVersion, "copy_v2")
         XCTAssertFalse(memory.ending.detail.isEmpty)
         XCTAssertFalse(memory.bucket.isEmpty)
         XCTAssertEqual(memory.storyPhotos.map(\.id), ["P9", "P2"])
         XCTAssertNotNil(memory.facts["P9"])
         XCTAssertEqual(memory.generation?.latencyMs, 41000)
         XCTAssertNil(memory.story.photos[0].file)
+    }
+
+    /// A push saved before question types (`question` + `questionId`): the
+    /// question is its one candidate, of no known type.
+    func testPushSavedBeforeQuestionTypesDecodes() throws {
+        let legacy = json.replacingOccurrences(of: #""question": "What else?","#,
+                                               with: #""question": "What else?", "questionId": "A1","#)
+        XCTAssertNotEqual(legacy, json)
+        let memory = try TriggerMemory.decode(Data(legacy.utf8))
+        XCTAssertEqual(memory.ending.question, "What else?")
+        XCTAssertEqual(memory.ending.questionType, "")
+        XCTAssertEqual(memory.ending.questionSource, "A1")
+        XCTAssertEqual(memory.ending.otherQuestions, [])
+        XCTAssertEqual(memory.generation?.copyVersion, nil)
+    }
+
+    /// An ending with neither a question nor candidates does not decode.
+    func testEndingWithoutQuestionsIsAnError() {
+        let bare = json.replacingOccurrences(of: #""question": "What else?","#, with: "")
+        XCTAssertNotEqual(bare, json)
+        XCTAssertThrowsError(try TriggerMemory.decode(Data(bare.utf8)))
+    }
+
+    /// A picked push saved and read back asks the same question and keeps
+    /// every candidate.
+    func testPickedEndingRoundTrips() throws {
+        let data = try Data(contentsOf: Fixtures.url("compose_ok.json"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let memoryData = try JSONSerialization.data(withJSONObject: try XCTUnwrap(object["memory"]))
+        let answered = try TriggerMemory.decode(memoryData)
+        let picked = answered.picking(answered.ending.questions[2])
+        let back = try TriggerMemory.decode(TriggerMemory.encoder.encode(picked))
+        XCTAssertEqual(back, picked)
+        XCTAssertEqual(back.ending.questionType, "route")
+        XCTAssertEqual(back.ending.questions.count, 3)
+        XCTAssertEqual(back.ending.otherQuestions.map(\.type), ["zoom", "sound"])
     }
 
     /// The backend may add fields (generation.peakRewrite, .peakSwitched):
@@ -140,7 +183,8 @@ final class TriggerMemoryTests: XCTestCase {
             id: "m", date: "2025-10-09", daypart: .afternoon,
             push: .init(title: "t", body: "b", coverPhotoId: peak ?? "01"),
             story: .init(firstFrameLabel: "f", photos: photos),
-            ending: .init(factLine: "f", detail: "", question: "q", questionId: "B1", ctaLabel: "c")
+            ending: .init(factLine: "f", detail: "",
+                          questions: [.init(text: "q", type: "one_word", source: "fallback_B1")], ctaLabel: "c")
         )
     }
 

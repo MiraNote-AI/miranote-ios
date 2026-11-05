@@ -98,7 +98,7 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
     func testRelaunchPollsTheOutstandingJob() async throws {
         let ids = (0..<9).map { "g0-\($0)" }
         let meta = ComposeMeta(groupKey: "k", date: day("g0"), weekday: 1, startTime: "", endTime: "", place: nil,
-                               rawCount: 9, coversAll: true, recentQuestionIds: [], bucket: "food", tz: "",
+                               rawCount: 9, coversAll: true, recentQuestionTypes: [], bucket: "food", tz: "",
                                photos: [])
         let job = try await client.submit(meta, photos: [])
         try state.update {
@@ -115,7 +115,7 @@ final class PushSchedulerAITests: PushSchedulerTestCase {
     func testJobOlderThanAnHourIsSubmittedAgain() async throws {
         let ids = (0..<9).map { "g0-\($0)" }
         let meta = ComposeMeta(groupKey: "k", date: day("g0"), weekday: 1, startTime: "", endTime: "", place: nil,
-                               rawCount: 9, coversAll: true, recentQuestionIds: [], bucket: "food", tz: "",
+                               rawCount: 9, coversAll: true, recentQuestionTypes: [], bucket: "food", tz: "",
                                photos: [])
         let job = try await client.submit(meta, photos: [])
         try state.update {

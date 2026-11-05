@@ -153,14 +153,18 @@ final class FakeNotifier: PushNotificationCenter, @unchecked Sendable {
 }
 
 /// Answers per group (by the first photo's date): a list of poll answers,
-/// the last repeated. Groups with no script come back ok.
+/// the last repeated. Groups with no script come back ok, with `questions`
+/// as their candidates when set.
 final class FakeClient: ComposeClient, @unchecked Sendable {
     enum Answer { case running, ok, rejected, expired, rateLimited, timeoutError }
     private let lock = NSLock()
     var scripts: [String: [Answer]] = [:]
+    var questions: [TriggerMemory.Ending.Question]?
     var submitErrors: [ComposeError] = []
     private(set) var submitted: [String] = []
     private(set) var lastMeta: ComposeMeta?
+    /// Every meta submitted, in order.
+    private(set) var metas: [ComposeMeta] = []
     private(set) var lastPhotoNumbers: [String] = []
     private var polls: [String: Int] = [:]
     private var jobs: [String: ComposeMeta] = [:]
@@ -175,6 +179,7 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
             submitted.append(meta.date)
             eventList.append("submit \(meta.date)")
             lastMeta = meta
+            metas.append(meta)
             lastPhotoNumbers = photos.map(\.id)
             let job = "job-\(submitted.count)"
             jobs[job] = meta
@@ -203,8 +208,12 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
             case .timeoutError: return .failed(reason: "timeout", message: "slow")
             case .ok:
                 let memory = TriggerMemoryTests.memory(ids: ["P1", "P2", "P3"], peak: "P2")
+                let ending = questions.map {
+                    TriggerMemory.Ending(factLine: memory.ending.factLine, detail: "", questions: $0,
+                                         ctaLabel: memory.ending.ctaLabel)
+                } ?? memory.ending
                 return .ok(TriggerMemory(id: meta.groupKey, date: meta.date, daypart: memory.daypart,
-                                         push: memory.push, story: memory.story, ending: memory.ending))
+                                         push: memory.push, story: memory.story, ending: ending))
             }
         }
     }

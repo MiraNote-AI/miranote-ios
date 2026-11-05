@@ -6,10 +6,14 @@ import Foundation
 /// 5.2) and the shape the on-device fake AI builds; a push record keeps it
 /// on disk until the push is tapped.
 ///
-/// Fields added after v0 (`bucket`, `ending.detail`, `ending.questionId`,
+/// Fields added after v0 (`bucket`, `ending.detail`, `ending.questions`,
 /// `facts`, `generation`) decode with defaults when absent, so older JSON
 /// keeps decoding.
 public struct TriggerMemory: Codable, Equatable, Sendable {
+    /// The copy rules the phone expects (`generation.copyVersion`); part of
+    /// the AI cache key, so a change of rules never reuses older words.
+    public static let copyVersion = "copy_v2"
+
     public struct Push: Codable, Equatable, Sendable {
         public let title: String
         public let body: String
@@ -50,33 +54,85 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
     }
 
     public struct Ending: Codable, Equatable, Sendable {
+        public typealias Question = TriggerQuestion
+
         /// Date and place only ("10.18 . <place>"), never a time.
         public let factLine: String
         /// The detail line; "" when there is none (no row on the ending).
         public let detail: String
+        /// The question the ending asks: the one picked once the night is
+        /// fixed (`picking(_:)`), the backend's first before that.
         public let question: String
-        /// The question bank's id ("A1", "B1"...); "" when unknown.
-        public let questionId: String
+        /// Its type id; "" when unknown (a push saved before types).
+        public let questionType: String
+        /// Its source ("llm", "fallback_B1"...); in a push saved before
+        /// types, the question bank's id ("A1").
+        public let questionSource: String
+        /// Every candidate the backend sent, in its order (1-3).
+        public let questions: [Question]
         public let ctaLabel: String
 
-        public init(factLine: String, detail: String, question: String, questionId: String, ctaLabel: String) {
+        public init(factLine: String, detail: String, questions: [Question], ctaLabel: String) {
+            self.factLine = factLine
+            self.detail = detail
+            self.questions = questions
+            question = questions.first?.text ?? ""
+            questionType = questions.first?.type ?? ""
+            questionSource = questions.first?.source ?? ""
+            self.ctaLabel = ctaLabel
+        }
+
+        /// The ending asking `chosen`, the candidates kept.
+        public func picking(_ chosen: Question) -> Ending {
+            Ending(factLine: factLine, detail: detail, question: chosen.text, questionType: chosen.type,
+                   questionSource: chosen.source, questions: questions, ctaLabel: ctaLabel)
+        }
+
+        /// The candidates other than the one asked, for the debug page.
+        public var otherQuestions: [Question] {
+            questions.filter { $0.text != question }
+        }
+
+        private init(factLine: String, detail: String, question: String, questionType: String,
+                     questionSource: String, questions: [Question], ctaLabel: String) {
             self.factLine = factLine
             self.detail = detail
             self.question = question
-            self.questionId = questionId
+            self.questionType = questionType
+            self.questionSource = questionSource
+            self.questions = questions
             self.ctaLabel = ctaLabel
         }
 
         private enum CodingKeys: String, CodingKey {
-            case factLine, detail, question, questionId, ctaLabel
+            case factLine, detail, question, questionType, questionSource, questions, ctaLabel
         }
 
+        /// Pushes saved before question types carried the bank's id.
+        private enum LegacyKeys: String, CodingKey {
+            case questionId
+        }
+
+        /// The backend sends `questions` alone; a saved push adds the one
+        /// picked; a push saved before types has `question` and
+        /// `questionId` alone. Neither a question nor candidates: an error.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             factLine = try container.decode(String.self, forKey: .factLine)
             detail = try container.decodeIfPresent(String.self, forKey: .detail) ?? ""
-            question = try container.decode(String.self, forKey: .question)
-            questionId = try container.decodeIfPresent(String.self, forKey: .questionId) ?? ""
+            let candidates = try container.decodeIfPresent([Question].self, forKey: .questions) ?? []
+            let first = candidates.first
+            guard let asked = try container.decodeIfPresent(String.self, forKey: .question) ?? first?.text else {
+                throw DecodingError.keyNotFound(CodingKeys.questions, .init(
+                    codingPath: container.codingPath, debugDescription: "No question and no candidates"))
+            }
+            let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+            question = asked
+            questionType = try container.decodeIfPresent(String.self, forKey: .questionType) ?? first?.type ?? ""
+            questionSource = try container.decodeIfPresent(String.self, forKey: .questionSource) ?? first?.source
+                ?? legacy.decodeIfPresent(String.self, forKey: .questionId) ?? ""
+            questions = candidates.isEmpty
+                ? [Question(text: asked, type: questionType, source: questionSource)] : candidates
             ctaLabel = try container.decode(String.self, forKey: .ctaLabel)
         }
     }
@@ -88,17 +144,21 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
         public let model: String
         public let costCny: Double
         public let latencyMs: Int
+        /// The copy rules the words follow ("copy_v2"); "" before versions.
+        public let copyVersion: String
 
-        public init(bodySource: String, questionSource: String, model: String, costCny: Double, latencyMs: Int) {
+        public init(bodySource: String, questionSource: String, model: String, costCny: Double, latencyMs: Int,
+                    copyVersion: String = TriggerMemory.copyVersion) {
             self.bodySource = bodySource
             self.questionSource = questionSource
             self.model = model
             self.costCny = costCny
             self.latencyMs = latencyMs
+            self.copyVersion = copyVersion
         }
 
         private enum CodingKeys: String, CodingKey {
-            case bodySource, questionSource, model, costCny, latencyMs
+            case bodySource, questionSource, model, costCny, latencyMs, copyVersion
         }
 
         public init(from decoder: Decoder) throws {
@@ -108,6 +168,7 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
             model = try container.decodeIfPresent(String.self, forKey: .model) ?? ""
             costCny = try container.decodeIfPresent(Double.self, forKey: .costCny) ?? 0
             latencyMs = try container.decodeIfPresent(Int.self, forKey: .latencyMs) ?? 0
+            copyVersion = try container.decodeIfPresent(String.self, forKey: .copyVersion) ?? ""
         }
     }
 
@@ -210,6 +271,12 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
         )
     }
 
+    /// The memory whose ending asks `question` (one of its candidates).
+    public func picking(_ question: Ending.Question) -> TriggerMemory {
+        TriggerMemory(id: id, mode: mode, date: date, daypart: daypart, bucket: bucket, push: push, story: story,
+                      ending: ending.picking(question), facts: facts, generation: generation)
+    }
+
     /// Seconds a photo stays on screen in the story: the peak lingers.
     public static func dwell(for photo: Photo) -> TimeInterval {
         photo.isPeak ? 3 : 2
@@ -234,6 +301,32 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
         return encoder
+    }
+}
+
+/// One of the backend's candidate questions (handoff refine 5.7).
+public struct TriggerQuestion: Codable, Equatable, Sendable {
+    public let text: String
+    /// A question type id ("order", "sound"... or "other").
+    public let type: String
+    /// "llm", or the fallback used: "fallback_B1"...
+    public let source: String
+
+    public init(text: String, type: String, source: String) {
+        self.text = text
+        self.type = type
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case text, type, source
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        text = try container.decode(String.self, forKey: .text)
+        type = try container.decodeIfPresent(String.self, forKey: .type) ?? QuestionPicker.otherType
+        source = try container.decodeIfPresent(String.self, forKey: .source) ?? ""
     }
 }
 
