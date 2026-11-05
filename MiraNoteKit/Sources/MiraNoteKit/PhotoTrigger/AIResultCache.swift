@@ -31,9 +31,11 @@ public struct AIResultCache: Sendable {
         PhotoTriggerPaths.root.appendingPathComponent("ai-cache.json")
     }
 
-    /// SHA-256 hex of the sorted localIdentifiers joined by newlines.
-    public static func key(_ localIdentifiers: [String]) -> String {
-        let joined = localIdentifiers.sorted().joined(separator: "\n")
+    /// SHA-256 hex of the copy version and the sorted localIdentifiers,
+    /// joined by newlines: words written under older copy rules are never
+    /// reused (handoff refine 5.4).
+    public static func key(_ localIdentifiers: [String], copyVersion: String = TriggerMemory.copyVersion) -> String {
+        let joined = ([copyVersion] + localIdentifiers.sorted()).joined(separator: "\n")
         return SHA256.hash(data: Data(joined.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 

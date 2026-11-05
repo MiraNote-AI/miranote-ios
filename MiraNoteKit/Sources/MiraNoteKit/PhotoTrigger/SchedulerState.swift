@@ -25,19 +25,23 @@ public struct SchedulerState: Codable, Equatable, Sendable {
     public var thresholdComputedAt: Date?
     /// AI cache key -> job.
     public var outstanding: [String: OutstandingJob]
+    /// The copy rules the scheduled pushes were written under
+    /// (`TriggerMemory.copyVersion`); nil before versions were kept.
+    public var copyVersion: String?
 
     /// T is recomputed when older than this.
     static let thresholdMaxAge: TimeInterval = 7 * 86_400
 
     public init(lastFullRunAt: Date? = nil, lastRunLeftDaysUnfilled: Bool = false, timeZoneId: String? = nil,
                 threshold: ThresholdResult? = nil, thresholdComputedAt: Date? = nil,
-                outstanding: [String: OutstandingJob] = [:]) {
+                outstanding: [String: OutstandingJob] = [:], copyVersion: String? = nil) {
         self.lastFullRunAt = lastFullRunAt
         self.lastRunLeftDaysUnfilled = lastRunLeftDaysUnfilled
         self.timeZoneId = timeZoneId
         self.threshold = threshold
         self.thresholdComputedAt = thresholdComputedAt
         self.outstanding = outstanding
+        self.copyVersion = copyVersion
     }
 
     /// No T yet, or T is 7 days old or more.

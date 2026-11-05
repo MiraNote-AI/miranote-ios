@@ -8,6 +8,8 @@ public enum RemovalReason: String, Codable, Sendable {
     case replaced, menuDay, menuBucket, replan, timeZone, clearAll, missing
     /// The app now runs as an App Store install (decision 8).
     case appStore
+    /// Written under older copy rules: composed again (handoff refine 5.4).
+    case copyUpgrade
 }
 
 /// One push, from being scheduled to what the user did with it. Place goes

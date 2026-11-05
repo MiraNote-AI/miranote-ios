@@ -75,7 +75,7 @@ public struct SchedulerDependencies: Sendable {
 public actor PushScheduler {
     /// Why a run started (`ScheduleRun.trigger`).
     public enum Trigger: String, Sendable {
-        case foreground, menu, replan, timeZone, clearAll
+        case foreground, menu, replan, timeZone, clearAll, copyUpgrade
     }
 
     /// A full run from the front at most this often.
@@ -115,8 +115,10 @@ public actor PushScheduler {
     // MARK: Gate
 
     /// The app came to the front: run unless a full run finished within
-    /// the hour -- except when the last run left nights unfilled, or the
-    /// time zone changed (then every scheduled push is taken back first).
+    /// the hour -- except when the last run left nights unfilled, the time
+    /// zone changed (then every scheduled push is taken back first), or the
+    /// copy rules changed since the pushes were written (then those not yet
+    /// locked are, once).
     /// `sequence` orders it against `appEnteredBackground`: a call older than
     /// the last phase change heard does nothing (nil: always current).
     public func appBecameActive(sequence: Int? = nil) async {
@@ -124,13 +126,35 @@ public actor PushScheduler {
         if inBackground { restartBudgets() }
         inBackground = false
         let state = deps.state.load()
+        let upgraded = state.copyVersion != TriggerMemory.copyVersion ? await takeBackOlderCopy() : false
         let zone = deps.calendar().timeZone.identifier
         if let old = state.timeZoneId, old != zone {
             await removeActive(.timeZone) { _ in true }
             return await request(.timeZone)
         }
+        if upgraded { return await request(.copyUpgrade) }
         guard gateOpen(state) else { return }
         await request(.foreground)
+    }
+
+    /// The first time the app comes to the front under new copy rules: the
+    /// pushes written under the old ones that are not yet locked are taken
+    /// back, so the run that follows composes them again (their cache
+    /// entries no longer match, `AIResultCache.key`). Recorded at once, so
+    /// it happens once. True when any push was taken back.
+    func takeBackOlderCopy() async -> Bool {
+        let now = deps.now()
+        let older = Set(deps.ledger.load()
+            .filter { $0.isActive && $0.scheduledFor.timeIntervalSince(now) > SchedulePlanner.lockWindow }
+            .map(\.pushId))
+        try? deps.state.update {
+            $0.copyVersion = TriggerMemory.copyVersion
+            // Killed before the run ends: the next return still runs.
+            if !older.isEmpty { $0.lastRunLeftDaysUnfilled = true }
+        }
+        guard !older.isEmpty else { return false }
+        await removeActive(.copyUpgrade) { older.contains($0.pushId) }
+        return true
     }
 
     /// Records `sequence` as the newest phase change; false when a newer one
