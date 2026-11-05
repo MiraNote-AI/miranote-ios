@@ -19,9 +19,9 @@ struct EditorFlowView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var editor: CanvasViewModel
-    /// `editor.changeCount` once its own setup is done: equal to it, a push
-    /// draft is untouched.
-    @State private var baseline: Int
+    /// The page was filed while the app was away: from then on leaving
+    /// files it again, whatever it holds.
+    @State private var autosaved = false
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
@@ -56,12 +56,10 @@ struct EditorFlowView: View {
         self.services = services
         // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
         // the recorded D3 backend gap and takes over here when it lands.
-        let model = CanvasViewModel(
+        _editor = State(initialValue: CanvasViewModel(
             memory: memory?.materializedForEditing() ?? Memory(),
             prompts: prompts
-        )
-        _editor = State(initialValue: model)
-        _baseline = State(initialValue: model.changeCount)
+        ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
             chat: services.chat,
@@ -81,6 +79,7 @@ struct EditorFlowView: View {
                 // writer's is lost by leaving it unsaved.
                 if scenePhase == .background && !editor.isBlankPage && !isUntouchedPushDraft {
                     onAutosave(editor.composedMemory())
+                    autosaved = true
                     if let pushId { onMadePage(pushId) }
                 }
             }
@@ -99,8 +98,10 @@ struct EditorFlowView: View {
         }
     }
 
+    /// A push draft as it arrived (`CanvasViewModel.isAsArrived`) and
+    /// never filed.
     private var isUntouchedPushDraft: Bool {
-        pushId != nil && editor.changeCount == baseline
+        pushId != nil && !autosaved && editor.isAsArrived
     }
 
     /// Back: an untouched push draft leaves nothing behind; anything else
