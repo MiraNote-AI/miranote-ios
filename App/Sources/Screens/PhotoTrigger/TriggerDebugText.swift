@@ -53,7 +53,7 @@ enum TriggerDebugText {
     /// The question types' names (handoff refine 4.2), by id.
     private static let questionTypes: [String: LocalizedStringResource] = [
         "order": "Order of things", "sound": "Sounds", "route": "Where to or from", "found": "How it was found",
-        "zoom": "One detail up close", "next_time": "Next time", "people": "People there",
+        "zoom": "One detail up close", "taste": "Taste", "next_time": "Next time", "people": "People there",
         "body": "The body's feel", "imagine": "Imagined", "one_word": "One word, one number",
         "other": "Another kind", "": "Unknown type"
     ]

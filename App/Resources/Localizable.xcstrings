@@ -5825,6 +5825,18 @@
         }
       }
     },
+    "Taste" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "味道"
+          }
+        }
+      }
+    },
     "The body's feel" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
