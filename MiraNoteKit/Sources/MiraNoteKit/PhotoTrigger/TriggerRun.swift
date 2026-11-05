@@ -153,6 +153,11 @@ struct TriggerRanking: Sendable {
     static let thresholdDays: Double = 90
     /// Place novelty looks back three months (decision 11-04).
     static let placeDays: Double = 90
+    /// A photo whose analysis failed is tried again this long after.
+    static let retryAfter: TimeInterval = 86_400
+    /// Failures are written down every this many, so a run killed midway
+    /// still remembers most of them.
+    static let failuresBatch = 20
 
     /// Pushable fragments ranked at `now` (the phase-1 press order).
     let groups: [RankedGroup]
@@ -165,7 +170,7 @@ struct TriggerRanking: Sendable {
     let analyzer: PhotoAnalyzing
     /// Recent photos left out as documents, receipts and the like.
     let utility: [String]
-    /// Recent non-utility photos, newest first.
+    /// Recent analysed non-utility photos, newest first.
     let recentIds: [String]
     /// The last 90 days' photo positions by belongs-to day (N).
     let pastLocations: [(day: String, point: GeoPoint)]
@@ -197,7 +202,7 @@ struct TriggerRanking: Sendable {
         let eligible = await reader.assets(since: since(placeDays), knownFilenames: store.filenames())
             .filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
-        let all = await analyze(recent, analyzer: analyzer, store: store, report: report)
+        let all = await analyze(recent, analyzer: analyzer, store: store, now: now, report: report)
         let analyses = all.filter { !$0.value.isUtility }
         let utility = Set(all.filter(\.value.isUtility).keys)
 
@@ -206,7 +211,9 @@ struct TriggerRanking: Sendable {
                 .filter { $0 >= since(thresholdDays) }
             return PersonalThreshold.compute(gaps: PersonalThreshold.gaps(between: gapDates))
         }()
-        let groupable = recent.filter { !utility.contains($0.id) }.compactMap { asset in
+        // A photo without an analysis (unreadable, failed) sits this run out:
+        // it would be grouped, ranked and sent as if it were clean.
+        let groupable = recent.filter { analyses[$0.id] != nil }.compactMap { asset in
             asset.takenAt.map {
                 GroupablePhoto(id: asset.id, takenAt: $0, location: asset.location, burstId: asset.burstId)
             }
@@ -248,31 +255,46 @@ struct TriggerRanking: Sendable {
 
     /// Every recent photo's analysis: saved ones from disk, the rest
     /// analysed now and saved one by one, so an interrupted run resumes.
-    private static func analyze(_ assets: [LibraryAsset], analyzer: PhotoAnalyzing, store: AnalysisStore,
+    /// A photo that fails is written down and left alone for a day.
+    private static func analyze(_ assets: [LibraryAsset], analyzer: PhotoAnalyzing, store: AnalysisStore, now: Date,
                                 report: (TriggerProgress) async -> Void) async -> [String: PhotoAnalysis] {
         let saved = store.analyzedIds()
+        var failures = store.failures()
         var results: [String: PhotoAnalysis] = [:]
         var todo: [String] = []
+        var waiting = 0
         for asset in assets {
             if saved.contains(asset.id), let analysis = store.load(asset.id) {
                 results[asset.id] = analysis
+            } else if let failed = failures[asset.id], (0..<retryAfter).contains(now.timeIntervalSince(failed)) {
+                waiting += 1
             } else {
                 todo.append(asset.id)
             }
         }
-        var done = results.count
+        var done = results.count + waiting
         await report(.analyzing(done: done, total: assets.count))
         let names = Dictionary(assets.map { ($0.id, $0.originalFilename) }, uniquingKeysWith: { first, _ in first })
+        var unsaved = 0
         for id in todo {
             if let analysis = await analyzer.analyze(id) {
                 // The file name goes with it: later presses need not ask PhotoKit.
                 let named = analysis.with(originalFilename: names[id] ?? nil)
                 try? store.save(named)
                 results[id] = named
+                if failures.removeValue(forKey: id) != nil { unsaved += 1 }
+            } else {
+                failures[id] = now
+                unsaved += 1
+            }
+            if unsaved >= failuresBatch {
+                try? store.saveFailures(failures)
+                unsaved = 0
             }
             done += 1
             await report(.analyzing(done: done, total: assets.count))
         }
+        if unsaved > 0 { try? store.saveFailures(failures) }
         return results
     }
 }
