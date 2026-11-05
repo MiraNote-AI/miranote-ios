@@ -535,7 +535,10 @@ extension HomeFlow {
     ///
     /// While another cover is up (a page being edited, chat, another
     /// story) the push waits in `router.pending` and opens once that cover
-    /// has closed: tearing it down would lose an unsaved page.
+    /// has closed: tearing it down would lose an unsaved page. An alert or
+    /// a sheet on Home holds it the same way (a cover asked for under one
+    /// never shows), and it leaves `router.pending` only once its story is
+    /// on screen.
     private func openPendingPush() async {
         guard let pushId = router.pending, keeper.mayOpenPush(coverUp: route != nil) else { return }
         let records = trigger.records
@@ -547,10 +550,10 @@ extension HomeFlow {
         guard let memory = record.memory.replacingMissing(present: numbers) else { return finishPending(pushId) }
         // A cover may have opened, or a newer push arrived, while the library
         // was asked: then this one waits (or gives way) and runs again.
-        guard keeper.mayOpenPush(coverUp: route != nil), router.pending == pushId else { return }
-        finishPending(pushId)
+        guard await RootPresentation.waitUntilBare(),
+              keeper.mayOpenPush(coverUp: route != nil), router.pending == pushId else { return }
         route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds,
-                                        bucketId: record.bucketId))
+                                        bucketId: record.bucketId, request: pushId))
     }
 
     /// The story of an opened push, its menu and ending wired to the scheduler.
@@ -561,6 +564,7 @@ extension HomeFlow {
                          onKeep: { keepTrigger($0, opening: opening) },
                          onMenu: { trigger.menu($0, pushId: opening.pushId) },
                          onFinished: { trigger.storyFinished(opening.pushId) })
+            .onAppear { if let request = opening.request { finishPending(request) } }
     }
 
     /// Clears `pushId` from the router -- never a newer push that came in

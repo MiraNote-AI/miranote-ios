@@ -56,6 +56,31 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(app.buttons["note.kept while the push waits"].waitForExistence(timeout: 5), "the page was filed")
     }
 
+    /// A push that arrives while an alert is up on Home (naming a new
+    /// collection) is not lost: its story opens once the alert is closed.
+    func testPushWaitsForAnAlertOnHome() {
+        launch(["-TRIGGER-FAKE-AI"])
+        pushAndWait()
+        app.terminate()
+        let launched = Date()
+        launch(["-TRIGGER-OPEN-PUSH-AFTER", "25"], keep: true)
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        // The grid is lazy: the card is made once scrolled to.
+        let add = app.buttons["collection.new"]
+        for _ in 0..<6 where !(add.exists && add.isHittable) {
+            app.swipeUp()
+        }
+        add.tap()
+        let alert = app.alerts["New collection"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertLessThan(Date().timeIntervalSince(launched), 25, "the alert was up before the push came")
+        Thread.sleep(forTimeInterval: max(0, 28 - Date().timeIntervalSince(launched)))
+        XCTAssertTrue(alert.exists, "the alert is still up")
+        XCTAssertFalse(photo(1, of: 8).exists, "the story waits for the alert")
+        alert.buttons["Cancel"].tap()
+        XCTAssertTrue(photo(1, of: 8).waitForExistence(timeout: 10), "the story opens once the alert is closed")
+    }
+
     func testMissingPhotosUnderThreeStaysHome() {
         launch(["-TRIGGER-FAKE-AI"])
         pushAndWait()
