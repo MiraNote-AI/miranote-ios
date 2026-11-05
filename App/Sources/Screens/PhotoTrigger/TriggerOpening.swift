@@ -30,9 +30,9 @@ struct TriggerOpening {
         bucketId.map { TriggerContent.zh($0.catalogKey) } ?? memory.bucket
     }
 
-    /// "Fewer like this" makes no sense for `other`; an old record has no
-    /// bucket and keeps the choice (the scheduler ignores it).
-    var allowsFewer: Bool { bucketId != .other }
+    /// "Fewer like this" makes no sense for `other`, nor for an old record
+    /// with no bucket: it would name none, and the scheduler ignores it.
+    var allowsFewer: Bool { bucketId != nil && bucketId != .other }
 }
 
 /// What UIKit shows over the app's root: an alert or a sheet on Home, or
