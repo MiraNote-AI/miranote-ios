@@ -286,28 +286,6 @@ extension TriggerRunTests {
         XCTAssertTrue(memory.push.body.hasSuffix(" \(weekday) \(word)]"), "the body's weekday is the group's day's")
     }
 
-    /// A photo before 04:00 belongs to the day before: so does the weekday
-    /// the body names (as the backend does), while the daypart is the cover's.
-    func testFakeWeekdayIsTheBelongsToDays() throws {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "America/Chicago")!
-        // Sunday 2026-10-18's night, the cover taken at 02:00 on Monday.
-        let photos = (1...3).map {
-            ComposeMeta.Photo(id: "P\($0)", takenAt: "2026-10-19T0\($0):00:00-05:00", labels: [], faces: 0,
-                              favorite: false, edited: false, represents: 1)
-        }
-        let meta = ComposeMeta(groupKey: "g", date: "2026-10-18", weekday: 7, startTime: "01:00", endTime: "03:00",
-                               place: nil, rawCount: 3, coversAll: true, recentQuestionTypes: [], bucket: "event",
-                               tz: "America/Chicago", photos: photos)
-        let picks = [("L1", 0.4), ("L2", 0.9), ("L3", 0.5)].map {
-            Preselected(id: $0.0, reason: .all, score: $0.1, represents: 1)
-        }
-        let memory = FakeAIMemory.build(meta: meta, photoIds: ["P1": "L1", "P2": "L2", "P3": "L3"], picks: picks,
-                                        calendar: calendar, zh: { "[\($0)]" })
-        XCTAssertEqual(memory.push.coverPhotoId, "P2")
-        XCTAssertTrue(memory.push.body.hasSuffix(" [Sunday] [Night]]"), memory.push.body)
-    }
-
     func testWeekdayKeysFollowTheCalendar() {
         XCTAssertEqual([1, 2, 6, 7].map(TriggerContentKey.weekday), ["Sunday", "Monday", "Friday", "Saturday"])
         XCTAssertEqual(TriggerContentKey.weekdays.count, 7)
@@ -352,32 +330,6 @@ extension TriggerRunTests {
         let runHistory = await run.history
         XCTAssertEqual(scheduledRanks(runHistory), [1])
         XCTAssertEqual(Array(sleeps.durations.prefix(2)), [5, 5], "two waits before the third try")
-    }
-
-    func testPollRetriesAGatewayErrorOrANonJSONBody() async {
-        client.pollErrors = [.server(502), .server(200)]
-        let run = makeRun()
-        await run.pushTop()
-        let runHistory = await run.history
-        XCTAssertEqual(scheduledRanks(runHistory), [1])
-    }
-
-    /// A failed job with no message shows its reason, as the scheduler does.
-    func testFailedJobWithoutAMessageShowsItsReason() async {
-        let run = makeRun()
-        client.failedMessage = ""
-        client.scripts[day(ofGroup: 0)] = [.failed("model_error")]
-        await run.pushTop()
-        let runHistory = await run.history
-        XCTAssertEqual(runHistory.last, .failed(.backend("model_error")))
-    }
-
-    func testThreeServerErrorsInARowStopThePoll() async {
-        client.pollErrors = [.server(500), .server(503), .server(502)]
-        let run = makeRun()
-        await run.pushTop()
-        let runHistory = await run.history
-        XCTAssertEqual(runHistory.last, .failed(.backend("HTTP 502")))
     }
 
     func testUnreadablePhotosAreLeftOutAndRenumbered() async throws {

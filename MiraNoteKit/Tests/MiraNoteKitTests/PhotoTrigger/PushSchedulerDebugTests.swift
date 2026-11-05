@@ -167,48 +167,6 @@ final class PushSchedulerDebugTests: PushSchedulerTestCase {
         XCTAssertEqual(log.runs().first?.trigger, "replan")
     }
 
-    /// Clearing a blocked day or a "fewer" on the debug page refills the
-    /// nights at once.
-    func testUnblockingADayReplans() async throws {
-        let scheduler = makeScheduler()
-        await scheduler.appBecameActive()
-        let target = try XCTUnwrap(active.first { $0.belongsTo == day("g2") })
-        await scheduler.menu(.notThisDay, pushId: target.pushId)
-        XCTAssertFalse(activeDays.contains(day("g2")))
-        clock.advance(600)
-        await scheduler.unblockDay(day("g2"))
-        XCTAssertEqual(preferences.load(), PushPreferences())
-        XCTAssertEqual(log.runs().first?.trigger, "replan")
-        XCTAssertTrue(activeDays.contains(day("g2")), "the day is planned again")
-    }
-
-    func testClearingFewerReplans() async throws {
-        let scheduler = makeScheduler()
-        await scheduler.appBecameActive()
-        await scheduler.menu(.fewerLikeThis, pushId: try XCTUnwrap(active.first).pushId)
-        XCTAssertTrue(active.isEmpty, "every group is food")
-        clock.advance(600)
-        await scheduler.clearFewer(.food)
-        XCTAssertEqual(log.runs().first?.trigger, "replan")
-        XCTAssertEqual(activeDays, allSeven)
-    }
-
-    /// The stores are empty before the first await of a clear: nothing in
-    /// flight meanwhile reads the old ledger or writes into the cleared one.
-    func testClearAllWipesTheStoresBeforeWaitingOnTheSystem() async throws {
-        let scheduler = makeScheduler()
-        await scheduler.appBecameActive()
-        let ledger = self.ledger
-        let records = self.records
-        let seen = SleepLog()
-        notifier.onPendingOnce = {
-            seen.record(ledger.load().isEmpty && records.all().isEmpty ? 1 : 0)
-        }
-        await scheduler.clearAll()
-        XCTAssertEqual(seen.durations, [1])
-        XCTAssertTrue(notifier.pendingIds.filter(PushIdentifier.isOurs).isEmpty, "every request still taken back")
-    }
-
     func testClearAllForgetsAllButTheAnalyses() async throws {
         let scheduler = makeScheduler()
         await scheduler.appBecameActive()
@@ -311,5 +269,51 @@ final class PushSchedulerDebugTests: PushSchedulerTestCase {
         XCTAssertEqual(report.buckets.first { $0.bucket == .other }?.examples, ["b", "a"])
         XCTAssertEqual(report.buckets.first { $0.bucket == .scenery }?.count, 1)
         XCTAssertEqual(report.otherLabels, [.init(label: "art", count: 2), .init(label: "decoration", count: 1)])
+    }
+}
+
+/// The debug page's clears: a preference cleared refills the nights, and
+/// "clear all" empties the stores before it waits on the system.
+final class PushSchedulerDebugClearTests: PushSchedulerTestCase {
+    /// Clearing a blocked day or a "fewer" on the debug page refills the
+    /// nights at once.
+    func testUnblockingADayReplans() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let target = try XCTUnwrap(active.first { $0.belongsTo == day("g2") })
+        await scheduler.menu(.notThisDay, pushId: target.pushId)
+        XCTAssertFalse(activeDays.contains(day("g2")))
+        clock.advance(600)
+        await scheduler.unblockDay(day("g2"))
+        XCTAssertEqual(preferences.load(), PushPreferences())
+        XCTAssertEqual(log.runs().first?.trigger, "replan")
+        XCTAssertTrue(activeDays.contains(day("g2")), "the day is planned again")
+    }
+
+    func testClearingFewerReplans() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        await scheduler.menu(.fewerLikeThis, pushId: try XCTUnwrap(active.first).pushId)
+        XCTAssertTrue(active.isEmpty, "every group is food")
+        clock.advance(600)
+        await scheduler.clearFewer(.food)
+        XCTAssertEqual(log.runs().first?.trigger, "replan")
+        XCTAssertEqual(activeDays, allSeven)
+    }
+
+    /// The stores are empty before the first await of a clear: nothing in
+    /// flight meanwhile reads the old ledger or writes into the cleared one.
+    func testClearAllWipesTheStoresBeforeWaitingOnTheSystem() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let ledger = self.ledger
+        let records = self.records
+        let seen = SleepLog()
+        notifier.onPendingOnce = {
+            seen.record(ledger.load().isEmpty && records.all().isEmpty ? 1 : 0)
+        }
+        await scheduler.clearAll()
+        XCTAssertEqual(seen.durations, [1])
+        XCTAssertTrue(notifier.pendingIds.filter(PushIdentifier.isOurs).isEmpty, "every request still taken back")
     }
 }

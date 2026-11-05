@@ -44,15 +44,9 @@ extension PushScheduler {
                   photoIds: [String: String], place: String?, context: RunContext) async {
         guard context.generation == generation else { return }
         let plan = work.days[index].plan
-        let unfaked: DayState = plan.existing == nil ? .empty("aiError") : .kept
-        guard !answered.isFakeMade || deps.fakeAI() else {
-            work.days[index].state = unfaked
-            return
-        }
-        // The wave may have run into the hour before the old push fires: it stays.
-        if let existing = plan.existing,
-           existing.scheduledFor.timeIntervalSince(deps.now()) <= SchedulePlanner.lockWindow {
-            work.days[index].state = .kept
+        let failed: DayState = plan.existing == nil ? .empty("aiError") : .kept
+        if let held = notNow(plan, memory: answered) {
+            work.days[index].state = held
             return
         }
         let fallback: DayState = plan.existing == nil ? .empty("notificationsOff") : .kept
@@ -65,7 +59,7 @@ extension PushScheduler {
                 : memory.bucket,
             bucketId: candidate.bucket, belongsTo: candidate.belongsTo, isDebug: false)
         guard (try? deps.records.save(record)) != nil else {
-            work.days[index].state = plan.existing == nil ? .empty("aiError") : .kept
+            work.days[index].state = failed
             return
         }
         let identifier = PushIdentifier.make(pushId)
@@ -79,24 +73,15 @@ extension PushScheduler {
             work.days[index].state = fallback
             return
         }
-        guard context.generation == generation else {
-            // Cleared while it was being scheduled: take it back.
+        let cleared = context.generation != generation
+        guard !cleared, fakeAIAllows(answered) else {
+            // Cleared, or the fake AI switched off, while it was being scheduled: take it back.
             await deps.notifications.removePending([identifier])
             try? deps.records.remove(pushId)
+            if !cleared { work.days[index].state = failed }
             return
         }
-        guard !answered.isFakeMade || deps.fakeAI() else {
-            // The switch went off while it was being scheduled: take it back.
-            await deps.notifications.removePending([identifier])
-            try? deps.records.remove(pushId)
-            work.days[index].state = unfaked
-            return
-        }
-        try? deps.ledger.append(LedgerEntry(
-            pushId: pushId, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
-            photoIds: candidate.fragment.photos.map(\.id), bucket: candidate.bucket, place: place,
-            score: candidate.score, body: memory.push.body, question: memory.ending.question,
-            questionType: memory.ending.questionType, scheduledFor: plan.slot))
+        appendRow(pushId, candidate, memory: memory, place: place, at: plan.slot)
         if clashed {
             work.questionClashes.append(ScheduleRun.QuestionClash(
                 slotDay: plan.slotDay, types: answered.ending.questions.map(\.type), nearby: nearby))
@@ -107,4 +92,29 @@ extension PushScheduler {
         work.days[index].state = .scheduled(candidate)
     }
     // swiftlint:enable function_parameter_count
+
+    /// A memory the fake AI made is scheduled only while the switch is on.
+    private func fakeAIAllows(_ memory: TriggerMemory) -> Bool {
+        !memory.isFakeMade || deps.fakeAI()
+    }
+
+    /// The night's state when it is not scheduled now, else nil.
+    private func notNow(_ plan: DayPlan, memory: TriggerMemory) -> DayState? {
+        // The wave may have run into the hour before the old push fires: it stays.
+        if let existing = plan.existing,
+           existing.scheduledFor.timeIntervalSince(deps.now()) <= SchedulePlanner.lockWindow {
+            return .kept
+        }
+        guard fakeAIAllows(memory) else { return plan.existing == nil ? .empty("aiError") : .kept }
+        return nil
+    }
+
+    private func appendRow(_ pushId: String, _ candidate: PushCandidate, memory: TriggerMemory, place: String?,
+                           at slot: Date) {
+        try? deps.ledger.append(LedgerEntry(
+            pushId: pushId, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
+            photoIds: candidate.fragment.photos.map(\.id), bucket: candidate.bucket, place: place,
+            score: candidate.score, body: memory.push.body, question: memory.ending.question,
+            questionType: memory.ending.questionType, scheduledFor: slot))
+    }
 }
