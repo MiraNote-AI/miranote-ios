@@ -225,6 +225,9 @@ public actor PushScheduler {
         guard mine == generation else { return }
         lastRanking = ranking
         await dropDisallowed()
+        // A run that went on after the switch was turned off may have left fake pushes.
+        if !deps.fakeAI() { _ = await takeBackFakeCopy() }
+        guard mine == generation else { return }
         let context = plan(ranking, slots: slots, calendar: calendar, generation: mine)
         run.fragments = ranking.fragments.count
         run.candidates = context.candidateCount

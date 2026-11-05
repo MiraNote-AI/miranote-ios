@@ -59,8 +59,12 @@ extension PushScheduler {
 
     /// The fake-AI switch was turned off while the app is open: the pushes
     /// it wrote are composed again with the real AI, as on the next return.
+    /// A run in progress may still be scheduling fake ones: it is followed
+    /// by a run that takes them back, even when none has landed yet.
     public func fakeAITurnedOff() async {
-        guard !deps.fakeAI(), await takeBackFakeCopy() else { return }
+        guard !deps.fakeAI() else { return }
+        let taken = await takeBackFakeCopy()
+        guard taken || isRunning else { return }
         await request(.fakeAIOff)
     }
 

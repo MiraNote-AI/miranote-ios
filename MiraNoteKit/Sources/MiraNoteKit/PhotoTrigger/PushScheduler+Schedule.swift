@@ -37,11 +37,18 @@ extension PushScheduler {
     /// Picks the question for the night, saves the record, schedules the
     /// night's notification, writes the ledger row, then takes back the
     /// push it replaces. Nights are scheduled one at a time on the actor,
-    /// so each pick sees the ledger rows of the picks before it.
+    /// so each pick sees the ledger rows of the picks before it. A memory
+    /// the fake AI made is refused once the switch is off (the run that
+    /// follows asks the backend).
     func schedule(_ index: Int, _ candidate: PushCandidate, memory answered: TriggerMemory,
                   photoIds: [String: String], place: String?, context: RunContext) async {
         guard context.generation == generation else { return }
         let plan = work.days[index].plan
+        let unfaked: DayState = plan.existing == nil ? .empty("aiError") : .kept
+        guard !answered.isFakeMade || deps.fakeAI() else {
+            work.days[index].state = unfaked
+            return
+        }
         // The wave may have run into the hour before the old push fires: it stays.
         if let existing = plan.existing,
            existing.scheduledFor.timeIntervalSince(deps.now()) <= SchedulePlanner.lockWindow {
@@ -74,6 +81,13 @@ extension PushScheduler {
             // Cleared while it was being scheduled: take it back.
             await deps.notifications.removePending([identifier])
             try? deps.records.remove(pushId)
+            return
+        }
+        guard !answered.isFakeMade || deps.fakeAI() else {
+            // The switch went off while it was being scheduled: take it back.
+            await deps.notifications.removePending([identifier])
+            try? deps.records.remove(pushId)
+            work.days[index].state = unfaked
             return
         }
         try? deps.ledger.append(LedgerEntry(
