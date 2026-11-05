@@ -124,13 +124,17 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? { nil }
 
-    /// A colour block with the photo's number, portrait on even numbers.
+    /// A colour block with the photo's number: landscape on odd numbers,
+    /// a 3:4 portrait on even ones and a 9:16 one on every fourth, so the
+    /// story shows both the whole-photo and the fill-screen layouts (a 3:4
+    /// portrait is shown whole since 2026-11-05).
     static func paint(_ id: String, side: CGFloat) -> UIImage {
         let parts = id.split(separator: "-")
         let group = everyGroup.first { parts.count == 3 && $0.name == parts[1] } ?? groups[0]
         let index = order(id)
-        let size = index.isMultiple(of: 2)
-            ? CGSize(width: side * 0.75, height: side) : CGSize(width: side, height: side * 0.75)
+        let size = index.isMultiple(of: 4) ? CGSize(width: side * 0.5625, height: side)
+            : index.isMultiple(of: 2) ? CGSize(width: side * 0.75, height: side)
+            : CGSize(width: side, height: side * 0.75)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
