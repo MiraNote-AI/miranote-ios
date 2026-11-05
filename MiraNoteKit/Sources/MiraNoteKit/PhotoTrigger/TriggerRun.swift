@@ -158,6 +158,8 @@ struct TriggerRanking: Sendable {
     /// Failures are written down every this many, so a run killed midway
     /// still remembers most of them.
     static let failuresBatch = 20
+    /// One photo's analysis gets this long before it counts as a failure.
+    static let analysisTimeout: TimeInterval = 10
 
     /// Pushable fragments ranked at `now` (the phase-1 press order).
     let groups: [RankedGroup]
@@ -197,6 +199,7 @@ struct TriggerRanking: Sendable {
     static func make(library reader: PhotoLibraryReading, analyzer: PhotoAnalyzing, analyses store: AnalysisStore,
                      now: Date, calendar: Calendar, threshold stored: ThresholdResult?,
                      groupingReport: (@Sendable (Data) -> Void)?,
+                     analysisTimeout: TimeInterval = analysisTimeout,
                      report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         let since = { (days: Double) in now.addingTimeInterval(-days * 86_400) }
         // The saved results are read once: their file names spare PhotoKit
@@ -206,7 +209,8 @@ struct TriggerRanking: Sendable {
                                           knownFilenames: saved.compactMapValues(\.originalFilename))
         let eligible = fetched.filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
-        let all = await analyze(recent, saved: saved, analyzer: analyzer, store: store, now: now, report: report)
+        let bounded = BoundedAnalyzer(base: analyzer, seconds: analysisTimeout)
+        let all = await analyze(recent, saved: saved, analyzer: bounded, store: store, now: now, report: report)
         // What the library no longer holds (deleted, or past the window)
         // goes. Callers run only with access; an empty fetch -- a PhotoKit
         // error, access just taken away -- is never read as an empty library.
@@ -219,13 +223,7 @@ struct TriggerRanking: Sendable {
                 .filter { $0 >= since(thresholdDays) }
             return PersonalThreshold.compute(gaps: PersonalThreshold.gaps(between: gapDates))
         }()
-        // A photo without an analysis (unreadable, failed) sits this run out:
-        // it would be grouped, ranked and sent as if it were clean.
-        let groupable = recent.filter { analyses[$0.id] != nil }.compactMap { asset in
-            asset.takenAt.map {
-                GroupablePhoto(id: asset.id, takenAt: $0, location: asset.location, burstId: asset.burstId)
-            }
-        }
+        let groupable = groupable(recent, analyses: analyses)
         let library = Dictionary(eligible.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let prints = analyses.compactMapValues(\.featurePrint)
         let distance = { (first: String, second: String) -> Float? in
@@ -256,6 +254,17 @@ struct TriggerRanking: Sendable {
         return TriggerRanking(groups: groups, fragments: grouping.fragments, analyses: analyses, library: library,
                               prints: prints, analyzer: analyzer, utility: utility.sorted(), recentIds: recentIds,
                               pastLocations: past, threshold: threshold)
+    }
+
+    /// The recent photos to group: those with a non-utility analysis. A
+    /// photo without one (unreadable, failed) sits this run out: it would
+    /// be grouped, ranked and sent as if it were clean.
+    private static func groupable(_ recent: [LibraryAsset], analyses: [String: PhotoAnalysis]) -> [GroupablePhoto] {
+        recent.filter { analyses[$0.id] != nil }.compactMap { asset in
+            asset.takenAt.map {
+                GroupablePhoto(id: asset.id, takenAt: $0, location: asset.location, burstId: asset.burstId)
+            }
+        }
     }
 
     /// Where each photo was, by its belongs-to day (place novelty).
@@ -312,4 +321,22 @@ struct TriggerRanking: Sendable {
         return results
     }
     // swiftlint:enable function_parameter_count
+}
+
+/// `base` with each analysis bounded: one that has not answered within
+/// `seconds` (PhotoKit waiting on a photo it cannot fetch, a stuck Vision
+/// request) is a failure, so one photo cannot stall the run. The late
+/// call is not cancelled; its answer is dropped.
+struct BoundedAnalyzer: PhotoAnalyzing {
+    let base: PhotoAnalyzing
+    let seconds: TimeInterval
+
+    func analyze(_ id: String) async -> PhotoAnalysis? {
+        let base = self.base
+        return await TimeLimit.first(within: seconds) { await base.analyze(id) }
+    }
+
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? {
+        base.distance(first, second)
+    }
 }

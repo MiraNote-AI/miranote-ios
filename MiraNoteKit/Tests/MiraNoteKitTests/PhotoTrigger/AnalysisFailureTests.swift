@@ -137,4 +137,29 @@ final class AnalysisFailureTests: XCTestCase {
         try store.saveFailures(["x": now])
         XCTAssertEqual(store.loadAll(), ["ABC/L0/001": one])
     }
+
+    // MARK: Timeout
+
+    /// One analysis that never answers (PhotoKit waiting on iCloud, a stuck
+    /// Vision request) times out as a failure instead of stalling the run.
+    func testAStuckAnalysisTimesOutAsAFailure() async throws {
+        final class Stuck: PhotoAnalyzing, @unchecked Sendable {
+            let base = FlakyAnalyzer(failing: [])
+            func analyze(_ id: String) async -> PhotoAnalysis? {
+                if id == "g0-3" { try? await Task.sleep(for: .seconds(3600)) }
+                return await base.analyze(id)
+            }
+            func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? { nil }
+        }
+        let library = FakeLibrary(now: now, groups: [6])
+        let started = Date()
+        let ranking = await TriggerRanking.make(library: library, analyzer: Stuck(), analyses: store, now: now,
+                                                calendar: calendar, threshold: nil, groupingReport: nil,
+                                                analysisTimeout: 0.2, report: { _ in })
+        XCTAssertLessThan(Date().timeIntervalSince(started), 30)
+        let fragment = try XCTUnwrap(ranking.fragments.first)
+        XCTAssertFalse(fragment.photos.contains { $0.id == "g0-3" })
+        XCTAssertEqual(store.failures(), ["g0-3": now])
+        XCTAssertEqual(TriggerRanking.analysisTimeout, 10)
+    }
 }
