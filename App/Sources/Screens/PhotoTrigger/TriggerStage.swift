@@ -12,7 +12,7 @@ import SwiftUI
 /// while the peak flies back into the big one (handoff 7.7).
 struct TriggerStage {
     enum Phase: Equatable {
-        case loading, failed, story
+        case loading, story
         /// The story is over: every photo but the one on screen has jumped,
         /// still invisible, to its starting point around the edges.
         case scatter
@@ -66,7 +66,7 @@ struct TriggerStage {
 
     func look(for index: Int, current: Int, phase: Phase) -> Look {
         switch phase {
-        case .loading, .failed, .story:
+        case .loading, .story:
             return Look(rect: full, opacity: index == current ? 1 : 0, corner: 0, rotation: 0)
         case .scatter:
             // The photo still on screen stays put, to shrink into its cell.

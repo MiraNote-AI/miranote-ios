@@ -56,6 +56,31 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(app.buttons["note.kept while the push waits"].waitForExistence(timeout: 5), "the page was filed")
     }
 
+    /// A push that arrives while an alert is up on Home (naming a new
+    /// collection) is not lost: its story opens once the alert is closed.
+    func testPushWaitsForAnAlertOnHome() {
+        launch(["-TRIGGER-FAKE-AI"])
+        pushAndWait()
+        app.terminate()
+        let launched = Date()
+        launch(["-TRIGGER-OPEN-PUSH-AFTER", "25"], keep: true)
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        // The grid is lazy: the card is made once scrolled to.
+        let add = app.buttons["collection.new"]
+        for _ in 0..<6 where !(add.exists && add.isHittable) {
+            app.swipeUp()
+        }
+        add.tap()
+        let alert = app.alerts["New collection"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertLessThan(Date().timeIntervalSince(launched), 25, "the alert was up before the push came")
+        Thread.sleep(forTimeInterval: max(0, 28 - Date().timeIntervalSince(launched)))
+        XCTAssertTrue(alert.exists, "the alert is still up")
+        XCTAssertFalse(photo(1, of: 8).exists, "the story waits for the alert")
+        alert.buttons["Cancel"].tap()
+        XCTAssertTrue(photo(1, of: 8).waitForExistence(timeout: 10), "the story opens once the alert is closed")
+    }
+
     func testMissingPhotosUnderThreeStaysHome() {
         launch(["-TRIGGER-FAKE-AI"])
         pushAndWait()
@@ -191,6 +216,35 @@ extension PhotoTriggerUITests {
         _ = skipToEnding(photos: 8)
         app.buttons["Close"].tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 4))
+    }
+
+    /// Photos slow to arrive (`-TRIGGER-SLOW-PHOTOS`): Close works while
+    /// the story is still loading.
+    func testCloseWhileLoadingReturnsHome() {
+        launch(["-TRIGGER-FAKE-AI"])
+        pushAndWait()
+        openLatestPush(["-TRIGGER-SLOW-PHOTOS", "30"])
+        let close = app.buttons["trigger.close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.activityIndicators.firstMatch.exists, "still loading")
+        XCTAssertTrue(close.isHittable)
+        shot("d5-loading-close")
+        close.tap()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Start a memory"].isHittable, "Home")
+    }
+
+    /// Six of the eight photos cannot be read (`-TRIGGER-UNREADABLE`): two
+    /// are too few for a story, so it closes to Home with no error.
+    func testFewerThanThreeReadableGoesHomeQuietly() {
+        launch(["-TRIGGER-FAKE-AI"])
+        pushAndWait()
+        openLatestPush(["-TRIGGER-UNREADABLE", "6"])
+        Thread.sleep(forTimeInterval: 3)
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Start a memory"].isHittable, "Home, quietly")
+        XCTAssertFalse(app.staticTexts["The photos could not be loaded"].exists)
+        XCTAssertFalse(app.buttons["trigger.close"].exists)
     }
 
     func testFewerLikeThisShowsNoteAndContinues() {

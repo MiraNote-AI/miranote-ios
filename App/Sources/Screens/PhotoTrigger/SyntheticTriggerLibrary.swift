@@ -11,7 +11,9 @@ import UIKit
 /// `-PHOTOS-LIMITED`, `-TRIGGER-MISSING <n>` (the first n photos of any
 /// record are gone), `-TRIGGER-MANY-GROUPS` (five more fragments D-H, eight
 /// in all: one more than the seven nights) and `-TRIGGER-OTHER-ONLY` (only
-/// D, whose photos are art: the `other` bucket).
+/// D, whose photos are art: the `other` bucket). For the story:
+/// `-TRIGGER-SLOW-PHOTOS <s>` (each photo takes that long to arrive) and
+/// `-TRIGGER-UNREADABLE <n>` (the first n photos of a group never arrive).
 struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, PhotoAnalyzing {
     struct Group {
         let name: String
@@ -88,8 +90,16 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
     }
 
     func image(for id: String, maxPixel: CGFloat, allowNetwork: Bool) async -> UIImage? {
-        guard id.hasPrefix("synthetic-") else { return nil }
+        guard id.hasPrefix("synthetic-"), Self.order(id) >= number(after: "-TRIGGER-UNREADABLE") else { return nil }
+        let delay = number(after: "-TRIGGER-SLOW-PHOTOS")
+        if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
         return Self.paint(id, side: min(maxPixel, 900))
+    }
+
+    /// The whole number after `flag` in the launch arguments; 0 without one.
+    private func number(after flag: String) -> Int {
+        guard let index = arguments.firstIndex(of: flag), arguments.indices.contains(index + 1) else { return 0 }
+        return Int(arguments[index + 1]) ?? 0
     }
 
     func existing(_ ids: [String]) async -> Set<String> {

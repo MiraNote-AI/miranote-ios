@@ -16,12 +16,14 @@ struct EditorFlowView: View {
     /// writer touched it (or tapped Done), and `onMadePage` tells the ledger.
     var pushId: String?
     var onMadePage: (String) -> Void = { _ in }
+    /// A push draft left as it arrived: nothing of it is filed.
+    var onDiscardDraft: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var editor: CanvasViewModel
-    /// `editor.changeCount` once its own setup is done: equal to it, a push
-    /// draft is untouched.
-    @State private var baseline: Int
+    /// The page was filed while the app was away: from then on leaving
+    /// files it again, whatever it holds.
+    @State private var autosaved = false
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
@@ -45,10 +47,12 @@ struct EditorFlowView: View {
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
         services: ServiceContainer = .mock,
         pushId: String? = nil,
-        onMadePage: @escaping (String) -> Void = { _ in }
+        onMadePage: @escaping (String) -> Void = { _ in },
+        onDiscardDraft: @escaping () -> Void = {}
     ) {
         self.pushId = pushId
         self.onMadePage = onMadePage
+        self.onDiscardDraft = onDiscardDraft
         self.onExit = onExit
         self.onComplete = onComplete
         self.onAutosave = onAutosave
@@ -56,12 +60,10 @@ struct EditorFlowView: View {
         self.services = services
         // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
         // the recorded D3 backend gap and takes over here when it lands.
-        let model = CanvasViewModel(
+        _editor = State(initialValue: CanvasViewModel(
             memory: memory?.materializedForEditing() ?? Memory(),
             prompts: prompts
-        )
-        _editor = State(initialValue: model)
-        _baseline = State(initialValue: model.changeCount)
+        ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
             chat: services.chat,
@@ -81,6 +83,7 @@ struct EditorFlowView: View {
                 // writer's is lost by leaving it unsaved.
                 if scenePhase == .background && !editor.isBlankPage && !isUntouchedPushDraft {
                     onAutosave(editor.composedMemory())
+                    autosaved = true
                     if let pushId { onMadePage(pushId) }
                 }
             }
@@ -99,14 +102,21 @@ struct EditorFlowView: View {
         }
     }
 
+    /// A push draft as it arrived (`CanvasViewModel.isAsArrived`) and
+    /// never filed.
     private var isUntouchedPushDraft: Bool {
-        pushId != nil && editor.changeCount == baseline
+        pushId != nil && !autosaved && editor.isAsArrived
     }
 
     /// Back: an untouched push draft leaves nothing behind; anything else
     /// is Done's filing.
     private func back() {
-        if isUntouchedPushDraft { onExit() } else { finish() }
+        if isUntouchedPushDraft {
+            onDiscardDraft()
+            onExit()
+        } else {
+            finish()
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -193,6 +203,8 @@ struct HomeFlow: View {
     /// The debug entry and automatic scheduling: development and TestFlight
     /// builds (InstallSource).
     @State private var triggerGates = InstallSource.Gates.closed
+    /// The ending's button turning its story into a canvas draft.
+    @State private var keeper = TriggerKeep()
 
     /// A note addressed within its collection, for stack navigation.
     private struct NoteRef: Hashable {
@@ -397,7 +409,9 @@ struct HomeFlow: View {
         .triggerLifecycle(trigger, enabled: triggerGates.schedulesAutomatically)
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
-        .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil)) { await openPendingPush() }
+        .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
+            await openPendingPush()
+        }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
         .background { TriggerScheduleProbe(controller: trigger) }
@@ -435,7 +449,9 @@ struct HomeFlow: View {
                     recorderFactory: Self.makeRecorder,
                     services: Self.editorServices(base: services),
                     pushId: Self.pushId(of: presented),
-                    onMadePage: { trigger.madePage($0) }
+                    onMadePage: { trigger.madePage($0) },
+                    // The page as drafted: its photo copies are the draft's own.
+                    onDiscardDraft: { TriggerDraftMaker.discard(memory) }
                 )
                 .environment(\.theme, Theme(appearance: .system))
             case .trigger(let opening):
@@ -530,9 +546,12 @@ extension HomeFlow {
     ///
     /// While another cover is up (a page being edited, chat, another
     /// story) the push waits in `router.pending` and opens once that cover
-    /// has closed: tearing it down would lose an unsaved page.
+    /// has closed: tearing it down would lose an unsaved page. An alert or
+    /// a sheet on Home holds it the same way (a cover asked for under one
+    /// never shows), and it leaves `router.pending` only once its story is
+    /// on screen.
     private func openPendingPush() async {
-        guard let pushId = router.pending, route == nil else { return }
+        guard let pushId = router.pending, keeper.mayOpenPush(coverUp: route != nil) else { return }
         let records = trigger.records
         guard let record = pushId == "latest" ? records.latest() : records.record(pushId) else {
             return finishPending(pushId)
@@ -542,10 +561,10 @@ extension HomeFlow {
         guard let memory = record.memory.replacingMissing(present: numbers) else { return finishPending(pushId) }
         // A cover may have opened, or a newer push arrived, while the library
         // was asked: then this one waits (or gives way) and runs again.
-        guard route == nil, router.pending == pushId else { return }
-        finishPending(pushId)
+        guard await RootPresentation.waitUntilBare(),
+              keeper.mayOpenPush(coverUp: route != nil), router.pending == pushId else { return }
         route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds,
-                                        bucketId: record.bucketId))
+                                        bucketId: record.bucketId, request: pushId))
     }
 
     /// The story of an opened push, its menu and ending wired to the scheduler.
@@ -553,9 +572,10 @@ extension HomeFlow {
         PhotoTriggerView(memory: opening.memory, bucketName: opening.bucketName,
                          allowsFewer: opening.allowsFewer, photoIds: opening.photoIds,
                          library: trigger.photos, onClose: { route = nil },
-                         onKeep: { keepTrigger($0, photoIds: opening.photoIds, pushId: opening.pushId) },
+                         onKeep: { keepTrigger($0, opening: opening) },
                          onMenu: { trigger.menu($0, pushId: opening.pushId) },
                          onFinished: { trigger.storyFinished(opening.pushId) })
+            .onAppear { if let request = opening.request { finishPending(request) } }
     }
 
     /// Clears `pushId` from the router -- never a newer push that came in
@@ -564,15 +584,27 @@ extension HomeFlow {
         if router.pending == pushId { router.pending = nil }
     }
 
-    /// The ending's button: the photos and words as a canvas draft.
-    private func keepTrigger(_ memory: TriggerMemory, photoIds: [String: String], pushId: String) {
+    /// The ending's button: the photos and words as a canvas draft, opened
+    /// only over the story that asked for it (`TriggerKeep`).
+    private func keepTrigger(_ memory: TriggerMemory, opening: TriggerOpening) {
         let photos = trigger.photos
+        let covers = TriggerKeep.Covers(
+            story: { storyOnScreen },
+            isEmpty: { route == nil },
+            close: { route = nil },
+            open: { route = .draft($0.page, prompts: $0.prompts, pushId: opening.pushId) },
+            discard: { TriggerDraftMaker.discard($0.page) }
+        )
         Task { @MainActor in
-            let draft = await TriggerDraftMaker.make(memory, photoIds: photoIds, photos: photos)
-            route = nil
-            // Swap covers only after this one is gone.
-            try? await Task.sleep(for: .milliseconds(300))
-            route = .draft(draft.page, prompts: draft.prompts, pushId: pushId)
+            await keeper.keep(opening.id, make: {
+                await TriggerDraftMaker.make(memory, photoIds: opening.photoIds, photos: photos)
+            }, covers: covers)
         }
+    }
+
+    /// The story on screen, if the cover is one.
+    private var storyOnScreen: UUID? {
+        if case .trigger(let opening) = route { return opening.id }
+        return nil
     }
 }
