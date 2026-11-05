@@ -150,7 +150,8 @@ struct TriggerAttemptBox: Error {
 struct TriggerRanking: Sendable {
     static let groupingDays: Double = 61
     static let thresholdDays: Double = 90
-    static let placeDays: Double = 365
+    /// Place novelty looks back three months (decision 11-04).
+    static let placeDays: Double = 90
 
     /// Pushable fragments ranked at `now` (the phase-1 press order).
     let groups: [RankedGroup]
@@ -165,7 +166,7 @@ struct TriggerRanking: Sendable {
     let utility: [String]
     /// Recent non-utility photos, newest first.
     let recentIds: [String]
-    /// The last 365 days' photo positions by belongs-to day (N).
+    /// The last 90 days' photo positions by belongs-to day (N).
     let pastLocations: [(day: String, point: GeoPoint)]
     /// The T the grouping used.
     let threshold: ThresholdResult

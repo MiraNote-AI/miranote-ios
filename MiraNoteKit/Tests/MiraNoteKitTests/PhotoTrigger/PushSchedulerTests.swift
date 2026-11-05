@@ -346,4 +346,10 @@ extension PushSchedulerTests {
         XCTAssertLessThanOrEqual(dates[1], clock.now.addingTimeInterval(-60 * 86_400))
         XCTAssertGreaterThan(dates[1], dates[0], "measured from each run's own now")
     }
+
+    /// Place novelty looks back three months, not a year (decision 11-04).
+    func testLibraryQueryReachesBackNinetyDaysForPlaces() async throws {
+        await makeScheduler().appBecameActive()
+        XCTAssertEqual(library.sinceDates, [start.addingTimeInterval(-90 * 86_400)])
+    }
 }

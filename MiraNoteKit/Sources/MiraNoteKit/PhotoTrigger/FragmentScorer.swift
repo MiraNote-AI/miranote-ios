@@ -42,7 +42,7 @@ public enum FragmentScorer {
 
     /// Nil when a hard filter rules the fragment out: under three unique
     /// photos, under 12 h from its last photo to the slot, or more than 60
-    /// days from its day to the slot's day. `pastLocations` are the last 365
+    /// days from its day to the slot's day. `pastLocations` are the last 90
     /// days' photo positions by belongs-to day; the fragment's own day is
     /// ignored.
     public static func score(
@@ -100,8 +100,8 @@ public enum FragmentScorer {
             + 0.3 * min(1, Double(fragment.uniqueCount) / 10)
     }
 
-    /// N by the distinct earlier days with a photo within 500 m of the
-    /// fragment's centre: none 1.0, up to 3 0.7, up to 10 0.4, more 0.1;
+    /// N by the distinct other days (before or after; decision 11-04) with a
+    /// photo within 500 m of the fragment's centre: none 1.0, up to 3 0.7, up to 10 0.4, more 0.1;
     /// no GPS 0.4.
     static func novelty(_ fragment: Fragment, pastLocations: [(day: String, point: GeoPoint)]) -> Double {
         guard let center = fragment.center else { return 0.4 }
