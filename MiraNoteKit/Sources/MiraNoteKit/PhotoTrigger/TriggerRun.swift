@@ -94,7 +94,8 @@ public actor TriggerRun {
     private func attemptGroup(_ group: RankedGroup, ranking: TriggerRanking) async -> TriggerAttempt {
         let calendar = deps.calendar
         var place: String?
-        if let center = group.fragment.center { place = await deps.places.name(for: center) }
+        // A press is never cached: a failed lookup just goes without a place.
+        if let center = group.fragment.center { place = (try? await deps.places.name(for: center)) ?? nil }
         report(.askingAI(rank: group.rank, date: TriggerWords.shortDate(group.fragment.belongsTo), place: place,
                          count: group.fragment.uniqueCount))
         let picks = ranking.preselect(group.fragment)

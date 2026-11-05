@@ -9,9 +9,11 @@ extension PushScheduler {
             outcome: outcome, seconds: max(0, deps.now().timeIntervalSince(since)), message: message))
     }
 
+    /// For the ledger of a cached answer, already composed: a failed
+    /// lookup is just no place there.
     func placeName(_ fragment: Fragment) async -> String? {
         guard let center = fragment.center else { return nil }
-        return await deps.places.name(for: center)
+        return (try? await deps.places.name(for: center)) ?? nil
     }
 
     static func describe(_ attempt: TriggerAttempt) -> String {

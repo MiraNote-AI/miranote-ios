@@ -30,7 +30,10 @@ public protocol PhotoAnalyzing: Sendable {
 
 /// Apple's reverse geocoder.
 public protocol PlaceNaming: Sendable {
-    func name(for point: GeoPoint) async -> String?
+    /// Nil when there is no place to name there; throws when the lookup
+    /// itself failed (no network, throttled), so a caller can try later
+    /// instead of taking it for "no place".
+    func name(for point: GeoPoint) async throws -> String?
 }
 
 /// Local notifications. Every identifier this feature adds starts with
