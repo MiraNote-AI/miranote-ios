@@ -140,10 +140,12 @@ public enum Preselector {
             }
         }
 
-        /// Step 4: a person photo at least; one more if one is unlike it.
+        /// Step 4: a person photo at least -- in place of another pick when
+        /// the steps before filled every slot; one more if one is unlike it.
         mutating func people() {
             let people = candidates.filter(\.hasPeople)
             if !picks.contains(where: { $0.0.hasPeople }), let best = people.sorted(by: Self.byScore).first {
+                if !room { makeRoom(for: best) }
                 pick(best, .person)
             }
             let pickedPeople = picks.map(\.0).filter(\.hasPeople)
@@ -152,6 +154,18 @@ public enum Preselector {
                 .filter { !isPicked($0) && dissimilarity($0, to: pickedPeople) > Double(alikeDistance) }
                 .max { dissimilarity($0, to: pickedPeople) < dissimilarity($1, to: pickedPeople) }
             if let unlike { pick(unlike, .person) }
+        }
+
+        /// Frees one slot for `person`: the pick from its own moment when
+        /// there is one (the moment stays covered), else the last pick made
+        /// -- the least deserving moment or category. Marked photos stay.
+        private mutating func makeRoom(for person: Candidate) {
+            let own = Preselector.moments(candidates).first { $0.contains { $0.photo.id == person.photo.id } }
+            let ownIds = Set((own ?? []).map(\.photo.id))
+            let removable = picks.indices.filter { picks[$0].1 != .marked }
+            guard let index = removable.first(where: { ownIds.contains(picks[$0].0.photo.id) }) ?? removable.last
+            else { return }
+            picks.remove(at: index)
         }
 
         /// Step 5: MMR, half score and half unlikeness to what is picked.

@@ -198,6 +198,23 @@ final class FragmentGrouperTests: XCTestCase {
         XCTAssertEqual(elsewhere.fragments.first?.belongsTo, "2026-10-19")
     }
 
+    /// The 4 am rule reads the wall clock: daylight saving moves it with
+    /// the clocks, not by an hour.
+    func testBelongsToAcrossDaylightSaving() {
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York")!
+        func at(_ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
+            newYork.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute))!
+        }
+        // Clocks went forward at 02:00 on 03-08; back at 02:00 on 11-01.
+        XCTAssertEqual(FragmentGrouper.belongsTo(at(3, 8, 4, 30), calendar: newYork), "2026-03-08")
+        XCTAssertEqual(FragmentGrouper.belongsTo(at(3, 8, 3, 30), calendar: newYork), "2026-03-07")
+        XCTAssertEqual(FragmentGrouper.belongsTo(at(11, 1, 3, 30), calendar: newYork), "2026-10-31")
+        XCTAssertEqual(FragmentGrouper.belongsTo(at(11, 1, 4, 0), calendar: newYork), "2026-11-01")
+        XCTAssertEqual(FragmentGrouper.belongsTo(at(3, 1, 0, 0), calendar: newYork), "2026-02-28",
+                       "midnight steps back across a month")
+    }
+
     func testGapsAreBetweenSortedNeighbours() {
         let photos = [photo("b", at(10, 5), nil), photo("a", at(10), nil), photo("c", at(10, 30), nil)]
         XCTAssertEqual(PersonalThreshold.gaps(between: photos.map(\.takenAt)), [300, 1500])

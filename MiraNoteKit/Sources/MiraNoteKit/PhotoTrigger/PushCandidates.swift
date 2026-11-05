@@ -33,7 +33,7 @@ public enum PushCandidates {
     public static func evaluate(
         _ fragment: Fragment, bucket: PushBucket, aiPhotoIds: [String], at slot: Date,
         analyses: [String: PhotoAnalysis], library: [String: LibraryAsset], calendar: Calendar,
-        pastLocations: [(day: String, point: GeoPoint)], pushedDays: Set<String>, pushedPhotos: Set<String> = [],
+        pastLocations: [PastLocation], pushedDays: Set<String>, pushedPhotos: Set<String> = [],
         preferences: PushPreferences, cache: (String) -> AIVerdict?
     ) -> Result<PushCandidate, Ineligible> {
         if fragment.uniqueCount < FragmentGrouper.minimumUnique { return .failure(.tooFewPhotos) }
@@ -66,7 +66,7 @@ public enum PushCandidates {
     public static func ranked(
         _ fragments: [Fragment], aiPhotoIds: (Fragment) -> [String], at slot: Date,
         analyses: [String: PhotoAnalysis], library: [String: LibraryAsset], calendar: Calendar,
-        pastLocations: [(day: String, point: GeoPoint)], pushedDays: Set<String>, pushedPhotos: Set<String> = [],
+        pastLocations: [PastLocation], pushedDays: Set<String>, pushedPhotos: Set<String> = [],
         preferences: PushPreferences, cache: (String) -> AIVerdict?
     ) -> [PushCandidate] {
         fragments.compactMap { fragment -> PushCandidate? in

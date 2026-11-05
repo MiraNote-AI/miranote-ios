@@ -171,12 +171,24 @@ extension PushScheduler {
         }
     }
 
+    /// The run log's message for a night left for a geocoder error.
+    static let placeUnavailable = "placeUnavailable"
+
     /// One night's photos read and submitted, off the actor.
     private static func send(_ ask: AIAsk, deps: SchedulerDependencies, context: RunContext, fake: Bool,
                              now: Date) async -> AISent {
         let fragment = ask.candidate.fragment
         var place: String?
-        if let center = fragment.center { place = await deps.places.name(for: center) }
+        if let center = fragment.center {
+            do {
+                place = try await deps.places.name(for: center)
+            } catch {
+                // A failed lookup is not "no place": composed now, the night
+                // would be cached without it. It is tried on a later run.
+                // A job already out keeps the place it was sent with.
+                guard ask.resume != nil else { return .failed(Self.placeUnavailable) }
+            }
+        }
         let ranking = context.ranking
         let built = ComposeMeta.build(fragment: fragment, picks: ask.picks, analyses: ranking.analyses,
                                       library: ranking.library, place: place, bucket: ask.candidate.bucket,

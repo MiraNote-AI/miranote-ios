@@ -94,7 +94,8 @@ public actor TriggerRun {
     private func attemptGroup(_ group: RankedGroup, ranking: TriggerRanking) async -> TriggerAttempt {
         let calendar = deps.calendar
         var place: String?
-        if let center = group.fragment.center { place = await deps.places.name(for: center) }
+        // A press is never cached: a failed lookup just goes without a place.
+        if let center = group.fragment.center { place = (try? await deps.places.name(for: center)) ?? nil }
         report(.askingAI(rank: group.rank, date: TriggerWords.shortDate(group.fragment.belongsTo), place: place,
                          count: group.fragment.uniqueCount))
         let picks = ranking.preselect(group.fragment)
@@ -153,6 +154,13 @@ struct TriggerRanking: Sendable {
     static let thresholdDays: Double = 90
     /// Place novelty looks back three months (decision 11-04).
     static let placeDays: Double = 90
+    /// A photo whose analysis failed is tried again this long after.
+    static let retryAfter: TimeInterval = 86_400
+    /// Failures are written down every this many, so a run killed midway
+    /// still remembers most of them.
+    static let failuresBatch = 20
+    /// One photo's analysis gets this long before it counts as a failure.
+    static let analysisTimeout: TimeInterval = 10
 
     /// Pushable fragments ranked at `now` (the phase-1 press order).
     let groups: [RankedGroup]
@@ -165,10 +173,10 @@ struct TriggerRanking: Sendable {
     let analyzer: PhotoAnalyzing
     /// Recent photos left out as documents, receipts and the like.
     let utility: [String]
-    /// Recent non-utility photos, newest first.
+    /// Recent analysed non-utility photos, newest first.
     let recentIds: [String]
-    /// The last 90 days' photo positions by belongs-to day (N).
-    let pastLocations: [(day: String, point: GeoPoint)]
+    /// The last 90 days' photo positions by photo and belongs-to day (N).
+    let pastLocations: [PastLocation]
     /// The T the grouping used.
     let threshold: ThresholdResult
 
@@ -192,12 +200,22 @@ struct TriggerRanking: Sendable {
     static func make(library reader: PhotoLibraryReading, analyzer: PhotoAnalyzing, analyses store: AnalysisStore,
                      now: Date, calendar: Calendar, threshold stored: ThresholdResult?,
                      groupingReport: (@Sendable (Data) -> Void)?,
+                     analysisTimeout: TimeInterval = analysisTimeout,
                      report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         let since = { (days: Double) in now.addingTimeInterval(-days * 86_400) }
-        let eligible = await reader.assets(since: since(placeDays), knownFilenames: store.filenames())
-            .filter { LibraryFilter.eligible($0, now: now) }
+        // The saved results are read once: their file names spare PhotoKit
+        // calls, the recent ones need no analysis.
+        let saved = store.loadAll()
+        let fetched = await reader.assets(since: since(placeDays),
+                                          knownFilenames: saved.compactMapValues(\.originalFilename))
+        let eligible = fetched.filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
-        let all = await analyze(recent, analyzer: analyzer, store: store, report: report)
+        let bounded = BoundedAnalyzer(base: analyzer, seconds: analysisTimeout)
+        let all = await analyze(recent, saved: saved, analyzer: bounded, store: store, now: now, report: report)
+        // What the library no longer holds (deleted, or past the window)
+        // goes. Callers run only with access; an empty fetch -- a PhotoKit
+        // error, access just taken away -- is never read as an empty library.
+        if !fetched.isEmpty { store.prune(keeping: Set(fetched.map(\.id))) }
         let analyses = all.filter { !$0.value.isUtility }
         let utility = Set(all.filter(\.value.isUtility).keys)
 
@@ -206,11 +224,7 @@ struct TriggerRanking: Sendable {
                 .filter { $0 >= since(thresholdDays) }
             return PersonalThreshold.compute(gaps: PersonalThreshold.gaps(between: gapDates))
         }()
-        let groupable = recent.filter { !utility.contains($0.id) }.compactMap { asset in
-            asset.takenAt.map {
-                GroupablePhoto(id: asset.id, takenAt: $0, location: asset.location, burstId: asset.burstId)
-            }
-        }
+        let groupable = groupable(recent, analyses: analyses)
         let library = Dictionary(eligible.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let prints = analyses.compactMapValues(\.featurePrint)
         let distance = { (first: String, second: String) -> Float? in
@@ -218,10 +232,7 @@ struct TriggerRanking: Sendable {
             return analyzer.distance((first, one), (second, two))
         }
         let grouping = FragmentGrouper.group(groupable, threshold: threshold, calendar: calendar, distance: distance)
-        let past = eligible.compactMap { asset -> (day: String, point: GeoPoint)? in
-            guard let point = asset.location, let date = asset.takenAt else { return nil }
-            return (FragmentGrouper.belongsTo(date, calendar: calendar), point)
-        }
+        let past = pastLocations(eligible, calendar: calendar)
         var scores: [String: FragmentScore] = [:]
         for fragment in grouping.fragments {
             scores[ComposeMeta.groupKey(fragment)] = FragmentScorer.score(
@@ -246,33 +257,87 @@ struct TriggerRanking: Sendable {
                               pastLocations: past, threshold: threshold)
     }
 
+    /// The recent photos to group: those with a non-utility analysis. A
+    /// photo without one (unreadable, failed) sits this run out: it would
+    /// be grouped, ranked and sent as if it were clean.
+    private static func groupable(_ recent: [LibraryAsset], analyses: [String: PhotoAnalysis]) -> [GroupablePhoto] {
+        recent.filter { analyses[$0.id] != nil }.compactMap { asset in
+            asset.takenAt.map {
+                GroupablePhoto(id: asset.id, takenAt: $0, location: asset.location, burstId: asset.burstId)
+            }
+        }
+    }
+
+    /// Where each photo was, by its belongs-to day (place novelty).
+    private static func pastLocations(_ assets: [LibraryAsset], calendar: Calendar) -> [PastLocation] {
+        assets.compactMap { asset in
+            guard let point = asset.location, let date = asset.takenAt else { return nil }
+            return PastLocation(id: asset.id, day: FragmentGrouper.belongsTo(date, calendar: calendar), point: point)
+        }
+    }
+
+    // swiftlint:disable function_parameter_count
     /// Every recent photo's analysis: saved ones from disk, the rest
     /// analysed now and saved one by one, so an interrupted run resumes.
-    private static func analyze(_ assets: [LibraryAsset], analyzer: PhotoAnalyzing, store: AnalysisStore,
+    /// A photo that fails is written down and left alone for a day.
+    private static func analyze(_ assets: [LibraryAsset], saved: [String: PhotoAnalysis], analyzer: PhotoAnalyzing,
+                                store: AnalysisStore, now: Date,
                                 report: (TriggerProgress) async -> Void) async -> [String: PhotoAnalysis] {
-        let saved = store.analyzedIds()
+        var failures = store.failures()
         var results: [String: PhotoAnalysis] = [:]
         var todo: [String] = []
+        var waiting = 0
         for asset in assets {
-            if saved.contains(asset.id), let analysis = store.load(asset.id) {
+            if let analysis = saved[asset.id] {
                 results[asset.id] = analysis
+            } else if let failed = failures[asset.id], (0..<retryAfter).contains(now.timeIntervalSince(failed)) {
+                waiting += 1
             } else {
                 todo.append(asset.id)
             }
         }
-        var done = results.count
+        var done = results.count + waiting
         await report(.analyzing(done: done, total: assets.count))
         let names = Dictionary(assets.map { ($0.id, $0.originalFilename) }, uniquingKeysWith: { first, _ in first })
+        var unsaved = 0
         for id in todo {
             if let analysis = await analyzer.analyze(id) {
                 // The file name goes with it: later presses need not ask PhotoKit.
                 let named = analysis.with(originalFilename: names[id] ?? nil)
                 try? store.save(named)
                 results[id] = named
+                if failures.removeValue(forKey: id) != nil { unsaved += 1 }
+            } else {
+                failures[id] = now
+                unsaved += 1
+            }
+            if unsaved >= failuresBatch {
+                try? store.saveFailures(failures)
+                unsaved = 0
             }
             done += 1
             await report(.analyzing(done: done, total: assets.count))
         }
+        if unsaved > 0 { try? store.saveFailures(failures) }
         return results
+    }
+    // swiftlint:enable function_parameter_count
+}
+
+/// `base` with each analysis bounded: one that has not answered within
+/// `seconds` (PhotoKit waiting on a photo it cannot fetch, a stuck Vision
+/// request) is a failure, so one photo cannot stall the run. The late
+/// call is not cancelled; its answer is dropped.
+struct BoundedAnalyzer: PhotoAnalyzing {
+    let base: PhotoAnalyzing
+    let seconds: TimeInterval
+
+    func analyze(_ id: String) async -> PhotoAnalysis? {
+        let base = self.base
+        return await TimeLimit.first(within: seconds) { await base.analyze(id) }
+    }
+
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? {
+        base.distance(first, second)
     }
 }

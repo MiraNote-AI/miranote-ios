@@ -20,7 +20,8 @@ public protocol PhotoLibraryReading: Sendable {
 
 /// On-device Vision.
 public protocol PhotoAnalyzing: Sendable {
-    /// Nil when the photo cannot be read (it is tried again next time).
+    /// Nil when the photo cannot be read: it sits the run out and is tried
+    /// again a day later (`TriggerRanking.retryAfter`).
     func analyze(_ id: String) async -> PhotoAnalysis?
     /// FeaturePrint distance between two photos' archived prints (the ids
     /// let an implementation keep the unarchived prints by photo).
@@ -29,7 +30,10 @@ public protocol PhotoAnalyzing: Sendable {
 
 /// Apple's reverse geocoder.
 public protocol PlaceNaming: Sendable {
-    func name(for point: GeoPoint) async -> String?
+    /// Nil when there is no place to name there; throws when the lookup
+    /// itself failed (no network, throttled), so a caller can try later
+    /// instead of taking it for "no place".
+    func name(for point: GeoPoint) async throws -> String?
 }
 
 /// Local notifications. Every identifier this feature adds starts with

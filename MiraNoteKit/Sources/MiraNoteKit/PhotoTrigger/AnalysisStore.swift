@@ -27,23 +27,41 @@ public struct AnalysisStore: Sendable {
         try JSONEncoder().encode(analysis).write(to: file(for: analysis.id), options: .atomic)
     }
 
-    /// localIdentifier -> original file name, from every saved result that
-    /// has one (only that field is decoded).
-    public func filenames() -> [String: String] {
-        struct Named: Decodable {
-            let id: String
-            let originalFilename: String?
-        }
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        var result: [String: String] = [:]
-        for name in names where name.hasSuffix(".json") {
-            guard let data = try? Data(contentsOf: directory.appendingPathComponent(name)),
-                  let named = try? JSONDecoder().decode(Named.self, from: data),
-                  let filename = named.originalFilename else { continue }
-            result[named.id] = filename
+    /// Every saved result by photo id, in one pass over the folder (a file
+    /// that no longer decodes is left out: the photo is analysed again).
+    public func loadAll() -> [String: PhotoAnalysis] {
+        var result: [String: PhotoAnalysis] = [:]
+        for id in analyzedIds() {
+            if let analysis = load(id) { result[id] = analysis }
         }
         return result
     }
+
+    /// Drops the results and failures of every photo not in `ids` (deleted,
+    /// or out of the window).
+    public func prune(keeping ids: Set<String>) {
+        for id in analyzedIds() where !ids.contains(id) {
+            try? FileManager.default.removeItem(at: file(for: id))
+        }
+        let failures = failures()
+        let kept = failures.filter { ids.contains($0.key) }
+        if kept.count != failures.count { try? saveFailures(kept) }
+    }
+
+    /// Photos whose analysis failed (no local thumbnail, a Vision error, a
+    /// timeout), by when they last failed. Kept beside the results under a
+    /// name that is not `.json`, so it is never taken for one.
+    public func failures() -> [String: Date] {
+        guard let data = try? Data(contentsOf: failuresFile) else { return [:] }
+        return (try? PropertyListDecoder().decode([String: Date].self, from: data)) ?? [:]
+    }
+
+    public func saveFailures(_ failures: [String: Date]) throws {
+        try PhotoTriggerPaths.prepare(directory)
+        try PropertyListEncoder().encode(failures).write(to: failuresFile, options: .atomic)
+    }
+
+    private var failuresFile: URL { directory.appendingPathComponent("failures.plist") }
 
     /// Every photo with a saved result, read from the file names alone.
     public func analyzedIds() -> Set<String> {

@@ -4,6 +4,20 @@ import Foundation
 // The scorer takes every input it weighs, plainly.
 // swiftlint:disable identifier_name function_parameter_count
 
+/// One photo's position on its belongs-to day, for place novelty (N).
+public struct PastLocation: Equatable, Sendable {
+    public let id: String
+    /// "yyyy-MM-dd", by the 4 am rule.
+    public let day: String
+    public let point: GeoPoint
+
+    public init(id: String, day: String, point: GeoPoint) {
+        self.id = id
+        self.day = day
+        self.point = point
+    }
+}
+
 /// A fragment's score: each dimension 0...1, the weighted base and the
 /// bucket multiplier.
 public struct FragmentScore: Equatable, Sendable, Codable {
@@ -43,11 +57,11 @@ public enum FragmentScorer {
     /// Nil when a hard filter rules the fragment out: under three unique
     /// photos, under 12 h from its last photo to the slot, or more than 60
     /// days from its day to the slot's day. `pastLocations` are the last 90
-    /// days' photo positions by belongs-to day; the fragment's own day is
-    /// ignored.
+    /// days' photo positions by belongs-to day; the fragment's own photos
+    /// and own day are ignored.
     public static func score(
         _ fragment: Fragment, analyses: [String: PhotoAnalysis], library: [String: LibraryAsset],
-        at slot: Date, calendar: Calendar, pastLocations: [(day: String, point: GeoPoint)],
+        at slot: Date, calendar: Calendar, pastLocations: [PastLocation],
         bucket: PushBucket, multiplier: Double
     ) -> FragmentScore? {
         guard fragment.uniqueCount >= FragmentGrouper.minimumUnique,
@@ -102,11 +116,13 @@ public enum FragmentScorer {
 
     /// N by the distinct other days (before or after; decision 11-04) with a
     /// photo within 500 m of the fragment's centre: none 1.0, up to 3 0.7, up to 10 0.4, more 0.1;
-    /// no GPS 0.4.
-    static func novelty(_ fragment: Fragment, pastLocations: [(day: String, point: GeoPoint)]) -> Double {
+    /// no GPS 0.4. The fragment's own photos are never a visit, even those
+    /// past 04:00 that fall on the next belongs-to day.
+    static func novelty(_ fragment: Fragment, pastLocations: [PastLocation]) -> Double {
         guard let center = fragment.center else { return 0.4 }
+        let own = Set(fragment.photos.map(\.id))
         let visits = Set(pastLocations
-            .filter { $0.day != fragment.belongsTo && $0.point.km(to: center) <= novelRadiusKm }
+            .filter { !own.contains($0.id) && $0.day != fragment.belongsTo && $0.point.km(to: center) <= novelRadiusKm }
             .map(\.day)).count
         switch visits {
         case 0: return 1.0

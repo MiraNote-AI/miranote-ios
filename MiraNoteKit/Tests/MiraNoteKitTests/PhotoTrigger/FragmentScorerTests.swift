@@ -50,7 +50,10 @@ final class FragmentScorerTests: XCTestCase {
         -> FragmentScore? {
         FragmentScorer.score(fragment, analyses: analyses(fragment, faces: faces, aesthetics: aesthetics),
                              library: library(fragment, favorite: favorite), at: now, calendar: calendar,
-                             pastLocations: past, bucket: .other, multiplier: multiplier)
+                             pastLocations: past.enumerated().map {
+                                 PastLocation(id: "past-\($0.offset)", day: $0.element.day, point: $0.element.point)
+                             },
+                             bucket: .other, multiplier: multiplier)
     }
 
     func testWeightsSumAndMatchDecision() {
@@ -140,6 +143,26 @@ final class FragmentScorerTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(score(fragment, now: day(15), past: tenDays)).n, 0.4)
         let many = (1...11).map { (day: String(format: "2026-09-%02d", $0), point: place) }
         XCTAssertEqual(try XCTUnwrap(score(fragment, now: day(15), past: many)).n, 0.1)
+    }
+
+    /// A fragment that runs past 04:00 has photos on the next belongs-to
+    /// day: they are its own, not a visit on another day.
+    func testOwnPhotosAfterFourAreNotAnotherVisit() throws {
+        let photos = (0..<8).map {
+            GroupablePhoto(id: "n\($0)", takenAt: day(20, 2).addingTimeInterval(Double($0) * 30 * 60),
+                           location: place, burstId: nil)
+        }
+        let fragment = try XCTUnwrap(
+            FragmentGrouper.group(photos, threshold: 7200, calendar: calendar) { _, _ in nil }.fragments.first)
+        XCTAssertEqual(fragment.belongsTo, "2026-10-19")
+        let own = photos.map {
+            PastLocation(id: $0.id, day: FragmentGrouper.belongsTo($0.takenAt, calendar: calendar), point: place)
+        }
+        XCTAssertEqual(Set(own.map(\.day)), ["2026-10-19", "2026-10-20"])
+        XCTAssertEqual(FragmentScorer.novelty(fragment, pastLocations: own), 1.0)
+        let another = own + [PastLocation(id: "other", day: "2026-10-20", point: place)]
+        XCTAssertEqual(FragmentScorer.novelty(fragment, pastLocations: another), 0.7,
+                       "another photo there on the next day is a visit")
     }
 
     func testNoGpsPlaceIsPointFour() throws {
