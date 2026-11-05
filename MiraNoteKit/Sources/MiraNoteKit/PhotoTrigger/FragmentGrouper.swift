@@ -230,10 +230,12 @@ public enum FragmentGrouper {
     }
 
     /// Step 8's day: the date of `date` in `calendar`, with the small hours
-    /// (before 04:00) counted as the day before.
+    /// (before 04:00) counted as the day before. The hour is the wall
+    /// clock's, so a daylight-saving change does not move the boundary.
     public static func belongsTo(_ date: Date, calendar: Calendar) -> String {
-        let shifted = date.addingTimeInterval(-Double(dayStartHour) * 3600)
-        let parts = calendar.dateComponents([.year, .month, .day], from: shifted)
+        let small = calendar.component(.hour, from: date) < dayStartHour
+        let day = small ? calendar.date(byAdding: .day, value: -1, to: date) ?? date : date
+        let parts = calendar.dateComponents([.year, .month, .day], from: day)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 }
