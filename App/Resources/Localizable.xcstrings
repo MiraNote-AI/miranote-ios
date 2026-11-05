@@ -5906,18 +5906,6 @@
         }
       }
     },
-    "The photos could not be loaded" : {
-      "comment" : "Photo trigger story when no photo could be read.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "照片没能载入"
-          }
-        }
-      }
-    },
     "The push for %@ comes in 10 s" : {
       "comment" : "Photo trigger debug entry: a preview of that night's push was sent; %@ is the day.",
       "extractionState" : "manual",

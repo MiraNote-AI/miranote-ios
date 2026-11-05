@@ -107,16 +107,18 @@ struct PhotoTriggerView: View {
             }
             .frame(width: stage.size.width, height: stage.size.height)
 
+            if phase == .loading {
+                ProgressView()
+                    .tint(Palette.taupe)
+                    .frame(width: stage.size.width, height: stage.size.height)
+            }
+
+            // Over the loading indicator: Close works from the first moment.
             chrome(stage)
 
             if let note {
                 MenuNoteView(note: note, bucket: bucketName ?? memory.bucket, bottom: stage.insets.bottom)
                     .frame(width: stage.size.width, height: stage.size.height, alignment: .bottom)
-            }
-
-            if phase == .loading || phase == .failed {
-                loadingOrFailure
-                    .frame(width: stage.size.width, height: stage.size.height)
             }
         }
     }
@@ -177,7 +179,8 @@ struct PhotoTriggerView: View {
     }
 
     /// Progress segments over the story, then close and more -- white on the
-    /// photos, ink on the paper once the card has landed.
+    /// photos, ink on the paper while loading and once the card has landed.
+    /// Only Close shows while the photos load.
     private func chrome(_ stage: TriggerStage) -> some View {
         VStack(spacing: 4) {
             StoryProgressBar(count: storyLength, index: index, fraction: 0)
@@ -193,17 +196,21 @@ struct PhotoTriggerView: View {
             HStack {
                 chromeButton("xmark", label: "Close", id: "trigger.close", action: onClose)
                 Spacer()
-                chromeButton("ellipsis", label: "More", id: "trigger.more") { menuShown = true }
+                if phase != .loading {
+                    chromeButton("ellipsis", label: "More", id: "trigger.more") { menuShown = true }
+                }
             }
             .padding(.horizontal, 6)
-            .foregroundStyle(phase.isEnding ? Palette.ink : Color.white)
-            .shadow(color: .black.opacity(phase.isEnding ? 0 : 0.25), radius: 4, y: 1)
+            .foregroundStyle(onPaper ? Palette.ink : Color.white)
+            .shadow(color: .black.opacity(onPaper ? 0 : 0.25), radius: 4, y: 1)
             .animation(.easeInOut(duration: 0.3), value: phase.isEnding)
         }
         .padding(.top, stage.insets.top + 8)
         .frame(width: stage.size.width)
-        .opacity(phase == .loading ? 0 : 1)
     }
+
+    /// No photo behind the chrome: the paper while loading, the ending.
+    private var onPaper: Bool { phase == .loading || phase.isEnding }
 
     private func chromeButton(_ symbol: String, label: LocalizedStringKey, id: String,
                               action: @escaping () -> Void) -> some View {
@@ -218,20 +225,6 @@ struct PhotoTriggerView: View {
         .accessibilityIdentifier(id)
     }
 
-    @ViewBuilder private var loadingOrFailure: some View {
-        if phase == .failed {
-            VStack(spacing: 16) {
-                Text("The photos could not be loaded")
-                    .font(.miraBody)
-                    .foregroundStyle(Palette.textSecondary)
-                Button("Close", action: onClose)
-                    .buttonStyle(SoftPill())
-            }
-        } else {
-            ProgressView()
-                .tint(Palette.taupe)
-        }
-    }
 }
 
 /// Playback, the menu and the gestures.
@@ -253,27 +246,34 @@ extension PhotoTriggerView {
         return clock.elapsed(at: date) / Self.dwell(current.photo)
     }
 
-    /// Plays from the first photo as soon as it is decoded; the rest join
-    /// while it is on screen.
+    /// Plays once three photos are decoded (`StoryStart`); the rest join
+    /// while they are on screen. Fewer than three in all: Home, quietly.
     private func start() async {
         guard phase == .loading else { return }
         for await photo in StoryPhoto.stream(memory, photoIds: photoIds, from: library) {
             photos.append(photo)
             if phase == .loading {
-                phase = .story
-                clock = .started()
+                if StoryStart.decide(ready: photos.count, allTried: false) == .play { play() }
             } else if waitingForNext {
                 waitingForNext = false
                 advance()
             }
         }
+        // Closed while loading: nothing more to do here (the cover may be
+        // another by now).
+        guard !Task.isCancelled else { return }
         loadingDone = true
-        if photos.isEmpty {
-            phase = .failed
+        if phase == .loading {
+            if StoryStart.decide(ready: photos.count, allTried: true) == .play { play() } else { onClose() }
         } else if waitingForNext {
             waitingForNext = false
             advance()
         }
+    }
+
+    private func play() {
+        phase = .story
+        clock = .started()
     }
 
     /// Waits out what is left of the current photo's time, then moves on.
