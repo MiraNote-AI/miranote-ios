@@ -117,13 +117,15 @@ final class TriggerController {
     /// answer after (HomeFlow may be made again). A definite App Store
     /// install takes back the pushes a TestFlight build left pending: each
     /// could only open a story whose menu leads to a run (decision 8).
-    /// Where the trigger can show, the ending's Chinese serif starts
-    /// downloading (the system font shows until it lands).
-    func resolveGates(_ resolve: @escaping @Sendable () async -> InstallSource.Gates) async -> InstallSource.Gates {
+    /// The ending's Chinese faces start downloading at once, not after the
+    /// answer -- StoreKit can take seconds, or never say -- so they are more
+    /// likely in place for the first story (the system font shows until).
+    func resolveGates(_ resolve: @escaping @Sendable () async -> InstallSource.Gates,
+                      prefetchFonts: @escaping @Sendable () -> Void = DetailFont.prefetch) async -> InstallSource.Gates {
         if let gates { return await gates.value }
+        prefetchFonts()
         let task = Task { [scheduler] in
             let gates = await resolve()
-            if gates.triggerCanShow { DetailFont.prefetch() }
             if gates.isAppStore { await scheduler.takeBackEveryPendingPush() }
             return gates
         }

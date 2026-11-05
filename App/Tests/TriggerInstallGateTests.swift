@@ -30,6 +30,13 @@ final class TriggerInstallGateTests: XCTestCase {
     /// A controller over the synthetic library and the fake AI, with the
     /// nights already planned once.
     private func makePlanned() async -> TriggerController {
+        let controller = makeController()
+        await controller.scheduler.appBecameActive()
+        return controller
+    }
+
+    /// A controller over the synthetic library and the fake AI.
+    private func makeController() -> TriggerController {
         let library = SyntheticTriggerLibrary()
         let records = PushRecordStore(directory: folder.appendingPathComponent("pushes"))
         let folder = self.folder!
@@ -51,7 +58,6 @@ final class TriggerInstallGateTests: XCTestCase {
                     fakeAI: { flag.value }, zh: TriggerContent.zh)
             },
             permissions: .none, fakeAI: true)
-        await controller.scheduler.appBecameActive()
         return controller
     }
 
@@ -113,12 +119,42 @@ final class TriggerInstallGateTests: XCTestCase {
         XCTAssertEqual(active, before)
     }
 
+    /// The ending's fonts (Kaiti, Weibei) start downloading at launch,
+    /// not after StoreKit has answered -- which can take seconds, or say
+    /// nothing at all.
+    func testFontsStartWithoutWaitingForTheInstallSource() async {
+        let controller = makeController()
+        let fetched = FontFetches()
+        let (answer, answered) = AsyncStream<Void>.makeStream()
+        let gates = Task {
+            await controller.resolveGates({
+                for await _ in answer {}
+                return .closed
+            }, prefetchFonts: { fetched.count() })
+        }
+        for _ in 0..<50 where fetched.value == 0 {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(fetched.value, 1, "started before the answer")
+        answered.finish()
+        _ = await gates.value
+        XCTAssertEqual(fetched.value, 1, "once")
+    }
+
     func testGatesResolveOncePerLaunch() async {
         let controller = await makePlanned()
         let first = await controller.resolveGates { Self.testFlight }
         let second = await controller.resolveGates { Self.appStore }
         XCTAssertEqual(first, second, "HomeFlow made again gets the first answer")
     }
+}
+
+/// How often the fonts were asked for.
+private final class FontFetches: @unchecked Sendable {
+    private let lock = NSLock()
+    private var fetches = 0
+    var value: Int { lock.withLock { fetches } }
+    func count() { lock.withLock { fetches += 1 } }
 }
 
 /// A notification centre that keeps pending ids in memory.
