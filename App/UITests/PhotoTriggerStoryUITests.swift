@@ -176,6 +176,25 @@ extension PhotoTriggerUITests {
         shot("e3-ending-no-detail")
     }
 
+    /// Two lines of detail and two of question, as a real ending has: on a
+    /// short screen (an SE, 375 x 667) the card gives way, the words stay
+    /// clear of it and Keep stays whole.
+    func testALongEndingFitsTheScreen() {
+        launch(["-TRIGGER-DETAIL", "The last light caught the rim of every cup along the window",
+                "-TRIGGER-QUESTION", "Who ordered the dish that went first, and was it worth it?"])
+        pushAndWait()
+        openLatestPush()
+        let keep = skipToEnding(photos: 8)
+        let fact = app.staticTexts["trigger.factLine"]
+        let question = app.staticTexts["trigger.question"]
+        XCTAssertGreaterThan(app.staticTexts["trigger.detail"].frame.height, 30, "two lines of detail")
+        XCTAssertGreaterThan(question.frame.height, 40, "two lines of question")
+        XCTAssertLessThan(question.frame.maxY, keep.frame.minY)
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(keep.frame), "Keep is whole on screen")
+        XCTAssertLessThan(fact.frame.maxY, question.frame.minY)
+        shot("e3-ending-long-words")
+    }
+
     /// Three photos and eight: the gather as a burst (E2, checked by eye).
     func testGatherBurstForThreeAndEight() {
         launch(["-TRIGGER-FAKE-AI"])

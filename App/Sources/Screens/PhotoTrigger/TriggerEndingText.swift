@@ -11,6 +11,15 @@ struct TriggerEndingText: View {
     /// has downloaded.
     nonisolated static var detailFont: String { DetailFont.currentName }
     nonisolated static let detailSize: CGFloat = 18
+    static let gapAbove: CGFloat = 22
+    static let gapBelow: CGFloat = 20
+    static let minSpacer: CGFloat = 16
+
+    /// The height under the card that words and a button `content` tall
+    /// take, the gaps and the home indicator's inset included.
+    static func room(content: CGFloat, bottomInset: CGFloat) -> CGFloat {
+        gapAbove + content + minSpacer + gapBelow + bottomInset
+    }
 
     let ending: TriggerMemory.Ending
     let shown: Bool
@@ -19,9 +28,44 @@ struct TriggerEndingText: View {
     let insets: EdgeInsets
     /// The draft is being made: the button waits (no second draft).
     var keeping = false
+    /// The words and the button, measured: their height together.
+    @Binding var measured: CGFloat
     var onKeep: () -> Void
 
+    @State private var wordsHeight: CGFloat = 0
+    @State private var buttonHeight: CGFloat = 0
+
     var body: some View {
+        VStack(spacing: 0) {
+            words
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                    wordsHeight = $0
+                    measured = wordsHeight + buttonHeight
+                }
+
+            Spacer(minLength: Self.minSpacer)
+
+            Button(action: onKeep) {
+                Text(ending.ctaLabel)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryPill(verticalPadding: 16))
+            .disabled(keeping)
+            .modifier(Entrance(shown: shown, delay: 0.35))
+            .accessibilityIdentifier("trigger.keep")
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                buttonHeight = $0
+                measured = wordsHeight + buttonHeight
+            }
+        }
+        .padding(.top, top + Self.gapAbove)
+        .padding(.bottom, insets.bottom + Self.gapBelow)
+        .padding(.horizontal, 32)
+        .allowsHitTesting(shown)
+        .accessibilityHidden(!shown)
+    }
+
+    private var words: some View {
         VStack(spacing: 0) {
             Text(ending.factLine)
                 .font(Sans.font(size: 14, weight: 500))
@@ -50,23 +94,7 @@ struct TriggerEndingText: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .modifier(Entrance(shown: shown, delay: 0.2))
                 .accessibilityIdentifier("trigger.question")
-
-            Spacer(minLength: 16)
-
-            Button(action: onKeep) {
-                Text(ending.ctaLabel)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PrimaryPill(verticalPadding: 16))
-            .disabled(keeping)
-            .modifier(Entrance(shown: shown, delay: 0.35))
-            .accessibilityIdentifier("trigger.keep")
         }
-        .padding(.top, top + 22)
-        .padding(.bottom, insets.bottom + 20)
-        .padding(.horizontal, 32)
-        .allowsHitTesting(shown)
-        .accessibilityHidden(!shown)
     }
 
     private struct Entrance: ViewModifier {

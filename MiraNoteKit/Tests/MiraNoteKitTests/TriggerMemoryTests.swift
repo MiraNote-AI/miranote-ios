@@ -224,4 +224,29 @@ final class TriggerGridLayoutTests: XCTestCase {
     func testShortScreensCapTheTopCell() {
         XCTAssertEqual(TriggerGridLayout(photoCount: 3, width: 360, maxBigHeight: 120).big.height, 120)
     }
+
+    func testRoomToSpareKeepsTheNaturalCard() {
+        let natural = TriggerGridLayout(photoCount: 8, width: 335)
+        XCTAssertEqual(TriggerGridLayout(photoCount: 8, width: 335, maxHeight: natural.size.height + 1), natural)
+    }
+
+    func testACappedCardShrinksTheTopCellFirst() {
+        let natural = TriggerGridLayout(photoCount: 8, width: 335)
+        let capped = TriggerGridLayout(photoCount: 8, width: 335, maxHeight: natural.size.height - 40)
+        XCTAssertEqual(capped.size.height, natural.size.height - 40, accuracy: 0.01)
+        XCTAssertEqual(capped.big.height, natural.big.height - 40, accuracy: 0.01)
+        XCTAssertEqual(capped.small.first?.height, natural.small.first?.height)
+    }
+
+    func testThenTheRowsWithinTheirFloors() {
+        let natural = TriggerGridLayout(photoCount: 8, width: 335)
+        let tight = TriggerGridLayout(photoCount: 8, width: 335, maxHeight: 200)
+        XCTAssertEqual(tight.big.height, TriggerGridLayout.minBigHeight)
+        let row = natural.small.first?.height ?? 0
+        XCTAssertEqual(tight.small.first?.height ?? 0, row * 0.8, accuracy: 0.01,
+                       "rows give at most a fifth")
+        XCTAssertGreaterThan(tight.size.height, 200, "too tight: the floors hold")
+        let card = CGRect(origin: .zero, size: tight.size)
+        XCTAssertTrue(tight.small.allSatisfy { card.contains($0) })
+    }
 }

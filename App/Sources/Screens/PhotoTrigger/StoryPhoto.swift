@@ -12,6 +12,9 @@ struct StoryPhoto: Identifiable {
 
     var id: String { photo.id }
 
+    /// A wide photo plays whole over its own blur rather than cropped.
+    var showsWhole: Bool { FacePreservingCrop.showsWhole(imageSize: image.size) }
+
     /// Vision's `perform` blocks while it waits on its own queues. Run on
     /// Swift's cooperative pool, a few of those calls at once starve the pool
     /// and never return, so decoding and face detection get a queue of

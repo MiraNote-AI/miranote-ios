@@ -41,12 +41,19 @@ struct TriggerStage {
     let insets: EdgeInsets
     let count: Int
     let reduceMotion: Bool
+    /// The ending's words and button, once measured (`TriggerEndingText`):
+    /// the settled card leaves them room on a short screen.
+    var endingContent: CGFloat = 0
 
     var full: CGRect { CGRect(origin: .zero, size: size) }
 
     var layout: TriggerGridLayout {
-        TriggerGridLayout(photoCount: count, width: size.width - Self.cardInset * 2,
-                          maxBigHeight: max(140, size.height * 0.28))
+        let room = endingContent > 0
+            ? size.height - insets.top - Self.settledTop
+                - TriggerEndingText.room(content: endingContent, bottomInset: insets.bottom)
+            : .infinity
+        return TriggerGridLayout(photoCount: count, width: size.width - Self.cardInset * 2,
+                                 maxBigHeight: max(140, size.height * 0.28), maxHeight: room)
     }
 
     func card(settled: Bool) -> CGRect {

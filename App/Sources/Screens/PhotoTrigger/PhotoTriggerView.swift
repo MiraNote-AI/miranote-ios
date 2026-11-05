@@ -44,6 +44,9 @@ struct PhotoTriggerView: View {
     @State private var note: MenuNote?
     /// The button was pressed and the draft is being made.
     @State private var keeping = false
+    /// The ending's words and button, measured: a short screen's card
+    /// shrinks to leave them room.
+    @State private var endingContent: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -51,8 +54,8 @@ struct PhotoTriggerView: View {
         // the inner one lays everything out across the whole screen.
         GeometryReader { safe in
             GeometryReader { proxy in
-                stageView(TriggerStage(size: proxy.size, insets: safe.safeAreaInsets,
-                                       count: photos.count, reduceMotion: reduceMotion))
+                stageView(TriggerStage(size: proxy.size, insets: safe.safeAreaInsets, count: photos.count,
+                                       reduceMotion: reduceMotion, endingContent: endingContent))
             }
             .ignoresSafeArea()
         }
@@ -93,7 +96,7 @@ struct PhotoTriggerView: View {
                 .accessibilityLabel("Photo \(index + 1) of \(storyLength)")
                 .accessibilityIdentifier("trigger.photo.\(current?.photo.id ?? "")")
                 .accessibilityValue(
-                    current.map(Self.showsWhole) == true ? Text("Shown whole") : Text("Fills the screen")
+                    current?.showsWhole == true ? Text("Shown whole") : Text("Fills the screen")
                 )
                 .accessibilityAdjustableAction { direction in
                     direction == .increment ? advance() : goBack()
@@ -102,8 +105,8 @@ struct PhotoTriggerView: View {
 
             firstFrameLabel(stage)
 
-            TriggerEndingText(ending: memory.ending, shown: phase == .settled,
-                              top: stage.card(settled: true).maxY, insets: stage.insets, keeping: keeping) {
+            TriggerEndingText(ending: memory.ending, shown: phase == .settled, top: stage.card(settled: true).maxY,
+                              insets: stage.insets, keeping: keeping, measured: $endingContent) {
                 guard !keeping else { return }
                 keeping = true
                 onKeep(memory)
@@ -126,15 +129,11 @@ struct PhotoTriggerView: View {
         }
     }
 
-    private static func showsWhole(_ photo: StoryPhoto) -> Bool {
-        FacePreservingCrop.showsWhole(imageSize: photo.image.size)
-    }
-
     private func photoLayer(_ stage: TriggerStage) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { offset, photo in
                 let look = stage.look(for: offset, current: index, phase: phase)
-                FaceAwarePhoto(photo: photo, whole: look.corner == 0 && Self.showsWhole(photo))
+                FaceAwarePhoto(photo: photo, whole: look.corner == 0 && photo.showsWhole)
                     .frame(width: look.rect.width, height: look.rect.height)
                     .clipShape(RoundedRectangle(cornerRadius: look.corner, style: .continuous))
                     .rotationEffect(.degrees(look.rotation))

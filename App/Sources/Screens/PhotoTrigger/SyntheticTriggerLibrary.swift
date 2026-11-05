@@ -158,7 +158,8 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 /// copy_v2 shape. `-TRIGGER-BACKEND-DOWN` cannot be reached;
 /// `-TRIGGER-REJECT` turns every group down; `-TRIGGER-SLOW-AI <s>` keeps
 /// each job running for that many seconds; `-TRIGGER-DETAIL <words>` is the
-/// detail line and push body (screenshots of a long line).
+/// detail line and push body (screenshots of a long line);
+/// `-TRIGGER-QUESTION <words>` is every candidate question's words.
 struct UITestComposeClient: ComposeClient {
     private let arguments = ProcessInfo.processInfo.arguments
 
@@ -170,9 +171,15 @@ struct UITestComposeClient: ComposeClient {
         TriggerMemory.Ending.Question(text: "How did you find the place?", type: "found", source: "llm")
     ]
 
-    private var detail: String {
-        guard let index = arguments.firstIndex(of: "-TRIGGER-DETAIL"), arguments.indices.contains(index + 1)
-        else { return "A quiet light on the table" }
+    private var detail: String { value(after: "-TRIGGER-DETAIL") ?? "A quiet light on the table" }
+
+    private var questions: [TriggerMemory.Ending.Question] {
+        guard let words = value(after: "-TRIGGER-QUESTION") else { return Self.questions }
+        return Self.questions.map { .init(text: words, type: $0.type, source: $0.source) }
+    }
+
+    private func value(after flag: String) -> String? {
+        guard let index = arguments.firstIndex(of: flag), arguments.indices.contains(index + 1) else { return nil }
         return arguments[index + 1]
     }
 
@@ -214,7 +221,7 @@ struct UITestComposeClient: ComposeClient {
             id: meta.groupKey, date: meta.date, daypart: .afternoon, bucket: "Food and drink",
             push: .init(title: fact + TriggerWords.separator + "afternoon", body: detail, coverPhotoId: peak),
             story: .init(firstFrameLabel: fact, photos: photos),
-            ending: .init(factLine: fact, detail: detail, questions: Self.questions, ctaLabel: "Keep this afternoon"),
+            ending: .init(factLine: fact, detail: detail, questions: questions, ctaLabel: "Keep this afternoon"),
             facts: Dictionary(uniqueKeysWithValues: chosen.map {
                 ($0.id, "Subject: a painted block; description: block \($0.id); people: 0")
             }),

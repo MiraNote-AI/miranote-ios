@@ -6,6 +6,10 @@ import CoreGraphics
 public struct TriggerGridLayout: Equatable, Sendable {
     public static let padding: CGFloat = 12
     public static let gap: CGFloat = 6
+    /// The top cell never shrinks below this to fit a short screen.
+    public static let minBigHeight: CGFloat = 120
+    /// Nor do the small rows give more than this share of their height.
+    static let rowGive: CGFloat = 0.2
 
     public let size: CGSize
     public let big: CGRect
@@ -31,23 +35,34 @@ public struct TriggerGridLayout: Equatable, Sendable {
     ///   - photoCount: every photo, the peak included.
     ///   - width: the card's outer width.
     ///   - maxBigHeight: caps the top cell on short screens.
-    public init(photoCount: Int, width: CGFloat, maxBigHeight: CGFloat = .infinity) {
+    ///   - maxHeight: the room the card may take; past it the top cell
+    ///     shrinks first, then the rows, each down to its floor.
+    public init(photoCount: Int, width: CGFloat, maxBigHeight: CGFloat = .infinity,
+                maxHeight: CGFloat = .infinity) {
         let pad = Self.padding
         let gap = Self.gap
         let inner = max(0, width - pad * 2)
         let rows = Self.rows(forSmallCount: photoCount - 1)
 
-        let bigHeight = min(inner * 0.66, maxBigHeight)
-        big = CGRect(x: pad, y: pad, width: inner, height: bigHeight)
+        var bigHeight = min(inner * 0.66, maxBigHeight)
 
         // One row of two reads as a pair of near-squares; more cells, or a
         // second row, keep each one shorter so the card stays on screen.
-        let rowHeight: CGFloat
+        var rowHeight: CGFloat
         switch (rows.count, rows.first ?? 0) {
         case (1, ...2): rowHeight = inner * 0.48
         case (1, _): rowHeight = inner * 0.36
         default: rowHeight = inner * 0.3
         }
+
+        let rowCount = CGFloat(rows.count)
+        let over = pad * 2 + bigHeight + (gap + rowHeight) * rowCount - maxHeight
+        if over > 0 {
+            let fromBig = min(over, max(0, bigHeight - Self.minBigHeight))
+            bigHeight -= fromBig
+            if rowCount > 0 { rowHeight -= min((over - fromBig) / rowCount, rowHeight * Self.rowGive) }
+        }
+        big = CGRect(x: pad, y: pad, width: inner, height: bigHeight)
 
         var frames: [CGRect] = []
         var top = big.maxY
