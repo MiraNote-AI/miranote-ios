@@ -22,6 +22,24 @@ public struct GeoPoint: Codable, Equatable, Hashable, Sendable {
         return 2 * radius * asin(min(1, sqrt(half)))
     }
 
+    /// Within this many degrees of 0,0 a fix is a camera that wrote zeros,
+    /// not a place (open sea for over a kilometre around).
+    static let nullIslandDegrees = 0.01
+
+    /// A real place: finite, in range, and not 0,0.
+    public var isUsable: Bool {
+        lat.isFinite && lon.isFinite && abs(lat) <= 90 && abs(lon) <= 180
+            && !(abs(lat) < Self.nullIslandDegrees && abs(lon) < Self.nullIslandDegrees)
+    }
+
+    /// A PhotoKit location as a point; nil when it is invalid (a negative
+    /// horizontal accuracy) or not a usable place.
+    public static func fix(lat: Double, lon: Double, horizontalAccuracy: Double) -> GeoPoint? {
+        guard horizontalAccuracy >= 0 else { return nil }
+        let point = GeoPoint(lat: lat, lon: lon)
+        return point.isUsable ? point : nil
+    }
+
     /// The plain average of `points` (fine at the scale of one outing); nil
     /// when there are none.
     public static func center(of points: [GeoPoint]) -> GeoPoint? {
@@ -40,6 +58,7 @@ public struct LibraryAsset: Equatable, Sendable {
     public let id: String
     /// Nil when PhotoKit has no creation date.
     public let takenAt: Date?
+    /// Nil without GPS, or when the point is not a place (`isUsable`).
     public let location: GeoPoint?
     public let isFavorite: Bool
     /// `hasAdjustments`: edited in Photos.
@@ -57,7 +76,7 @@ public struct LibraryAsset: Equatable, Sendable {
     ) {
         self.id = id
         self.takenAt = takenAt
-        self.location = location
+        self.location = location.flatMap { $0.isUsable ? $0 : nil }
         self.isFavorite = isFavorite
         self.isEdited = isEdited
         self.isScreenshot = isScreenshot

@@ -55,7 +55,10 @@ struct PhotoLibraryReader: PhotoLibraryReading, TriggerPhotoProviding {
             assets.append(LibraryAsset(
                 id: asset.localIdentifier,
                 takenAt: asset.creationDate,
-                location: asset.location.map { GeoPoint(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) },
+                location: asset.location.flatMap {
+                    GeoPoint.fix(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude,
+                                 horizontalAccuracy: $0.horizontalAccuracy)
+                },
                 isFavorite: asset.isFavorite,
                 isEdited: asset.hasAdjustments,
                 isScreenshot: asset.mediaSubtypes.contains(.photoScreenshot),

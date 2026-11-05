@@ -4,13 +4,15 @@ import Foundation
 public struct GroupablePhoto: Equatable, Sendable {
     public let id: String
     public let takenAt: Date
+    /// Nil without GPS, or when the point is not a place (`isUsable`): a
+    /// 0,0 fix would cut the group and drag its centre out to sea.
     public let location: GeoPoint?
     public let burstId: String?
 
     public init(id: String, takenAt: Date, location: GeoPoint?, burstId: String?) {
         self.id = id
         self.takenAt = takenAt
-        self.location = location
+        self.location = location.flatMap { $0.isUsable ? $0 : nil }
         self.burstId = burstId
     }
 }
