@@ -100,7 +100,6 @@ public actor PushScheduler {
     /// The newest scene-phase change heard (`appBecameActive` /
     /// `appEnteredBackground` `sequence`): an older one arriving late is stale.
     var phaseSequence = 0
-    var previewCount = 0
     var outsideCursor: Int?
     var outsidePressing = false
     /// The generation the current "try outside" press started in.

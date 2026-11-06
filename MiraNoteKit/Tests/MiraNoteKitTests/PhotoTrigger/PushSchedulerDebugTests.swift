@@ -317,3 +317,25 @@ final class PushSchedulerDebugClearTests: PushSchedulerTestCase {
         XCTAssertTrue(notifier.pendingIds.filter(PushIdentifier.isOurs).isEmpty, "every request still taken back")
     }
 }
+
+extension PushSchedulerDebugTests {
+    /// Device test 11-05: three presses, the app closed between them, all
+    /// sent the first night. Where the last preview stopped is in the
+    /// ledger, so a relaunch goes on from there.
+    func testPreviewGoesOnAfterARelaunch() async {
+        await makeScheduler().appBecameActive()
+        let slotDays = PushSlots.make(now: start, calendar: zone.calendar).map {
+            PreviewResult.scheduled(slotDay: SchedulePlanner.day($0, calendar: zone.calendar))
+        }
+        var days: [PreviewResult] = []
+        for _ in 0..<3 { days.append(await makeScheduler().previewNext()) }
+        XCTAssertEqual(days, Array(slotDays.prefix(3)))
+
+        // A "try outside" push in between is not a night: the next preview
+        // still follows the last night previewed.
+        addOutside()
+        _ = await press(makeScheduler())
+        let next = await makeScheduler().previewNext()
+        XCTAssertEqual(next, slotDays[3])
+    }
+}

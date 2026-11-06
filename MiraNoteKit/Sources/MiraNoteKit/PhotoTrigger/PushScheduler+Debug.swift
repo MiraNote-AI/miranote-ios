@@ -33,7 +33,6 @@ extension PushScheduler {
         try? deps.records.removeAll()
         try? deps.lastRun.clear()
         // `work` stays: a run in flight sees the new generation and stops.
-        previewCount = 0
         outsideCursor = nil
         lastReport = nil
         lastRanking = nil
@@ -91,14 +90,20 @@ extension PushScheduler {
 
     // MARK: Preview
 
-    /// The Nth press sends a copy of the Nth scheduled push in night order
-    /// (wrapping) in 10 s: same memory, no AI, schedule untouched.
+    /// Each press sends, in 10 s, a copy of the scheduled push after the
+    /// one the last preview copied, in night order (wrapping): same memory,
+    /// no AI, schedule untouched. Where it stopped is read from the ledger,
+    /// so a relaunch between presses goes on from there.
     public func previewNext() async -> PreviewResult {
-        let active = deps.ledger.load().filter(\.isActive).sorted { $0.scheduledFor < $1.scheduledFor }
+        let rows = deps.ledger.load()
+        let active = rows.filter(\.isActive).sorted { $0.scheduledFor < $1.scheduledFor }
         let pairs = active.compactMap { entry in deps.records.load(entry.pushId).map { (entry, $0) } }
         guard !pairs.isEmpty else { return .nothingScheduled }
-        let (entry, record) = pairs[previewCount % pairs.count]
-        previewCount += 1
+        // The newest preview of a night still scheduled; a "try outside"
+        // push is of no night and is passed over.
+        let last = rows.reversed().lazy.filter(\.isDebug)
+            .compactMap { row in pairs.firstIndex { $0.0.groupKey == row.groupKey } }.first
+        let (entry, record) = pairs[last.map { ($0 + 1) % pairs.count } ?? 0]
         switch await pushDebug(memory: record.memory, photoIds: record.photoIds, rank: record.rank,
                                score: entry.score, bucket: entry.bucket, belongsTo: entry.belongsTo,
                                groupKey: entry.groupKey, groupPhotos: entry.photoIds, place: entry.place,
