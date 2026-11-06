@@ -52,6 +52,35 @@ final class StarJarUITests: XCTestCase {
         XCTAssertTrue(star.waitForExistence(timeout: 5), "back in the jar")
     }
 
+    /// #160: Save on a new page sends its star into the jar circle once;
+    /// leaving a blank page sends none.
+    func testASavedNewPageFliesIntoTheJarCircle() {
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        XCTAssertEqual(jar.value as? String, "0")
+
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        app.buttons["Save"].tap()
+        XCTAssertTrue(jar.waitForExistence(timeout: 5))
+        sleep(3)
+        XCTAssertEqual(jar.value as? String, "0", "a blank page keeps nothing, so no star flies")
+
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("A happy picnic")
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: jar)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the star lands once")
+        XCTAssertEqual(jar.label, "Star jar", "the landing leaves the jar's name alone")
+        sleep(2)
+        XCTAssertEqual(jar.value as? String, "1", "and only once")
+    }
+
     func testWeekMonthAndStepping() {
         openJar()
         let period = app.staticTexts["jar.period"]
