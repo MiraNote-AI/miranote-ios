@@ -153,6 +153,9 @@ struct HomeFlow: View {
     @State private var settings = AppSettings.shared
     @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
     @State private var moodJudge: MoodJudge?
+    /// A page just saved from a new canvas, its star still to land in the
+    /// jar on Home (#160). Edits of filed pages have their star already.
+    @State private var arrivingStar: Memory.ID?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
@@ -295,7 +298,9 @@ struct HomeFlow: View {
                 onOpenTrash: { path.append(TrashRoute()) },
                 onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
-                onOpenProfile: { path.append(AccountRoute.profile) }
+                onOpenProfile: { path.append(AccountRoute.profile) },
+                arrivingStar: arrivingStar.flatMap(viewModel.memory),
+                onStarLanded: { arrivingStar = nil }
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -372,6 +377,9 @@ struct HomeFlow: View {
                     onComplete: { memory in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
                         judgeMoods([memory.id])
+                        // Only Home shows the jar; a page saved over a
+                        // collection lands without the flight.
+                        if path.isEmpty { arrivingStar = memory.id }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },

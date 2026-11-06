@@ -333,7 +333,7 @@ private struct StarButton: View {
 
 /// The star's face: the mood's fill, a soft light from above, and a
 /// hairline edge so neighbors in a pile stay apart.
-private struct StarMark: View {
+struct StarMark: View {
     let color: Color
 
     var body: some View {
