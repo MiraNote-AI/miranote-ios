@@ -103,6 +103,35 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [shown], timeout: 5), .completed, "the canvas scrolled to the photo")
     }
 
+    /// #167: long-press a Recents photo and drag it onto the page: it lands
+    /// where it was let go, the sheet stays for the next one, and a drop
+    /// back on the sheet places nothing.
+    func testALongPressedPhotoDragsStraightOntoThePage() {
+        openRecents()
+        let cell = any("image.library.photo.1")
+        let grid = any("image.library.grid")
+
+        // Let go on the sheet itself: nothing lands.
+        cell.press(forDuration: 0.6, thenDragTo: any("image.library.photo.4"))
+        sleep(1)
+        XCTAssertEqual(photos.count, 0, "a drop on the sheet places nothing")
+
+        let target = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.width * 0.3, dy: grid.frame.minY - 160))
+        cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.6, thenDragTo: target)
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 1"), object: photos)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 5), .completed, "the photo landed")
+        let photo = photos.firstMatch
+        XCTAssertLessThan(abs(photo.frame.midX - target.screenPoint.x), 40, "where it was let go (x)")
+        XCTAssertLessThan(abs(photo.frame.midY - target.screenPoint.y), 40, "where it was let go (y)")
+        XCTAssertTrue(grid.exists, "Recents stays open for the next one")
+        XCTAssertFalse(cell.isSelected, "dragging is not picking")
+
+        app.buttons["nav.leading"].tap()
+        XCTAssertEqual(photos.count, 1, "Cancel shows the placed photo, still on the page")
+    }
+
     /// A slow import (held 4 s): the header Add tapped twice lands the
     /// picks once, and Add / Editing wait out the import.
     func testASecondAddDuringASlowImportAddsNothingTwice() {
