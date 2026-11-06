@@ -36,6 +36,9 @@ struct StickerPanelScene: View {
     @State private var drafts: [StickerDraft] = []
     @State private var page = 0
     @State private var generating = false
+    /// The generation in flight; cleared when it lands or the time limit
+    /// gives up on it, so only one of the two settles it.
+    @State private var generationToken: UUID?
     /// A style tile's studio call in flight.
     @State private var styling = false
     @State private var notice: String?
@@ -621,10 +624,21 @@ struct StickerPanelScene: View {
         // What is being made shows on the Make tab, at full height.
         tab = .make
         promptFocused = false
-        Task {
-            defer { generating = false }
+        let token = UUID()
+        generationToken = token
+        let work = Task {
+            let outcome: Result<StickerGeneration, Error>
             do {
-                let batch = try await studio.generateStickers(prompt: trimmed)
+                outcome = .success(try await studio.generateStickers(prompt: trimmed))
+            } catch {
+                outcome = .failure(error)
+            }
+            // Given up on by the time limit: a late result is dropped.
+            guard generationToken == token else { return }
+            generationToken = nil
+            generating = false
+            do {
+                let batch = try outcome.get()
                 let images = batch.images
                 // Worded off the counts rather than assuming two: the backend
                 // returns NUMBER_OF_IMAGES of them and that has already been
@@ -645,6 +659,26 @@ struct StickerPanelScene: View {
                     ?? String(appCopy: "Making a sticker didn't work this time. Try again?")
             }
         }
+        // A sticker takes about 10 s on the beta backend. Past the limit the
+        // spinner stops and Make can be tapped again, whether the wait is on
+        // the server or in the on-device lift.
+        Task {
+            try? await Task.sleep(for: Self.generationLimit)
+            guard generationToken == token else { return }
+            generationToken = nil
+            generating = false
+            work.cancel()
+            notice = String(appCopy: "Making this sticker is taking too long. Try again?")
+        }
+    }
+
+    private static var generationLimit: Duration {
+        #if DEBUG
+        // UI tests shorten it with `-STICKER_TIME_LIMIT_MS <ms>`.
+        let override = UserDefaults.standard.integer(forKey: "STICKER_TIME_LIMIT_MS")
+        if override > 0 { return .milliseconds(override) }
+        #endif
+        return .seconds(60)
     }
 
     private func makeSticker(from photo: ImageRef) {
