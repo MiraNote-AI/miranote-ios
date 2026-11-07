@@ -54,6 +54,27 @@ final class PhotoTriggerLifecycleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8), "Home is there")
     }
 
+    /// The review of iOS#172: a TestFlight install asks for nothing until
+    /// the tester turns photo memories on in Settings; then Photos comes.
+    func testTestFlightAsksNothingUntilTheSwitchIsOn() {
+        app.resetAuthorizationStatus(for: .photos)
+        app.launchArguments = [
+            "-UITEST", "-UITEST-TRIGGER", "-TRIGGER-REAL-PERMISSIONS", "-TRIGGER-INSTALL", "testflight"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 8))
+        XCTAssertFalse(springboard.alerts.firstMatch.waitForExistence(timeout: 8), "nothing is asked while off")
+        app.buttons["home.settings"].tap()
+        let optIn = app.switches["settings.photoTrigger"]
+        XCTAssertTrue(optIn.waitForExistence(timeout: 5))
+        optIn.tap()
+        let turnOn = app.alerts["Turn on photo memories?"].buttons["Turn On"]
+        XCTAssertTrue(turnOn.waitForExistence(timeout: 5))
+        turnOn.tap()
+        let seen = answerAlerts(first: 15, quiet: 6)
+        XCTAssertTrue(mentions(seen.first ?? "", photoWords), "turned on: Photos is asked at once: \(seen)")
+    }
+
     func testHomeShowsNoProgressOnFirstLaunch() {
         app.launchArguments = ["-UITEST", "-UITEST-TRIGGER"]
         app.launch()

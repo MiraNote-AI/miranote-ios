@@ -60,8 +60,11 @@ final class FakeLibrary: PhotoLibraryReading, @unchecked Sendable {
     }
     /// Runs as each photo is read (a test clock moved: a slow iCloud read).
     var onRead: (@Sendable (String) -> Void)?
+    /// Awaited as each photo is read for upload (the app turned off meanwhile).
+    var beforeUpload: (@Sendable () async -> Void)?
     func uploadData(for id: String) async -> Data? {
         onRead?(id)
+        await beforeUpload?()
         return unreadable.contains(id) ? nil : ComposeMetaTests.tinyJPEG
     }
 }

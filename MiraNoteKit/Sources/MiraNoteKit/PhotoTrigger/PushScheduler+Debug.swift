@@ -162,19 +162,21 @@ extension PushScheduler {
     /// ignored (its stream ends at once).
     public func tryOutside() -> AsyncStream<TriggerProgress> {
         let (stream, continuation) = AsyncStream<TriggerProgress>.makeStream()
-        guard !outsidePressing else {
+        // Turned off (`turnOff`): no photo is read or sent.
+        guard !outsidePressing, !isOff else {
             continuation.finish()
             return stream
         }
         outsidePressing = true
         outsideGeneration = generation
-        Task { await self.pressOutside(continuation) }
+        press = Task { await self.pressOutside(continuation) }
         return stream
     }
 
     private func pressOutside(_ out: AsyncStream<TriggerProgress>.Continuation) async {
         defer {
             outsidePressing = false
+            press = nil
             out.finish()
         }
         out.yield(.preparing)
@@ -220,6 +222,8 @@ extension PushScheduler {
         }
         let tries = min(TriggerRun.maxTries, count)
         for attempt in 0..<tries {
+            // Turned off meanwhile: the next group is not sent.
+            guard outsideGeneration == generation, !isOff else { return }
             let candidate = outside[rank - 1]
             switch await attemptOutside(candidate, rank: rank, ranking: ranking, calendar: calendar, out: out) {
             case .pushed:

@@ -3187,6 +3187,18 @@
         }
       }
     },
+    "MiraNote will look through your recent photos on this iPhone. For each moment it considers, it sends up to 10 photos, with when and roughly where they were taken and what is in them, to our server and an AI service that writes the reminder. This is a test feature." : {
+      "comment" : "Settings: confirmation body before the photo trigger is turned on; what is uploaded and where.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 会查看这台 iPhone 上最近的照片。每考虑一段回忆，就会把最多 10 张照片，连同拍摄时间、大致地点和照片内容，发送到我们的服务器和一个 AI 服务，用来生成回忆提醒。这是测试中的功能。"
+          }
+        }
+      }
+    },
     "MiraNote's AI server is not running. It lives on a Mac someone has to start -- let the team know." : {
       "comment" : "Server error 502.",
       "extractionState" : "manual",
@@ -3958,6 +3970,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有人在场"
+          }
+        }
+      }
+    },
+    "Photo memories (beta)" : {
+      "comment" : "Settings: the photo trigger's switch (TestFlight builds only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片回忆（内测）"
           }
         }
       }
@@ -5643,6 +5667,18 @@
         }
       }
     },
+    "TESTING" : {
+      "comment" : "Settings: section label above the photo trigger's switch (TestFlight builds only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测试"
+          }
+        }
+      }
+    },
     "Text" : {
       "comment" : "Tool name.",
       "extractionState" : "manual",
@@ -6319,6 +6355,30 @@
         }
       }
     },
+    "Turn On" : {
+      "comment" : "Settings: confirms turning the photo trigger on.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开"
+          }
+        }
+      }
+    },
+    "Turn on photo memories?" : {
+      "comment" : "Settings: confirmation before the photo trigger is turned on.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开照片回忆？"
+          }
+        }
+      }
+    },
     "Type or polish your memory" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6569,6 +6629,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这段回忆发生在什么时候？"
+          }
+        }
+      }
+    },
+    "When on, MiraNote looks through your recent photos and sends some of them to an AI service to write memory reminders." : {
+      "comment" : "Settings: line under the photo trigger's switch; says photos go to an AI service.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开后，MiraNote 会查看你最近的照片，并把其中部分照片发送给 AI 服务来生成回忆提醒。"
           }
         }
       }

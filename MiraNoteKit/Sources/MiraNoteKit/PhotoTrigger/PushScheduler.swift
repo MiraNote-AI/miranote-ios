@@ -96,6 +96,10 @@ public actor PushScheduler {
     var generation = 0
     /// The generation the run in progress started in.
     var runGeneration = 0
+    /// Set by `turnOff`: no run starts, whoever asks, until `turnOn`.
+    public internal(set) var isOff = false
+    /// The current run's uploads, cancelled by `turnOff`.
+    var wave: Task<[(AIAsk, AISent)], Never>?
     var inBackground = false
     /// The newest scene-phase change heard (`appBecameActive` /
     /// `appEnteredBackground` `sequence`): an older one arriving late is stale.
@@ -104,6 +108,8 @@ public actor PushScheduler {
     var outsidePressing = false
     /// The generation the current "try outside" press started in.
     var outsideGeneration = 0
+    /// The current press, cancelled by `turnOff`.
+    var press: Task<Void, Never>?
     var lastReport: LastRunReport?
     var lastRanking: TriggerRanking?
     /// Notifications being added whose ledger row is not written yet: not
@@ -183,8 +189,9 @@ public actor PushScheduler {
         return deps.now().timeIntervalSince(last) >= Self.fullRunInterval
     }
 
-    /// Runs now, or once more after the run in progress.
+    /// Runs now, or once more after the run in progress. Turned off: nothing.
     func request(_ trigger: Trigger) async {
+        guard !isOff else { return }
         guard !isRunning else {
             // A forced rerun beats a gated one.
             if pendingRerun == nil || pendingRerun == .foreground { pendingRerun = trigger }

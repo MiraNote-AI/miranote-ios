@@ -2,10 +2,10 @@ import StoreKit
 import XCTest
 @testable import MiraNote
 
-/// Acceptance C1 and decision 8: the debug entry shows in development and
-/// TestFlight builds, never from the App Store, and a failing probe shows
-/// it (fail open); automatic scheduling and the first-launch prompts need a
-/// definite development or TestFlight answer (fail closed).
+/// Acceptance C1 and decision 8, after the review of iOS#172: development
+/// builds show the debug entry and schedule; a TestFlight build does either
+/// only once the tester turns the Settings switch on; an App Store install
+/// and a failing probe do neither (fail closed).
 final class InstallSourceTests: XCTestCase {
     private struct Probe: InstallSourceProbe {
         let result: Result<AppStore.Environment, Error>
@@ -18,44 +18,49 @@ final class InstallSourceTests: XCTestCase {
         await InstallSource.gates(isDebugBuild: debug, probe: Probe(result: result))
     }
 
-    func testDebugBuildShows() async {
-        let shows = await gates(debug: true, .success(.production)).showsDebugEntry
-        XCTAssertTrue(shows)
+    func testDebugBuildShowsAndSchedules() async {
+        let gates = await gates(debug: true, .failure(Failure()))
+        XCTAssertTrue(gates.showsDebugEntry)
+        XCTAssertTrue(gates.schedulesAutomatically)
+        XCTAssertFalse(gates.offersOptIn, "no switch: always on")
     }
 
-    func testSandboxShows() async {
-        let shows = await gates(debug: false, .success(.sandbox)).showsDebugEntry
-        XCTAssertTrue(shows)
+    func testDebugBuildIgnoresTheSwitch() async {
+        let gates = await gates(debug: true, .success(.production))
+        XCTAssertEqual(gates.applying(optedIn: false), gates)
     }
 
-    func testProductionHides() async {
-        let shows = await gates(debug: false, .success(.production)).showsDebugEntry
-        XCTAssertFalse(shows)
+    func testSandboxOffersTheSwitchAndStaysClosedUntilItIsOn() async {
+        let gates = await gates(debug: false, .success(.sandbox))
+        XCTAssertTrue(gates.offersOptIn)
+        XCTAssertFalse(gates.triggerCanShow, "no prompt, no upload before the tester says so")
+        XCTAssertFalse(gates.applying(optedIn: false).triggerCanShow)
     }
 
-    func testProbeErrorShows() async {
-        let shows = await gates(debug: false, .failure(Failure())).showsDebugEntry
-        XCTAssertTrue(shows)
+    func testSandboxOpensWithTheSwitchOn() async {
+        let open = await gates(debug: false, .success(.sandbox)).applying(optedIn: true)
+        XCTAssertTrue(open.showsDebugEntry)
+        XCTAssertTrue(open.schedulesAutomatically)
+        XCTAssertFalse(open.isAppStore)
     }
 
-    func testDebugBuildSchedules() async {
-        let schedules = await gates(debug: true, .failure(Failure())).schedulesAutomatically
-        XCTAssertTrue(schedules)
+    func testProductionIsClosedWhateverTheSwitch() async {
+        let gates = await gates(debug: false, .success(.production))
+        XCTAssertFalse(gates.offersOptIn)
+        XCTAssertFalse(gates.applying(optedIn: true).triggerCanShow, "a switch left on from TestFlight opens nothing")
     }
 
-    func testSandboxSchedules() async {
-        let schedules = await gates(debug: false, .success(.sandbox)).schedulesAutomatically
-        XCTAssertTrue(schedules)
+    /// Review of iOS#172, point 2: an App Store install whose probe fails
+    /// must not show the debug card.
+    func testProbeErrorIsClosed() async {
+        let gates = await gates(debug: false, .failure(Failure()))
+        XCTAssertEqual(gates, .closed)
+        XCTAssertFalse(gates.applying(optedIn: true).triggerCanShow)
     }
 
-    func testProductionDoesNotSchedule() async {
-        let schedules = await gates(debug: false, .success(.production)).schedulesAutomatically
-        XCTAssertFalse(schedules)
-    }
-
-    func testProbeErrorDoesNotSchedule() async {
-        let schedules = await gates(debug: false, .failure(Failure())).schedulesAutomatically
-        XCTAssertFalse(schedules, "an unknown install source asks nothing and schedules nothing")
+    func testXcodeEnvironmentInAReleaseBuildIsClosed() async {
+        let gates = await gates(debug: false, .success(.xcode))
+        XCTAssertEqual(gates, .closed)
     }
 
     /// Only a definite App Store answer takes pending pushes back.
@@ -70,14 +75,11 @@ final class InstallSourceTests: XCTestCase {
         XCTAssertFalse(debug)
     }
 
-    /// The ending's font is fetched only where the trigger can show.
-    func testTriggerCanShowOnlyWhereAGateIsOpen() async {
-        let production = await gates(debug: false, .success(.production)).triggerCanShow
-        let sandbox = await gates(debug: false, .success(.sandbox)).triggerCanShow
-        let failed = await gates(debug: false, .failure(Failure())).triggerCanShow
-        XCTAssertFalse(production, "an App Store install fetches no font")
-        XCTAssertTrue(sandbox)
-        XCTAssertTrue(failed, "the debug card shows (fail open)")
-        XCTAssertFalse(InstallSource.Gates.closed.triggerCanShow)
+    func testLaunchArgumentNamesAnInstall() {
+        XCTAssertEqual(InstallSource.launchEnvironment(["-TRIGGER-INSTALL", "testflight"]), .sandbox)
+        XCTAssertEqual(InstallSource.launchEnvironment(["-TRIGGER-INSTALL", "appstore"]), .production)
+        XCTAssertNil(InstallSource.launchEnvironment(["-TRIGGER-INSTALL", "other"]))
+        XCTAssertNil(InstallSource.launchEnvironment(["-TRIGGER-INSTALL"]))
+        XCTAssertNil(InstallSource.launchEnvironment([]))
     }
 }

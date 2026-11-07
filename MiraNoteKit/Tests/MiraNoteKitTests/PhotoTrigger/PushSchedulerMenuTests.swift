@@ -58,7 +58,7 @@ final class PushSchedulerMenuTests: PushSchedulerTestCase {
         let before = active
         XCTAssertEqual(before.count, 7)
         notifier.pendingIds.insert("other.x")
-        await scheduler.takeBackEveryPendingPush()
+        await scheduler.turnOff(.appStore)
         XCTAssertTrue(active.isEmpty)
         let entries = ledger.load()
         for entry in before {
@@ -66,6 +66,83 @@ final class PushSchedulerMenuTests: PushSchedulerTestCase {
         }
         XCTAssertEqual(notifier.pendingIds, ["other.x"], "the debug copy goes too; others' requests stay")
         XCTAssertFalse(notifier.removedPending.contains("other.x"))
+    }
+
+    /// The tester turned the trigger off while a run was planning: the run
+    /// writes nothing after the take-back, so no push turns up later.
+    func testTakeBackStopsTheRunInFlight() async throws {
+        let scheduler = makeScheduler()
+        // While the run schedules its first night.
+        notifier.onSchedule = { await scheduler.turnOff(.optedOut) }
+        await scheduler.appBecameActive()
+        XCTAssertFalse(notifier.scheduled.isEmpty, "the run had started scheduling")
+        XCTAssertTrue(active.isEmpty, "nothing stays scheduled after the take-back")
+        XCTAssertTrue(notifier.pendingIds.filter(PushIdentifier.isOurs).isEmpty)
+        let running = await scheduler.isRunning
+        XCTAssertFalse(running, "no rerun follows")
+    }
+
+    /// Off, no return to the front plans; on again within the hour, the next
+    /// return plans the nights at once (the hourly gate does not hold it).
+    func testTurnedOffNothingRunsUntilTurnedOn() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        XCTAssertEqual(active.count, 7)
+        await scheduler.turnOff(.optedOut)
+        XCTAssertTrue(active.isEmpty)
+        let runs = log.runs().count
+        await scheduler.appBecameActive()
+        XCTAssertEqual(log.runs().count, runs, "off: no run")
+        XCTAssertTrue(active.isEmpty)
+        await scheduler.turnOn()
+        await scheduler.appBecameActive()
+        XCTAssertEqual(active.count, 7, "on again: planned without waiting out the hour")
+    }
+
+    /// Off while the photos are being read for upload: none is sent.
+    func testTurnOffCancelsUploadsNotYetSent() async throws {
+        let scheduler = makeScheduler()
+        let gate = TurnOffGate { await scheduler.turnOff(.optedOut) }
+        library.beforeUpload = { await gate.pass() }
+        await scheduler.appBecameActive()
+        let turnedOff = await gate.done
+        XCTAssertTrue(turnedOff, "the run reached the uploads")
+        XCTAssertTrue(client.submitted.isEmpty, "nothing reached the backend")
+        XCTAssertTrue(active.isEmpty)
+    }
+
+    func testTurnedOffTheDebugPressReadsNothing() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.turnOff(.optedOut)
+        var steps: [TriggerProgress] = []
+        for await step in await scheduler.tryOutside() { steps.append(step) }
+        XCTAssertTrue(steps.isEmpty)
+        XCTAssertTrue(client.submitted.isEmpty)
+    }
+
+    func testTurnOffWithNothingRunWritesNothing() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.turnOff(.appStore)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("state.json").path),
+                       "an install that never ran keeps no state file")
+    }
+
+    func testTurnOffStopsTheDebugPressInFlight() async throws {
+        let scheduler = makeScheduler()
+        let gate = TurnOffGate { await scheduler.turnOff(.optedOut) }
+        library.beforeUpload = { await gate.pass() }
+        for await _ in await scheduler.tryOutside() {}
+        let turnedOff = await gate.done
+        XCTAssertTrue(turnedOff, "the press reached the uploads")
+        XCTAssertTrue(client.submitted.isEmpty, "no group of the press reached the backend")
+    }
+
+    func testTurnOffClearsDeliveredPushes() async throws {
+        let scheduler = makeScheduler()
+        await scheduler.appBecameActive()
+        let ours = Set(ledger.load().map(\.identifier))
+        await scheduler.turnOff(.optedOut)
+        XCTAssertTrue(ours.isSubset(of: Set(notifier.removedDelivered)), "Notification Center is cleared too")
     }
 
     func testMenuBucketCancelsAndRefills() async throws {
@@ -207,5 +284,25 @@ final class PushSchedulerMenuTests: PushSchedulerTestCase {
         let entry = try XCTUnwrap(ledger.load().first { $0.pushId == tonight.pushId })
         XCTAssertEqual(entry.deliveredAt, tonight.scheduledFor)
         XCTAssertTrue(entry.notOpened)
+    }
+}
+
+/// The first upload turns the scheduler off; every upload waits for that.
+private actor TurnOffGate {
+    private let turnOff: @Sendable () async -> Void
+    private var started = false
+    private(set) var done = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    init(_ turnOff: @escaping @Sendable () async -> Void) { self.turnOff = turnOff }
+
+    func pass() async {
+        if done { return }
+        if started { return await withCheckedContinuation { waiting.append($0) } }
+        started = true
+        await turnOff()
+        done = true
+        waiting.forEach { $0.resume() }
+        waiting = []
     }
 }

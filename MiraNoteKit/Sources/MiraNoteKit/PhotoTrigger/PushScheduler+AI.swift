@@ -128,16 +128,22 @@ extension PushScheduler {
         }
         let deps = self.deps
         let fake = deps.fakeAI()
-        let results = await withTaskGroup(of: (AIAsk, AISent).self) { group in
-            for ask in asks {
-                group.addTask {
-                    (ask, await Self.send(ask, deps: deps, context: context, fake: fake, now: now))
+        // A task of its own, so `turnOff` can cancel the uploads not yet sent.
+        let wave = Task {
+            await withTaskGroup(of: (AIAsk, AISent).self) { group in
+                for ask in asks {
+                    group.addTask {
+                        (ask, await Self.send(ask, deps: deps, context: context, fake: fake, now: now))
+                    }
                 }
+                var all: [(AIAsk, AISent)] = []
+                for await result in group { all.append(result) }
+                return all.sorted { $0.0.day < $1.0.day }
             }
-            var all: [(AIAsk, AISent)] = []
-            for await result in group { all.append(result) }
-            return all.sorted { $0.0.day < $1.0.day }
         }
+        self.wave = wave
+        let results = await wave.value
+        if self.wave == wave { self.wave = nil }
         guard context.generation == generation else { return }
         for (ask, sent) in results where context.generation == generation {
             await apply(sent, for: ask, context: context)

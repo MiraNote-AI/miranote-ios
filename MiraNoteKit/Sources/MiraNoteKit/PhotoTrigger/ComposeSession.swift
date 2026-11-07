@@ -70,6 +70,8 @@ struct ComposeSession {
         var prepared: [String: Data] = [:]
         let library = self.library
         for number in meta.photos.map(\.id) {
+            // Cancelled (the trigger turned off): no more photos are read.
+            guard !Task.isCancelled else { break }
             guard let id = photoIds[number],
                   let data = await Self.first(within: Self.readTimeout, { await library.uploadData(for: id) }),
                   let jpeg = UploadImage.prepare(data) else { continue }

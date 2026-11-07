@@ -8,6 +8,8 @@ public enum RemovalReason: String, Codable, Sendable {
     case replaced, menuDay, menuBucket, replan, timeZone, clearAll, missing
     /// The app now runs as an App Store install (decision 8).
     case appStore
+    /// A TestFlight tester turned the Settings switch off (or never on).
+    case optedOut
     /// Written under older copy rules: composed again (handoff refine 5.4).
     case copyUpgrade
     /// Written by the fake AI, now switched off: composed again.

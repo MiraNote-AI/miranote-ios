@@ -43,13 +43,35 @@ extension PushScheduler {
         await request(.menu)
     }
 
-    /// An App Store install (decision 8): every pending push of ours is
-    /// taken back, scheduled ones marked in the ledger, so none can open a
-    /// story that leads to a run.
-    public func takeBackEveryPendingPush() async {
-        await removeActive(.appStore) { _ in true }
-        let ours = await deps.notifications.pending().filter(PushIdentifier.isOurs)
-        if !ours.isEmpty { await deps.notifications.removePending(ours.sorted()) }
+    /// An App Store install (decision 8), or a TestFlight tester who turned
+    /// the trigger off: no run starts until `turnOn`, whoever asks; a run in
+    /// flight stops writing, as after `clearAll`, its uploads not yet sent
+    /// are cancelled, and no rerun follows it. Every push of ours is taken
+    /// back -- scheduled ones marked in the ledger with `reason` -- and
+    /// delivered ones leave Notification Center, so none can open a story.
+    public func turnOff(_ reason: RemovalReason) async {
+        isOff = true
+        generation += 1
+        pendingRerun = nil
+        wave?.cancel()
+        press?.cancel()
+        // Turned on again within the hour, the next return still plans. No
+        // run yet: nothing to write (the hourly gate is open anyway).
+        let state = deps.state.load()
+        if state.lastFullRunAt != nil, !state.lastRunLeftDaysUnfilled {
+            try? deps.state.update { $0.lastRunLeftDaysUnfilled = true }
+        }
+        let known = Set(deps.ledger.load().map(\.identifier).filter(PushIdentifier.isOurs))
+        await removeActive(reason) { _ in true }
+        let pending = await deps.notifications.pending().filter(PushIdentifier.isOurs)
+        if !pending.isEmpty { await deps.notifications.removePending(pending.sorted()) }
+        let ours = known.union(pending)
+        if !ours.isEmpty { await deps.notifications.removeDelivered(ours.sorted()) }
+    }
+
+    /// The tester turned the trigger on again: runs may start.
+    public func turnOn() {
+        isOff = false
     }
 
     /// `text` when it is a "yyyy-MM-dd" day (the memory's `date`), else nil.

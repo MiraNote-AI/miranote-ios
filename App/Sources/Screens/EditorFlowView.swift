@@ -200,8 +200,8 @@ struct HomeFlow: View {
     /// One per launch (`shared`), however often HomeFlow is re-made.
     @State private var trigger = TriggerController.shared
     @State private var router = TriggerLaunchRouter.shared
-    /// The debug entry and automatic scheduling: development and TestFlight
-    /// builds (InstallSource).
+    /// The debug entry and automatic scheduling: development builds, and
+    /// TestFlight builds once the Settings switch is on (InstallSource).
     @State private var triggerGates = InstallSource.Gates.closed
     /// The ending's button turning its story into a canvas draft.
     @State private var keeper = TriggerKeep()
@@ -333,7 +333,7 @@ struct HomeFlow: View {
                 onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
                 onOpenProfile: { path.append(AccountRoute.profile) },
-                triggerEntry: triggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil
+                triggerEntry: openTriggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -379,6 +379,7 @@ struct HomeFlow: View {
                     case .settings:
                         SettingsView(
                             settings: settings,
+                            photoTriggerOptIn: triggerGates.offersOptIn ? $trigger.optedIn : nil,
                             onBack: { path.removeLast() },
                             onOpenAppearance: { path.append(AccountRoute.appearance) },
                             onOpenLanguage: { path.append(AccountRoute.language) }
@@ -400,7 +401,7 @@ struct HomeFlow: View {
             guard Self.triggerEntryAllowed else { return }
             triggerGates = await trigger.resolveGates { await InstallSource.live() }
         }
-        .triggerLifecycle(trigger, enabled: triggerGates.schedulesAutomatically)
+        .triggerLifecycle(trigger, enabled: openTriggerGates.schedulesAutomatically)
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
@@ -527,6 +528,12 @@ extension HomeFlow {
         }
         #endif
         return FileCollectionStore()
+    }
+
+    /// The install's gates with the Settings switch read in: turning it on
+    /// or off redraws Home and starts or stops the lifecycle at once.
+    private var openTriggerGates: InstallSource.Gates {
+        triggerGates.applying(optedIn: trigger.optedIn)
     }
 
     /// UI tests keep their Home as it was, unless they test the trigger.

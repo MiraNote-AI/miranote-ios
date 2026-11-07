@@ -1,8 +1,6 @@
 import MiraNoteKit
-import Photos
 import SwiftUI
 import UIKit
-import UserNotifications
 
 /// The photo trigger as the app holds it for its lifetime: the
 /// `PushScheduler` that plans the pushes whenever the app comes to the
@@ -32,6 +30,18 @@ final class TriggerController {
             if oldValue, !fakeAI { fakeAITurnedOff() }
         }
     }
+    /// The Settings switch of a TestFlight install
+    /// (`InstallSource.Gates.offersOptIn`), off until the tester turns it
+    /// on. On, the gates open -- the lifecycle then asks and plans -- and
+    /// the ending's fonts start downloading; off, every pending push is
+    /// taken back and a run in flight stops writing.
+    var optedIn: Bool {
+        didSet {
+            guard optedIn != oldValue else { return }
+            AppSettings.storeDefaults.set(optedIn, forKey: Self.optedInKey)
+            optInChanged()
+        }
+    }
 
     let photos: TriggerPhotoProviding
     let records: PushRecordStore
@@ -52,15 +62,26 @@ final class TriggerController {
     /// inactive and back, and that return waits for them instead of planning
     /// before the answers (notifications would still read as off).
     @ObservationIgnored private var asking: Task<Void, Never>?
+    /// Starts the ending's font downloads.
+    @ObservationIgnored private let prefetchFonts: @Sendable () -> Void
+    /// The install's gates once resolved (`gates` is the task resolving them).
+    @ObservationIgnored private var resolved: InstallSource.Gates?
+    /// What the last turn of the switch set going, after the turns before it
+    /// (tests wait for it).
+    @ObservationIgnored private(set) var optInChange: Task<Void, Never>?
 
     static let fakeAIKey = "photoTrigger.fakeAI"
+    static let optedInKey = "photoTrigger.optedIn"
 
     init(photos: TriggerPhotoProviding, records: PushRecordStore, dependencies: (FakeAIFlag) -> SchedulerDependencies,
-         permissions: TriggerPermissions, schedulesAutomatically: Bool = true, fakeAI: Bool) {
+         permissions: TriggerPermissions, schedulesAutomatically: Bool = true, fakeAI: Bool, optedIn: Bool = false,
+         prefetchFonts: @escaping @Sendable () -> Void = DetailFont.prefetch) {
         self.schedulesAutomatically = schedulesAutomatically
+        self.prefetchFonts = prefetchFonts
         self.photos = photos
         self.records = records
         self.fakeAI = fakeAI
+        self.optedIn = optedIn
         self.permissions = permissions
         fakeAIFlag.value = fakeAI
         scheduler = PushScheduler(dependencies(fakeAIFlag))
@@ -83,6 +104,10 @@ final class TriggerController {
         guard schedulesAutomatically else { return }
         let sequence = nextPhase()
         await askFirstLaunch()
+        // The scheduler has heard the latest turn of the switch; off while
+        // the prompts were up, nothing is planned.
+        await optInChange?.value
+        if await openGates()?.schedulesAutomatically == false { return }
         let time = BackgroundTime()
         background = time
         time.begin { [scheduler] in await scheduler.backgroundTimeExpired() }
@@ -114,22 +139,61 @@ final class TriggerController {
     }
 
     /// The install's gates, resolved by `resolve` the first time and the same
-    /// answer after (HomeFlow may be made again). A definite App Store
-    /// install takes back the pushes a TestFlight build left pending: each
-    /// could only open a story whose menu leads to a run (decision 8).
-    /// The ending's fonts start downloading at once, not after StoreKit.
-    func resolveGates(_ resolve: @escaping @Sendable () async -> InstallSource.Gates,
-                      prefetchFonts: @escaping @Sendable () -> Void = DetailFont.prefetch) async
+    /// answer after (HomeFlow may be made again). The Settings switch is not
+    /// read in: see `applying(optedIn:)`. A definite App Store install takes
+    /// back the pushes a TestFlight build left pending: each could only open
+    /// a story whose menu leads to a run (decision 8); so does a TestFlight
+    /// install whose switch is off, and either turns the scheduler off. The
+    /// ending's fonts start downloading only where the trigger can show.
+    func resolveGates(_ resolve: @escaping @Sendable () async -> InstallSource.Gates) async
         -> InstallSource.Gates {
         if let gates { return await gates.value }
-        prefetchFonts()
         let task = Task { [scheduler] in
             let gates = await resolve()
-            if gates.isAppStore { await scheduler.takeBackEveryPendingPush() }
+            if gates.isAppStore { await scheduler.turnOff(.appStore) }
             return gates
         }
         gates = task
-        return await task.value
+        let answer = await task.value
+        // From here a turn of the switch acts on its own (`optInChanged`).
+        resolved = answer
+        if answer.applying(optedIn: optedIn).triggerCanShow {
+            prefetchFonts()
+        } else if answer.offersOptIn {
+            let previous = optInChange
+            optInChange = Task { [scheduler] in
+                await previous?.value
+                await scheduler.turnOff(.optedOut)
+            }
+            await optInChange?.value
+        }
+        return answer
+    }
+
+    /// The gates with the Settings switch read in; nil until resolved.
+    private func openGates() async -> InstallSource.Gates? {
+        guard let gates else { return nil }
+        return await gates.value.applying(optedIn: optedIn)
+    }
+
+    /// The switch turned: on, the scheduler may run again and the fonts
+    /// start downloading; off, the scheduler is turned off (`turnOff`). Each
+    /// turn reaches the scheduler after the one before. Only a TestFlight
+    /// install has the switch; gates not resolved yet, `resolveGates` acts
+    /// on the switch as it then is.
+    private func optInChanged() {
+        guard let resolved, resolved.offersOptIn else { return }
+        let on = optedIn
+        if on { prefetchFonts() }
+        let previous = optInChange
+        optInChange = Task { [scheduler] in
+            await previous?.value
+            if on {
+                await scheduler.turnOn()
+            } else {
+                await scheduler.turnOff(.optedOut)
+            }
+        }
     }
 
     /// The story menu's choice: the scheduler records it, takes back what it
@@ -137,9 +201,8 @@ final class TriggerController {
     /// (decision 8) -- replans at once. Gates not resolved: no replan.
     @discardableResult
     func menu(_ action: MenuAction, pushId: String) -> Task<Void, Never> {
-        let gates = self.gates
-        return Task { [scheduler] in
-            let replan = await gates?.value.schedulesAutomatically ?? false
+        Task { [scheduler] in
+            let replan = await self.openGates()?.schedulesAutomatically ?? false
             await scheduler.menu(action, pushId: pushId, replan: replan)
         }
     }
@@ -149,9 +212,8 @@ final class TriggerController {
     /// schedules automatically (decision 8), as coming to the front does.
     private func fakeAITurnedOff() {
         guard schedulesAutomatically else { return }
-        let gates = self.gates
         Task { [scheduler] in
-            guard await gates?.value.schedulesAutomatically ?? false else { return }
+            guard await self.openGates()?.schedulesAutomatically ?? false else { return }
             await scheduler.fakeAITurnedOff()
         }
     }
@@ -217,118 +279,6 @@ final class TriggerController {
         try? PhotoTriggerPaths.prepare(file.deletingLastPathComponent())
         try? data.write(to: file, options: .atomic)
     }
-
-    /// The one controller of this launch: made once, so the -UITEST-TRIGGER
-    /// folder is emptied once.
-    static let shared = make()
-
-    /// The app's one controller: PhotoKit, Vision, Apple's geocoder and the
-    /// photo-collections backend -- or, under `-UITEST-TRIGGER`, the
-    /// synthetic library and a scripted backend.
-    private static func make() -> TriggerController {
-        let fakeAI = AppSettings.storeDefaults.bool(forKey: fakeAIKey)
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST-TRIGGER") { return makeSynthetic() }
-        #endif
-        let reader = PhotoLibraryReader()
-        let clock = debugClock(ProcessInfo.processInfo.arguments)
-        return TriggerController(
-            photos: reader, records: PushRecordStore(directory: PushRecordStore.defaultDirectory),
-            dependencies: { flag in
-                var deps = SchedulerDependencies(
-                    library: reader, analyzer: PhotoAnalyzer(photos: reader), places: PlaceNamer(),
-                    client: LiveComposeClient(), notifications: LivePushNotificationCenter(photos: reader),
-                    calendar: { Calendar.autoupdatingCurrent },
-                    fakeAI: { flag.value }, zh: TriggerContent.zh, groupingReport: saveGroupingReport
-                )
-                if let clock { deps.now = clock }
-                return deps
-            },
-            permissions: .live, fakeAI: fakeAI
-        )
-    }
-
-    #if DEBUG
-    /// `-UITEST-TRIGGER`: the synthetic library, a scripted backend and
-    /// notifications that never reach the system.
-    private static func makeSynthetic() -> TriggerController {
-        let arguments = ProcessInfo.processInfo.arguments
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("UITestTrigger", isDirectory: true)
-        if !arguments.contains("-KEEP_SETTINGS") { try? FileManager.default.removeItem(at: folder) }
-        let synthetic = SyntheticTriggerLibrary()
-        let records = PushRecordStore(directory: folder.appendingPathComponent("pushes"))
-        let clock = debugClock(arguments)
-        return TriggerController(
-            photos: synthetic, records: records,
-            dependencies: { flag in
-                var deps = SchedulerDependencies(
-                    library: synthetic, analyzer: synthetic, places: UITestPlaces(), client: UITestComposeClient(),
-                    notifications: UITestNotifier(),
-                    analyses: AnalysisStore(directory: folder.appendingPathComponent("analysis")),
-                    records: records,
-                    ledger: PushLedgerStore(file: folder.appendingPathComponent("ledger.json")),
-                    preferences: PushPreferencesStore(file: folder.appendingPathComponent("preferences.json")),
-                    cache: AIResultCache(file: folder.appendingPathComponent("cache.json")),
-                    log: ScheduleLogStore(file: folder.appendingPathComponent("log.json")),
-                    state: SchedulerStateStore(file: folder.appendingPathComponent("state.json")),
-                    lastRun: LastRunStore(file: folder.appendingPathComponent("last-run.json")),
-                    calendar: { Calendar.autoupdatingCurrent },
-                    fakeAI: { flag.value }, zh: TriggerContent.zh
-                )
-                if let clock { deps.now = clock }
-                return deps
-            },
-            // The real prompts only when a test is about them.
-            permissions: arguments.contains("-TRIGGER-REAL-PERMISSIONS") ? .live : .none,
-            schedulesAutomatically: !arguments.contains("-TRIGGER-NO-SCHEDULE"),
-            fakeAI: arguments.contains("-TRIGGER-FAKE-AI")
-        )
-    }
-    #endif
-
-    /// `-TRIGGER-NOW <ISO8601>` (DEBUG): the scheduler's clock starts at that
-    /// moment and runs on in real time.
-    private static func debugClock(_ arguments: [String]) -> (@Sendable () -> Date)? {
-        #if DEBUG
-        guard let index = arguments.firstIndex(of: "-TRIGGER-NOW"), arguments.indices.contains(index + 1),
-              let base = ISO8601DateFormatter().date(from: arguments[index + 1]) else { return nil }
-        let launched = Date()
-        return { base.addingTimeInterval(Date().timeIntervalSince(launched)) }
-        #else
-        return nil
-        #endif
-    }
-}
-
-/// The first-launch prompts, in order: Photos, then notifications, each only
-/// while the system has not been asked (handoff G5).
-struct TriggerPermissions: Sendable {
-    var photosUndecided: @Sendable () -> Bool
-    var askPhotos: @Sendable () async -> Void
-    var notificationsUndecided: @Sendable () async -> Bool
-    var askNotifications: @Sendable () async -> Void
-
-    func askFirstLaunch() async {
-        if photosUndecided() { await askPhotos() }
-        if await notificationsUndecided() { await askNotifications() }
-    }
-
-    static let live = TriggerPermissions(
-        photosUndecided: { PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined },
-        askPhotos: { _ = await PHPhotoLibrary.requestAuthorization(for: .readWrite) },
-        notificationsUndecided: {
-            await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .notDetermined
-        },
-        askNotifications: {
-            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-        }
-    )
-
-    /// Nothing is asked (UI tests that keep their Home as it was).
-    static let none = TriggerPermissions(
-        photosUndecided: { false }, askPhotos: {}, notificationsUndecided: { false }, askNotifications: {}
-    )
 }
 
 /// One stretch of background time, ended once: when the work is over or
@@ -355,46 +305,5 @@ private final class BackgroundTime {
         guard task != .invalid else { return }
         UIApplication.shared.endBackgroundTask(task)
         task = .invalid
-    }
-}
-
-/// Async work the calling thread waits for, but never longer than a limit.
-enum BoundedWait {
-    /// What a background-time expiry handler gives the scheduler: a quick
-    /// actor hop and two small file writes fit well inside.
-    static let expiryGrace: TimeInterval = 0.5
-
-    /// Starts `work` off the calling thread and blocks for it at most
-    /// `limit` seconds; true when it finished in time. `work` is never
-    /// cancelled: it may finish after this returns.
-    @discardableResult
-    static func run(atMost limit: TimeInterval, _ work: @escaping @Sendable () async -> Void) -> Bool {
-        let done = DispatchSemaphore(value: 0)
-        Task.detached {
-            await work()
-            done.signal()
-        }
-        return done.wait(timeout: .now() + limit) == .success
-    }
-}
-
-/// The switch as the run reads it, off the main actor.
-final class FakeAIFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var stored = false
-    var value: Bool {
-        get { lock.withLock { stored } }
-        set { lock.withLock { stored = newValue } }
-    }
-}
-
-/// The trigger's content words (push, question, button, bucket) are
-/// Chinese whatever the app language (handoff 7.0): read from the built
-/// zh-Hans table, falling back to the key.
-enum TriggerContent {
-    private static let table: Bundle? = Bundle.main.path(forResource: "zh-Hans", ofType: "lproj").flatMap(Bundle.init)
-
-    @Sendable static func zh(_ key: String) -> String {
-        table?.localizedString(forKey: key, value: key, table: "Localizable") ?? key
     }
 }
