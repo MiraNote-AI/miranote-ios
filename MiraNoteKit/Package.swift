@@ -9,6 +9,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "MiraNoteKit"),
-        .testTarget(name: "MiraNoteKitTests", dependencies: ["MiraNoteKit"])
+        .testTarget(
+            name: "MiraNoteKitTests",
+            dependencies: ["MiraNoteKit"],
+            // Read by path (Fixtures.url), not bundled as resources.
+            exclude: ["Fixtures/compose_ok.json"]
+        )
     ]
 )

@@ -3,6 +3,13 @@ import SwiftUI
 
 @main
 struct MiraNoteApp: App {
+    init() {
+        // The photo trigger's push shows as a banner even with the app open.
+        TriggerNotificationPresenter.shared.install()
+        // The detail sentence's Chinese serif is fetched once the install
+        // gates say the trigger can show (TriggerController.resolveGates).
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

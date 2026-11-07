@@ -17,6 +17,8 @@ struct HomeView: View {
     var onOpenStarJar: () -> Void = {}
     var onOpenSettings: () -> Void = {}
     var onOpenProfile: () -> Void = {}
+    /// The photo trigger's debug entry, at the foot of the page; nil hides it.
+    var triggerEntry: TriggerDebugEntry?
 
     @Environment(\.theme) private var theme
     @State private var prompt = ""
@@ -65,6 +67,11 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.trash")
                     .padding(.top, 8)
+                }
+
+                if let triggerEntry {
+                    triggerEntry
+                        .padding(.top, 28)
                 }
             }
             .padding(.horizontal, Metrics.chromeInset)
