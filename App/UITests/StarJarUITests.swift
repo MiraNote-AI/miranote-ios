@@ -52,6 +52,37 @@ final class StarJarUITests: XCTestCase {
         XCTAssertTrue(star.waitForExistence(timeout: 5), "back in the jar")
     }
 
+    private var shakes: Int {
+        // Home's probe stays under the pushed jar: read the jar's own.
+        let probes = app.descendants(matching: .any).matching(identifier: "debug.state").allElementsBoundByIndex
+        for probe in probes {
+            guard let data = probe.label.data(using: .utf8),
+                  let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  state["scene"] as? String == "jar" else { continue }
+            return state["shakes"] as? Int ?? -1
+        }
+        return -1
+    }
+
+    /// A tap on the jar, away from any star, shakes it; a tap on a star
+    /// still opens the page and does not shake.
+    func testATapOnTheJarShakesIt() {
+        openJar()
+        XCTAssertEqual(shakes, 0)
+        app.buttons["jar.period.week"].tap()
+        app.buttons["jar.previous"].tap()
+        app.buttons["jar.previous"].tap()
+        let empty = app.staticTexts["jar.empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 3))
+        empty.tap()
+        let shook = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.shakes == 1 }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [shook], timeout: 3), .completed, "the jar shook once")
+        empty.tap()
+        let again = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.shakes == 2 }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [again], timeout: 3), .completed, "and again")
+        XCTAssertFalse(app.buttons["reading.back"].exists, "no page opened")
+    }
+
     func testWeekMonthAndStepping() {
         openJar()
         let period = app.staticTexts["jar.period"]
