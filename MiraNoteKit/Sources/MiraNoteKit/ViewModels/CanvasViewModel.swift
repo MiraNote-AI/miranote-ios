@@ -540,6 +540,43 @@ extension CanvasViewModel {
 
 }
 
+// MARK: - Full-screen writing
+
+extension CanvasViewModel {
+    /// Full-screen writing's Done: the block being written keeps the first
+    /// paragraph (line) of `text`, and each further one becomes a block in its
+    /// style under it (ParagraphSplit). `height` measures a block at a
+    /// width. Like typing, it records a step only where typing would: the
+    /// session's start is otherwise the one undo step that takes it all
+    /// back. Ends the session; returns the new blocks, top to bottom.
+    @discardableResult
+    public func finishFullScreenWriting(
+        _ text: String, height: (TextBlock, CGFloat) -> CGFloat
+    ) -> [CanvasItem.ID] {
+        guard let id = editingTextItemID, let index = index(of: id),
+              case .text(var block) = memory.items[index].content else { return [] }
+        if sessionNeedsStart || typingNeedsStep { beginChange() }
+        let paragraphs = ParagraphSplit.paragraphs(of: text)
+        let width = memory.items[index].size.width
+        block.text = paragraphs.first ?? ""
+        memory.items[index].content = .text(block)
+        let fitted = max(36, height(block, width))
+        memory.items = TextFit.apply(to: memory.items) { $0.id == id ? fitted : nil }
+        let blocks = paragraphs.dropFirst().enumerated().map { offset, paragraph in
+            var next = block
+            next.text = paragraph
+            return CanvasItem(content: .text(next), position: .zero,
+                              size: CGSize(width: width, height: max(36, height(next, width))),
+                              zIndex: topZ + 1 + offset)
+        }
+        if let anchor = item(id) {
+            memory.items = ParagraphSplit.stack(blocks, under: anchor, in: memory.items, gap: ParagraphSplit.gap)
+        }
+        editingTextItemID = nil
+        return blocks.map(\.id)
+    }
+}
+
 // MARK: - Element operations
 
 extension CanvasViewModel {

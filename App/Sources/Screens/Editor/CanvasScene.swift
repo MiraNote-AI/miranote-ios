@@ -145,6 +145,8 @@ struct CanvasScene: View {
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
+    /// The words on the full-screen writing page while it is open (#184).
+    @State var fullScreenDraft: String?
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState var miraFocus: Bool
 
@@ -465,6 +467,16 @@ struct CanvasScene: View {
             // photo to be opened again.
             if let left, left != now { photoEditors.close(left) }
         }
+        .fullScreenCover(isPresented: Binding(
+            get: { fullScreenDraft != nil },
+            set: { if !$0 { fullScreenDraft = nil } }
+        )) {
+            FullScreenWritingPage(
+                text: Binding(get: { fullScreenDraft ?? "" }, set: { fullScreenDraft = $0 }),
+                onCancel: cancelFullScreenWriting,
+                onDone: finishFullScreenWriting
+            )
+        }
         .sheet(isPresented: $showsCamera) {
             CameraCapture { image in
                 guard let data = image.downscaled(), let id = placer.place(data, name: "Camera photo") else {
@@ -502,7 +514,8 @@ struct CanvasScene: View {
             // Interactive keyboard dismissal clears focus without going
             // through the Done button; keep the editing state in sync. The
             // color sheet lowers the keyboard on purpose and keeps writing.
-            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil {
+            // So does the full-screen page, writing the same block.
+            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil, fullScreenDraft == nil {
                 endTextEditing()
             }
         }
