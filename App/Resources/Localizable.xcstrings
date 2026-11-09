@@ -2440,6 +2440,18 @@
         }
       }
     },
+    "Making the sticker" : {
+      "comment" : "VoiceOver: the progress bar while a sticker is made.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在生成贴纸"
+          }
+        }
+      }
+    },
     "Match page" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
