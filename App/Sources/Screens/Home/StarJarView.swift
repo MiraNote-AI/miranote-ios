@@ -3,8 +3,9 @@ import SwiftUI
 
 /// The star jar (team decision 2026-10-24, no design screen): every saved
 /// page is a star colored by its mood, a week or a month to a jar. Drawn
-/// in the app's own language -- paper, hairlines, quiet type. Its one
-/// motion: pages saved since the jar was last opened drop in.
+/// in the app's own language -- paper, hairlines, quiet type. Its motion:
+/// pages saved since the jar was last opened drop in, and a tap on the
+/// jar (not on a star) shakes it, the stars jostling inside.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
@@ -23,6 +24,8 @@ struct StarJarView: View {
     @State private var arriving: [Memory.ID] = []
     @State private var visited = false
     @State private var viewport: CGFloat = 0
+    /// Taps on the jar so far: each one shakes it.
+    @State private var shakes = 0
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
@@ -63,6 +66,9 @@ struct StarJarView: View {
             .padding(.top, 6)
             .padding(.bottom, 24)
         }
+        #if DEBUG
+        .background(DebugStateProbe { ["scene": "jar", "shakes": shakes] })
+        #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
         .screenBackground()
         .safeAreaInset(edge: .top) { header }
@@ -171,7 +177,8 @@ struct StarJarView: View {
                         rotation: spot.rotation,
                         drop: dropOffset(for: star.id, at: spot.center, geometry: geometry),
                         delay: dropDelay(for: star.id),
-                        reduceMotion: reduceMotion
+                        reduceMotion: reduceMotion,
+                        shakes: shakes
                     ) {
                         onOpenNote(star)
                     }
@@ -198,8 +205,30 @@ struct StarJarView: View {
                 let nearest = zip(stars, pile.spots)
                     .map { (star: $0, distance: hypot($1.center.x - point.x, $1.center.y - point.y)) }
                     .min { $0.distance < $1.distance }
-                if let nearest, nearest.distance <= 17 { onOpenNote(nearest.star) }
+                if let nearest, nearest.distance <= 17 {
+                    onOpenNote(nearest.star)
+                } else {
+                    shakes += 1
+                }
             }
+            // A shake: a few damped swings from the jar's foot (none under
+            // Reduce Motion, where the stars only twinkle).
+            .keyframeAnimator(initialValue: 0.0, trigger: shakes) { content, angle in
+                content.rotationEffect(.degrees(angle), anchor: .bottom)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    if reduceMotion {
+                        LinearKeyframe(0, duration: 0.01)
+                    } else {
+                        SpringKeyframe(-5, duration: 0.09)
+                        SpringKeyframe(4, duration: 0.12)
+                        SpringKeyframe(-2.5, duration: 0.12)
+                        SpringKeyframe(1, duration: 0.12)
+                        SpringKeyframe(0, duration: 0.25)
+                    }
+                }
+            }
+            .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: shakes)
         }
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)
         // As wide as fits, short enough that the count and legend stay on
@@ -296,9 +325,18 @@ private struct StarButton: View {
     let drop: CGSize?
     let delay: Double
     let reduceMotion: Bool
+    /// The jar's shakes: each one jostles the star and makes it twinkle.
+    let shakes: Int
     let action: () -> Void
 
     @State private var landed = false
+
+    /// Which way and how far this star jostles, from its own tilt so
+    /// neighbors move apart rather than as one block.
+    private var jostle: CGSize {
+        let side = sin(rotation * .pi / 37)
+        return CGSize(width: 5 * side, height: -4 - 3 * abs(side))
+    }
 
     var body: some View {
         let waiting = drop != nil && !landed
@@ -312,6 +350,27 @@ private struct StarButton: View {
         .buttonStyle(.plain)
         .offset(waiting && !reduceMotion ? drop ?? .zero : .zero)
         .opacity(waiting ? 0 : 1)
+        .keyframeAnimator(initialValue: CGSize.zero, trigger: shakes) { content, offset in
+            content.offset(offset)
+        } keyframes: { _ in
+            KeyframeTrack {
+                if reduceMotion {
+                    LinearKeyframe(CGSize.zero, duration: 0.01)
+                } else {
+                    SpringKeyframe(CGSize(width: -jostle.width, height: jostle.height), duration: 0.12)
+                    SpringKeyframe(CGSize(width: jostle.width, height: 0), duration: 0.14)
+                    SpringKeyframe(CGSize.zero, duration: 0.3, spring: .bouncy)
+                }
+            }
+        }
+        .keyframeAnimator(initialValue: 0.0, trigger: shakes) { content, glow in
+            content.brightness(glow)
+        } keyframes: { _ in
+            KeyframeTrack {
+                LinearKeyframe(0.22, duration: 0.15)
+                LinearKeyframe(0, duration: 0.45)
+            }
+        }
         .animation(.easeInOut(duration: 0.6), value: star.memory.mood)
         .onAppear {
             guard drop != nil, !landed else { return }
