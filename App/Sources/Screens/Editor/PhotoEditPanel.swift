@@ -519,6 +519,10 @@ private struct PhotoEditStage: View {
             pixels
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: radius))
+        case .soft:
+            pixels
+                .frame(width: size.width, height: size.height)
+                .clipShape(RoundedRectangle(cornerRadius: PhotoFrame.softCorner))
         case .white:
             pixels
                 .frame(width: size.width - 20, height: size.height - 20)

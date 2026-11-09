@@ -38,41 +38,17 @@ struct CanvasElementView: View {
             store: imageStore,
             maxPixels: CanvasImageCache.displayPixels
         ) {
-            framed(ref.frameName) {
-                // Fill THEN pin to the element box and clip: without the
-                // explicit frame, scaledToFill inflates layout to the
-                // photo's long side and paints over neighbors.
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: item.size.width, height: item.size.height)
-                    .clipped()
-            }
+            // Fill THEN pin to the element box and clip: without the
+            // explicit frame, scaledToFill inflates layout to the
+            // photo's long side and paints over neighbors.
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: item.size.width, height: item.size.height)
+                .clipped()
+                .photoFrame(ref.frameName)
         } else {
             GradientPlaceholder(tint: Self.tint(for: ref))
-        }
-    }
-
-    @ViewBuilder private func framed<Content: View>(
-        _ frameName: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        switch PhotoFrame(rawValue: frameName) ?? .none {
-        case .none:
-            content()
-                .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
-        case .white:
-            content()
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .padding(6)
-                .background(RoundedRectangle(cornerRadius: 10).fill(.white))
-                .shadow(color: Palette.ink.opacity(0.10), radius: 5, y: 2)
-        case .polaroid:
-            content()
-                .clipShape(Rectangle())
-                .padding(EdgeInsets(top: 8, leading: 8, bottom: 26, trailing: 8))
-                .background(Rectangle().fill(.white))
-                .shadow(color: Palette.ink.opacity(0.14), radius: 7, y: 3)
         }
     }
 

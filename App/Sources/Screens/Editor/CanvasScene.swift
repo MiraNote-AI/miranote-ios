@@ -109,7 +109,15 @@ struct CanvasScene: View {
     @State private var photoSession: PhotoSession?
     @State private var editingStickerItem: CanvasItem.ID?
     /// The element an edit panel just closed on, scrolled into view.
-    @State private var revealItem: CanvasItem.ID?
+    @State var revealItem: CanvasItem.ID?
+    /// The page before a layout was tried (#183); non-nil while the
+    /// template strip is open.
+    @State var layoutOriginal: [CanvasItem]?
+    @State var layoutPick: PageLayout.Template?
+    /// Where the page stood as the strip opened: Cancel and undo go back
+    /// there, wherever trying a template scrolled it.
+    @State var layoutScroll: CGFloat = 0
+    @State var scrollBack: CGFloat?
     @State var backgroundPanelOpen = false
     /// The Background tool's custom page color sheet, while it is up.
     @State var pageColorEdit: PageColorEdit?
@@ -533,6 +541,8 @@ struct CanvasScene: View {
             soundStore: soundStore,
             textFocus: $textFocus,
             workingItemIDs: mira.workingItemIDs,
+            // Trying layouts: the page is a preview, Cancel and Done decide.
+            locked: layoutOriginal != nil,
             onEditImage: openPhotoEditor,
             onEditSticker: { id in
                 guard !mira.isWorking, !refusedForAIImage() else { return }
@@ -576,6 +586,7 @@ struct CanvasScene: View {
                 endTextEditing()
             } : nil,
             revealItem: $revealItem,
+            scrollBack: $scrollBack,
             dropToDelete: $dropToDelete,
             lift: lift,
             pendingSoundMarker: pendingSoundMarker,
@@ -627,7 +638,7 @@ struct CanvasScene: View {
                 Color.clear.frame(height: 54)
             }
         } else if textModeArming {
-            InputModeBar(active: .text, onSelect: handleTool)
+            toolBar(active: .text)
             MiraBar(
                 coordinator: mira,
                 editor: editor,
@@ -644,10 +655,10 @@ struct CanvasScene: View {
                     .transition(.opacity)
             }
             if editingImageItem != nil, let photoEdit {
-                InputModeBar(active: .image, onSelect: handleTool)
+                toolBar(active: .image)
                 PhotoEditComposer(controller: photoEdit, focus: $photoPromptFocus)
             } else if let imagePhase {
-                InputModeBar(active: .image, onSelect: handleTool)
+                toolBar(active: .image)
                 imageComposer(imagePhase)
             } else if let editingStickerItem {
                 StickerEditPanel(
@@ -664,7 +675,7 @@ struct CanvasScene: View {
             } else if backgroundPanelOpen {
                 // The tool's sheet lies over the canvas; the composer below
                 // asks Mira to paint a backdrop from words (screen 05).
-                InputModeBar(active: .background, onSelect: handleTool)
+                toolBar(active: .background)
                 BackgroundApplyBar(
                     words: $applyWords,
                     focus: $applyFocus,
@@ -672,6 +683,9 @@ struct CanvasScene: View {
                     onApply: applyBackground,
                     onStop: { mira.stop() }
                 )
+            } else if layoutOriginal != nil {
+                toolBar(active: .layout)
+                layoutStrip
             } else {
                 recorderCluster
             }
@@ -688,7 +702,7 @@ struct CanvasScene: View {
                     .padding(.horizontal, Metrics.chromeInset)
             }
             // Voice stays lit while its take's result sheet shows (09).
-            InputModeBar(active: attachedSound == nil ? nil : .voice, onSelect: handleTool)
+            toolBar(active: attachedSound == nil ? nil : .voice)
             // The card and the bar are one conversational dock.
             VStack(spacing: 6) {
                 MiraCard(
@@ -709,10 +723,10 @@ struct CanvasScene: View {
                 )
             }
         case .armed:
-            InputModeBar(active: .voice, onSelect: handleTool)
+            toolBar(active: .voice)
             armedBar
         case .recording(let start):
-            InputModeBar(active: .voice, onSelect: handleTool)
+            toolBar(active: .voice)
             if let recorder {
                 recordingBar(since: start, recorder: recorder)
             }
@@ -751,6 +765,11 @@ struct CanvasScene: View {
 
     private func handleTool(_ mode: EditorMode) {
         guard !refusedForAIImage() else { return }
+        // Trying layouts: Layout again, or any other tool, ends it as Cancel.
+        if layoutOriginal != nil {
+            cancelLayout()
+            if mode == .layout { return }
+        }
         // Any tool tap closes the edit panels first -- one owner of
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
@@ -804,7 +823,20 @@ struct CanvasScene: View {
         case .sticker:
             cancelRecording()
             actions.selectMode(.sticker)
+        case .layout:
+            if let layoutBlocked {
+                flashHint(layoutBlocked)
+                return
+            }
+            cancelRecording()
+            openLayout()
         }
+    }
+
+    /// The tool bar with the canvas's Layout state: dimmed, a tap says why.
+    private func toolBar(active: EditorMode?) -> InputModeBar {
+        InputModeBar(active: active, layoutEnabled: canLayout, layoutHint: layoutBlocked,
+                     onDimmedLayout: { if let layoutBlocked { flashHint(layoutBlocked) } }, onSelect: handleTool)
     }
 
     /// A tool open in place over the canvas (Background, photo or sticker
@@ -874,6 +906,9 @@ struct CanvasScene: View {
     /// Cancel / Add (24-29), any other open tool Canvas / Save (05, 23), the
     /// bare canvas Home / Save.
     private var header: Header {
+        if layoutOriginal != nil {
+            return Header(leading: "Cancel", trailing: "Done", onLeading: cancelLayout, onTrailing: keepLayout)
+        }
         if writing {
             return Header(leading: "Cancel", trailing: "Done",
                           onLeading: cancelTextEditing, onTrailing: endTextEditing)
@@ -922,6 +957,8 @@ struct CanvasScene: View {
     /// sticker panel's visit records no step while it is open (its edit
     /// lands as it closes), so there it has none to take back.
     private var headerUndo: () -> Void {
+        // Trying layouts: undo goes back to the page before any of them.
+        if layoutOriginal != nil { return undoLayoutTry }
         if writing { return undoFromHeader }
         if editingImageItem != nil { return { photoEdit?.undo() } }
         if editingStickerItem != nil { return {} }
@@ -929,6 +966,7 @@ struct CanvasScene: View {
     }
 
     private var headerUndoEnabled: Bool {
+        if let layoutOriginal { return !PageLayout.sameArrangement(editor.memory.items, layoutOriginal) }
         if writing { return editor.canUndo }
         if editingImageItem != nil { return photoEdit?.canUndo == true }
         return editingStickerItem == nil && editor.canUndo
