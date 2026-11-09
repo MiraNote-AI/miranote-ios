@@ -280,13 +280,17 @@ struct StickerPanelScene: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
+                // A notice (a time-out, an error) takes the hint's line
+                // while it shows, rather than a second grey line under it.
                 if generating || !drafts.isEmpty {
-                    Text("Generate makes a new one; close the keyboard to see this one.")
-                        .font(.miraLabel)
-                        .foregroundStyle(Palette.textSecondary)
+                    if notice == nil {
+                        Text("Generate makes a new one; close the keyboard to see this one.")
+                            .font(.miraLabel)
+                            .foregroundStyle(Palette.textSecondary)
+                    }
                 } else if let photo = selectedPhoto {
                     photoShortcut(photo)
-                } else {
+                } else if notice == nil {
                     Text("Describe a sticker below -- Mira makes a couple to pick from.")
                         .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)

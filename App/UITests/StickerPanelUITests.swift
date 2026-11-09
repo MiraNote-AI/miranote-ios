@@ -93,6 +93,8 @@ final class StickerPanelUITests: XCTestCase {
         let notice = any("sticker.notice")
         XCTAssertTrue(notice.waitForExistence(timeout: 5), "the time limit gives up")
         XCTAssertEqual(notice.label, "Making this sticker is taking too long. Try again?")
+        XCTAssertFalse(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists,
+                       "the notice takes the hint's line")
         XCTAssertFalse(any("sticker.generating").exists, "the spinner stopped")
         XCTAssertTrue(app.buttons["sticker.generate.run"].isEnabled, "Make can be tapped again")
 
