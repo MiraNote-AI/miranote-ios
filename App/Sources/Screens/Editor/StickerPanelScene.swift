@@ -365,8 +365,11 @@ struct StickerPanelScene: View {
     /// The made sticker, large (232 at most); several page sideways.
     @ViewBuilder private var preview: some View {
         if generating {
-            DotRingSpinner()
-                .accessibilityIdentifier("sticker.generating")
+            VStack(spacing: 22) {
+                DotRingSpinner()
+                    .accessibilityIdentifier("sticker.generating")
+                GeneratingProgress()
+            }
         } else if drafts.count == 1 {
             draftImage(drafts[0], index: 0)
         } else {

@@ -24,6 +24,11 @@ final class StickerPanelUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
+    /// The progress bar's "37 percent" as 37.
+    private func percent(_ bar: XCUIElement) -> Int {
+        Int((bar.value as? String ?? "").prefix { $0.isNumber }) ?? -1
+    }
+
     private var stickers: XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: "element.sticker")
     }
@@ -101,7 +106,16 @@ final class StickerPanelUITests: XCTestCase {
         generate("a cup, slowly")
         XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3), "the generating spinner shows")
         XCTAssertFalse(app.buttons["sticker.style.outline"].isEnabled, "styles wait for a sticker")
+        // #185: a bar under the spinner moves on while the sticker is made.
+        let progress = any("sticker.progress")
+        XCTAssertTrue(progress.exists, "the progress bar shows with the spinner")
+        let early = percent(progress)
+        sleep(3)
+        let later = percent(progress)
+        XCTAssertGreaterThan(later, early, "the bar moves on")
+        XCTAssertLessThan(later, 95, "never full while still waiting")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 12))
+        XCTAssertFalse(progress.exists, "the bar goes when the sticker lands")
         XCTAssertTrue(app.buttons["sticker.style.outline"].isEnabled)
     }
 
