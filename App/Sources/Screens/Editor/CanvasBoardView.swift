@@ -693,12 +693,19 @@ extension CanvasBoardView {
     /// simplification -- scrapbook tilts stay small).
     private func handles(for item: CanvasItem, size: CGSize) -> some View {
         let line = Color(hex: 0x263521)
-        var photoBorder = false
-        if case .image(let ref) = item.content { photoBorder = ref.frameName.isEmpty }
-        let outset: CGFloat = photoBorder ? 0 : 6
+        // A matless photo (plain or soft) wears the border along its edge.
+        var photoBorder: CGFloat?
+        if case .image(let ref) = item.content {
+            switch PhotoFrame(rawValue: ref.frameName) ?? .none {
+            case .none: photoBorder = Metrics.imageCorner
+            case .soft: photoBorder = PhotoFrame.softCorner
+            case .white, .polaroid: break
+            }
+        }
+        let outset: CGFloat = photoBorder == nil ? 6 : 0
         return ZStack {
-            if photoBorder {
-                RoundedRectangle(cornerRadius: Metrics.imageCorner)
+            if let photoBorder {
+                RoundedRectangle(cornerRadius: photoBorder)
                     .strokeBorder(Palette.ink, lineWidth: 3)
                     .allowsHitTesting(false)
             } else {
