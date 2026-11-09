@@ -130,14 +130,14 @@ struct EditorFlowView: View {
         )
     }
 
-    /// Background, Voice, Text and Image always act on the canvas; from the
-    /// Sticker panel they carry over as a pending tool the canvas consumes
-    /// on arrival.
+    /// Background, Layout, Voice, Text and Image always act on the canvas;
+    /// from the Sticker panel they carry over as a pending tool the canvas
+    /// consumes on arrival.
     private func select(mode: EditorMode) {
         switch mode {
         case .sticker:
             navigate(.sticker)
-        case .background, .voice, .text, .image:
+        case .background, .layout, .voice, .text, .image:
             pendingTool = mode
             navigate(.canvas)
         }

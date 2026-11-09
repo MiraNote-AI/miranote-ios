@@ -52,7 +52,7 @@ struct StickerEditPanel: View {
         }
         .disabled(editing)
         .padding(.horizontal, Metrics.chromeInset)
-        InputModeBar(active: .sticker, onSelect: onSelectTool)
+        InputModeBar(active: .sticker, layoutEnabled: editor.items.count >= 2, onSelect: onSelectTool)
         ToolComposer(
             placeholder: "Tell Mira what to change",
             text: $instruction,

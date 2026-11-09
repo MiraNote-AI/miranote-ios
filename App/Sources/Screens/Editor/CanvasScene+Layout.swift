@@ -4,29 +4,9 @@ import SwiftUI
 // MARK: - One-tap layout (#183)
 
 extension CanvasScene {
-    /// Offered on a bare canvas with something to arrange. A temporary
-    /// entry over the tool bar until the editor menus settle (#180).
-    var offersLayout: Bool {
-        editor.memory.items.count >= 2 && editor.selectedItemID == nil && !mira.isWorking
-    }
-
-    var layoutEntry: some View {
-        HStack {
-            Spacer()
-            Button(action: openLayout) {
-                Label("Layout", systemImage: "square.grid.2x2")
-                    .font(.miraLabel)
-                    .foregroundStyle(Palette.ink)
-                    .padding(.horizontal, 14)
-                    .frame(height: 32)
-                    .background(Capsule().fill(Palette.toolSurface))
-                    .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .minimumHitTarget()
-            .accessibilityIdentifier("layout.open")
-        }
-        .padding(.horizontal, Metrics.toolBarInset)
+    /// The tool bar's Layout: something to arrange takes two elements.
+    var canLayout: Bool {
+        editor.memory.items.count >= 2
     }
 
     func openLayout() {

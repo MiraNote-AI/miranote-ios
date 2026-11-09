@@ -69,18 +69,14 @@ final class CanvasLayoutUITests: XCTestCase {
     }
 
     private func openLayout() {
-        // Offered with nothing selected: a tap on bare paper lets go of the
-        // title (again if the first tap lands while the page still settles).
-        let entry = app.buttons["layout.open"]
-        for _ in 0..<3 where !entry.exists {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.42)).tap()
-            _ = entry.waitForExistence(timeout: 3)
-        }
-        XCTAssertTrue(entry.exists, "the layout entry shows on a bare canvas")
+        let entry = app.buttons["mode.layout"]
+        XCTAssertTrue(entry.isEnabled, "two elements or more: Layout can be tapped")
         entry.tap()
         XCTAssertTrue(app.buttons["layout.template.grid"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
         XCTAssertEqual(app.buttons["nav.trailing"].label, "Done")
+        XCTAssertTrue(entry.isSelected, "the tool bar stays, Layout lit")
+        XCTAssertTrue(app.buttons["mode.text"].exists)
     }
 
     func testDoneKeepsTheLayoutAsOneUndoStep() {
@@ -117,6 +113,42 @@ final class CanvasLayoutUITests: XCTestCase {
         settle()
         XCTAssertEqual(photoFrames, before)
         XCTAssertTrue(app.buttons["mode.text"].exists)
+    }
+
+    func testLayoutIsDimmedWithFewerThanTwoElements() {
+        app.terminate()
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        let entry = app.buttons["mode.layout"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        XCTAssertFalse(entry.isEnabled, "a blank page has nothing to arrange")
+        app.buttons["mode.text"].tap()
+        let field = any("canvas.textEditor")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Only words")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        XCTAssertFalse(entry.isEnabled, "one element: still nothing to arrange")
+    }
+
+    func testLayoutAgainOrAnotherToolPutsThePageBack() {
+        let before = photoFrames
+        openLayout()
+        app.buttons["layout.template.collage"].tap()
+        settle()
+        app.buttons["mode.layout"].tap()
+        settle()
+        XCTAssertFalse(app.buttons["layout.template.grid"].exists, "Layout again closes the strip")
+        XCTAssertFalse(app.buttons["mode.layout"].isSelected)
+        XCTAssertEqual(photoFrames, before, "as Cancel")
+
+        openLayout()
+        app.buttons["layout.template.hero"].tap()
+        settle()
+        app.buttons["mode.voice"].tap()
+        settle()
+        XCTAssertFalse(app.buttons["layout.template.grid"].exists, "another tool closes it")
+        XCTAssertEqual(photoFrames, before, "as Cancel")
     }
 
     func testUndoWhileTryingGoesBackToThePageBefore() {

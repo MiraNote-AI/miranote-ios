@@ -618,7 +618,7 @@ struct CanvasScene: View {
                 Color.clear.frame(height: 54)
             }
         } else if textModeArming {
-            InputModeBar(active: .text, onSelect: handleTool)
+            toolBar(active: .text)
             MiraBar(
                 coordinator: mira,
                 editor: editor,
@@ -635,10 +635,10 @@ struct CanvasScene: View {
                     .transition(.opacity)
             }
             if editingImageItem != nil, let photoEdit {
-                InputModeBar(active: .image, onSelect: handleTool)
+                toolBar(active: .image)
                 PhotoEditComposer(controller: photoEdit, focus: $photoPromptFocus)
             } else if let imagePhase {
-                InputModeBar(active: .image, onSelect: handleTool)
+                toolBar(active: .image)
                 imageComposer(imagePhase)
             } else if let editingStickerItem {
                 StickerEditPanel(
@@ -655,7 +655,7 @@ struct CanvasScene: View {
             } else if backgroundPanelOpen {
                 // The tool's sheet lies over the canvas; the composer below
                 // asks Mira to paint a backdrop from words (screen 05).
-                InputModeBar(active: .background, onSelect: handleTool)
+                toolBar(active: .background)
                 BackgroundApplyBar(
                     words: $applyWords,
                     focus: $applyFocus,
@@ -664,6 +664,7 @@ struct CanvasScene: View {
                     onStop: { mira.stop() }
                 )
             } else if layoutOriginal != nil {
+                toolBar(active: .layout)
                 layoutStrip
             } else {
                 recorderCluster
@@ -680,9 +681,8 @@ struct CanvasScene: View {
                     .foregroundStyle(Palette.textSecondary)
                     .padding(.horizontal, Metrics.chromeInset)
             }
-            if offersLayout && attachedSound == nil { layoutEntry }
             // Voice stays lit while its take's result sheet shows (09).
-            InputModeBar(active: attachedSound == nil ? nil : .voice, onSelect: handleTool)
+            toolBar(active: attachedSound == nil ? nil : .voice)
             // The card and the bar are one conversational dock.
             VStack(spacing: 6) {
                 MiraCard(
@@ -703,10 +703,10 @@ struct CanvasScene: View {
                 )
             }
         case .armed:
-            InputModeBar(active: .voice, onSelect: handleTool)
+            toolBar(active: .voice)
             armedBar
         case .recording(let start):
-            InputModeBar(active: .voice, onSelect: handleTool)
+            toolBar(active: .voice)
             if let recorder {
                 recordingBar(since: start, recorder: recorder)
             }
@@ -745,6 +745,11 @@ struct CanvasScene: View {
 
     private func handleTool(_ mode: EditorMode) {
         guard !refusedForAIImage() else { return }
+        // Trying layouts: Layout again, or any other tool, ends it as Cancel.
+        if layoutOriginal != nil {
+            cancelLayout()
+            if mode == .layout { return }
+        }
         // Any tool tap closes the edit panels first -- one owner of
         // the bottom cluster at a time. Background toggles its own panel.
         editingImageItem = nil
@@ -798,7 +803,18 @@ struct CanvasScene: View {
         case .sticker:
             cancelRecording()
             actions.selectMode(.sticker)
+        case .layout:
+            // Same guards as Background.
+            guard canLayout, !mira.isWorking else { return }
+            if case .recording = recorderState { return }
+            cancelRecording()
+            openLayout()
         }
+    }
+
+    /// The tool bar with the canvas's Layout state.
+    private func toolBar(active: EditorMode?) -> InputModeBar {
+        InputModeBar(active: active, layoutEnabled: canLayout, onSelect: handleTool)
     }
 
     /// A tool open in place over the canvas (Background, photo or sticker

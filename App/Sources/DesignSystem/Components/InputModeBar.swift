@@ -6,6 +6,9 @@ import SwiftUI
 /// the accessibility label, not on screen.
 struct InputModeBar: View {
     var active: EditorMode?
+    /// Layout (#183) arranges what is on the page: dimmed with fewer than
+    /// two elements.
+    var layoutEnabled = true
     var onSelect: (EditorMode) -> Void = { _ in }
 
     var body: some View {
@@ -17,6 +20,8 @@ struct InputModeBar: View {
                     item(mode)
                 }
                 .buttonStyle(.plain)
+                .disabled(mode == .layout && !layoutEnabled)
+                .opacity(mode == .layout && !layoutEnabled ? 0.4 : 1)
                 .accessibilityLabel(mode.title)
                 .accessibilityIdentifier("mode.\(mode.rawValue)")
                 .accessibilityAddTraits(mode == active ? .isSelected : [])
