@@ -1461,17 +1461,6 @@
         }
       }
     },
-    "Describe cutout target" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "描述要抠出的对象"
-          }
-        }
-      }
-    },
     "Discard recording" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2628,6 +2617,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称"
+          }
+        }
+      }
+    },
+    "Name a subject, or just tap Edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写要抠的对象，或直接点编辑"
           }
         }
       }
