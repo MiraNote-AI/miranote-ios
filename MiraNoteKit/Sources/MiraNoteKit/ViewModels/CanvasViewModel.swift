@@ -540,6 +540,41 @@ extension CanvasViewModel {
 
 }
 
+// MARK: - Paragraph split
+
+extension CanvasViewModel {
+    /// A text block whose writing just ended, if its words hold more than
+    /// one paragraph -- blank lines between them (#184): it keeps the first,
+    /// and each further one becomes a block in its style under it
+    /// (ParagraphSplit), as one undo step of its own -- one undo gives back
+    /// the single block. A single line break stays inside its paragraph.
+    /// `height` measures a block at a width. Returns the new blocks, top to
+    /// bottom.
+    @discardableResult
+    public func splitParagraphs(of id: CanvasItem.ID, height: (TextBlock, CGFloat) -> CGFloat) -> [CanvasItem.ID] {
+        guard let index = index(of: id), case .text(var block) = memory.items[index].content else { return [] }
+        let paragraphs = ParagraphSplit.paragraphs(of: block.text, everyLine: false)
+        guard paragraphs.count > 1, let first = paragraphs.first else { return [] }
+        beginChange()
+        let width = memory.items[index].size.width
+        block.text = first
+        memory.items[index].content = .text(block)
+        let fitted = max(36, height(block, width))
+        memory.items = TextFit.apply(to: memory.items) { $0.id == id ? fitted : nil }
+        let blocks = paragraphs.dropFirst().enumerated().map { offset, paragraph in
+            var next = block
+            next.text = paragraph
+            return CanvasItem(content: .text(next), position: .zero,
+                              size: CGSize(width: width, height: max(36, height(next, width))),
+                              zIndex: topZ + 1 + offset)
+        }
+        if let anchor = item(id) {
+            memory.items = ParagraphSplit.stack(blocks, under: anchor, in: memory.items, gap: ParagraphSplit.gap)
+        }
+        return blocks.map(\.id)
+    }
+}
+
 // MARK: - Element operations
 
 extension CanvasViewModel {
