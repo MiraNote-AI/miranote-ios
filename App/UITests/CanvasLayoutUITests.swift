@@ -52,6 +52,18 @@ final class CanvasLayoutUITests: XCTestCase {
         photos.allElementsBoundByIndex.map(\.frame).sorted { ($0.minY, $0.minX) < ($1.minY, $1.minX) }
     }
 
+    /// The photos as placed on the page, wherever it is scrolled: measured
+    /// from the title block, to a tenth of a point (the subtraction leaves
+    /// float noise).
+    private var photoPlaces: [CGRect] {
+        let title = app.staticTexts["A day by the sea"].firstMatch.frame
+        let tenth = { (value: CGFloat) in (value * 10).rounded() / 10 }
+        return photoFrames.map {
+            CGRect(x: tenth($0.minX - title.minX), y: tenth($0.minY - title.minY),
+                   width: tenth($0.width), height: tenth($0.height))
+        }
+    }
+
     private func settle() {
         _ = XCTWaiter().wait(for: [XCTestExpectation()], timeout: 0.8)
     }
@@ -72,7 +84,7 @@ final class CanvasLayoutUITests: XCTestCase {
     }
 
     func testDoneKeepsTheLayoutAsOneUndoStep() {
-        let before = photoFrames
+        let before = photoPlaces
         openLayout()
         app.buttons["layout.template.collage"].tap()
         app.buttons["layout.template.grid"].tap()
@@ -88,9 +100,11 @@ final class CanvasLayoutUITests: XCTestCase {
         settle()
         XCTAssertEqual(photoFrames, grid, "Done keeps the page as tried")
 
+        // Done leaves the page where the layout showed it (its top), so
+        // the undone page is compared as placed, not as scrolled.
         app.buttons["editor.undo"].tap()
         settle()
-        XCTAssertEqual(photoFrames, before, "one undo puts the page back")
+        XCTAssertEqual(photoPlaces, before, "one undo puts the page back")
     }
 
     func testCancelPutsThePageBack() {

@@ -39,6 +39,9 @@ struct CanvasBoardView: View {
     /// Set when an edit panel closes: the edited element scrolls into view
     /// once the panel has given its room back, then this clears.
     var revealItem: Binding<CanvasItem.ID?> = .constant(nil)
+    /// Set to a page offset (page points from the top): the page scrolls
+    /// back there, then this clears.
+    var scrollBack: Binding<CGFloat?> = .constant(nil)
     /// Where an in-flight move stands against the delete zone; nil when
     /// nothing is being moved.
     @Binding var dropToDelete: DropToDelete?
@@ -182,6 +185,20 @@ struct CanvasBoardView: View {
                         proxy.scrollTo(Self.revealAnchorID, anchor: .center)
                     }
                     revealItem.wrappedValue = nil
+                }
+            }
+            .onChange(of: scrollBack.wrappedValue) { _, offset in
+                guard let offset else { return }
+                restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: offset)
+                Task { @MainActor in
+                    // The twin lands first, then the page scrolls to it.
+                    try? await Task.sleep(for: .milliseconds(20))
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
+                    }
+                    try? await Task.sleep(for: .milliseconds(300))
+                    restoreAnchor = nil
+                    scrollBack.wrappedValue = nil
                 }
             }
         }

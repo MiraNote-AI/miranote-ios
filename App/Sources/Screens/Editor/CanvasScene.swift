@@ -109,6 +109,10 @@ struct CanvasScene: View {
     /// template strip is open.
     @State var layoutOriginal: [CanvasItem]?
     @State var layoutPick: PageLayout.Template?
+    /// Where the page stood as the strip opened: Cancel and undo go back
+    /// there, wherever trying a template scrolled it.
+    @State var layoutScroll: CGFloat = 0
+    @State var scrollBack: CGFloat?
     @State var backgroundPanelOpen = false
     /// The Background tool's custom page color sheet, while it is up.
     @State var pageColorEdit: PageColorEdit?
@@ -562,6 +566,7 @@ struct CanvasScene: View {
                 endTextEditing()
             } : nil,
             revealItem: $revealItem,
+            scrollBack: $scrollBack,
             dropToDelete: $dropToDelete,
             lift: lift,
             pendingSoundMarker: pendingSoundMarker,

@@ -33,6 +33,7 @@ extension CanvasScene {
         editor.select(nil)
         layoutPick = nil
         layoutOriginal = editor.memory.items
+        layoutScroll = scrollMemory.offset
     }
 
     /// The page as `template` lays it out, shown at once; nothing is kept
@@ -53,6 +54,7 @@ extension CanvasScene {
         guard let original = layoutOriginal else { return }
         withAnimation(.spring(duration: 0.35)) { editor.previewLayout(original) }
         layoutPick = nil
+        scrollBack = layoutScroll
     }
 
     func cancelLayout() {
@@ -60,6 +62,7 @@ extension CanvasScene {
         withAnimation(.spring(duration: 0.35)) { editor.previewLayout(original) }
         layoutOriginal = nil
         layoutPick = nil
+        scrollBack = layoutScroll
     }
 
     /// Keeps the layout tried last: one undo step back to the page before.
