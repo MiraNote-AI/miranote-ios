@@ -101,7 +101,8 @@ final class MiraImageTurnTests: XCTestCase {
         guard case .sticker(let sticker) = editor.item(id)!.content else {
             return XCTFail("expected a sticker in place")
         }
-        XCTAssertEqual(store.data(forFileName: sticker.fileName), Data("outlined".utf8))
+        // the cut alone: stickers carry no edge until Outline adds one
+        XCTAssertEqual(store.data(forFileName: sticker.fileName), Data("cut".utf8))
         XCTAssertTrue(favorites.all().isEmpty, "saving is the user's call, not a side effect")
     }
 

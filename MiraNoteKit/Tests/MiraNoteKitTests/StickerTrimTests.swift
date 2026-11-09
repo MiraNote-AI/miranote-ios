@@ -79,6 +79,28 @@ final class StickerTrimTests: XCTestCase {
         XCTAssertEqual(StickerTrim.croppedToOpaqueBounds(data, alphaFloor: 0), data,
                        "the floor is what separates a wash from a subject")
     }
+
+    /// Outline's edge grows the frame instead of shrinking the art (#156
+    /// review): what showed keeps its size, and its place even off-centre (a
+    /// preset keeps a margin).
+    func testAGrownStickerKeepsItsArtsSizeAndPlace() throws {
+        // A 100 px image in a 200 pt frame, 2 pt a px; its 40 x 20 px art at
+        // (10, 30) is centred 20 px left of and 10 px above the middle.
+        let image = try png(canvas: 100, subject: (x: 10, y: 30, width: 40, height: 20))
+        let grown = try png(canvas: 48, subject: (x: 0, y: 0, width: 48, height: 48))
+        let regrowth = try XCTUnwrap(
+            StickerTrim.regrowth(from: image, to: grown, in: CGSize(width: 200, height: 200)))
+        XCTAssertEqual(regrowth.size, CGSize(width: 96, height: 96), "still 2 pt a px")
+        XCTAssertEqual(regrowth.centerShift, CGVector(dx: -40, dy: -20), "centred where the art was")
+    }
+
+    func testAGrowthThatCannotBeReadIsNil() throws {
+        XCTAssertNil(StickerTrim.regrowth(from: Data("not a png".utf8), to: Data("nor this".utf8),
+                                          in: CGSize(width: 10, height: 10)))
+        let clear = try png(canvas: 20, subject: nil)
+        XCTAssertNil(StickerTrim.regrowth(from: clear, to: clear, in: CGSize(width: 10, height: 10)),
+                     "nothing showed, so nothing to keep in place")
+    }
 }
 
 // MARK: - fixtures

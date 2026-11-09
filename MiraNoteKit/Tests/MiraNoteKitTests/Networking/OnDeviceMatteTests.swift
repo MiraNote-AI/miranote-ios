@@ -225,3 +225,32 @@ final class VisionForegroundMatteTests: XCTestCase {
         }
     }
 }
+
+/// Warming Vision when the Sticker panel opens (review on #136): the service
+/// passes the call to its matte, and Vision's own warm-up runs once a launch.
+final class MatteWarmUpTests: XCTestCase {
+    private final class CountingMatte: ForegroundMatte, @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+        var warmUps: Int { lock.withLock { count } }
+        func removeBackground(_ image: Data) throws -> Data { image }
+        func warmUp() { lock.withLock { count += 1 } }
+    }
+
+    func testPrepareWarmsTheMatte() {
+        let matte = CountingMatte()
+        let service = LiveImageStudioService(baseURL: URL(string: "http://localhost:8002")!, matte: matte)
+        service.prepare()
+        XCTAssertEqual(matte.warmUps, 1)
+    }
+
+    func testPrepareWithoutAMatteDoesNothing() {
+        LiveImageStudioService(baseURL: URL(string: "http://localhost:8002")!).prepare()
+        MockImageStudioService().prepare()
+    }
+
+    func testVisionWarmsUpOnceAPerLaunch() {
+        _ = VisionForegroundMatte.claimWarmUp()
+        XCTAssertFalse(VisionForegroundMatte.claimWarmUp(), "every later open finds it warm")
+    }
+}
