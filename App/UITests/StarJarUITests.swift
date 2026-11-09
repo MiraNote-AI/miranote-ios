@@ -81,6 +81,25 @@ final class StarJarUITests: XCTestCase {
         XCTAssertEqual(jar.value as? String, "1", "and only once")
     }
 
+    /// #160 with draft pages (#137): Home keeps a written page as a draft,
+    /// which is not saved, so no star flies.
+    func testADraftKeptByHomeSendsNoStar() {
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("A happy picnic")
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Home"].tap()
+        let toast = app.descendants(matching: .any).matching(identifier: "draft.toast").firstMatch
+        XCTAssertTrue(toast.waitForExistence(timeout: 5), "the page was kept as a draft")
+        sleep(3)
+        XCTAssertEqual(jar.value as? String, "0", "a draft sends no star")
+    }
+
     func testWeekMonthAndStepping() {
         openJar()
         let period = app.staticTexts["jar.period"]
