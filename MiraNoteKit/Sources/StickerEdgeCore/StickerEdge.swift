@@ -4,6 +4,10 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
+// Pixel code: w/h, x/y, i (index), p (parameters), a (alpha), r/g/b read
+// as the maths they are; longer names would hide the formulas.
+// swiftlint:disable identifier_name
+
 /// A generated sticker cut out without the model's white die-cut edge.
 ///
 /// The image model draws the art on a flat backdrop that shows through its
@@ -153,6 +157,13 @@ public enum StickerEdge {
         public var unmixMin = 40.0
         /// Anti-aliasing of the art's edge.
         public var antialiasSigma: Float = 0.8
+        /// The Outline tool's white edge: this share of the sticker's longer
+        /// side (team decision 2026-10-28), never under `outlineMin` px. The
+        /// floor only keeps a tiny sticker from getting no edge at all: a
+        /// preset's art is ~54 px and draws scaled up, so a larger floor
+        /// made its edge several times the 4% (#156 review).
+        public var outlineFraction = 0.04
+        public var outlineMin = 1
         /// Largest image cut (px): the model draws 1024 x 1024; 2048 x 2048
         /// would already use ~200 MB.
         public var maxPixels = 2048 * 2048
@@ -620,6 +631,91 @@ public enum StickerEdge {
         return out
     }
 
+    // MARK: - Outline
+
+    /// What `outline` drew: the edge's width, and how far the result reaches
+    /// left of the sticker's solid part (the edge plus any faint px).
+    public struct OutlineReport: Sendable, Equatable {
+        public var width: Int
+        public var padding: Int
+    }
+
+    /// A white edge round a sticker that is already cut out -- the Outline
+    /// tool, on a generated sticker, a photo cut-out or a draft alike. Every
+    /// transparent edge gets it, a hole's too, so a donut keeps an empty middle
+    /// ringed in white; a gap narrower than two widths fills. A sticker that
+    /// already has a white edge gets a second one round it. The sticker keeps
+    /// its own colours and soft edge; the result is cropped to it, as the
+    /// server's /border was, which this replaces.
+    public static func outline(lifted: Data, parameters: Parameters = Parameters()) throws -> Data {
+        guard let cut = Bitmap(data: lifted) else { throw Failure.undecodable }
+        guard let png = try outline(cut, parameters).0.png() else { throw Failure.unencodable }
+        return png
+    }
+
+    static func outline(_ cut: Bitmap, _ p: Parameters) throws -> (Bitmap, OutlineReport) {
+        let w = cut.width, h = cut.height
+        // the solid sticker (sizes the edge) and everything visible (kept)
+        var minX = w, maxX = -1, minY = h, maxY = -1
+        var vx0 = w, vx1 = -1, vy0 = h, vy1 = -1
+        for y in 0..<h { for x in 0..<w {
+            let a = cut.pixels[(y * w + x) * 4 + 3]
+            guard a > 0 else { continue }
+            vx0 = min(vx0, x); vx1 = max(vx1, x); vy0 = min(vy0, y); vy1 = max(vy1, y)
+            guard a > 127 else { continue }
+            minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+        } }
+        guard maxX >= 0 else { throw Failure.nothingLifted }
+        let side = Double(max(maxX - minX, maxY - minY) + 1)
+        let width = max(p.outlineMin, Int((p.outlineFraction * side).rounded()))
+        let pad = width + 2
+
+        // Work on the sticker's bounds plus the edge, not the whole canvas: a
+        // cut-out is mostly transparent and every pass below is per pixel.
+        let ox = vx0 - pad, oy = vy0 - pad
+        let cw = vx1 - vx0 + 1 + 2 * pad, ch = vy1 - vy0 + 1 + 2 * pad
+        var mask = [Bool](repeating: false, count: cw * ch)
+        for y in 0..<ch {
+            let sy = y + oy
+            guard sy >= 0, sy < h else { continue }
+            for x in 0..<cw {
+                let sx = x + ox
+                if sx >= 0, sx < w, cut.pixels[(sy * w + sx) * 4 + 3] > 127 { mask[y * cw + x] = true }
+            }
+        }
+        // The edge is every px within `width` of the sticker, anti-aliased over
+        // one px from the distance itself. (A Gaussian-smoothed edge looked a
+        // touch softer but closed holes up to 3.4 widths across, not 2.)
+        let toSticker = distance(to: mask, cw, ch)
+
+        var out = Bitmap(width: cw, height: ch)
+        var cx0 = cw, cx1 = -1, cy0 = ch, cy1 = -1
+        for y in 0..<ch { for x in 0..<cw {
+            let i = y * cw + x, sx = x + ox, sy = y + oy
+            var a = 0.0
+            var colour = (255.0, 255.0, 255.0)
+            if sx >= 0, sx < w, sy >= 0, sy < h {
+                let s = (sy * w + sx) * 4
+                a = Double(cut.pixels[s + 3]) / 255
+                colour = (Double(cut.pixels[s]), Double(cut.pixels[s + 1]), Double(cut.pixels[s + 2]))
+            }
+            let e = mask[i] ? 1 : Double(min(1, max(0, Float(width) + 0.5 - toSticker[i])))
+            // the sticker over the white edge ("over"; where there is no edge
+            // a faint px keeps its own colour)
+            let outA = a + e * (1 - a)
+            guard outA > 0 else { continue }
+            for k in 0..<3 {
+                let c = [colour.0, colour.1, colour.2][k]
+                out.pixels[i * 4 + k] = UInt8(min(255, (c * a + 255 * e * (1 - a)) / outA).rounded())
+            }
+            out.pixels[i * 4 + 3] = UInt8((outA * 255).rounded())
+            guard out.pixels[i * 4 + 3] > 0 else { continue }
+            cx0 = min(cx0, x); cx1 = max(cx1, x); cy0 = min(cy0, y); cy1 = max(cy1, y)
+        } }
+        // cropped to what shows: the sticker and its edge, no margin
+        let cropped = out.cropped(x: cx0, y: cy0, width: cx1 - cx0 + 1, height: cy1 - cy0 + 1)
+        return (cropped, OutlineReport(width: width, padding: minX - (ox + cx0)))
+    }
 
     /// Median of the four corner patches, and their mean per-channel std.
     static func backdrop(_ rgb: RGB, _ w: Int, _ h: Int,

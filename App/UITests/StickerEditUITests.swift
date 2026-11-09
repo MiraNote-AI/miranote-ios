@@ -100,4 +100,71 @@ final class StickerEditUITests: XCTestCase {
         XCTAssertTrue(edited.waitForExistence(timeout: 5), "the element is still a sticker")
         XCTAssertTrue(edited.isHittable, "the edited sticker is on screen, no scrolling needed")
     }
+
+    /// A result that lands after Edit sticker closes is dropped (Meng's probe,
+    /// #156 review): the header's Canvas closes the panel mid-edit, the slow
+    /// edit lands and swaps nothing, so one Undo takes back the placement.
+    func testAnEditLandingAfterThePanelClosesIsDropped() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-AI_EDIT_DELAY", "4000"]
+        app.launch()
+        startMemory()
+        placeOneSticker()
+
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        sticker.press(forDuration: 1.1)
+        let entry = app.buttons["Edit sticker"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        entry.tap()
+        let field = app.textFields["sticker.ai.instruction"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("make it blue")
+        app.buttons["sticker.ai.run"].tap()
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Canvas closes the panel, the edit still running")
+
+        sleep(6)
+        app.buttons["editor.undo"].tap()
+        XCTAssertTrue(sticker.waitForNonExistence(timeout: 5),
+                      "Undo took back the placement: the late edit swapped nothing")
+    }
+
+    /// Edit sticker offers AI Editing and Outline, like Photo Editing but only
+    /// those two; Outline adds the white edge in place, one undo.
+    func testOutlineTileEdgesTheStickerInPlace() {
+        startMemory()
+        placeOneSticker()
+
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        sticker.press(forDuration: 1.1)
+        let entry = app.buttons["Edit sticker"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        entry.tap()
+
+        XCTAssertTrue(app.buttons["sticker.tile.ai"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["sticker.tile.ai"].isSelected, "AI Editing owns the composer")
+        let outline = app.buttons["sticker.tile.outline"]
+        XCTAssertTrue(outline.exists)
+        let tiles = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sticker.tile.'"))
+        XCTAssertEqual(tiles.count, 2, "exactly two tiles: no Cutout, filters or frames here")
+        outline.tap()
+
+        let field = app.textFields["sticker.ai.instruction"]
+        let closed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 8), .completed,
+                       "the panel closes once the outlined sticker lands")
+        let outlined = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        XCTAssertTrue(outlined.waitForExistence(timeout: 5), "still a sticker, in place")
+        let undo = app.buttons["editor.undo"]
+        XCTAssertTrue(undo.isEnabled, "one undo takes the edge back off")
+        undo.tap()
+        XCTAssertTrue(app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch.waitForExistence(timeout: 5),
+                      "undo restores the sticker, not an empty page")
+    }
 }
