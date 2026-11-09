@@ -4,15 +4,28 @@ import SwiftUI
 // MARK: - One-tap layout (#183)
 
 extension CanvasScene {
-    /// The tool bar's Layout: something to arrange takes two elements.
+    /// Why the tool bar's Layout is dimmed, shown when it is tapped; nil
+    /// when it can open.
+    var layoutBlocked: String? {
+        if mira.isWorking { return String(appCopy: "Layout waits for Mira to finish") }
+        if case .recording = recorderState { return String(appCopy: "Layout waits for the recording to finish") }
+        if PageLayout.isOffered(for: editor.memory.items) { return nil }
+        return editor.memory.items.contains { if case .image = $0.content { return true }; return false }
+            ? String(appCopy: "Add words or another photo to use Layout")
+            : String(appCopy: "Add a photo to use Layout")
+    }
+
+    /// The strip open (Layout again closes it) or a page it can arrange.
     var canLayout: Bool {
-        editor.memory.items.count >= 2
+        layoutOriginal != nil || layoutBlocked == nil
     }
 
     func openLayout() {
         editor.select(nil)
-        layoutPick = nil
-        layoutOriginal = editor.memory.items
+        let items = editor.memory.items
+        // A page laid out by a template already shows that card picked.
+        layoutPick = PageLayout.templates(for: items).first { PageLayout.sameArrangement(laidOut($0, items), items) }
+        layoutOriginal = items
         layoutScroll = scrollMemory.offset
     }
 
@@ -61,22 +74,31 @@ extension CanvasScene {
     var layoutStrip: some View {
         let original = layoutOriginal ?? []
         let templates = PageLayout.templates(for: original)
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(templates) { template in
-                    Button {
-                        tryLayout(template)
-                    } label: {
-                        LayoutThumbnail(template: template, items: laidOut(template, original),
-                                        picked: template == layoutPick)
+        return ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(templates) { template in
+                        Button {
+                            tryLayout(template)
+                        } label: {
+                            LayoutThumbnail(template: template, items: laidOut(template, original),
+                                            picked: template == layoutPick)
+                        }
+                        .buttonStyle(.plain)
+                        .id(template)
+                        .accessibilityLabel(template.title)
+                        .accessibilityAddTraits(template == layoutPick ? .isSelected : [])
+                        .accessibilityIdentifier("layout.template.\(template.rawValue)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(template.title)
-                    .accessibilityAddTraits(template == layoutPick ? .isSelected : [])
-                    .accessibilityIdentifier("layout.template.\(template.rawValue)")
                 }
+                .padding(.horizontal, Metrics.toolBarInset)
             }
-            .padding(.horizontal, Metrics.toolBarInset)
+            // The picked card in full view, a half-shown one too.
+            .onAppear { if let layoutPick { proxy.scrollTo(layoutPick) } }
+            .onChange(of: layoutPick) { _, pick in
+                guard let pick else { return }
+                withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(pick) }
+            }
         }
     }
 
@@ -104,9 +126,9 @@ extension PageLayout.Template {
         switch self {
         case .cover: return String(appCopy: "Cover")
         case .polaroid: return String(appCopy: "Polaroid")
-        case .minimal: return String(appCopy: "Minimal air")
+        case .minimal: return String(appCopy: "Minimal")
         case .stagger: return String(appCopy: "Stagger")
-        case .scrapbook: return String(appCopy: "Scrapbook tape")
+        case .scrapbook: return String(appCopy: "Scrapbook")
         case .onePlusTwo: return String(appCopy: "1 + 2")
         case .tShape: return String(appCopy: "T-shape")
         case .grid2x2: return String(appCopy: "2 x 2")

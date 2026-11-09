@@ -523,6 +523,8 @@ struct CanvasScene: View {
             soundStore: soundStore,
             textFocus: $textFocus,
             workingItemIDs: mira.workingItemIDs,
+            // Trying layouts: the page is a preview, Cancel and Done decide.
+            locked: layoutOriginal != nil,
             onEditImage: openPhotoEditor,
             onEditSticker: { id in
                 guard !mira.isWorking, !refusedForAIImage() else { return }
@@ -804,17 +806,19 @@ struct CanvasScene: View {
             cancelRecording()
             actions.selectMode(.sticker)
         case .layout:
-            // Same guards as Background.
-            guard canLayout, !mira.isWorking else { return }
-            if case .recording = recorderState { return }
+            if let layoutBlocked {
+                flashHint(layoutBlocked)
+                return
+            }
             cancelRecording()
             openLayout()
         }
     }
 
-    /// The tool bar with the canvas's Layout state.
+    /// The tool bar with the canvas's Layout state: dimmed, a tap says why.
     private func toolBar(active: EditorMode?) -> InputModeBar {
-        InputModeBar(active: active, layoutEnabled: canLayout, onSelect: handleTool)
+        InputModeBar(active: active, layoutEnabled: canLayout, layoutHint: layoutBlocked,
+                     onDimmedLayout: { if let layoutBlocked { flashHint(layoutBlocked) } }, onSelect: handleTool)
     }
 
     /// A tool open in place over the canvas (Background, photo or sticker
@@ -937,7 +941,7 @@ struct CanvasScene: View {
     }
 
     private var headerUndoEnabled: Bool {
-        if layoutOriginal != nil { return layoutPick != nil }
+        if let layoutOriginal { return !PageLayout.sameArrangement(editor.memory.items, layoutOriginal) }
         if writing { return editor.canUndo }
         if editingImageItem != nil { return photoEdit?.canUndo == true }
         return editingStickerItem == nil && editor.canUndo

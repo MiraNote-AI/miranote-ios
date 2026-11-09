@@ -13,12 +13,12 @@ final class PageLayoutTests: XCTestCase {
     private static let landscape = CGSize(width: 160, height: 90)
 
     private func photo(_ n: Int, _ size: CGSize = CGSize(width: 160, height: 120)) -> CanvasItem {
-        CanvasItem(content: .image(ImageRef(displayName: "p\(n)", frameName: "white")),
+        CanvasItem(content: .image(ImageRef(displayName: "p\(n)")),
                    position: CGPoint(x: 100, y: 100 + CGFloat(n) * 200), size: size, rotation: 12)
     }
 
-    private func words(_ text: String, y: CGFloat) -> CanvasItem {
-        CanvasItem(content: .text(TextBlock(text: text, pointSize: 20, colorName: "forest", fontName: "Futura",
+    private func words(_ text: String, y: CGFloat, pointSize: CGFloat = 20) -> CanvasItem {
+        CanvasItem(content: .text(TextBlock(text: text, pointSize: pointSize, colorName: "forest", fontName: "Futura",
                                             backgroundColorName: "sand")),
                    position: CGPoint(x: 180, y: y), size: CGSize(width: 200, height: 40))
     }
@@ -40,7 +40,7 @@ final class PageLayoutTests: XCTestCase {
 
     /// Every photo count a template is offered for.
     private func counts(_ template: Template) -> [Int] {
-        template.photoCounts.map(Array.init) ?? Array(1...10)
+        template.photoCounts.map { Array($0.clamped(to: 1...10)) } ?? Array(1...10)
     }
 
     private func frame(_ item: CanvasItem) -> CGRect {
@@ -80,8 +80,8 @@ final class PageLayoutTests: XCTestCase {
 
     func testOnlyTemplatesForThePhotoCountAreOffered() {
         func offered(_ count: Int) -> [Template] { PageLayout.templates(for: page(photos: count)) }
-        XCTAssertEqual(offered(0), [.masonry, .strip])
-        XCTAssertEqual(offered(1), [.cover, .polaroid, .minimal, .masonry, .strip])
+        XCTAssertEqual(offered(0), [.strip], "not offered (isOffered); the strip only")
+        XCTAssertEqual(offered(1), [.cover, .polaroid, .minimal, .strip], "one photo: no half-empty masonry")
         XCTAssertEqual(offered(2), [.stagger, .scrapbook, .masonry, .strip])
         XCTAssertEqual(offered(3), [.onePlusTwo, .tShape, .masonry, .strip])
         XCTAssertEqual(offered(4), [.grid2x2, .heroThree, .polaroidWall, .masonry, .strip])
@@ -127,7 +127,8 @@ final class PageLayoutTests: XCTestCase {
                 + Array(repeating: CGSize(width: third, height: third), count: 3)),
             (.magazine, 5, [CGSize(width: 188, height: 240)] + Array(repeating: CGSize(width: 124, height: 116), count: 2)
                 + Array(repeating: CGSize(width: 156, height: 120), count: 2)),
-            (.journal, 5, Array(repeating: CGSize(width: 176, height: 132), count: 5)),
+            // One body block: the words go across, the photos in pairs.
+            (.journal, 5, Array(repeating: CGSize(width: 144, height: 108), count: 4) + [CGSize(width: 176, height: 132)]),
             (.nineGrid, 9, Array(repeating: CGSize(width: third, height: third), count: 9)),
             (.nineGrid, 7, Array(repeating: CGSize(width: third, height: third), count: 7)),
             (.twinHero, 9, Array(repeating: CGSize(width: 212, height: 212), count: 2)
@@ -211,20 +212,111 @@ final class PageLayoutTests: XCTestCase {
         XCTAssertGreaterThan(minimal[0].position.y, photos(laid(.minimal, page(photos: 1)))[0].position.y,
                              "the title sits under the photo")
         XCTAssertEqual(texts(.polaroid, 1).map(\.size.width), [320, 260])
-        let journal = texts(.journal, 5)
-        XCTAssertEqual(journal.map(\.size.width), [320, 120], "the title across, the words in the side column")
+        let journal = laid(.journal, page(photos: 5, texts: 3)).filter { $0.content.text != nil }
+            .sorted { $0.position.y < $1.position.y }
+        XCTAssertEqual(journal.map(\.size.width), [320, 120, 120], "the title across, the words in the side column")
         XCTAssertEqual(texts(.cover, 1).map { $0.content.block!.alignment }, [.leading, .leading],
                        "templates that do not center leave the alignment as it was")
     }
 
-    func testJournalPhotosWithoutWordsBesideThemAreCenteredAndStraight() {
-        let shots = photos(laid(.journal, page(photos: 5))).sorted { $0.position.y < $1.position.y }
+    /// The photos' drawn boxes as rows (tops within 20 pt), top down.
+    private func rows(_ items: [CanvasItem]) -> [[CGRect]] {
+        photos(items).map(drawn).sorted { $0.minY < $1.minY }.reduce(into: [[CGRect]]()) { rows, box in
+            if let last = rows.last?.first, abs(last.minY - box.minY) < 20 { rows[rows.count - 1].append(box) }
+            else { rows.append([box]) }
+        }
+    }
+
+    /// QA L3: one body block goes across under the photos, which pair up
+    /// instead of standing alone one under the other.
+    func testJournalWithOneBodyBlockPutsTheWordsAcrossUnderThePhotos() {
+        for count in [5, 6] {
+            let out = laid(.journal, page(photos: count))
+            let body = out.filter { $0.content.text == "text 1" }[0]
+            XCTAssertEqual(body.size.width, 320, "\(count)")
+            XCTAssertGreaterThan(frame(body).minY, photos(out).map { drawn($0).maxY }.max()!, "\(count)")
+            let lines = rows(out)
+            XCTAssertEqual(lines.map(\.count), count == 5 ? [2, 2, 1] : [2, 2, 2], "\(count)")
+            for (upper, lower) in zip(lines, lines.dropFirst()) {
+                XCTAssertLessThan(lower[0].minY - upper.map(\.maxY).max()!, 30, "\(count): no photo stranded below")
+            }
+        }
+    }
+
+    func testJournalWordsGoAcrossWhenTheColumnIsTooNarrowForThem() {
+        // 28 pt: the 120-pt column holds under ten characters a line.
+        let large = (0..<5).map { photo($0) } + (0..<3).map { words("text \($0)", y: CGFloat($0) * 2000, pointSize: 28) }
+        XCTAssertTrue(laid(.journal, large).filter { $0.content.text != nil }.allSatisfy { $0.size.width == 320 })
+        // A word longer than the column would be split mid-word.
+        let measure: (CanvasItem, CGFloat) -> CGFloat = { item, width in
+            let longest = (item.content.text ?? "").split(separator: " ").map(\.count).max() ?? 0
+            return CGFloat(longest) * 10 > width ? 80 : 40
+        }
+        let long = (0..<5).map { photo($0) } + [words("Title", y: 0), words("a lighthousekeeper", y: 1000),
+                                               words("short words", y: 2000)]
+        let out = PageLayout.apply(.journal, to: long, pageWidth: width, textHeight: measure, photoAspect: aspect)
+        XCTAssertTrue(out.filter { $0.content.text != nil }.allSatisfy { $0.size.width == 320 })
+    }
+
+    func testJournalWordsThatFitSitBesideThePhotosAndTheRestPairUp() {
+        let out = laid(.journal, page(photos: 6, texts: 3))
+        let shots = photos(out).sorted { $0.position.y < $1.position.y }
         XCTAssertNotEqual(shots[0].position.x, 180, "the first photo has the words beside it")
         XCTAssertNotEqual(shots[0].rotation, 0)
-        for shot in shots.dropFirst() {
-            XCTAssertEqual(shot.position.x, 180)
-            XCTAssertEqual(shot.rotation, 0)
+        XCTAssertEqual(rows(out).map(\.count), [1, 1, 2, 2], "two photos with words, four in pairs")
+    }
+
+    /// QA L4: words, stickers or a clip alone have nothing for a template
+    /// to arrange.
+    func testLayoutIsOfferedOnlyWithAPhotoAndSomethingElse() {
+        let clip = CanvasItem(content: .sound(SoundClip(duration: 3)),
+                              position: CGPoint(x: 100, y: 500), size: CGSize(width: 200, height: 44))
+        XCTAssertFalse(PageLayout.isOffered(for: []))
+        XCTAssertFalse(PageLayout.isOffered(for: page(photos: 0, texts: 3)), "words only")
+        XCTAssertFalse(PageLayout.isOffered(for: page(photos: 0, texts: 0, stickers: 3)), "stickers only")
+        XCTAssertFalse(PageLayout.isOffered(for: page(photos: 0, texts: 1) + [clip]), "words and a clip")
+        XCTAssertFalse(PageLayout.isOffered(for: page(photos: 1, texts: 0)), "a photo alone")
+        XCTAssertTrue(PageLayout.isOffered(for: page(photos: 1, texts: 1)))
+        XCTAssertTrue(PageLayout.isOffered(for: page(photos: 2, texts: 0)))
+        XCTAssertTrue(PageLayout.isOffered(for: page(photos: 1, texts: 0, stickers: 1)))
+    }
+
+    /// QA L7: a white or polaroid frame the user chose stays where the
+    /// template's own frame would be the default soft one, and still fills
+    /// the cell; templates whose look is the frame set theirs.
+    func testAFrameTheUserChoseIsKeptOverTheDefaultSoftOne() {
+        func framed(_ count: Int, _ frame: String) -> [CanvasItem] {
+            page(photos: count).map { item in
+                guard case .image(var ref) = item.content else { return item }
+                var item = item
+                ref.frameName = frame
+                item.content = .image(ref)
+                return item
+            }
         }
+        for frame in ["white", "polaroid"] {
+            let grid = photos(laid(.grid2x2, framed(4, frame)))
+            XCTAssertEqual(Set(grid.map(\.content.frameName)), [frame])
+            for shot in grid {
+                XCTAssertEqual(drawn(shot).width, 156, accuracy: 0.01, "\(frame): the frame fills the cell")
+                XCTAssertEqual(drawn(shot).height, 156, accuracy: 0.01, "\(frame)")
+            }
+            XCTAssertEqual(Set(photos(laid(.masonry, framed(3, frame))).map(\.content.frameName)), [frame])
+        }
+        XCTAssertEqual(Set(photos(laid(.stagger, framed(2, "polaroid"))).map(\.content.frameName)), ["white"])
+        XCTAssertEqual(Set(photos(laid(.polaroidWall, framed(4, "white"))).map(\.content.frameName)), ["polaroid"])
+        XCTAssertEqual(Set(photos(laid(.polaroid, framed(1, "white"))).map(\.content.frameName)), ["polaroid"])
+        XCTAssertEqual(Set(photos(laid(.scrapbook, framed(2, "polaroid"))).map(\.content.frameName)), ["white"])
+        XCTAssertEqual(Set(photos(laid(.strip, framed(2, "soft"))).map(\.content.frameName)), ["soft"])
+    }
+
+    /// QA L12: the strip finds the template a page is already laid out by.
+    func testALaidOutPageIsTheSameArrangementLaidOutAgain() {
+        let items = mixed(photos: 3, stickers: 1)
+        let once = laid(.tShape, items)
+        XCTAssertTrue(PageLayout.sameArrangement(laid(.tShape, once), once))
+        XCTAssertFalse(PageLayout.sameArrangement(laid(.onePlusTwo, once), once))
+        XCTAssertFalse(PageLayout.sameArrangement(items, once))
     }
 
     /// The most portrait photo takes the tallest cell and the most
@@ -258,6 +350,22 @@ final class PageLayoutTests: XCTestCase {
         XCTAssertTrue(stickers.allSatisfy { max($0.size.width, $0.size.height) <= 80.5 })
         let onCorner = stickers.filter { s in shots.contains { $0.contains(s.position) } }
         XCTAssertEqual(onCorner.count, 4, "one per photo; the fifth stacks below")
+    }
+
+    /// QA L9: in a grid, a sticker on a photo's corner would spill over its
+    /// neighbours; on the grid's outer corners each covers one photo at most.
+    func testStickersInADenseGridCoverOnePhotoAtMost() {
+        for template in [Template.nineGrid, .twinHero, .grid2x2, .magazine, .masonry] {
+            for count in counts(template) {
+                let out = laid(template, mixed(photos: count, stickers: 4))
+                let shots = photos(out).map(drawn)
+                for sticker in out.filter(\.content.isSticker) {
+                    let covered = shots.filter { $0.insetBy(dx: 1, dy: 1).intersects(drawn(sticker)) }
+                    XCTAssertLessThanOrEqual(covered.count, 1, "\(template) \(count)")
+                    XCTAssertLessThanOrEqual(max(sticker.size.width, sticker.size.height), 56.5, "\(template) \(count)")
+                }
+            }
+        }
     }
 
     func testTapeTemplatesUseTheStickersAsTape() {

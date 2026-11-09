@@ -23,6 +23,9 @@ struct CanvasBoardView: View {
     /// Elements Mira is currently changing: they breathe and ignore touches
     /// (lock the element, never the screen).
     var workingItemIDs: Set<CanvasItem.ID> = []
+    /// A preview (layouts being tried): no element takes a touch; the
+    /// page still scrolls.
+    var locked = false
     /// Long-press "Edit photo" (images with stored pixels only).
     var onEditImage: (CanvasItem.ID) -> Void = { _ in }
     var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
@@ -512,6 +515,7 @@ struct CanvasBoardView: View {
         .gesture(isEditing ? nil : moveGesture(item))
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
+        .allowsHitTesting(!locked)
     }
 
     /// The element's bounding box once tilted, with room for the selection

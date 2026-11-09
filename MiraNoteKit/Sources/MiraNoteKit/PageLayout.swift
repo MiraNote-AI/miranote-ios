@@ -51,6 +51,7 @@ public enum PageLayout {
         public var id: String { rawValue }
 
         /// The photo counts the template is drawn for; nil: any count.
+        /// Masonry takes two or more: one photo would be half a row.
         public var photoCounts: ClosedRange<Int>? {
             switch self {
             case .cover, .polaroid, .minimal: return 1...1
@@ -59,7 +60,8 @@ public enum PageLayout {
             case .grid2x2, .heroThree, .polaroidWall: return 4...4
             case .magazine, .journal: return 5...6
             case .nineGrid, .twinHero: return 7...9
-            case .masonry, .strip: return nil
+            case .masonry: return 2...Int.max
+            case .strip: return nil
             }
         }
     }
@@ -80,11 +82,34 @@ public enum PageLayout {
     /// The width the template geometry is drawn on.
     static let design: CGFloat = 360
 
+    /// Layout is offered for a page with a photo and something else to
+    /// arrange it with: words, stickers or a clip alone gain nothing.
+    public static func isOffered(for items: [CanvasItem]) -> Bool {
+        items.count >= 2 && photoCount(items) >= 1
+    }
+
     /// The templates offered for these items: the ones drawn for their
     /// photo count, then the ones for any count.
     public static func templates(for items: [CanvasItem]) -> [Template] {
-        let count = items.filter { if case .image = $0.content { return true }; return false }.count
+        let count = photoCount(items)
         return Template.allCases.filter { $0.photoCounts?.contains(count) ?? true }
+    }
+
+    /// Whether `a` and `b` are one arrangement: the same elements in the
+    /// same places, sizes, tilts and looks. Stacking order is left out,
+    /// as every layout restacks.
+    public static func sameArrangement(_ a: [CanvasItem], _ b: [CanvasItem]) -> Bool {
+        let others = Dictionary(b.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return a.count == b.count && a.allSatisfy { item in
+            guard let other = others[item.id] else { return false }
+            return item.content == other.content && abs(item.rotation - other.rotation) < 0.01
+                && abs(item.position.x - other.position.x) < 0.5 && abs(item.position.y - other.position.y) < 0.5
+                && abs(item.size.width - other.size.width) < 0.5 && abs(item.size.height - other.size.height) < 0.5
+        }
+    }
+
+    private static func photoCount(_ items: [CanvasItem]) -> Int {
+        items.filter { if case .image = $0.content { return true }; return false }.count
     }
 
     /// `items` placed by `template`. `textHeight` measures a text block at a
@@ -321,31 +346,50 @@ private struct Page {
         return cells
     }
 
-    /// The title, then each photo with a body block in the column beside
-    /// it, sides in turn, tops aligned. A photo with no words left beside
-    /// it is centered and straight, so no column stands empty; words left
-    /// over follow.
+    /// The title, then photos with a body block each in the column beside
+    /// them, sides in turn, tops aligned; the photos left over two by two,
+    /// and the words left over across. One body block, or words that would
+    /// not fit the column (under ten characters a line, a word broken), go
+    /// across under the photos instead.
     private mutating func journal() {
         place(words: title)
         let body = rest
         let photo = CGSize(width: 176, height: 132), column: CGFloat = 120
-        for (n, id) in photos.enumerated() {
+        let beside = body.count > 1 && body.allSatisfy { fits(items[index($0)], column: column) }
+            ? min(body.count, photos.count) : 0
+        for n in 0..<beside {
             let left = n % 2 == 0
-            var cell = Cell((PageLayout.design - photo.width) / 2, 0, photo.width, photo.height,
-                            PageLayout.Frame.white)
-            var rowHeight = cell.bounds.height
-            if n < body.count {
-                cell = Cell(left ? 26 : 158, 0, photo.width, photo.height, PageLayout.Frame.white, left ? -2 : 2)
-                rowHeight = max(cell.bounds.height, textHeight(items[index(body[n])], column * scale) / scale)
-                let top = next
-                place(words: [body[n]], x: left ? 220 : 20, width: column)
-                next = top
-            }
+            var cell = Cell(left ? 26 : 158, 0, photo.width, photo.height, PageLayout.Frame.white, left ? -2 : 2)
+            let rowHeight = max(cell.bounds.height, textHeight(items[index(body[n])], column * scale) / scale)
+            let top = next
+            place(words: [body[n]], x: left ? 220 : 20, width: column)
+            next = top
             cell.rect.origin.y = next / scale + (cell.rect.minY - cell.bounds.minY)
-            put(id, in: cell)
+            put(photos[n], in: cell)
             next += rowHeight * scale + 20 * scale
         }
-        place(words: Array(body.dropFirst(photos.count)))
+        let pairs = Array(photos.dropFirst(beside))
+        fill(stride(from: 0, to: pairs.count, by: 2).flatMap { start -> [Cell] in
+            let y = CGFloat(start / 2) * 140
+            return pairs.count - start >= 2
+                ? [Cell(26, y, 144, 108, PageLayout.Frame.white, -2), Cell(190, y, 144, 108, PageLayout.Frame.white, 2)]
+                : [Cell((PageLayout.design - photo.width) / 2, y, photo.width, photo.height, PageLayout.Frame.white)]
+        }, ids: pairs)
+        place(words: Array(body.dropFirst(beside)))
+    }
+
+    /// Whether a text block reads well `column` design points wide: ten
+    /// characters a line at its size, and no word broken.
+    private func fits(_ item: CanvasItem, column: CGFloat) -> Bool {
+        guard case .text(let block) = item.content else { return true }
+        let width = column * scale
+        guard width >= 10 * 0.55 * block.pointSize else { return false }
+        guard let word = block.text.split(whereSeparator: \.isWhitespace).max(by: { $0.count < $1.count })
+        else { return true }
+        var alone = item, only = block
+        only.text = String(word)
+        alone.content = .text(only)
+        return textHeight(alone, width) <= textHeight(alone, (PageLayout.design - 2 * PageLayout.margin) * scale)
     }
 
     // MARK: Placing
@@ -368,6 +412,16 @@ private struct Page {
     /// The photo filling `cell` (the renderer crops it to the box), its
     /// frame set, stacked above everything placed before.
     private mutating func put(_ id: CanvasItem.ID, in cell: Cell) {
+        var cell = cell
+        if cell.frame == PageLayout.Frame.soft, case .image(let ref) = items[index(id)].content,
+           [PageLayout.Frame.white, PageLayout.Frame.polaroid].contains(ref.frameName) {
+            // A frame the user chose stays over the template's default
+            // one; the photo shrinks so the frame fills the cell.
+            let box = cell.rect
+            cell.frame = ref.frameName
+            let drawn = cell.drawn
+            cell.rect = box.insetBy(dx: (drawn.width - box.width) / 2, dy: (drawn.height - box.height) / 2)
+        }
         let rect = page(cell.rect)
         set(id, center: CGPoint(x: rect.midX, y: rect.midY), size: rect.size, rotation: cell.rotation)
         let i = index(id)
@@ -441,8 +495,23 @@ private struct Page {
 
     /// Stickers on the template's tape spots first, then at most 80 pt on
     /// the photos' top-right corners, a little tilted; any left over stack.
+    /// Where photos sit close (a grid's gutters), a sticker there would
+    /// cover the neighbours: at most 56 pt on the grid's outer corners
+    /// instead, half in the margin.
     mutating func placeStickers() {
-        let corners = photoFrames.map { Spot(center: CGPoint(x: $0.maxX, y: $0.minY), side: 80, rotation: 8) }
+        var corners = photoFrames.map { Spot(center: CGPoint(x: $0.maxX, y: $0.minY), side: 80, rotation: 8) }
+        let close = photoFrames.indices.contains { a in
+            photoFrames.indices.contains { b in
+                a < b && photoFrames[a].insetBy(dx: -12 * scale, dy: -12 * scale).intersects(photoFrames[b])
+            }
+        }
+        if close, let grid = photoFrames.dropFirst().reduce(photoFrames.first, { $0?.union($1) }) {
+            let half = 28 * scale
+            corners = [(grid.maxX, grid.minY + half, 8.0), (grid.minX, grid.maxY - half, -8),
+                       (grid.maxX, grid.maxY - half, -6), (grid.minX, grid.minY + half, 6)].map {
+                Spot(center: CGPoint(x: $0.0, y: $0.1), side: 56 * scale, rotation: $0.2)
+            }
+        }
         let spots = tape + corners
         var left: [CanvasItem.ID] = []
         for (n, id) in stickers.enumerated() {
@@ -457,7 +526,7 @@ private struct Page {
             }
             let spot = spots[n]
             var center = spot.center
-            if n >= tape.count {
+            if n >= tape.count, !close {
                 // Mostly on the photo, its corner poking out a little.
                 center = CGPoint(x: spot.center.x - fitted.width * 0.2, y: spot.center.y + fitted.height * 0.2)
             }

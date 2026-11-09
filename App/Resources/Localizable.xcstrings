@@ -443,6 +443,18 @@
         }
       }
     },
+    "Add a photo to use Layout" : {
+      "comment" : "Why the tool bar's Layout is dimmed: the page has no photo.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加一张照片即可使用排版"
+          }
+        }
+      }
+    },
     "Add a soft title" : {
       "comment" : "Mira suggestion chip.",
       "extractionState" : "manual",
@@ -541,6 +553,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加到消息"
+          }
+        }
+      }
+    },
+    "Add words or another photo to use Layout" : {
+      "comment" : "Why the tool bar's Layout is dimmed: one photo alone on the page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再添加文字或照片即可使用排版"
           }
         }
       }
@@ -2257,6 +2281,30 @@
         }
       }
     },
+    "Layout waits for Mira to finish" : {
+      "comment" : "Why the tool bar's Layout is dimmed while Mira works on the page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 完成后才能排版"
+          }
+        }
+      }
+    },
+    "Layout waits for the recording to finish" : {
+      "comment" : "Why the tool bar's Layout is dimmed while a voice clip records.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音结束后才能排版"
+          }
+        }
+      }
+    },
     "Layout, photos, and everything else stayed put." : {
       "comment" : "Result sheet: what was kept.",
       "extractionState" : "manual",
@@ -2594,7 +2642,7 @@
         }
       }
     },
-    "Minimal air" : {
+    "Minimal" : {
       "comment" : "Layout template: a small photo in a lot of white space.",
       "extractionState" : "manual",
       "localizations" : {
@@ -4083,7 +4131,7 @@
         }
       }
     },
-    "Scrapbook tape" : {
+    "Scrapbook" : {
       "comment" : "Layout template: two framed photos held by the stickers as tape.",
       "extractionState" : "manual",
       "localizations" : {

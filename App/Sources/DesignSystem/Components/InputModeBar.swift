@@ -6,9 +6,13 @@ import SwiftUI
 /// the accessibility label, not on screen.
 struct InputModeBar: View {
     var active: EditorMode?
-    /// Layout (#183) arranges what is on the page: dimmed with fewer than
-    /// two elements.
+    /// Layout (#183) arranges what is on the page: dimmed when it has
+    /// nothing to arrange or must wait.
     var layoutEnabled = true
+    /// Why Layout is dimmed, for VoiceOver.
+    var layoutHint: String?
+    /// A tap on the dimmed Layout: the scene says why.
+    var onDimmedLayout: () -> Void = {}
     var onSelect: (EditorMode) -> Void = { _ in }
 
     var body: some View {
@@ -23,8 +27,18 @@ struct InputModeBar: View {
                 .disabled(mode == .layout && !layoutEnabled)
                 .opacity(mode == .layout && !layoutEnabled ? 0.4 : 1)
                 .accessibilityLabel(mode.title)
+                .accessibilityHint(mode == .layout && !layoutEnabled ? layoutHint ?? "" : "")
                 .accessibilityIdentifier("mode.\(mode.rawValue)")
                 .accessibilityAddTraits(mode == active ? .isSelected : [])
+                // Outside `disabled`: the dimmed button still answers a tap.
+                .overlay {
+                    if mode == .layout && !layoutEnabled {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture(perform: onDimmedLayout)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
         }
         .padding(.horizontal, Metrics.toolBarInset)

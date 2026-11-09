@@ -166,4 +166,65 @@ final class CanvasLayoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["layout.template.tShape"].exists, "the strip stays open")
         XCTAssertFalse(app.buttons["layout.template.tShape"].isSelected)
     }
+
+    /// QA L1/L2: while the strip is open the page is a preview. A photo
+    /// cannot be long-pressed (so not deleted) or dragged, and the next
+    /// template still has every photo.
+    func testThePageIsAPreviewWhileTheStripIsOpen() {
+        openLayout()
+        app.buttons["layout.template.onePlusTwo"].tap()
+        settle()
+        let tried = photoPlaces
+        let photo = photos.element(boundBy: 0)
+        photo.press(forDuration: 0.9)
+        XCTAssertFalse(app.buttons["Delete"].waitForExistence(timeout: 1.5), "no element menu while previewing")
+        let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.08, thenDragTo: start.withOffset(CGVector(dx: 60, dy: 80)))
+        settle()
+        XCTAssertEqual(photoPlaces, tried, "a drag moves nothing on the page")
+        XCTAssertTrue(app.buttons["layout.template.onePlusTwo"].exists, "the strip stays open")
+
+        app.buttons["layout.template.tShape"].tap()
+        settle()
+        XCTAssertEqual(photos.count, 3)
+        app.buttons["nav.trailing"].tap()
+        settle()
+        XCTAssertEqual(photos.count, 3, "Done keeps every photo")
+        photos.element(boundBy: 0).press(forDuration: 0.9)
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5), "after Done the page is live again")
+    }
+
+    /// QA L4/L5: a page with no photo dims Layout, and a tap on it says why.
+    func testTheDimmedLayoutSaysWhyWhenTapped() {
+        app.terminate()
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        let entry = app.buttons["mode.layout"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        for words in ["Only words", "And more words"] {
+            app.buttons["mode.text"].tap()
+            let field = any("canvas.textEditor")
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            field.typeText(words)
+            app.buttons["keyboard.done"].tap()
+            XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        }
+        XCTAssertFalse(entry.isEnabled, "two text blocks, no photo: nothing for a template to arrange")
+        entry.tap()
+        XCTAssertTrue(app.staticTexts["Add a photo to use Layout"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["layout.template.strip"].exists, "the strip does not open")
+    }
+
+    /// QA L12: reopened on a page a template laid out, the strip marks it.
+    func testReopeningTheStripMarksTheTemplateInUse() {
+        openLayout()
+        XCTAssertFalse(app.buttons["layout.template.tShape"].isSelected, "a page as placed by hand: none")
+        app.buttons["layout.template.tShape"].tap()
+        app.buttons["nav.trailing"].tap()
+        settle()
+        openLayout()
+        XCTAssertTrue(app.buttons["layout.template.tShape"].isSelected)
+        XCTAssertFalse(app.buttons["layout.template.onePlusTwo"].isSelected)
+        XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "nothing tried yet")
+    }
 }
