@@ -145,8 +145,8 @@ struct CanvasScene: View {
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
-    /// The words on the full-screen writing page while it is open (#184).
-    @State var fullScreenDraft: String?
+    /// The writing that just ended was Cancelled: its words are not split.
+    @State var textCancelled = false
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState var miraFocus: Bool
 
@@ -424,7 +424,16 @@ struct CanvasScene: View {
             // longer polish truncates. No-op for untouched blocks.
             remeasureTextBlocks()
         }
-        .onChange(of: editor.editingTextItemID) { _, editing in
+        .onChange(of: editor.editingTextItemID) { ended, editing in
+            // Writing that ended any way but Cancel splits on its blank
+            // lines, one block per paragraph (#184).
+            if let ended, ended != editing {
+                if textCancelled {
+                    textCancelled = false
+                } else {
+                    splitWrittenParagraphs(ended)
+                }
+            }
             // Words on their way belong to the session that asked for them:
             // never landed after it ends or moves on -- the page says so
             // (Cancel, which drops them on purpose, let go of them first).
@@ -467,16 +476,6 @@ struct CanvasScene: View {
             // photo to be opened again.
             if let left, left != now { photoEditors.close(left) }
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { fullScreenDraft != nil },
-            set: { if !$0 { fullScreenDraft = nil } }
-        )) {
-            FullScreenWritingPage(
-                text: Binding(get: { fullScreenDraft ?? "" }, set: { fullScreenDraft = $0 }),
-                onCancel: cancelFullScreenWriting,
-                onDone: finishFullScreenWriting
-            )
-        }
         .sheet(isPresented: $showsCamera) {
             CameraCapture { image in
                 guard let data = image.downscaled(), let id = placer.place(data, name: "Camera photo") else {
@@ -514,8 +513,7 @@ struct CanvasScene: View {
             // Interactive keyboard dismissal clears focus without going
             // through the Done button; keep the editing state in sync. The
             // color sheet lowers the keyboard on purpose and keeps writing.
-            // So does the full-screen page, writing the same block.
-            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil, fullScreenDraft == nil {
+            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil {
                 endTextEditing()
             }
         }

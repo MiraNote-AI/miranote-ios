@@ -150,60 +150,27 @@ extension CanvasScene {
             }
             TextToolBar(active: textTool, alignment: editingBlock?.alignment ?? .leading, onSelect: selectTextTool)
                 .padding(.horizontal, Metrics.chromeInset)
-            HStack(spacing: 6) {
-                DictationStrip(
-                    surface: .page,
-                    listening: dictating,
-                    detail: stripDetail ?? String(appCopy: "accurate voice-to-text"),
-                    onPress: { if dictationPress == nil { pressDictation() } },
-                    onRelease: releaseDictation,
-                    onCancel: cancelDictationIfNeeded
-                )
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Mira Dictation")
-                .accessibilityValue(stripDetail ?? "")
-                .accessibilityHint(dictating ? Text("Ends the dictation.") : Text("Hold to talk, or tap to start."))
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { dictating ? stopDictation() : startDictation() }
-                .accessibilityIdentifier("style.mic")
-                // Until the editor menu redesign (#180) gives it a place.
-                FullScreenWritingButton(action: openFullScreenWriting)
-                    .disabled(dictating || writingDown)
-            }
+            DictationStrip(
+                surface: .page,
+                listening: dictating,
+                detail: stripDetail ?? String(appCopy: "accurate voice-to-text"),
+                onPress: { if dictationPress == nil { pressDictation() } },
+                onRelease: releaseDictation,
+                onCancel: cancelDictationIfNeeded
+            )
             .padding(.horizontal, Metrics.chromeInset)
             .padding(.top, 4)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mira Dictation")
+            .accessibilityValue(stripDetail ?? "")
+            .accessibilityHint(dictating ? Text("Ends the dictation.") : Text("Hold to talk, or tap to start."))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { dictating ? stopDictation() : startDictation() }
+            .accessibilityIdentifier("style.mic")
         }
         // 4 above the keyboard.
         .padding(.bottom, 4)
         .animation(.easeOut(duration: 0.15), value: textTool)
-    }
-
-    // MARK: Full-screen writing (#184)
-
-    /// Opens the block being written on a page of its own. A rewrite
-    /// preview is kept first (the font row is back on return), as leaving
-    /// the AI row keeps it.
-    func openFullScreenWriting() {
-        selectTextTool(.font)
-        fullScreenDraft = editingBlock?.text ?? ""
-    }
-
-    /// Back to writing in place, the block as it was.
-    func cancelFullScreenWriting() {
-        fullScreenDraft = nil
-        refocusEditedText()
-    }
-
-    /// One block per line, stacked under the block being written, and
-    /// the writing ends -- one undo step takes it all back.
-    func finishFullScreenWriting() {
-        guard let draft = fullScreenDraft else { return }
-        fullScreenDraft = nil
-        editor.finishFullScreenWriting(draft) { block, width in
-            TextMeasure.blockHeight(text: block.text, pointSize: block.pointSize,
-                                    fontName: block.fontName, width: width)
-        }
-        endTextEditing()
     }
 
     /// The strip's line when it is not at rest: a new take listening while
@@ -320,9 +287,20 @@ extension CanvasScene {
             dropColorPreview(request)
             colorRequest = nil
         }
+        textCancelled = editor.editingTextItemID != nil
         editor.cancelEditingText()
         textFocus = nil
         resetTextTools()
+    }
+
+    /// Words written in paragraphs (blank lines between them) become one
+    /// block per paragraph, stacked under the block (#184): one undo step
+    /// gives the single block back.
+    func splitWrittenParagraphs(_ id: CanvasItem.ID) {
+        editor.splitParagraphs(of: id) { block, width in
+            TextMeasure.blockHeight(text: block.text, pointSize: block.pointSize,
+                                    fontName: block.fontName, width: width)
+        }
     }
 
     /// The next session opens on the font row (screen 11).

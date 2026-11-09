@@ -1,10 +1,10 @@
 import XCTest
 
-/// Full-screen writing (#184): the block being written opens on a page of
-/// its own, and Done splits the words on every line break into one block
-/// per line (blank lines dropped), top to bottom, as one undo step. Read
-/// from the -UITEST probe.
-final class FullScreenWritingUITests: XCTestCase {
+/// #184: words written on the canvas in paragraphs (blank lines between
+/// them) become one block per paragraph when the writing ends -- Done or a
+/// tap elsewhere, never Cancel -- top to bottom, as one undo step. A single
+/// line break stays inside its block. Read from the -UITEST probe.
+final class TextParagraphSplitUITests: XCTestCase {
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
@@ -19,8 +19,6 @@ final class FullScreenWritingUITests: XCTestCase {
     }
 
     private var field: XCUIElement { app.descendants(matching: .any)["canvas.textEditor"] }
-    private var page: XCUIElement { app.textViews["fullScreen.editor"] }
-    private var entry: XCUIElement { app.buttons["text.fullScreen"] }
 
     private func startWriting(_ words: String) {
         app.buttons["Start a memory"].tap()
@@ -28,15 +26,6 @@ final class FullScreenWritingUITests: XCTestCase {
         app.buttons["mode.text"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.typeText(words)
-    }
-
-    /// Opens the page and replaces what it holds with `words`.
-    private func writeFullScreen(_ words: String) {
-        entry.tap()
-        XCTAssertTrue(page.waitForExistence(timeout: 5))
-        let current = (page.value as? String) ?? ""
-        page.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 1))
-        page.typeText(words)
     }
 
     private func canvasState() -> [String: Any] {
@@ -58,20 +47,19 @@ final class FullScreenWritingUITests: XCTestCase {
         .sorted { $0.top < $1.top }
     }
 
-    func testTheEntryShowsWhileWriting() {
-        startWriting("draft")
-        XCTAssertTrue(entry.waitForExistence(timeout: 5))
-        XCTAssertTrue(entry.isHittable, "over the keyboard, beside the dictation strip")
-        app.buttons["keyboard.done"].tap()
-        XCTAssertTrue(entry.waitForNonExistence(timeout: 5), "only while words are written")
+    /// The probe trims long words; waits out the end-of-writing split.
+    private func waitForBlocks(_ count: Int) {
+        let deadline = Date().addingTimeInterval(5)
+        while blocks().count != count, Date() < deadline {
+            _ = XCTWaiter().wait(for: [XCTestExpectation()], timeout: 0.2)
+        }
     }
 
-    func testDoneWithThreeLinesGivesThreeBlocksTopToBottom() {
-        startWriting("draft")
-        writeFullScreen("first\nsecond, which is long enough to wrap onto more lines\n\n\nthird")
-        app.buttons["fullScreen.done"].tap()
-        XCTAssertTrue(page.waitForNonExistence(timeout: 5))
+    func testDoneWithThreeParagraphsGivesThreeBlocksTopToBottom() {
+        startWriting("first\n\nsecond, which is long enough to wrap onto more lines\n\n\nthird")
+        app.buttons["keyboard.done"].tap()
         XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Done ends the writing")
+        waitForBlocks(3)
 
         let stack = blocks()
         XCTAssertEqual(stack.map(\.text), ["first", "second, which is long en", "third"])
@@ -84,38 +72,51 @@ final class FullScreenWritingUITests: XCTestCase {
                              "a wrapped line measures taller")
     }
 
-    func testCancelChangesNothing() {
-        startWriting("draft")
-        writeFullScreen("first\n\nsecond")
-        app.buttons["fullScreen.cancel"].tap()
-        XCTAssertTrue(page.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(field.waitForExistence(timeout: 5), "still writing in place")
-        XCTAssertEqual(field.value as? String, "draft")
-        XCTAssertEqual(blocks().map(\.text), ["draft"])
-        XCTAssertNotEqual(canvasState()["writing"] as? String, "", "the session goes on")
+    func testATapOutsideAlsoSplits() {
+        startWriting("one\n\ntwo")
+        // Empty paper just above the block.
+        let block = field.frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: block.midX, dy: block.minY - 30)).tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "the tap ends the writing")
+        waitForBlocks(2)
+        XCTAssertEqual(blocks().map(\.text), ["one", "two"])
     }
 
-    func testOneUndoRemovesTheSplit() {
+    func testCancelDoesNotSplit() {
         startWriting("draft")
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(field.waitForNonExistence(timeout: 5))
-        let before = canvasState()["undoDepth"] as? Int ?? 0
-
-        // Done leaves the block selected: one tap writes again, and the
-        // session's start keeps "draft".
         let words = app.staticTexts["draft"]
         XCTAssertTrue(words.waitForExistence(timeout: 5))
         words.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        writeFullScreen("one\ntwo\nthree")
-        app.buttons["fullScreen.done"].tap()
+        field.typeText("\n\nmore")
+        app.buttons["text.cancel"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Cancel ends the writing")
+        sleep(1)
+        XCTAssertEqual(blocks().map(\.text), ["draft"], "the block as it was, in one piece")
+    }
+
+    func testASingleLineBreakStaysInsideOneBlock() {
+        startWriting("a\nb")
+        app.buttons["keyboard.done"].tap()
         XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        sleep(1)
+        XCTAssertEqual(blocks().map(\.text), ["a\nb"])
+    }
+
+    func testOneUndoGivesBackTheSingleBlock() {
+        startWriting("one\n\ntwo\n\nthree")
+        let before = canvasState()["undoDepth"] as? Int ?? 0
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        waitForBlocks(3)
         XCTAssertEqual(blocks().map(\.text), ["one", "two", "three"])
-        XCTAssertEqual(canvasState()["undoDepth"] as? Int, before + 1, "the whole Done is one step")
+        XCTAssertEqual(canvasState()["undoDepth"] as? Int, before + 1, "the split is one step")
 
         app.buttons["editor.undo"].tap()
-        let back = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"), object: words)
-        XCTAssertEqual(XCTWaiter().wait(for: [back], timeout: 5), .completed)
-        XCTAssertEqual(blocks().map(\.text), ["draft"])
+        waitForBlocks(1)
+        XCTAssertEqual(blocks().map(\.text), ["one\n\ntwo\n\nthree"], "one undo: the single block")
     }
 }

@@ -164,33 +164,6 @@ struct TextToolBar: View {
     }
 }
 
-/// Opens the block on the full-screen writing page (#184): a 36 pt glass
-/// disc beside the dictation strip, drawn as the tool bar.
-struct FullScreenWritingButton: View {
-    let action: () -> Void
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Tokens.forest)
-                .frame(width: 36, height: 36)
-                .background(
-                    Circle()
-                        .fill(Tokens.warmWhite.opacity(0.23))
-                        .overlay(Circle().strokeBorder(Tokens.barRim, lineWidth: 0.661))
-                        .shadow(color: Palette.ink.opacity(0.08), radius: 3, y: 5.3)
-                )
-                .minimumHitTarget()
-        }
-        .buttonStyle(.plain)
-        .opacity(isEnabled ? 1 : 0.4)
-        .accessibilityLabel("Write full screen")
-        .accessibilityIdentifier("text.fullScreen")
-    }
-}
-
 /// The align tool drawn as the handoff's three rounded bars, mirroring the
 /// block's alignment (screens 16-17; trailing by extension, as 11 shows).
 struct AlignGlyph: View {

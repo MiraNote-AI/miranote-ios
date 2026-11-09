@@ -1575,18 +1575,6 @@
         }
       }
     },
-    "Each line becomes its own block." : {
-      "comment" : "Full-screen writing page hint.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "每一行都会成为独立的文字块。"
-          }
-        }
-      }
-    },
     "Edit" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5138,18 +5126,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "处理中…"
-          }
-        }
-      }
-    },
-    "Write full screen" : {
-      "comment" : "VoiceOver: opens the block being written on a full-screen page.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全屏书写"
           }
         }
       }

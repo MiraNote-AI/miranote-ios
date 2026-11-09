@@ -1,16 +1,16 @@
 import CoreGraphics
 
-/// Full-screen writing (#184): words written in one go become one text
-/// block per line, stacked down the page in reading order.
+/// #184: words written in one go become one text block per paragraph once
+/// the writing ends, stacked down the page in reading order.
 public enum ParagraphSplit {
     /// The gap between the stacked blocks' frames, as Tidy spaces elements.
     public static let gap: CGFloat = 24
 
-    /// `text` split into paragraphs, each trimmed, empty ones dropped. The
-    /// app's rule is the default: every line break starts one (Notion
-    /// style). `everyLine: false` splits on blank lines only (lines holding
-    /// nothing but spaces), a single line break staying inside its
-    /// paragraph.
+    /// `text` split into paragraphs, each trimmed, empty ones dropped. By
+    /// default every line break starts one (Notion style). The app splits
+    /// with `everyLine: false`: on blank lines only (lines holding nothing
+    /// but spaces), a single line break staying inside its paragraph, so
+    /// poems and lists keep their lines.
     public static func paragraphs(of text: String, everyLine: Bool = true) -> [String] {
         var paragraphs: [String] = []
         var lines: [Substring] = []
