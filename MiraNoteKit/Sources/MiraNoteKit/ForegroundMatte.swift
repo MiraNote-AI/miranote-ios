@@ -39,6 +39,33 @@ public enum ForegroundMatteError: Error, Equatable {
 public struct VisionForegroundMatte: ForegroundMatte {
     public init() {}
 
+    /// Loads Vision's segmentation model ahead of the first real lift. On the
+    /// bench the first lift after launch took 0.58 s and the next ones
+    /// 0.05-0.13 s; the difference is the model load, which a throwaway request
+    /// on a tiny image pays instead. Fire and forget, at utility priority.
+    public func warmUp() {
+        Task.detached(priority: .utility) {
+            let side = 64
+            var pixels = [UInt8](repeating: 0, count: side * side * 4)
+            for i in 0..<(side * side) {
+                let inside = abs(i % side - side / 2) < 16 && abs(i / side - side / 2) < 16
+                pixels[i * 4] = inside ? 200 : 40
+                pixels[i * 4 + 1] = inside ? 60 : 40
+                pixels[i * 4 + 2] = 40
+                pixels[i * 4 + 3] = 255
+            }
+            guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+                  let image = CGImage(
+                    width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 32,
+                    bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                    provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+                  ) else { return }
+            try? VNImageRequestHandler(cgImage: image)
+                .perform([VNGenerateForegroundInstanceMaskRequest()])
+        }
+    }
+
     public func removeBackground(_ image: Data) throws -> Data {
         // Built per call. CIContext is documented as expensive to create, but
         // a matte happens once per user action, and a shared one would need

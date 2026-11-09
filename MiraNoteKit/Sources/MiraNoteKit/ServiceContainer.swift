@@ -39,15 +39,21 @@ public struct ServiceContainer: Sendable {
     /// moves plain background removal onto this phone: no upload, no queue
     /// behind one shared Mac, and it works with the backend unreachable.
     /// Everything that needs a model too large to ship still goes to the POC.
-    public static let live = ServiceContainer(
-        textTransform: LiveTextTransformService(),
-        voiceTranscription: LiveVoiceTranscriptionService(),
-        stickerGeneration: MockStickerGenerationService(),
-        styleTransfer: MockStyleTransferService(),
-        chat: LiveChatService(),
-        imageStudio: LiveImageStudioService(matte: VisionForegroundMatte()),
-        mood: LiveMoodService()
-    )
+    /// Vision's model is loaded in the background at launch so the first
+    /// cut-out does not pay for it.
+    public static let live: ServiceContainer = {
+        let matte = VisionForegroundMatte()
+        matte.warmUp()
+        return ServiceContainer(
+            textTransform: LiveTextTransformService(),
+            voiceTranscription: LiveVoiceTranscriptionService(),
+            stickerGeneration: MockStickerGenerationService(),
+            styleTransfer: MockStyleTransferService(),
+            chat: LiveChatService(),
+            imageStudio: LiveImageStudioService(matte: matte),
+            mood: LiveMoodService()
+        )
+    }()
 
     /// All-mock wiring for previews, tests, and offline use.
     public static let mock = ServiceContainer(

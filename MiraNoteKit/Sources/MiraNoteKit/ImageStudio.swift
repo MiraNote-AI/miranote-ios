@@ -1,4 +1,5 @@
 import Foundation
+import StickerEdgeCore
 
 /// What the image-generation POC can produce from a prompt.
 public enum GeneratedImageKind: String, Sendable {
@@ -138,8 +139,13 @@ public struct LiveImageStudioService: ImageStudioService {
         var images: [Data] = []
         var unmatted: [Int] = []
         for (index, image) in raw.enumerated() {
+            // The lift and the cut run detached, so they would not see a
+            // cancelled generation: stop here rather than pay ~0.5 s an image
+            // for pictures nobody is waiting for.
+            try Task.checkCancellation()
             do {
-                images.append(try await Self.lift(image, with: matte))
+                let lifted = try await Self.lift(image, with: matte)
+                images.append(await Self.withoutModelEdge(raw: image, lifted: lifted))
             } catch {
                 // The picture is already here and already paid for. Keep it,
                 // background and all, and let the caller say so.
@@ -198,6 +204,16 @@ public struct LiveImageStudioService: ImageStudioService {
     private static func lift(_ image: Data, with matte: ForegroundMatte) async throws -> Data {
         try await Task.detached(priority: .userInitiated) {
             try matte.removeBackground(image)
+        }.value
+    }
+
+    /// A generated sticker without the white die-cut edge the model drew round
+    /// it (see StickerEdge): stickers come out bare, and Outline adds an edge on
+    /// request. If StickerEdge cannot read the images, Vision's cut is kept as
+    /// it was, model edge and all.
+    private static func withoutModelEdge(raw: Data, lifted: Data) async -> Data {
+        await Task.detached(priority: .userInitiated) {
+            (try? StickerEdge.cleanCut(raw: raw, lifted: lifted)) ?? lifted
         }.value
     }
 
