@@ -72,7 +72,8 @@ final class CanvasLayoutUITests: XCTestCase {
         let entry = app.buttons["mode.layout"]
         XCTAssertTrue(entry.isEnabled, "two elements or more: Layout can be tapped")
         entry.tap()
-        XCTAssertTrue(app.buttons["layout.template.grid"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["layout.template.tShape"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["layout.template.grid2x2"].exists, "three photos: only templates for three")
         XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
         XCTAssertEqual(app.buttons["nav.trailing"].label, "Done")
         XCTAssertTrue(entry.isSelected, "the tool bar stays, Layout lit")
@@ -82,16 +83,17 @@ final class CanvasLayoutUITests: XCTestCase {
     func testDoneKeepsTheLayoutAsOneUndoStep() {
         let before = photoPlaces
         openLayout()
-        app.buttons["layout.template.collage"].tap()
-        app.buttons["layout.template.grid"].tap()
-        XCTAssertTrue(app.buttons["layout.template.grid"].isSelected)
+        app.buttons["layout.template.onePlusTwo"].tap()
+        app.buttons["layout.template.tShape"].tap()
+        XCTAssertTrue(app.buttons["layout.template.tShape"].isSelected)
         settle()
         let grid = photoFrames
-        XCTAssertEqual(grid[0].minY, grid[1].minY, accuracy: 1, "two photos across the grid's first row")
-        XCTAssertGreaterThan(grid[2].minY, grid[0].maxY, "the third starts the next row")
+        XCTAssertGreaterThan(grid[0].width, grid[1].width * 1.5, "one wide photo across the top")
+        XCTAssertEqual(grid[1].minY, grid[2].minY, accuracy: 1, "two squares under it")
+        XCTAssertGreaterThan(grid[1].minY, grid[0].maxY)
 
         app.buttons["nav.trailing"].tap()
-        XCTAssertFalse(app.buttons["layout.template.grid"].exists, "the strip closes")
+        XCTAssertFalse(app.buttons["layout.template.tShape"].exists, "the strip closes")
         XCTAssertTrue(app.buttons["mode.text"].exists, "the tool bar is back")
         settle()
         XCTAssertEqual(photoFrames, grid, "Done keeps the page as tried")
@@ -106,7 +108,7 @@ final class CanvasLayoutUITests: XCTestCase {
     func testCancelPutsThePageBack() {
         let before = photoFrames
         openLayout()
-        app.buttons["layout.template.collage"].tap()
+        app.buttons["layout.template.onePlusTwo"].tap()
         settle()
         XCTAssertNotEqual(photoFrames, before, "the template shows on the page at once")
         app.buttons["nav.leading"].tap()
@@ -134,20 +136,20 @@ final class CanvasLayoutUITests: XCTestCase {
     func testLayoutAgainOrAnotherToolPutsThePageBack() {
         let before = photoFrames
         openLayout()
-        app.buttons["layout.template.collage"].tap()
+        app.buttons["layout.template.onePlusTwo"].tap()
         settle()
         app.buttons["mode.layout"].tap()
         settle()
-        XCTAssertFalse(app.buttons["layout.template.grid"].exists, "Layout again closes the strip")
+        XCTAssertFalse(app.buttons["layout.template.tShape"].exists, "Layout again closes the strip")
         XCTAssertFalse(app.buttons["mode.layout"].isSelected)
         XCTAssertEqual(photoFrames, before, "as Cancel")
 
         openLayout()
-        app.buttons["layout.template.hero"].tap()
+        app.buttons["layout.template.tShape"].tap()
         settle()
         app.buttons["mode.voice"].tap()
         settle()
-        XCTAssertFalse(app.buttons["layout.template.grid"].exists, "another tool closes it")
+        XCTAssertFalse(app.buttons["layout.template.tShape"].exists, "another tool closes it")
         XCTAssertEqual(photoFrames, before, "as Cancel")
     }
 
@@ -155,13 +157,13 @@ final class CanvasLayoutUITests: XCTestCase {
         let before = photoFrames
         openLayout()
         XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "nothing tried yet")
-        app.buttons["layout.template.hero"].tap()
+        app.buttons["layout.template.tShape"].tap()
         settle()
         XCTAssertNotEqual(photoFrames, before)
         app.buttons["editor.undo"].tap()
         settle()
         XCTAssertEqual(photoFrames, before)
-        XCTAssertTrue(app.buttons["layout.template.hero"].exists, "the strip stays open")
-        XCTAssertFalse(app.buttons["layout.template.hero"].isSelected)
+        XCTAssertTrue(app.buttons["layout.template.tShape"].exists, "the strip stays open")
+        XCTAssertFalse(app.buttons["layout.template.tShape"].isSelected)
     }
 }

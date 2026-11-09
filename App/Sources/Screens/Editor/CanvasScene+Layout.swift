@@ -54,13 +54,13 @@ extension CanvasScene {
     }
 
     func laidOut(_ template: PageLayout.Template, _ items: [CanvasItem]) -> [CanvasItem] {
-        PageLayout.apply(template, to: items, pageWidth: MiraNoteConfig.pageWidth, textHeight: Self.textHeight)
+        PageLayout.apply(template, to: items, pageWidth: MiraNoteConfig.pageWidth, textHeight: Self.textHeight,
+                         photoAspect: Self.photoAspect)
     }
 
     var layoutStrip: some View {
         let original = layoutOriginal ?? []
-        let templates = PageLayout.templates(for: original, pageWidth: MiraNoteConfig.pageWidth,
-                                             textHeight: Self.textHeight)
+        let templates = PageLayout.templates(for: original)
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(templates) { template in
@@ -85,16 +85,39 @@ extension CanvasScene {
         return max(36, TextMeasure.blockHeight(text: block.text, pointSize: block.pointSize,
                                                fontName: block.fontName, width: width))
     }
+
+    /// The photo's own shape (height over width), not its box's: a box an
+    /// earlier template cropped would say nothing about the picture.
+    private static func photoAspect(_ item: CanvasItem) -> CGFloat {
+        if case .image(let ref) = item.content,
+           let image = CanvasImageCache.image(fileName: ref.fileName, filterName: ref.filterName,
+                                              store: ImageFileStore(), maxPixels: CanvasImageCache.displayPixels),
+           image.size.width > 0 {
+            return image.size.height / image.size.width
+        }
+        return item.size.height / max(item.size.width, 1)
+    }
 }
 
 extension PageLayout.Template {
     var title: String {
         switch self {
-        case .grid: return String(appCopy: "Photo grid")
-        case .titleGrid: return String(appCopy: "Title grid")
-        case .hero: return String(appCopy: "Big photo")
-        case .column: return String(appCopy: "Diary")
-        case .collage: return String(appCopy: "Collage")
+        case .cover: return String(appCopy: "Cover")
+        case .polaroid: return String(appCopy: "Polaroid")
+        case .minimal: return String(appCopy: "Minimal air")
+        case .stagger: return String(appCopy: "Stagger")
+        case .scrapbook: return String(appCopy: "Scrapbook tape")
+        case .onePlusTwo: return String(appCopy: "1 + 2")
+        case .tShape: return String(appCopy: "T-shape")
+        case .grid2x2: return String(appCopy: "2 x 2")
+        case .heroThree: return String(appCopy: "Hero + 3")
+        case .polaroidWall: return String(appCopy: "Polaroid wall")
+        case .magazine: return String(appCopy: "Magazine")
+        case .journal: return String(appCopy: "Journal")
+        case .nineGrid: return String(appCopy: "Nine grid")
+        case .twinHero: return String(appCopy: "Twin hero")
+        case .masonry: return String(appCopy: "Masonry")
+        case .strip: return String(appCopy: "Long strip")
         }
     }
 }
