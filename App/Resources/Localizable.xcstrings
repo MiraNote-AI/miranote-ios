@@ -783,6 +783,18 @@
         }
       }
     },
+    "Big photo" : {
+      "comment" : "Layout template: one large photo, the rest in a row under it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大图"
+          }
+        }
+      }
+    },
     "Blank" : {
       "comment" : "Paper type.",
       "extractionState" : "manual",
@@ -1139,6 +1151,18 @@
         }
       }
     },
+    "Collage" : {
+      "comment" : "Layout template: tilted, overlapping photos.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拼贴"
+          }
+        }
+      }
+    },
     "Compare with the original" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1457,6 +1481,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在下方描述一张图片，Mira 会画几张供你挑选。"
+          }
+        }
+      }
+    },
+    "Diary" : {
+      "comment" : "Layout template: photo and words in turn.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图文交错"
           }
         }
       }
@@ -2181,6 +2217,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语言"
+          }
+        }
+      }
+    },
+    "Layout" : {
+      "comment" : "Button: arrange the page with a template.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排版"
           }
         }
       }
@@ -3204,6 +3252,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "照片图库"
+          }
+        }
+      }
+    },
+    "Photo grid" : {
+      "comment" : "Layout template: the words on top, the photos in a grid below.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宫格"
           }
         }
       }
@@ -4826,6 +4886,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在整理版面…"
+          }
+        }
+      }
+    },
+    "Title grid" : {
+      "comment" : "Layout template: the title, a grid of photos, then the rest of the words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题宫格"
           }
         }
       }

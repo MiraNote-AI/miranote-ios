@@ -104,7 +104,11 @@ struct CanvasScene: View {
     @State private var photoSession: PhotoSession?
     @State private var editingStickerItem: CanvasItem.ID?
     /// The element an edit panel just closed on, scrolled into view.
-    @State private var revealItem: CanvasItem.ID?
+    @State var revealItem: CanvasItem.ID?
+    /// The page before a layout was tried (#183); non-nil while the
+    /// template strip is open.
+    @State var layoutOriginal: [CanvasItem]?
+    @State var layoutPick: PageLayout.Template?
     @State var backgroundPanelOpen = false
     /// The Background tool's custom page color sheet, while it is up.
     @State var pageColorEdit: PageColorEdit?
@@ -654,6 +658,8 @@ struct CanvasScene: View {
                     onApply: applyBackground,
                     onStop: { mira.stop() }
                 )
+            } else if layoutOriginal != nil {
+                layoutStrip
             } else {
                 recorderCluster
             }
@@ -669,6 +675,7 @@ struct CanvasScene: View {
                     .foregroundStyle(Palette.textSecondary)
                     .padding(.horizontal, Metrics.chromeInset)
             }
+            if offersLayout && attachedSound == nil { layoutEntry }
             // Voice stays lit while its take's result sheet shows (09).
             InputModeBar(active: attachedSound == nil ? nil : .voice, onSelect: handleTool)
             // The card and the bar are one conversational dock.
@@ -856,6 +863,9 @@ struct CanvasScene: View {
     /// Cancel / Add (24-29), any other open tool Canvas / Save (05, 23), the
     /// bare canvas Home / Save.
     private var header: Header {
+        if layoutOriginal != nil {
+            return Header(leading: "Cancel", trailing: "Done", onLeading: cancelLayout, onTrailing: keepLayout)
+        }
         if writing {
             return Header(leading: "Cancel", trailing: "Done",
                           onLeading: cancelTextEditing, onTrailing: endTextEditing)
@@ -897,6 +907,8 @@ struct CanvasScene: View {
     /// sticker panel's visit records no step while it is open (its edit
     /// lands as it closes), so there it has none to take back.
     private var headerUndo: () -> Void {
+        // Trying layouts: undo goes back to the page before any of them.
+        if layoutOriginal != nil { return undoLayoutTry }
         if writing { return undoFromHeader }
         if editingImageItem != nil { return { photoEdit?.undo() } }
         if editingStickerItem != nil { return {} }
@@ -904,6 +916,7 @@ struct CanvasScene: View {
     }
 
     private var headerUndoEnabled: Bool {
+        if layoutOriginal != nil { return layoutPick != nil }
         if writing { return editor.canUndo }
         if editingImageItem != nil { return photoEdit?.canUndo == true }
         return editingStickerItem == nil && editor.canUndo
