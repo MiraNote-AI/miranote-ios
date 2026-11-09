@@ -1507,6 +1507,18 @@
         }
       }
     },
+    "Draft" : {
+      "comment" : "Tag on a journal page left without Save, and its VoiceOver value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "草稿"
+          }
+        }
+      }
+    },
     "Draft ready -- open to shape it" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2134,6 +2146,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保留"
+          }
+        }
+      }
+    },
+    "Kept as draft" : {
+      "comment" : "Toast after a page is left with Home instead of Save.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存为草稿"
           }
         }
       }

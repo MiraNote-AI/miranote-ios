@@ -174,6 +174,10 @@ struct CanvasScene: View {
                HintCenter.shouldShow(ToolsOnboarding.hintID) {
                 showsToolsOnboarding = true
             }
+            // Before anything is recorded: `hasEdits` compares with the page
+            // as the first recorded change finds it, fitted heights and all.
+            // Fitted after that, a page only looked at would leave as a
+            // draft (#137).
             remeasureTextBlocks()
             // A change made in another scene (a Sticker preset) moved on
             // from a waiting result without this scene seeing it.
