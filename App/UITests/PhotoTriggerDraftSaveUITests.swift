@@ -58,7 +58,9 @@ extension PhotoTriggerUITests {
         let log = app.buttons["collection.Daily Log"]
         XCTAssertTrue(log.waitForExistence(timeout: 4))
         log.tap()
-        XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5))
+        let cover = app.buttons["note.\(groupADate)"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(cover.value as? String, "Draft", "Save files a saved page")
     }
 
     /// R4: an edited draft is autosaved when the app leaves, so a kill
@@ -84,6 +86,7 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5), "the page was filed")
     }
 
+    /// Like any page changed and left with Home (#137): kept as a draft.
     func testEditedPushDraftIsFiledOnBack() {
         openDraft()
         app.buttons["mode.text"].tap()
@@ -94,10 +97,14 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(app.staticTexts["my own words"].waitForExistence(timeout: 5))
         app.buttons["Home"].tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 6))
+        let toast = app.descendants(matching: .any).matching(identifier: "draft.toast").firstMatch
+        XCTAssertTrue(toast.waitForExistence(timeout: 5), "leaving says the page was kept as a draft")
         waitForLedger(made: true)
         let log = app.buttons["collection.Daily Log"]
         XCTAssertTrue(log.waitForExistence(timeout: 4))
         log.tap()
-        XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5))
+        let cover = app.buttons["note.\(groupADate)"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        XCTAssertEqual(cover.value as? String, "Draft")
     }
 }
