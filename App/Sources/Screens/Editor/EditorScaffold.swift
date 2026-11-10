@@ -74,11 +74,12 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    // Sheets float inside the card, as far from its foot as
-                    // from its sides.
+                    // Sheets dock to the card: flush with its sides and
+                    // foot, lower corners on its corners, so no strip of
+                    // the page shows around them.
                     sheet()
-                        .padding(.horizontal, Metrics.chromeInset)
-                        .padding(.bottom, Metrics.sheetInCard)
+                        .environment(\.glassSheetFootCorner, Metrics.canvasCorner)
+                        .padding(.horizontal, Metrics.canvasInset)
                 }
             // Canvas card, 6, tool bar, 16, composer, and the composer's
             // bottom 36 above the screen edge (2 above the home-indicator

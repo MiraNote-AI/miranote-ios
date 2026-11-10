@@ -145,8 +145,13 @@ struct CollectionDetailView: View {
                 .kerning(1.6)
                 .foregroundStyle(theme.muted(Palette.textSecondary))
 
+            // Top-aligned: a draft's tag can drop under a long date and make
+            // its card taller than the one beside it.
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                columns: [
+                    GridItem(.flexible(), spacing: 12, alignment: .top),
+                    GridItem(.flexible(), spacing: 12, alignment: .top)
+                ],
                 spacing: 14
             ) {
                 ForEach(group.memories) { memory in
@@ -162,11 +167,13 @@ struct CollectionDetailView: View {
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 PageCoverView(memory: memory, coverWidth: 164, coverHeight: 190)
-                // The cover already says the title; the caption says when.
-                Text(CaptionDate.string(for: memory.memoryDate))
-                    .font(.miraCaption)
-                    .foregroundStyle(theme.muted(Palette.textSecondary))
-                    .lineLimit(1)
+                // The cover already says the title; the caption says when,
+                // and whether the page still waits for Save (#137). A date
+                // too long to share its line with the tag keeps the line.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { caption(memory) }
+                    VStack(alignment: .leading, spacing: 4) { caption(memory) }
+                }
             }
             // The cover itself ignores touches (Color.clear + hit-disabled
             // page), so give the whole label a tappable shape.
@@ -174,6 +181,7 @@ struct CollectionDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("note.\(memory.title)")
+        .accessibilityValue(memory.isDraft ? String(appCopy: "Draft") : "")
         .contextMenu {
             Button {
                 pickedDate = memory.memoryDate
@@ -196,7 +204,30 @@ struct CollectionDetailView: View {
         }
     }
 
+    @ViewBuilder private func caption(_ memory: Memory) -> some View {
+        Text(CaptionDate.string(for: memory.memoryDate))
+            .font(.miraCaption)
+            .foregroundStyle(theme.muted(Palette.textSecondary))
+            .lineLimit(1)
+        if memory.isDraft { DraftTag() }
+    }
+
     private var otherCollections: [MemoryCollection] {
         viewModel.collections.filter { $0.id != collectionID }
+    }
+}
+
+/// A page left without Save (#137): the SoftPill's paper capsule at
+/// caption size. VoiceOver hears it as the cover's value instead.
+private struct DraftTag: View {
+    var body: some View {
+        Text("Draft")
+            .font(.miraCaption)
+            .foregroundStyle(Palette.ink)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 1)
+            .background(Palette.paper, in: Capsule())
+            .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: Metrics.hairline))
+            .accessibilityHidden(true)
     }
 }

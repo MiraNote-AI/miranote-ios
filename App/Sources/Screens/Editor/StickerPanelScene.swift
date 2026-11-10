@@ -36,6 +36,9 @@ struct StickerPanelScene: View {
     @State private var drafts: [StickerDraft] = []
     @State private var page = 0
     @State private var generating = false
+    /// The generation in flight; cleared when it lands or the time limit
+    /// gives up on it, so only one of the two settles it.
+    @State private var generationToken: UUID?
     /// A style tile's studio call in flight.
     @State private var styling = false
     @State private var notice: String?
@@ -150,6 +153,8 @@ struct StickerPanelScene: View {
             // Entries whose image file is gone or degenerate would render as
             // blank squares.
             favorites = favoritesStore.prunedRaisingSmall(images: imageStore)
+            // A cut-out is likely next: load Vision's model now, not on it.
+            studio.prepare()
         }
         #if DEBUG
         .background(DebugStateProbe {
@@ -277,13 +282,17 @@ struct StickerPanelScene: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
+                // A notice (a time-out, an error) takes the hint's line
+                // while it shows, rather than a second grey line under it.
                 if generating || !drafts.isEmpty {
-                    Text("Generate makes a new one; close the keyboard to see this one.")
-                        .font(.miraLabel)
-                        .foregroundStyle(Palette.textSecondary)
+                    if notice == nil {
+                        Text("Generate makes a new one; close the keyboard to see this one.")
+                            .font(.miraLabel)
+                            .foregroundStyle(Palette.textSecondary)
+                    }
                 } else if let photo = selectedPhoto {
                     photoShortcut(photo)
-                } else {
+                } else if notice == nil {
                     Text("Describe a sticker below -- Mira makes a couple to pick from.")
                         .font(.miraLabel)
                         .foregroundStyle(Palette.textSecondary)
@@ -295,7 +304,7 @@ struct StickerPanelScene: View {
     }
 
     /// Screen 30: the photo selected on the canvas, a tap from becoming a
-    /// sticker (cutout, then outline).
+    /// sticker (cut out, no edge; the Outline tile adds one).
     private func photoShortcut(_ photo: ImageRef) -> some View {
         Button {
             makeSticker(from: photo)
@@ -621,10 +630,21 @@ struct StickerPanelScene: View {
         // What is being made shows on the Make tab, at full height.
         tab = .make
         promptFocused = false
-        Task {
-            defer { generating = false }
+        let token = UUID()
+        generationToken = token
+        let work = Task {
+            let outcome: Result<StickerGeneration, Error>
             do {
-                let batch = try await studio.generateStickers(prompt: trimmed)
+                outcome = .success(try await studio.generateStickers(prompt: trimmed))
+            } catch {
+                outcome = .failure(error)
+            }
+            // Given up on by the time limit: a late result is dropped.
+            guard generationToken == token else { return }
+            generationToken = nil
+            generating = false
+            do {
+                let batch = try outcome.get()
                 let images = batch.images
                 // Worded off the counts rather than assuming two: the backend
                 // returns NUMBER_OF_IMAGES of them and that has already been
@@ -645,6 +665,26 @@ struct StickerPanelScene: View {
                     ?? String(appCopy: "Making a sticker didn't work this time. Try again?")
             }
         }
+        // A sticker takes about 10 s on the beta backend. Past the limit the
+        // spinner stops and Make can be tapped again, whether the wait is on
+        // the server or in the on-device lift.
+        Task {
+            try? await Task.sleep(for: Self.generationLimit)
+            guard generationToken == token else { return }
+            generationToken = nil
+            generating = false
+            work.cancel()
+            notice = String(appCopy: "Making this sticker is taking too long. Try again?")
+        }
+    }
+
+    private static var generationLimit: Duration {
+        #if DEBUG
+        // UI tests shorten it with `-STICKER_TIME_LIMIT_MS <ms>`.
+        let override = UserDefaults.standard.integer(forKey: "STICKER_TIME_LIMIT_MS")
+        if override > 0 { return .milliseconds(override) }
+        #endif
+        return .seconds(60)
     }
 
     private func makeSticker(from photo: ImageRef) {
@@ -656,11 +696,13 @@ struct StickerPanelScene: View {
         Task {
             defer { generating = false }
             do {
-                let cut = try await studio.cutout(image: data, target: nil)
-                let outlined = try await studio.outline(image: cut)
-                var draft = StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)
-                draft.push(StickerVariant(data: outlined, style: .outline))
-                drafts = [draft]
+                // No white edge (team decision 2026-10-24): stickers come out
+                // without one, and the Outline tile adds it on request.
+                // Trimmed to the subject: Vision's cut keeps the whole photo's
+                // canvas, which /border used to crop for the outlined variant.
+                let cut = StickerTrim.croppedToOpaqueBounds(
+                    try await studio.cutout(image: data, target: nil))
+                drafts = [StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)]
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
                     ?? String(appCopy: "That didn't work this time. Try again?")

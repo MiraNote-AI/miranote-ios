@@ -70,12 +70,64 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertEqual(stickers.count, 1)
     }
 
+    /// A photo becomes a sticker with no edge (team decision 2026-10-24):
+    /// the cut is what shows, Outline is not lit and there is nothing to
+    /// undo. It used to push an outlined look on top of the cut.
+    func testAPhotoBecomesAStickerWithNoEdge() {
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let samples = app.buttons["image.library.samples"]
+        XCTAssertTrue(samples.waitForExistence(timeout: 5))
+        samples.tap()
+        let photo = app.descendants(matching: .any)
+            .matching(identifier: "element.image").element(boundBy: 0)
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        app.buttons["nav.trailing"].tap()
+        // Placed photos arrive unselected; the shortcut needs one selected.
+        photo.tap()
+
+        app.buttons["mode.sticker"].tap()
+        let fromPhoto = app.buttons["sticker.fromPhoto"]
+        XCTAssertTrue(fromPhoto.waitForExistence(timeout: 5), "the selected photo's shortcut shows")
+        fromPhoto.tap()
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["sticker.style.cutout"].isSelected, "the plain cut is the showing look")
+        XCTAssertFalse(app.buttons["sticker.style.outline"].isSelected, "no edge was added")
+        XCTAssertFalse(app.buttons["sticker.undo"].isEnabled, "no look sits on top of the cut")
+    }
+
     func testGeneratingShowsTheSpinnerThenTheResult() {
         generate("a cup, slowly")
         XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3), "the generating spinner shows")
         XCTAssertFalse(app.buttons["sticker.style.outline"].isEnabled, "styles wait for a sticker")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 12))
         XCTAssertTrue(app.buttons["sticker.style.outline"].isEnabled)
+    }
+
+    /// #169: a sticker that takes too long stops the spinner with a retry
+    /// notice, and its late result does not land afterwards.
+    func testATooSlowStickerGivesUpAndDropsTheLateResult() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-STICKER_TIME_LIMIT_MS", "2000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+
+        generate("a cup, slowly")
+        XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3))
+        let notice = any("sticker.notice")
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the time limit gives up")
+        XCTAssertEqual(notice.label, "Making this sticker is taking too long. Try again?")
+        XCTAssertFalse(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists,
+                       "the notice takes the hint's line")
+        XCTAssertFalse(any("sticker.generating").exists, "the spinner stopped")
+        XCTAssertTrue(app.buttons["sticker.generate.run"].isEnabled, "Make can be tapped again")
+
+        // The scripted sticker would have landed 8 s in.
+        sleep(8)
+        XCTAssertFalse(any("sticker.result.0").exists, "the late result is dropped")
     }
 
     func testStylesStepBackAndForward() {

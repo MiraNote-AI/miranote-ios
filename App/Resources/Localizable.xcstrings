@@ -308,6 +308,18 @@
         }
       }
     },
+    "%lld s" : {
+      "comment" : "Photo trigger debug screen (testers only): seconds one group took.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
+          }
+        }
+      }
+    },
     "%lld selected" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -506,30 +518,6 @@
         }
       }
     },
-    "Also: %@ (%@)" : {
-      "comment" : "Photo trigger debug screen (testers only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "备选：%1$@（%2$@）"
-          }
-        }
-      }
-    },
-    "Another kind" : {
-      "comment" : "Photo trigger debug screen (testers only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "其他"
-          }
-        }
-      }
-    },
     "APP LANGUAGE" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -632,6 +620,17 @@
         }
       }
     },
+    "Add to Canvas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "直接加到画布"
+          }
+        }
+      }
+    },
     "Add to Favorites" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -639,6 +638,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加入收藏"
+          }
+        }
+      }
+    },
+    "Add to Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入照片库"
           }
         }
       }
@@ -811,6 +821,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这一天推过了"
+          }
+        }
+      }
+    },
+    "Also: %@ (%@)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备选：%1$@（%2$@）"
+          }
+        }
+      }
+    },
+    "Another kind" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
           }
         }
       }
@@ -1809,17 +1843,6 @@
         }
       }
     },
-    "Describe cutout target" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "描述要抠出的对象"
-          }
-        }
-      }
-    },
     "Discard recording" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1862,6 +1885,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "点阵"
+          }
+        }
+      }
+    },
+    "Draft" : {
+      "comment" : "Tag on a journal page left without Save, and its VoiceOver value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "草稿"
           }
         }
       }
@@ -2431,18 +2466,6 @@
         }
       }
     },
-    "How it was found" : {
-      "comment" : "Photo trigger debug screen (testers only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "怎么找到的"
-          }
-        }
-      }
-    },
     "HUE" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2544,6 +2567,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首页"
+          }
+        }
+      }
+    },
+    "How it was found" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "怎么找到的"
           }
         }
       }
@@ -2721,6 +2756,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "留住这个%@"
+          }
+        }
+      }
+    },
+    "Kept as draft" : {
+      "comment" : "Toast after a page is left with Home instead of Save.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存为草稿"
           }
         }
       }
@@ -3063,6 +3110,17 @@
         }
       }
     },
+    "Making this sticker is taking too long. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贴纸做得太久了，再试一次？"
+          }
+        }
+      }
+    },
     "Match page" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
@@ -3312,6 +3370,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称"
+          }
+        }
+      }
+    },
+    "Name a subject, or just tap Edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写要抠的对象，或直接点编辑"
           }
         }
       }
@@ -3962,30 +4031,6 @@
         }
       }
     },
-    "People there" : {
-      "comment" : "Photo trigger debug screen (testers only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有人在场"
-          }
-        }
-      }
-    },
-    "Photo memories (beta)" : {
-      "comment" : "Settings: the photo trigger's switch (TestFlight builds only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "照片回忆（内测）"
-          }
-        }
-      }
-    },
     "PREFERENCES" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4122,6 +4167,18 @@
         }
       }
     },
+    "People there" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有人在场"
+          }
+        }
+      }
+    },
     "Pets and animals" : {
       "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
       "extractionState" : "manual",
@@ -4216,6 +4273,18 @@
         }
       }
     },
+    "Photo memories (beta)" : {
+      "comment" : "Settings: the photo trigger's switch (TestFlight builds only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片回忆（内测）"
+          }
+        }
+      }
+    },
     "Photo trigger (test)" : {
       "comment" : "Home: the photo trigger's debug entry (development and TestFlight builds).",
       "extractionState" : "manual",
@@ -4304,17 +4373,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取色"
-          }
-        }
-      }
-    },
-    "Pick photos" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "挑选照片"
           }
         }
       }
@@ -4956,30 +5014,6 @@
         }
       }
     },
-    "Saturday" : {
-      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "周六"
-          }
-        }
-      }
-    },
-    "Sounds" : {
-      "comment" : "Photo trigger debug screen (testers only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "声音"
-          }
-        }
-      }
-    },
     "SWIPE →" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5010,6 +5044,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "示例"
+          }
+        }
+      }
+    },
+    "Saturday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周六"
           }
         }
       }
@@ -5163,18 +5209,6 @@
         }
       }
     },
-    "%lld s" : {
-      "comment" : "Photo trigger debug screen (testers only): seconds one group took.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 秒"
-          }
-        }
-      }
-    },
     "Scheduled: %@" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -5312,17 +5346,6 @@
         }
       }
     },
-    "Share more" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择更多照片"
-          }
-        }
-      }
-    },
     "Shortened the text." : {
       "comment" : "Result sheet: what changed.",
       "extractionState" : "manual",
@@ -5434,6 +5457,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "声音备注"
+          }
+        }
+      }
+    },
+    "Sounds" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音"
           }
         }
       }
@@ -5577,6 +5612,18 @@
         }
       }
     },
+    "TESTING" : {
+      "comment" : "Settings: section label above the photo trigger's switch (TestFlight builds only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测试"
+          }
+        }
+      }
+    },
     "Tap a text block first, then dictate." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5617,6 +5664,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "轻点头像或名字即可编辑"
+          }
+        }
+      }
+    },
+    "Taste" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "味道"
           }
         }
       }
@@ -5663,18 +5722,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "紧张"
-          }
-        }
-      }
-    },
-    "TESTING" : {
-      "comment" : "Settings: section label above the photo trigger's switch (TestFlight builds only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "测试"
           }
         }
       }
@@ -5857,18 +5904,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "后端：%@"
-          }
-        }
-      }
-    },
-    "Taste" : {
-      "comment" : "Photo trigger debug screen (testers only).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "味道"
           }
         }
       }
@@ -6167,6 +6202,17 @@
         }
       }
     },
+    "This sticker has no stored pixels to outline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可描边的像素。"
+          }
+        }
+      }
+    },
     "This sticker has no stored pixels to work on -- try another?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6174,6 +6220,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这张贴纸没有可处理的像素，换一张试试？"
+          }
+        }
+      }
+    },
+    "This sticker has nothing visible to outline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张贴纸没有可描边的可见部分。"
           }
         }
       }

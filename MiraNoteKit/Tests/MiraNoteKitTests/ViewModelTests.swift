@@ -373,6 +373,28 @@ final class CanvasViewModelTests: XCTestCase {
         }
     }
 
+    /// Outline's regrowth: the frame takes the new size and its centre moves
+    /// by the shift turned with the sticker; one undo takes back both.
+    func testAnOutlinedStickerGrowsItsFrameRoundTheArt() throws {
+        let viewModel = CanvasViewModel(memory: Memory())
+        let id = viewModel.addSticker(GeneratedSticker(prompt: "cup", symbolName: "sparkles", fileName: "a.png"),
+                                      at: CGPoint(x: 200, y: 300))
+        viewModel.rotate(itemID: id, degrees: 90)
+        let before = try XCTUnwrap(viewModel.item(id))
+
+        let regrowth = StickerTrim.Regrowth(size: CGSize(width: 120, height: 80),
+                                            centerShift: CGVector(dx: 10, dy: 0))
+        viewModel.replaceSticker(itemID: id, with: GeneratedSticker(prompt: "cup", symbolName: "sparkles",
+                                                                    fileName: "b.png"), regrowth: regrowth)
+        let after = try XCTUnwrap(viewModel.item(id))
+        XCTAssertEqual(after.size, CGSize(width: 120, height: 80))
+        XCTAssertEqual(after.position.x, 200, accuracy: 0.001, "a quarter turn clockwise: right becomes down")
+        XCTAssertEqual(after.position.y, 310, accuracy: 0.001)
+
+        viewModel.undo()
+        XCTAssertEqual(viewModel.item(id), before, "one undo: the old pixels in the old frame")
+    }
+
     func testAutosizeAnchorsTopEdgeAndSkipsNoops() {
         let viewModel = CanvasViewModel(memory: Memory())
         let id = viewModel.addText("grows", at: CGPoint(x: 100, y: 100), size: CGSize(width: 200, height: 40))

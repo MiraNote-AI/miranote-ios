@@ -19,6 +19,9 @@ struct HomeView: View {
     var onOpenProfile: () -> Void = {}
     /// The photo trigger's debug entry, at the foot of the page; nil hides it.
     var triggerEntry: TriggerDebugEntry?
+    /// A page just saved from a new canvas: its star flies into the jar.
+    var arrivingStar: Memory?
+    var onStarLanded: () -> Void = {}
 
     @Environment(\.theme) private var theme
     @State private var prompt = ""
@@ -26,6 +29,12 @@ struct HomeView: View {
     @FocusState private var promptFocused: Bool
     @State private var addingCollection = false
     @State private var newCollectionName = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The arriving star's way from the foot of Home (0) to the jar (1).
+    @State private var flight: CGFloat = 0
+    @State private var flying = false
+    /// Landings so far: each one bounces (or glows) the jar circle.
+    @State private var jarBeat = 0
 
     /// The dateline's warm grey (#8F8477), also used for the extras the
     /// design does not draw (New collection, Recently deleted).
@@ -85,6 +94,19 @@ struct HomeView: View {
             .onTapGesture { promptFocused = false }
         }
         .scrollDismissesKeyboard(.immediately)
+        .overlayPreferenceValue(JarAnchorKey.self) { anchor in
+            GeometryReader { proxy in
+                if flying, let anchor {
+                    FlyingStar(
+                        progress: flight,
+                        start: CGPoint(x: proxy.size.width / 2, y: proxy.size.height - 60),
+                        end: proxy[anchor],
+                        color: Palette.mood(arrivingStar?.mood)
+                    )
+                }
+            }
+        }
+        .task(id: arrivingStar?.id) { await landArrivingStar() }
         .screenBackground()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.root")
@@ -119,10 +141,39 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
+                    .modifier(JarLanding(beat: jarBeat, color: Palette.mood(arrivingStar?.mood), reduceMotion: reduceMotion))
+                    .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
+                    #if DEBUG
+                    // UI tests count the landings.
+                    .accessibilityValue("\(jarBeat)")
+                    #endif
                 headerCircle("home.settings", label: "Settings", action: onOpenSettings)
                 headerCircle("home.profile", label: "Profile", action: onOpenProfile)
             }
         }
+    }
+
+    /// The editor's cover slides away first, then the star flies (0.9 s)
+    /// and lands; under Reduce Motion the jar only glows.
+    private func landArrivingStar() async {
+        guard arrivingStar != nil else { return }
+        do {
+            try await Task.sleep(for: .milliseconds(450))
+            if !reduceMotion {
+                flight = 0
+                flying = true
+                withAnimation(.easeInOut(duration: 0.9)) { flight = 1 }
+                try await Task.sleep(for: .milliseconds(900))
+                flying = false
+            }
+            jarBeat += 1
+            // The glow fades in the star's color before the arrival clears.
+            try await Task.sleep(for: .milliseconds(800))
+        } catch {
+            flying = false
+            return
+        }
+        onStarLanded()
     }
 
     private func headerCircle(_ icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
