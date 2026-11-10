@@ -3,8 +3,9 @@ import SwiftUI
 
 /// The star jar (team decision 2026-10-24, no design screen): every saved
 /// page is a star colored by its mood, a week or a month to a jar. Drawn
-/// in the app's own language -- paper, hairlines, quiet type. Its one
-/// motion: pages saved since the jar was last opened drop in.
+/// in the app's own language -- paper, hairlines, quiet type. Its motion:
+/// pages saved since the jar was last opened drop in, and a tap on the
+/// jar (not on a star) shakes it, the stars jostling inside.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
@@ -23,6 +24,8 @@ struct StarJarView: View {
     @State private var arriving: [Memory.ID] = []
     @State private var visited = false
     @State private var viewport: CGFloat = 0
+    /// Taps on the jar so far: each one shakes it.
+    @State private var shakes = 0
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
@@ -63,6 +66,9 @@ struct StarJarView: View {
             .padding(.top, 6)
             .padding(.bottom, 24)
         }
+        #if DEBUG
+        .background(DebugStateProbe { ["scene": "jar", "shakes": shakes] })
+        #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
         .screenBackground()
         .safeAreaInset(edge: .top) { header }
@@ -171,7 +177,8 @@ struct StarJarView: View {
                         rotation: spot.rotation,
                         drop: dropOffset(for: star.id, at: spot.center, geometry: geometry),
                         delay: dropDelay(for: star.id),
-                        reduceMotion: reduceMotion
+                        reduceMotion: reduceMotion,
+                        shakes: shakes
                     ) {
                         onOpenNote(star)
                     }
@@ -198,8 +205,30 @@ struct StarJarView: View {
                 let nearest = zip(stars, pile.spots)
                     .map { (star: $0, distance: hypot($1.center.x - point.x, $1.center.y - point.y)) }
                     .min { $0.distance < $1.distance }
-                if let nearest, nearest.distance <= 17 { onOpenNote(nearest.star) }
+                if let nearest, nearest.distance <= 17 {
+                    onOpenNote(nearest.star)
+                } else {
+                    shakes += 1
+                }
             }
+            // A shake: a few damped swings from the jar's foot (none under
+            // Reduce Motion, where the stars only twinkle).
+            .keyframeAnimator(initialValue: 0.0, trigger: shakes) { content, angle in
+                content.rotationEffect(.degrees(angle), anchor: .bottom)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    if reduceMotion {
+                        LinearKeyframe(0, duration: 0.01)
+                    } else {
+                        SpringKeyframe(-5, duration: 0.09)
+                        SpringKeyframe(4, duration: 0.12)
+                        SpringKeyframe(-2.5, duration: 0.12)
+                        SpringKeyframe(1, duration: 0.12)
+                        SpringKeyframe(0, duration: 0.25)
+                    }
+                }
+            }
+            .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: shakes)
         }
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)
         // As wide as fits, short enough that the count and legend stay on
@@ -246,8 +275,11 @@ struct StarJarView: View {
         .frame(maxWidth: 300)
     }
 
-    // MARK: Arrivals
+}
 
+// MARK: - Arrivals
+
+extension StarJarView {
     /// Once per visit: what was saved since the jar was last opened drops
     /// in. A first visit drops the whole period once.
     private func firstVisit() {
@@ -284,55 +316,9 @@ struct StarJarView: View {
     }
 }
 
-// MARK: - Star
-
-/// One star: a tap opens its page. It drops in from `drop` when given one
-/// (or, under Reduce Motion, fades in), and its mood tints it with a short
-/// cross-fade when the mood arrives.
-private struct StarButton: View {
-    let star: JarStar
-    let size: CGFloat
-    let rotation: Double
-    let drop: CGSize?
-    let delay: Double
-    let reduceMotion: Bool
-    let action: () -> Void
-
-    @State private var landed = false
-
-    var body: some View {
-        let waiting = drop != nil && !landed
-        Button(action: action) {
-            StarMark(color: Palette.mood(star.memory.mood))
-                .frame(width: size, height: size)
-                .rotationEffect(.degrees(waiting && !reduceMotion ? 0 : rotation))
-                .frame(width: size * 1.3, height: size * 1.3)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .offset(waiting && !reduceMotion ? drop ?? .zero : .zero)
-        .opacity(waiting ? 0 : 1)
-        .animation(.easeInOut(duration: 0.6), value: star.memory.mood)
-        .onAppear {
-            guard drop != nil, !landed else { return }
-            let motion: Animation = reduceMotion
-                ? .easeOut(duration: 0.4)
-                : .spring(response: 0.55, dampingFraction: 0.68)
-            withAnimation(motion.delay(delay)) { landed = true }
-        }
-        .accessibilityLabel(accessibilityText)
-        .accessibilityIdentifier("jar.star.\(star.memory.title)")
-    }
-
-    private var accessibilityText: String {
-        let title = star.memory.title.isEmpty ? CaptionDate.string(for: star.memory.memoryDate) : star.memory.title
-        return String(appCopy: "\(title), \(star.memory.mood?.displayName ?? String(appCopy: "mood not read yet"))")
-    }
-}
-
 /// The star's face: the mood's fill, a soft light from above, and a
 /// hairline edge so neighbors in a pile stay apart.
-private struct StarMark: View {
+struct StarMark: View {
     let color: Color
 
     var body: some View {

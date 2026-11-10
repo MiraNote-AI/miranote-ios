@@ -18,6 +18,7 @@ extension MiraNoteConfigTests {
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.image.absoluteString, "https://beta-image.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.chat.absoluteString, "https://beta-chat.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.voice.absoluteString, "https://beta-voice.miranote.app")
+        XCTAssertEqual(MiraNoteConfig.Backend.Beta.collections.absoluteString, "https://beta-collections.miranote.app")
     }
 
     func testBetaHostsAreHTTPS() {
@@ -41,6 +42,6 @@ extension MiraNoteConfigTests {
     }
 
     func testBetaHostsAreDistinct() {
-        XCTAssertEqual(Set(MiraNoteConfig.Backend.Beta.all).count, 4)
+        XCTAssertEqual(Set(MiraNoteConfig.Backend.Beta.all).count, 5)
     }
 }

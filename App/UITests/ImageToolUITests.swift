@@ -67,6 +67,42 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(photos.count, 2)
     }
 
+    /// #167: Cancel in the library goes straight back to the canvas (the
+    /// header reads Home again), dropping the picks; nothing lands.
+    func testCancelInTheLibraryGoesBackToTheCanvas() {
+        openRecents()
+        any("image.library.photo.0").tap()
+        app.buttons["nav.leading"].tap()
+        XCTAssertTrue(any("image.library.grid").waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["image.library.open"].exists, "not back on Choose photos")
+        XCTAssertEqual(app.buttons["nav.leading"].label, "Home", "the bare canvas")
+        XCTAssertFalse(app.buttons["mode.image"].isSelected)
+        XCTAssertEqual(photos.count, 0, "the pick was let go")
+    }
+
+    /// #167: photos land under everything else on the page; on a long
+    /// page scrolled to the top the canvas scrolls down to show them.
+    func testAddedPhotosComeIntoViewOnALongPage() {
+        app.buttons["mode.image"].tap()
+        app.buttons["mode.text"].tap()
+        let field = any("canvas.textEditor")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Top" + String(repeating: "\nline", count: 45))
+        app.buttons["keyboard.done"].tap()
+        for _ in 0..<4 { app.swipeDown() }
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Top'")).firstMatch.isHittable,
+                      "the page is scrolled to its top")
+
+        app.buttons["mode.image"].tap()
+        openRecents()
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+        let photo = photos.firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        let shown = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: photo)
+        XCTAssertEqual(XCTWaiter().wait(for: [shown], timeout: 5), .completed, "the canvas scrolled to the photo")
+    }
+
     /// A slow import (held 4 s): the header Add tapped twice lands the
     /// picks once, and Add / Editing wait out the import.
     func testASecondAddDuringASlowImportAddsNothingTwice() {
