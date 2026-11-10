@@ -2440,6 +2440,17 @@
         }
       }
     },
+    "Making this sticker is taking too long. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贴纸做得太久了，再试一次？"
+          }
+        }
+      }
+    },
     "Match page" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
