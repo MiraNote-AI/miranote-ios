@@ -109,6 +109,57 @@ public struct MockImageStudioService: ImageStudioService {
     }
 }
 
+/// A failed /stylize, by the reason the server names: it answers each
+/// failure with `{"status": "error", "reason": ..., "message": ...}`
+/// (miranote-api #96). Each known reason reads as the app's own copy, in
+/// the chosen language; the server's English `message` shows only for a
+/// reason this build does not know yet.
+public struct ImageEditError: LocalizedError, Equatable {
+    public let status: Int
+    public let reason: String
+    public let message: String
+
+    public var errorDescription: String? {
+        switch reason {
+        case "unreadable_image":
+            return String(appCopy: "Mira couldn't read that picture. Try a different one.")
+        case "image_too_large":
+            return String(appCopy: "That picture is too large to edit. Try a smaller one.")
+        case "bad_request":
+            return String(appCopy: "Mira couldn't make sense of that edit. Try different words.")
+        case "edit_refused":
+            return String(appCopy: "Mira won't make that edit. Try describing it differently.")
+        case "no_image", "provider_error":
+            return String(appCopy: "Mira couldn't make the edit. Try again.")
+        case "busy":
+            return String(appCopy: "Mira is busy right now. Wait a moment and try again.")
+        case "edit_timeout":
+            return BackendError.timedOut.errorDescription
+        default:
+            return message.isEmpty ? BackendError.server(status: status, detail: nil).errorDescription : message
+        }
+    }
+
+    /// A 504 by its status: Cloudflare puts its own page in place of the
+    /// body (as for a 502), so it reads as the timeout it is. Otherwise
+    /// the body's reason when it has one, else the status alone, as
+    /// before (an older server).
+    static func from(status: Int, detail: String?) -> Error {
+        struct Body: Decodable {
+            let status: String
+            let reason: String
+            let message: String
+        }
+        if status == 504 { return BackendError.timedOut }
+        if let data = detail?.data(using: .utf8),
+           let body = try? JSONDecoder().decode(Body.self, from: data),
+           body.status == "error", !body.reason.isEmpty {
+            return ImageEditError(status: status, reason: body.reason, message: body.message)
+        }
+        return BackendError.server(status: status, detail: detail)
+    }
+}
+
 /// Live client for the image-generation POC.
 ///
 /// Given a `matte`, the two pipelines that are pure background removal stop
@@ -123,37 +174,6 @@ public struct MockImageStudioService: ImageStudioService {
 /// A cutout *with* a target stays remote: Vision is about 3% of that pipeline
 /// and GroundingDINO and SAM, which are the rest of it, are far too large to
 /// ship in an app.
-/// A failed /stylize in the server's own words: it answers each failure
-/// with `{"status": "error", "reason": ..., "message": ...}` (miranote-api
-/// #96). `message` is what the person sees; a status-only text would call
-/// a words-only answer from the model (502) a server that is not running.
-public struct ImageEditError: LocalizedError, Equatable {
-    public let status: Int
-    public let reason: String
-    public let message: String
-
-    public var errorDescription: String? { message }
-
-    /// The server's message when the body has one. Otherwise the status
-    /// alone, as before: an older server, or Cloudflare's own page in
-    /// place of the body -- which it always is for a 504, read as the
-    /// timeout it is.
-    static func from(status: Int, detail: String?) -> Error {
-        struct Body: Decodable {
-            let status: String
-            let reason: String
-            let message: String
-        }
-        if let data = detail?.data(using: .utf8),
-           let body = try? JSONDecoder().decode(Body.self, from: data),
-           body.status == "error", !body.message.isEmpty {
-            return ImageEditError(status: status, reason: body.reason, message: body.message)
-        }
-        if status == 504 { return BackendError.timedOut }
-        return BackendError.server(status: status, detail: detail)
-    }
-}
-
 public struct LiveImageStudioService: ImageStudioService {
     private let baseURL: URL
     private let client: HTTPClient

@@ -3200,6 +3200,18 @@
         }
       }
     },
+    "Mira couldn't make sense of that edit. Try different words." : {
+      "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 没看懂这个修改，换个说法试试。"
+          }
+        }
+      }
+    },
     "Mira couldn't make that one -- try other words?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3211,6 +3223,18 @@
         }
       }
     },
+    "Mira couldn't make the edit. Try again." : {
+      "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 没能完成这次修改，再试一次。"
+          }
+        }
+      }
+    },
     "Mira couldn't paint that one -- try other words?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3218,6 +3242,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mira 没能画出来，换个说法试试？"
+          }
+        }
+      }
+    },
+    "Mira couldn't read that picture. Try a different one." : {
+      "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 读不了这张图片，换一张试试。"
+          }
+        }
+      }
+    },
+    "Mira is busy right now. Wait a moment and try again." : {
+      "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 现在有点忙，稍等一会儿再试。"
+          }
+        }
+      }
+    },
+    "Mira won't make that edit. Try describing it differently." : {
+      "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 不能做这个修改，换个描述试试。"
           }
         }
       }
@@ -5833,6 +5893,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这张图片没能保存，再试一次？"
+          }
+        }
+      }
+    },
+    "That picture is too large to edit. Try a smaller one." : {
+      "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图片太大，没法编辑，换一张小一点的试试。"
           }
         }
       }
