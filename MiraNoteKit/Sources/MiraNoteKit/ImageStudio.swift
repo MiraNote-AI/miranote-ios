@@ -123,6 +123,37 @@ public struct MockImageStudioService: ImageStudioService {
 /// A cutout *with* a target stays remote: Vision is about 3% of that pipeline
 /// and GroundingDINO and SAM, which are the rest of it, are far too large to
 /// ship in an app.
+/// A failed /stylize in the server's own words: it answers each failure
+/// with `{"status": "error", "reason": ..., "message": ...}` (miranote-api
+/// #96). `message` is what the person sees; a status-only text would call
+/// a words-only answer from the model (502) a server that is not running.
+public struct ImageEditError: LocalizedError, Equatable {
+    public let status: Int
+    public let reason: String
+    public let message: String
+
+    public var errorDescription: String? { message }
+
+    /// The server's message when the body has one. Otherwise the status
+    /// alone, as before: an older server, or Cloudflare's own page in
+    /// place of the body -- which it always is for a 504, read as the
+    /// timeout it is.
+    static func from(status: Int, detail: String?) -> Error {
+        struct Body: Decodable {
+            let status: String
+            let reason: String
+            let message: String
+        }
+        if let data = detail?.data(using: .utf8),
+           let body = try? JSONDecoder().decode(Body.self, from: data),
+           body.status == "error", !body.message.isEmpty {
+            return ImageEditError(status: status, reason: body.reason, message: body.message)
+        }
+        if status == 504 { return BackendError.timedOut }
+        return BackendError.server(status: status, detail: detail)
+    }
+}
+
 public struct LiveImageStudioService: ImageStudioService {
     private let baseURL: URL
     private let client: HTTPClient
@@ -246,11 +277,15 @@ public struct LiveImageStudioService: ImageStudioService {
     }
 
     public func stylize(image: Data, instruction: String) async throws -> Data {
-        try await uploadForImage(
-            path: "stylize",
-            image: image,
-            query: [URLQueryItem(name: "prompt", value: instruction)]
-        )
+        do {
+            return try await uploadForImage(
+                path: "stylize",
+                image: image,
+                query: [URLQueryItem(name: "prompt", value: instruction)]
+            )
+        } catch BackendError.server(let status, let detail) {
+            throw ImageEditError.from(status: status, detail: detail)
+        }
     }
 
     public func outline(image: Data) async throws -> Data {
