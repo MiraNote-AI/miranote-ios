@@ -114,7 +114,9 @@ Delay hooks (launch arguments, `-UITEST` only): `-TRANSCRIBE_DELAY <ms>`,
 <ms>`. Transcript hooks: `-NUMBER_TAKES` (each take's words end with its
 number, in the order the takes were let go), `-TIME_TAKES` (each take's
 words end with how long it recorded, in whole seconds) and
-`-FAIL_FIRST_TAKE` (the first take fails); `-FAIL_LATER_MICS` (every mic
+`-FAIL_FIRST_TAKE` (the first take fails); `-HOLD_FIRST_TAKE` (the
+first take answers once a second is sent, the second after the first);
+`-FAIL_LATER_MICS` (every mic
 after the first takes 4 s to fail). Screenshot hooks: `-STICKER_SAMPLE <SF Symbol>` (a
 die-cut sticker of that symbol stands in for the made one) and
 `-OWNER_SHOTS` (keeps the mock services but hides test-only controls such
