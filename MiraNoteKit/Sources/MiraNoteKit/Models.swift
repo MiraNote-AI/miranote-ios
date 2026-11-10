@@ -45,6 +45,15 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// `moodText` when the mood was judged, as `Memory.moodHash(of:)`: a
     /// page whose words did not change since is not asked again.
     public var moodTextHash: String?
+    /// Left without Save (#137): Home and the background autosave keep a
+    /// page as a draft; only Save makes it saved. A draft never starts what
+    /// follows a Save -- but a page that is not one may not have been
+    /// saved this visit (an old page, a saved page left unchanged).
+    public var isDraft: Bool
+    /// Save has filed the page at least once (#137); nothing clears it. A
+    /// draft of such a page keeps its star in the star jar, with the mood
+    /// its last Save got; a page never saved is no star.
+    public var hasBeenSaved: Bool
 
     public init(
         id: UUID = UUID(),
@@ -59,7 +68,9 @@ public struct Memory: Identifiable, Equatable, Sendable {
         paper: PaperKind = .blank,
         pageColorName: String = "",
         mood: Mood? = nil,
-        moodTextHash: String? = nil
+        moodTextHash: String? = nil,
+        isDraft: Bool = false,
+        hasBeenSaved: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -74,6 +85,10 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.pageColorName = pageColorName
         self.mood = mood
         self.moodTextHash = moodTextHash
+        self.isDraft = isDraft
+        // Not given: a page that starts as a draft was never saved; any
+        // other was.
+        self.hasBeenSaved = hasBeenSaved ?? !isDraft
     }
 }
 
@@ -93,7 +108,7 @@ extension Memory: Hashable {
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
-        case backgroundSummary, paper, pageColorName, mood, moodTextHash
+        case backgroundSummary, paper, pageColorName, mood, moodTextHash, isDraft, hasBeenSaved
     }
 
     public init(from decoder: Decoder) throws {
@@ -120,7 +135,11 @@ extension Memory: Codable {
             // Pages saved before the star jar, and a mood a later build
             // added, read as not judged yet.
             mood: (try container.decodeIfPresent(String.self, forKey: .mood)).flatMap(Mood.init(rawValue:)),
-            moodTextHash: try container.decodeIfPresent(String.self, forKey: .moodTextHash)
+            moodTextHash: try container.decodeIfPresent(String.self, forKey: .moodTextHash),
+            // Saves before drafts existed: every page then was saved.
+            isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft) ?? false,
+            // Missing, as init reads it: saved unless a draft.
+            hasBeenSaved: try container.decodeIfPresent(Bool.self, forKey: .hasBeenSaved)
         )
     }
 
@@ -139,6 +158,8 @@ extension Memory: Codable {
         try container.encode(pageColorName, forKey: .pageColorName)
         try container.encodeIfPresent(mood, forKey: .mood)
         try container.encodeIfPresent(moodTextHash, forKey: .moodTextHash)
+        try container.encode(isDraft, forKey: .isDraft)
+        try container.encode(hasBeenSaved, forKey: .hasBeenSaved)
     }
 }
 

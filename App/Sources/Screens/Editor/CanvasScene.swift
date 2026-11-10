@@ -174,6 +174,10 @@ struct CanvasScene: View {
                HintCenter.shouldShow(ToolsOnboarding.hintID) {
                 showsToolsOnboarding = true
             }
+            // Before anything is recorded: `hasEdits` compares with the page
+            // as the first recorded change finds it, fitted heights and all.
+            // Fitted after that, a page only looked at would leave as a
+            // draft (#137).
             remeasureTextBlocks()
             // A change made in another scene (a Sticker preset) moved on
             // from a waiting result without this scene seeing it.
@@ -862,10 +866,17 @@ struct CanvasScene: View {
         }
         switch imagePhase {
         case .library:
+            // Cancel goes straight back to the canvas, as the other tools'
+            // leading pill does (#167); with photos placed this visit it
+            // shows them, so they can still be kept or taken back.
             return Header(leading: "Cancel", trailing: "Add", onLeading: {
-                libraryPicks = []
-                cancelImport()
-                imagePhase = placedThisVisit.isEmpty ? .choose : .placed
+                if placedThisVisit.isEmpty {
+                    endImageVisit()
+                } else {
+                    libraryPicks = []
+                    cancelImport()
+                    imagePhase = .placed
+                }
             }, onTrailing: addPicks)
         case .placed:
             return Header(leading: "Cancel", trailing: "Add",
@@ -1099,6 +1110,9 @@ struct CanvasScene: View {
             } else {
                 placedThisVisit += ids
                 then(ids)
+                // They land under everything else on the page: bring the
+                // first one into view, wherever the page was scrolled (#167).
+                revealItem = ids.first
             }
             if !queuedImports.isEmpty {
                 let next = queuedImports.removeFirst()

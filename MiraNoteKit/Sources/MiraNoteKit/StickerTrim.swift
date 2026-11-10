@@ -53,6 +53,43 @@ public enum StickerTrim {
         return png
     }
 
+    /// How a sticker's frame changes when it gains an even margin round what
+    /// showed: the new size, and how far the centre moves in the frame's own,
+    /// unrotated axes.
+    public struct Regrowth: Equatable, Sendable {
+        public var size: CGSize
+        public var centerShift: CGVector
+    }
+
+    /// The frame `grown` needs so the part of `image` that shows keeps its
+    /// size and place on the page, when `grown` is that part with an even
+    /// margin round it (Outline's edge). A canvas item draws its image
+    /// `scaledToFit` into a frame kept across an edit, so in the old frame
+    /// the edge would be fitted in by drawing the art smaller: 7-10% a pass,
+    /// again on every Outline (#156 review).
+    ///
+    /// `frame` is the item's size now. The visible part need not sit in the
+    /// middle of `image` (a preset keeps a margin), hence the shift. Nil when
+    /// either image cannot be read or nothing in `image` shows.
+    public static func regrowth(from image: Data, to grown: Data, in frame: CGSize) -> Regrowth? {
+        guard let old = decoded(image), let new = decoded(grown),
+              let box = visibleBounds(of: old, alphaFloor: 1) else { return nil }
+        let width = CGFloat(old.width), height = CGFloat(old.height)
+        let scale = min(frame.width / width, frame.height / height)
+        guard scale.isFinite, scale > 0 else { return nil }
+        return Regrowth(
+            size: CGSize(width: CGFloat(new.width) * scale, height: CGFloat(new.height) * scale),
+            centerShift: CGVector(dx: (box.midX - width / 2) * scale, dy: (box.midY - height / 2) * scale)
+        )
+    }
+
+    private static func decoded(_ data: Data) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              image.width > 0, image.height > 0 else { return nil }
+        return image
+    }
+
     /// The bounding box of pixels at or above `alphaFloor`, in the image's own
     /// pixel space (origin top-left, matching `CGImage.cropping(to:)`). Nil
     /// when the image has no such pixel, or cannot be rasterised.

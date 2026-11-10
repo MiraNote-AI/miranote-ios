@@ -12,7 +12,8 @@ struct StarJarView: View {
     var onOpenNote: (JarStar) -> Void = { _ in }
     /// The shown pages, to ask the mood of one at a time: the judge skips
     /// one judged from its current words, and asks again one whose words
-    /// changed after an ask at Save failed. `[]` when the jar closes.
+    /// changed after an ask at Save failed -- unless it is a draft, which
+    /// waits for its next Save (#137). `[]` when the jar closes.
     var onShow: ([Memory.ID]) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -38,9 +39,7 @@ struct StarJarView: View {
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
     private var canStepForward: Bool {
-        interval.end <= .now || viewModel.library.collections.contains { collection in
-            collection.memories.contains { $0.memoryDate >= interval.end }
-        }
+        interval.end <= .now || StarJar.hasStars(in: viewModel.library, from: interval.end)
     }
 
     var body: some View {
@@ -392,7 +391,7 @@ private struct StarButton: View {
 
 /// The star's face: the mood's fill, a soft light from above, and a
 /// hairline edge so neighbors in a pile stay apart.
-private struct StarMark: View {
+struct StarMark: View {
     let color: Color
 
     var body: some View {
