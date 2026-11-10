@@ -65,7 +65,9 @@ enum TextFace {
         default:
             // A face this device lacks falls back to the system font
             // instead of an invisible or mismatched one.
-            guard installedFamilies.contains(name) else { return UIFont.systemFont(ofSize: size) }
+            // A PostScript name (the on-demand Chinese faces) resolves once
+            // downloaded; the family list is read at launch and misses it.
+            guard installedFamilies.contains(name) else { return DetailFont.uiFont(named: name, size: size) }
             if variableFamilies.contains(name) {
                 return variable(name, size: size, weight: weight ?? 400)
             }

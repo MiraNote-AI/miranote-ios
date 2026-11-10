@@ -17,6 +17,8 @@ struct HomeView: View {
     var onOpenStarJar: () -> Void = {}
     var onOpenSettings: () -> Void = {}
     var onOpenProfile: () -> Void = {}
+    /// The photo trigger's debug entry, at the foot of the page; nil hides it.
+    var triggerEntry: TriggerDebugEntry?
     /// A page just saved from a new canvas: its star flies into the jar.
     var arrivingStar: Memory?
     var onStarLanded: () -> Void = {}
@@ -74,6 +76,11 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.trash")
                     .padding(.top, 8)
+                }
+
+                if let triggerEntry {
+                    triggerEntry
+                        .padding(.top, 28)
                 }
             }
             .padding(.horizontal, Metrics.chromeInset)

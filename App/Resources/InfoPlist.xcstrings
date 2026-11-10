@@ -62,13 +62,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "MiraNote shows your recent photos so you can add them to your memory pages."
+            "value" : "MiraNote shows your recent photos so you can add them to your memory pages. If you turn on photo memories, it also picks moments to remind you of, and sends some of those photos to an AI service to write the reminder."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "MiraNote 会显示你最近的照片，方便你添加到回忆页面。"
+            "value" : "MiraNote 会显示你最近的照片，方便你添加到回忆页面。如果你打开了照片回忆，还会从中挑出值得回忆的时刻提醒你，并把其中部分照片发送给 AI 服务来生成提醒。"
           }
         }
       }

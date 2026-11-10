@@ -19,6 +19,11 @@ let package = Package(
             name: "StickerEdgeCore",
             swiftSettings: [.unsafeFlags(["-O"])]
         ),
-        .testTarget(name: "MiraNoteKitTests", dependencies: ["MiraNoteKit", "StickerEdgeCore"])
+        .testTarget(
+            name: "MiraNoteKitTests",
+            dependencies: ["MiraNoteKit", "StickerEdgeCore"],
+            // Read by path (Fixtures.url), not bundled as resources.
+            exclude: ["Fixtures/compose_ok.json"]
+        )
     ]
 )

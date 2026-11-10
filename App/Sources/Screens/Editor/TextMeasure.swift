@@ -9,7 +9,18 @@ enum TextMeasure {
     static func blockHeight(
         text: String, pointSize: CGFloat, fontName: String = "", width: CGFloat
     ) -> CGFloat {
-        let font = TextFace.uiFont(name: fontName, size: pointSize)
+        // A detail face still downloading: tall enough for it as well.
+        let fonts = DetailFont.pendingMeasureFonts(named: fontName, size: pointSize)
+            ?? [TextFace.uiFont(name: fontName, size: pointSize)]
+        return blockHeight(text: text, fonts: fonts, width: width)
+    }
+
+    /// The tallest of `text` set in each of `fonts`.
+    static func blockHeight(text: String, fonts: [UIFont], width: CGFloat) -> CGFloat {
+        fonts.map { blockHeight(text: text, font: $0, width: width) }.max() ?? 36
+    }
+
+    private static func blockHeight(text: String, font: UIFont, width: CGFloat) -> CGFloat {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = TextFace.lineSpacing(font: font)
         let inset = TextFace.inset
