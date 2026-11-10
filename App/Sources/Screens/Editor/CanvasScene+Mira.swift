@@ -214,7 +214,7 @@ extension CanvasScene {
             miraNotice = String(appCopy: "I couldn't catch any words -- try again?")
             return nil
         }
-        guard let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") else {
+        guard let transcript = await transcribeAcrossATripAway(data) else {
             miraNotice = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
@@ -228,8 +228,23 @@ extension CanvasScene {
         return words
     }
 
-    /// The chat closed mid-take (or the app left): stop the mic quietly,
-    /// keep nothing -- also one still coming up, which stops once it is.
+    /// The app leaves the foreground: a live take ends as if let go, so
+    /// its words land in the question (or the strip says why not); a mic
+    /// still coming up has recorded nothing and is cancelled (#150).
+    func stopMiraDictationForBackground() {
+        miraPress = nil
+        guard miraListening else {
+            cancelMiraDictation()
+            return
+        }
+        stopTakeInBackground {
+            finishMiraDictation()
+            return lastMiraTake
+        }
+    }
+
+    /// The chat closed mid-take: stop the mic quietly, keep nothing --
+    /// also one still coming up, which stops once it is.
     func cancelMiraDictation() {
         miraPress = nil
         miraFinishWhenLive = false
