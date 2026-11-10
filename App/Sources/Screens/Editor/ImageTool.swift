@@ -18,6 +18,15 @@ struct PhotoDrag: Equatable {
     var point: CGPoint
 }
 
+/// The photo being carried, updated on every finger move. A reference only
+/// the carried-photo layer reads: a move re-renders that layer, not the
+/// canvas scene.
+@MainActor
+@Observable
+final class PhotoDragTracker {
+    var drag: PhotoDrag?
+}
+
 /// Where the Image tool stands. It opens in place over the live canvas
 /// (handoff screens 23-29), so placed photos land on the page the user is
 /// looking at and stay editable there.
@@ -379,7 +388,9 @@ private struct RecentCell: View {
     var onDrop: (PhotoDrag) -> Void
 
     @State private var image: UIImage?
-    @State private var lifted = false
+    /// Resets on a cancel too (Recents closing mid-carry), where `onEnded`
+    /// never runs.
+    @GestureState private var lifted = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.imageCorner)
@@ -413,19 +424,50 @@ private struct RecentCell: View {
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.35)
                     .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+                    .updating($lifted) { value, state, _ in
+                        if case .second(true, _) = value { state = true }
+                    }
                     .onChanged { value in
                         guard case .second(true, let drag?) = value else { return }
-                        lifted = true
                         onDrag(PhotoDrag(photo: photo, thumb: image, point: drag.location))
                     }
                     .onEnded { value in
-                        lifted = false
-                        onDrag(nil)
                         guard case .second(true, let drag?) = value else { return }
                         onDrop(PhotoDrag(photo: photo, thumb: image, point: drag.location))
                     }
             )
+            .onChange(of: lifted) { _, now in
+                if !now { onDrag(nil) }
+            }
             .sensoryFeedback(.impact(weight: .light), trigger: lifted) { _, new in new }
             .task(id: photo) { image = await library.thumbnail(photo, side: 92) }
+    }
+}
+
+/// The carried photo under the finger, a little large, lifted by a
+/// shadow; it dims where letting go would place nothing. Reads the tracker
+/// in its own body, so a move re-renders only this layer.
+struct PhotoDragGhost: View {
+    let tracker: PhotoDragTracker
+    /// Where a let-go would land on the page; nil where it places nothing.
+    let pagePoint: (CGPoint) -> CGPoint?
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let drag = tracker.drag, let thumb = drag.thumb {
+                let origin = proxy.frame(in: .global).origin
+                Image(uiImage: thumb)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 96, height: 92)
+                    .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
+                    .opacity(pagePoint(drag.point) == nil ? 0.6 : 1)
+                    .position(x: drag.point.x - origin.x, y: drag.point.y - origin.y)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

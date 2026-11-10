@@ -90,7 +90,7 @@ struct CanvasScene: View {
     @State private var queuedImports: [QueuedImport] = []
     /// A Recents photo being carried onto the page (#167), and where the
     /// page card and the Recents sheet stand, to know where it lands.
-    @State private var photoDrag: PhotoDrag?
+    @State private var photoDrag = PhotoDragTracker()
     @State private var boardRow: CGRect = .zero
     @State private var recentsFrame: CGRect = .zero
     /// Bumped when a visit or a pick is left; a slower import checks it.
@@ -262,7 +262,11 @@ struct CanvasScene: View {
                 pageColorSheet.padding(.bottom, 54 + 14 + 2)
             }
         }
-        .overlay { photoDragGhost }
+        .overlay { PhotoDragGhost(tracker: photoDrag, pagePoint: pagePoint) }
+        .onChange(of: imagePhase) { _, phase in
+            // Recents closed mid-carry: its cell, and the gesture, are gone.
+            if phase != .library { photoDrag.drag = nil }
+        }
         .onChange(of: backgroundPanelOpen) { _, open in
             if !open {
                 closePageColorSheet(keeping: false)
@@ -1067,7 +1071,7 @@ struct CanvasScene: View {
                     onSystemPicks: { items in
                         importPicks(load: { await PhotoPlacer.data(for: items) }) { _ in imagePhase = .placed }
                     },
-                    onDrag: { photoDrag = $0 },
+                    onDrag: { photoDrag.drag = $0 },
                     onDrop: dropPhoto
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { recentsFrame = $0 }
@@ -1135,27 +1139,6 @@ struct CanvasScene: View {
             editor.select(id)
             openPhotoEditor(id)
         }
-    }
-
-    /// The carried photo under the finger, a little large, lifted by a
-    /// shadow; it dims where letting go would place nothing.
-    private var photoDragGhost: some View {
-        GeometryReader { proxy in
-            if let drag = photoDrag, let thumb = drag.thumb {
-                let origin = proxy.frame(in: .global).origin
-                Image(uiImage: thumb)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 96, height: 92)
-                    .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
-                    .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
-                    .opacity(pagePoint(drag.point) == nil ? 0.6 : 1)
-                    .position(x: drag.point.x - origin.x, y: drag.point.y - origin.y)
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 
     /// A Recents photo let go over the page lands right there, the Recents
@@ -1502,6 +1485,7 @@ extension CanvasScene {
             "undoDepth": editor.undoDepth,
             "selected": editor.selectedItemID?.uuidString ?? "",
             "importing": importingPicks,
+            "photoDragging": photoDrag.drag != nil,
             "pageWidth": editor.canvasWidth ?? MiraNoteConfig.pageWidth,
             "backdrop": editor.memory.backgroundFileName,
             "backdropDescribes": editor.memory.backgroundSummary,
