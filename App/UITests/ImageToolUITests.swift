@@ -26,6 +26,14 @@ final class ImageToolUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
+    private func canvasState() -> [String: Any] {
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        let data = probe.label.data(using: .utf8) ?? Data()
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
     private var photos: XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: "element.image")
     }
@@ -130,6 +138,33 @@ final class ImageToolUITests: XCTestCase {
 
         app.buttons["nav.leading"].tap()
         XCTAssertEqual(photos.count, 1, "Cancel shows the placed photo, still on the page")
+    }
+
+    /// #178 review: an import landing while a photo is carried closes
+    /// Recents and cancels the drag; the carried photo must not stay over
+    /// the canvas.
+    func testAnImportLandingMidCarryLeavesNoCarriedPhoto() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-IMPORT_DELAY", "3000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        openRecents()
+        let grid = any("image.library.grid")
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+
+        // Hold another photo over the page until the import lands.
+        let target = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.width * 0.3, dy: grid.frame.minY - 160))
+        any("image.library.photo.1").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.6, thenDragTo: target, withVelocity: 600, thenHoldForDuration: 4)
+        XCTAssertFalse(grid.exists, "the import landed mid-carry and closed Recents")
+        sleep(1)
+        XCTAssertEqual(photos.count, 1, "only the added pick landed")
+        XCTAssertEqual(canvasState()["photoDragging"] as? Bool, false,
+                       "the carried photo stayed over the canvas")
     }
 
     /// A slow import (held 4 s): the header Add tapped twice lands the
