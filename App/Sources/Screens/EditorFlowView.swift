@@ -6,15 +6,29 @@ import SwiftUI
 /// Done composes the memory (title from its most prominent text) and files it.
 struct EditorFlowView: View {
     var onExit: () -> Void = {}
-    var onComplete: (Memory) -> Void = { _ in }
+    /// The page Save or Home filed, and whether Save did: what follows a
+    /// Save keys off that, not off `!isDraft` -- a saved page left
+    /// unchanged is no draft either (#137).
+    var onComplete: (Memory, _ saved: Bool) -> Void = { _, _ in }
     /// Files the page quietly WITHOUT leaving the editor -- the autosave
-    /// half of "editing autosaves, so Done never says Save".
+    /// half of "editing autosaves". Like Home, it files a changed page as a
+    /// draft and a saved page left unchanged as saved (#137); once Save or
+    /// Home has filed the page, it files nothing.
     var onAutosave: (Memory) -> Void = { _ in }
     var recorderFactory: @MainActor () -> AudioRecording = { AudioRecorder() }
     var services: ServiceContainer = .mock
+    /// Set only for a page drafted from a push: it is filed only once the
+    /// writer touched it (or tapped Done), and `onMadePage` tells the ledger.
+    var pushId: String?
+    var onMadePage: (String) -> Void = { _ in }
+    /// A push draft left as it arrived: nothing of it is filed.
+    var onDiscardDraft: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var editor: CanvasViewModel
+    /// The page was filed while the app was away: from then on leaving
+    /// files it again, whatever it holds.
+    @State private var autosaved = false
     @State private var mira: MiraCanvasCoordinator
     @State private var scene: FlowScene = .canvas
     @State private var pendingTool: EditorMode?
@@ -28,24 +42,33 @@ struct EditorFlowView: View {
     @State private var photoEditors = PhotoEditors()
 
     /// Pass `memory` to edit an existing page; omitted, a fresh starter
-    /// draft opens.
+    /// draft opens. `prompts`: text on it filed only once rewritten.
     init(
         memory: Memory? = nil,
+        prompts: [CanvasItem.ID: String] = [:],
         onExit: @escaping () -> Void = {},
-        onComplete: @escaping (Memory) -> Void = { _ in },
+        onComplete: @escaping (Memory, _ saved: Bool) -> Void = { _, _ in },
         onAutosave: @escaping (Memory) -> Void = { _ in },
         recorderFactory: @escaping @MainActor () -> AudioRecording = { AudioRecorder() },
-        services: ServiceContainer = .mock
+        services: ServiceContainer = .mock,
+        pushId: String? = nil,
+        onMadePage: @escaping (String) -> Void = { _ in },
+        onDiscardDraft: @escaping () -> Void = {}
     ) {
+        self.pushId = pushId
+        self.onMadePage = onMadePage
+        self.onDiscardDraft = onDiscardDraft
         self.onExit = onExit
         self.onComplete = onComplete
         self.onAutosave = onAutosave
         self.recorderFactory = recorderFactory
         self.services = services
-        // A fresh memory starts BLANK (v2.1); the Mira-generated draft is
-        // the recorded D3 backend gap and takes over here when it lands.
+        // A fresh memory starts BLANK (v2.1) and unsaved (#137); the
+        // Mira-generated draft is the recorded D3 backend gap and takes
+        // over here when it lands.
         _editor = State(initialValue: CanvasViewModel(
-            memory: memory?.materializedForEditing() ?? Memory()
+            memory: memory?.materializedForEditing() ?? Memory(isDraft: true),
+            prompts: prompts
         ))
         _mira = State(initialValue: MiraCanvasCoordinator(
             text: services.textTransform,
@@ -62,21 +85,44 @@ struct EditorFlowView: View {
                 // Autosave against app death: words survive a backgrounded
                 // app being jettisoned. file() replaces by id, so the later
                 // Done/Home filing never duplicates this one.
-                if scenePhase == .background && !editor.isBlankPage {
-                    onAutosave(editor.composedMemory())
+                // An untouched push draft is not worth keeping: nothing of the
+                // writer's is lost by leaving it unsaved.
+                if scenePhase == .background && !editor.isBlankPage && !isUntouchedPushDraft,
+                   let page = editor.autosavedMemory {
+                    onAutosave(page)
+                    autosaved = true
+                    if let pushId { onMadePage(pushId) }
                 }
             }
     }
 
-    /// Leaving keeps the words (autosave semantics): Done and Home both
+    /// Leaving keeps the words (autosave semantics): Save and Home both
     /// file a page with anything on it -- a background alone counts; only
     /// an untouched blank page keeps nothing -- no junk "New memory"
-    /// entries in the journal.
-    private func finish() {
+    /// entries in the journal. Only Save files it saved (#137).
+    private func finish(saving: Bool) {
         if editor.isBlankPage {
             onExit()
         } else {
-            onComplete(editor.composedMemory())
+            onComplete(editor.leave(saving: saving), saving)
+            if let pushId { onMadePage(pushId) }
+        }
+    }
+
+    /// A push draft as it arrived (`CanvasViewModel.isAsArrived`) and
+    /// never filed.
+    private var isUntouchedPushDraft: Bool {
+        pushId != nil && !autosaved && editor.isAsArrived
+    }
+
+    /// Back: an untouched push draft leaves nothing behind; anything else
+    /// is Home's filing.
+    private func back() {
+        if isUntouchedPushDraft {
+            onDiscardDraft()
+            onExit()
+        } else {
+            finish(saving: false)
         }
     }
 
@@ -87,7 +133,7 @@ struct EditorFlowView: View {
                 editor: editor,
                 mira: mira,
                 imageStudio: services.imageStudio,
-                actions: actions(back: finish, done: finish),
+                actions: actions(back: back, done: { finish(saving: true) }),
                 pendingTool: $pendingTool,
                 pendingPlacement: $pendingPlacement,
                 scrollMemory: scrollMemory,
@@ -153,24 +199,32 @@ struct HomeFlow: View {
     @State private var settings = AppSettings.shared
     @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
     @State private var moodJudge: MoodJudge?
+    /// A page just saved from a new canvas, its star still to land in the
+    /// jar on Home (#160). Edits of filed pages have their star already.
+    @State private var arrivingStar: Memory.ID?
+    /// Home left a page without Save (#137): a toast says it was kept,
+    /// once the editor is gone.
+    @State private var draftToastPending = false
+    @State private var draftToastShown = false
+    @State private var draftToastDismiss: Task<Void, Never>?
 
     /// Where a newly finished memory is filed by default.
     private static let inbox = "Daily Log"
+
+    /// The photo trigger: its run, push records and library photos.
+    /// One per launch (`shared`), however often HomeFlow is re-made.
+    @State private var trigger = TriggerController.shared
+    @State private var router = TriggerLaunchRouter.shared
+    /// The debug entry and automatic scheduling: development builds, and
+    /// TestFlight builds once the Settings switch is on (InstallSource).
+    @State private var triggerGates = InstallSource.Gates.closed
+    /// The ending's button turning its story into a canvas draft.
+    @State private var keeper = TriggerKeep()
 
     /// A note addressed within its collection, for stack navigation.
     private struct NoteRef: Hashable {
         let collectionID: MemoryCollection.ID
         let noteID: Memory.ID
-    }
-
-    /// UI tests launch with `-UITEST` for a fresh, non-persistent seed each run.
-    private static func makeStore() -> CollectionStore {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            return InMemoryCollectionStore(collections: MemoryCollection.seed)
-        }
-        #endif
-        return FileCollectionStore()
     }
 
     /// UI tests keep the avatar in a folder of their own, emptied at launch
@@ -236,8 +290,11 @@ struct HomeFlow: View {
         case editorIn(journal: MemoryCollection.ID)
         case editMemory(Memory)
         case chat(String)
-        /// A page Mira drafted in chat, opening in the editor as a new note.
-        case draft(Memory)
+        /// A page Mira drafted in chat, opening in the editor as a new note;
+        /// `prompts`: text on it filed only once rewritten (the trigger's question).
+        case draft(Memory, prompts: [CanvasItem.ID: String] = [:], pushId: String? = nil)
+        /// The photo trigger's story and ending, opened from a push.
+        case trigger(TriggerOpening)
 
         var id: String {
             switch self {
@@ -245,7 +302,8 @@ struct HomeFlow: View {
             case .editorIn(let journal): return "editor-in-\(journal.uuidString)"
             case .editMemory(let memory): return "edit-\(memory.id.uuidString)"
             case .chat: return "chat"
-            case .draft(let memory): return "draft-\(memory.id.uuidString)"
+            case .draft(let memory, _, _): return "draft-\(memory.id.uuidString)"
+            case .trigger(let opening): return "trigger-\(opening.pushId)"
             }
         }
 
@@ -268,7 +326,8 @@ struct HomeFlow: View {
     struct StarJarRoute: Hashable {}
 
     /// Asks the moods of saved pages in the background (the star jar's
-    /// colors); made on first use, then one queue for the whole app.
+    /// colors); made on first use, then one queue for the whole app. Save
+    /// starts it, never Home: a draft keeps its last Save's mood (#137).
     private func judgeMoods(_ noteIDs: [Memory.ID]) {
         guard !noteIDs.isEmpty else { return }
         makeMoodJudge().judge(noteIDs)
@@ -277,12 +336,6 @@ struct HomeFlow: View {
     /// The pages the star jar shows (`[]`: it closed): asked after saves.
     private func showMoods(_ noteIDs: [Memory.ID]) {
         if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
-    }
-
-    private func makeMoodJudge() -> MoodJudge {
-        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
-        moodJudge = judge
-        return judge
     }
 
     var body: some View {
@@ -295,7 +348,10 @@ struct HomeFlow: View {
                 onOpenTrash: { path.append(TrashRoute()) },
                 onOpenStarJar: { path.append(StarJarRoute()) },
                 onOpenSettings: { path.append(AccountRoute.settings) },
-                onOpenProfile: { path.append(AccountRoute.profile) }
+                onOpenProfile: { path.append(AccountRoute.profile) },
+                triggerEntry: openTriggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil,
+                arrivingStar: arrivingStar.flatMap(viewModel.memory),
+                onStarLanded: { arrivingStar = nil }
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -341,6 +397,7 @@ struct HomeFlow: View {
                     case .settings:
                         SettingsView(
                             settings: settings,
+                            photoTriggerOptIn: triggerGates.offersOptIn ? $trigger.optedIn : nil,
                             onBack: { path.removeLast() },
                             onOpenAppearance: { path.append(AccountRoute.appearance) },
                             onOpenLanguage: { path.append(AccountRoute.language) }
@@ -356,22 +413,39 @@ struct HomeFlow: View {
                 .navigationBarHidden(true)
             }
         }
+        .overlay(alignment: .bottom) { draftToast }
         // The Appearance setting, applied live (a choice redraws at once).
         .environment(\.theme, Theme(appearance: settings.appearance))
+        .task {
+            guard Self.triggerEntryAllowed else { return }
+            triggerGates = await trigger.resolveGates { await InstallSource.live() }
+        }
+        .triggerLifecycle(trigger, enabled: openTriggerGates.schedulesAutomatically)
+        // A tapped push, also one that launched the app: open it once Home is
+        // up and no other cover (an editor, chat, a story) is on screen.
+        .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
+            await openPendingPush()
+        }
         #if DEBUG
         .background { ChatPhotoFilesProbe() }
+        .background { TriggerScheduleProbe(controller: trigger) }
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
-        .fullScreenCover(item: $route) { presented in
+        .fullScreenCover(item: $route, onDismiss: showPendingDraftToast) { presented in
             switch presented {
             case .editor, .editorIn:
                 let journal = presented.journal
                 EditorFlowView(
                     onExit: { route = nil },
-                    onComplete: { memory in
+                    onComplete: { memory, saved in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
-                        judgeMoods([memory.id])
+                        draftToastPending = memory.isDraft
+                        if saved { judgeMoods([memory.id]) }
+                        // Only Home shows the jar, and only a saved page
+                        // earns a star: a page saved over a collection, or
+                        // left as a draft, lands without the flight.
+                        if saved && path.isEmpty { arrivingStar = memory.id }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
@@ -380,20 +454,28 @@ struct HomeFlow: View {
                 )
                 // The editor, its tools and Mira chat stay on System.
                 .environment(\.theme, Theme(appearance: .system))
-            case .editMemory(let memory), .draft(let memory):
+            case .editMemory(let memory), .draft(let memory, _, _):
                 EditorFlowView(
                     memory: memory,
+                    prompts: Self.prompts(of: presented),
                     onExit: { route = nil },
-                    onComplete: { edited in
+                    onComplete: { edited, saved in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
-                        judgeMoods([edited.id])
+                        draftToastPending = edited.isDraft
+                        if saved { judgeMoods([edited.id]) }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
-                    services: Self.editorServices(base: services)
+                    services: Self.editorServices(base: services),
+                    pushId: Self.pushId(of: presented),
+                    onMadePage: { trigger.madePage($0) },
+                    // The page as drafted: its photo copies are the draft's own.
+                    onDiscardDraft: { TriggerDraftMaker.discard(memory) }
                 )
                 .environment(\.theme, Theme(appearance: .system))
+            case .trigger(let opening):
+                triggerStory(opening)
             case .chat(let seed):
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
@@ -426,12 +508,167 @@ struct HomeFlow: View {
                         // Same dance: swap covers only after this one is gone.
                         Task { @MainActor in
                             try? await Task.sleep(for: .milliseconds(300))
-                            route = .draft(Memory(title: draft.title, body: draft.body))
+                            route = .draft(Memory(title: draft.title, body: draft.body, isDraft: true))
                         }
                     }
                 )
                 .environment(\.theme, Theme(appearance: .system))
             }
+        }
+    }
+}
+
+extension HomeFlow {
+    private func makeMoodJudge() -> MoodJudge {
+        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
+        moodJudge = judge
+        return judge
+    }
+
+    /// Text the page `route` opens holds only to prompt the writer.
+    private static func prompts(of route: Route) -> [CanvasItem.ID: String] {
+        if case .draft(_, let prompts, _) = route { return prompts }
+        return [:]
+    }
+
+    /// The push `route` was drafted from, if any.
+    private static func pushId(of route: Route) -> String? {
+        if case .draft(_, _, let pushId) = route { return pushId }
+        return nil
+    }
+
+    /// UI tests launch with `-UITEST` for a fresh, non-persistent seed each run.
+    /// The trigger's (`-UITEST-TRIGGER`) save to a file of their own, emptied
+    /// at launch unless `-KEEP_SETTINGS`, so a saved draft survives a relaunch.
+    private static func makeStore() -> CollectionStore {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST-TRIGGER") {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("uitest-trigger-collections.json")
+            if !arguments.contains("-KEEP_SETTINGS") { try? FileManager.default.removeItem(at: file) }
+            return FileCollectionStore(url: file)
+        }
+        if arguments.contains("-UITEST") {
+            return InMemoryCollectionStore(collections: MemoryCollection.seed)
+        }
+        #endif
+        return FileCollectionStore()
+    }
+
+    /// The install's gates with the Settings switch read in: turning it on
+    /// or off redraws Home and starts or stops the lifecycle at once.
+    private var openTriggerGates: InstallSource.Gates {
+        triggerGates.applying(optedIn: trigger.optedIn)
+    }
+
+    /// UI tests keep their Home as it was, unless they test the trigger.
+    private static var triggerEntryAllowed: Bool {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") { return arguments.contains("-UITEST-TRIGGER") }
+        // The unit tests' host app: no prompts, no live library or backend.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return false }
+        #endif
+        return true
+    }
+
+    /// The push in `router.pending`: its saved record, with the photos still
+    /// in the library -- three or more play; fewer, Home stays quietly
+    /// (handoff 7.6, D4). Never regroups, never asks the backend.
+    ///
+    /// While another cover is up (a page being edited, chat, another
+    /// story) the push waits in `router.pending` and opens once that cover
+    /// has closed: tearing it down would lose an unsaved page. An alert or
+    /// a sheet on Home holds it the same way (a cover asked for under one
+    /// never shows), and it leaves `router.pending` only once its story is
+    /// on screen.
+    private func openPendingPush() async {
+        guard let pushId = router.pending, keeper.mayOpenPush(coverUp: route != nil) else { return }
+        let records = trigger.records
+        guard let record = pushId == "latest" ? records.latest() : records.record(pushId) else {
+            return finishPending(pushId)
+        }
+        let present = await trigger.photos.existing(Array(record.photoIds.values))
+        let numbers = Set(record.photoIds.filter { present.contains($0.value) }.keys)
+        guard let memory = record.memory.replacingMissing(present: numbers) else { return finishPending(pushId) }
+        // A cover may have opened, or a newer push arrived, while the library
+        // was asked: then this one waits (or gives way) and runs again.
+        guard await RootPresentation.waitUntilBare(),
+              keeper.mayOpenPush(coverUp: route != nil), router.pending == pushId else { return }
+        route = .trigger(TriggerOpening(pushId: record.pushId, memory: memory, photoIds: record.photoIds,
+                                        bucketId: record.bucketId, request: pushId))
+    }
+
+    /// The story of an opened push, its menu and ending wired to the scheduler.
+    private func triggerStory(_ opening: TriggerOpening) -> some View {
+        PhotoTriggerView(memory: opening.memory, bucketName: opening.bucketName,
+                         allowsFewer: opening.allowsFewer, photoIds: opening.photoIds,
+                         library: trigger.photos, onClose: { route = nil },
+                         onKeep: { keepTrigger($0, opening: opening) },
+                         onMenu: { trigger.menu($0, pushId: opening.pushId) },
+                         onFinished: { trigger.storyFinished(opening.pushId) })
+            .onAppear { if let request = opening.request { finishPending(request) } }
+    }
+
+    /// Clears `pushId` from the router -- never a newer push that came in
+    /// meanwhile (two quick taps).
+    private func finishPending(_ pushId: String) {
+        if router.pending == pushId { router.pending = nil }
+    }
+
+    /// The ending's button: the photos and words as a canvas draft, opened
+    /// only over the story that asked for it (`TriggerKeep`).
+    private func keepTrigger(_ memory: TriggerMemory, opening: TriggerOpening) {
+        let photos = trigger.photos
+        let covers = TriggerKeep.Covers(
+            story: { storyOnScreen },
+            isEmpty: { route == nil },
+            close: { route = nil },
+            open: { route = .draft($0.page, prompts: $0.prompts, pushId: opening.pushId) },
+            discard: { TriggerDraftMaker.discard($0.page) }
+        )
+        Task { @MainActor in
+            await keeper.keep(opening.id, make: {
+                await TriggerDraftMaker.make(memory, photoIds: opening.photoIds, photos: photos)
+            }, covers: covers)
+        }
+    }
+
+    /// The story on screen, if the cover is one.
+    private var storyOnScreen: UUID? {
+        if case .trigger(let opening) = route { return opening.id }
+        return nil
+    }
+}
+
+/// Home's "Kept as draft" toast (#137), kept out of HomeFlow's body.
+extension HomeFlow {
+    /// The export toast's look; taps go through to the screen under it.
+    @ViewBuilder private var draftToast: some View {
+        if draftToastShown {
+            SaveToast(message: .keptAsDraft)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// Not under the editor as it slides away: the toast's two seconds,
+    /// and its spoken line, start once it is gone.
+    private func showPendingDraftToast() {
+        guard draftToastPending else { return }
+        draftToastPending = false
+        showDraftToast()
+    }
+
+    /// Shows the toast for two seconds.
+    private func showDraftToast() {
+        draftToastDismiss?.cancel()
+        withAnimation(.spring(duration: 0.3)) { draftToastShown = true }
+        draftToastDismiss = Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.2)) { draftToastShown = false }
         }
     }
 }

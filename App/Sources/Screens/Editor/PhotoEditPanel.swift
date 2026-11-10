@@ -207,7 +207,7 @@ final class PhotoEditController {
     var composerCopy: String {
         switch wordsFor {
         case .ai: return "Tell AI what to change"
-        case .cutout: return "Describe cutout target"
+        case .cutout: return "Name a subject, or just tap Edit"
         default: return "Undo last edit or hold compare"
         }
     }

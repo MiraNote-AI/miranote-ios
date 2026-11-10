@@ -308,4 +308,57 @@ struct ChatPhotoFilesProbe: View {
         }
     }
 }
+
+/// -UITEST-TRIGGER only: the scheduled nights as text ("slotDay=belongsTo;..."),
+/// read from the scheduler's snapshot, for a test to see the schedule before
+/// the debug screen exists.
+struct TriggerScheduleProbe: View {
+    let controller: TriggerController
+    @State private var text = ""
+
+    var body: some View {
+        if ProcessInfo.processInfo.arguments.contains("-UITEST-TRIGGER") {
+            Text(text)
+                .font(.system(size: 1))
+                .opacity(0.01)
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("debug.triggerSchedule")
+                .background { TriggerLedgerProbe(controller: controller) }
+                .task {
+                    while !Task.isCancelled {
+                        let snapshot = await controller.scheduler.snapshot()
+                        text = snapshot.days.compactMap { day in
+                            day.entry.map { "\(day.slotDay)=\($0.belongsTo)" }
+                        }.joined(separator: ";")
+                        try? await Task.sleep(for: .milliseconds(500))
+                    }
+                }
+        }
+    }
+}
+
+/// -UITEST-TRIGGER only: the ledger as text ("pushId:made" or "pushId:none"
+/// per row, ";"-joined), for a test to see whether a page was made.
+struct TriggerLedgerProbe: View {
+    let controller: TriggerController
+    @State private var text = ""
+
+    var body: some View {
+        if ProcessInfo.processInfo.arguments.contains("-UITEST-TRIGGER") {
+            Text(text.isEmpty ? "empty" : text)
+                .font(.system(size: 1))
+                .opacity(0.01)
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier("debug.triggerLedger")
+                .task {
+                    while !Task.isCancelled {
+                        let rows = await controller.scheduler.ledgerEntries()
+                        text = rows.map { "\($0.pushId):\($0.madePageAt == nil ? "none" : "made")" }
+                            .joined(separator: ";")
+                        try? await Task.sleep(for: .milliseconds(500))
+                    }
+                }
+        }
+    }
+}
 #endif
