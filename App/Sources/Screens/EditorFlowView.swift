@@ -193,6 +193,7 @@ struct EditorFlowView: View {
 /// turn the conversation into a filed memory.
 struct HomeFlow: View {
     @Environment(\.services) private var services
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
@@ -421,6 +422,11 @@ struct HomeFlow: View {
             triggerGates = await trigger.resolveGates { await InstallSource.live() }
         }
         .triggerLifecycle(trigger, enabled: openTriggerGates.schedulesAutomatically)
+        // Moods whose asks ran out of tries while the service was down
+        // are asked again when the app comes back (#159).
+        .onChange(of: scenePhase) {
+            if scenePhase == .active { moodJudge?.resume() }
+        }
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
