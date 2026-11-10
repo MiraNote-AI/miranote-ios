@@ -5,9 +5,13 @@ import SwiftUI
 /// a soft drop shadow, with an optional Josefin Bold title at (21, 17).
 ///
 /// The sheet does not inset itself from the screen edge: chrome sheets sit
-/// at `Metrics.chromeInset`, sheets over the canvas card float
-/// `Metrics.sheetInCard` inside the card, so the caller pads.
+/// at `Metrics.chromeInset`, and the editor docks its tool sheets to the
+/// canvas card's sides and foot (`glassSheetFootCorner`), so the caller pads.
 struct GlassSheet<Content: View>: View {
+    /// The lower corners: the sheet's own 30, or the card's corner when it
+    /// is docked to the card's foot.
+    @Environment(\.glassSheetFootCorner) private var footCorner
+
     /// The two drop shadows the handoff draws on sheets.
     enum Elevation {
         /// `0 12 26 ink@0.10`: Photo Editing, Sticker.
@@ -30,7 +34,13 @@ struct GlassSheet<Content: View>: View {
     var bottomPadding: CGFloat = 21
     @ViewBuilder var content: () -> Content
 
-    private static var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 30) }
+    private var shape: UnevenRoundedRectangle {
+        let foot = footCorner ?? 30
+        return UnevenRoundedRectangle(
+            topLeadingRadius: 30, bottomLeadingRadius: foot,
+            bottomTrailingRadius: foot, topTrailingRadius: 30
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -59,7 +69,7 @@ struct GlassSheet<Content: View>: View {
 
     private var background: some View {
         GlassSurface(
-            shape: Self.shape,
+            shape: shape,
             tint: Palette.paper.opacity(fillOpacity),
             rim: border,
             shadowOpacity: elevation == .raised ? 0.16 : 0.10,
@@ -90,4 +100,10 @@ struct GlassSurface<S: InsettableShape>: View {
             .overlay(shape.strokeBorder(rim, lineWidth: 1))
             .shadow(color: Palette.ink.opacity(shadowOpacity), radius: shadowRadius, y: shadowY)
     }
+}
+
+extension EnvironmentValues {
+    /// Set where a GlassSheet sits on a card's foot: its lower corners
+    /// follow the card's, so sheet and card read as one piece.
+    @Entry var glassSheetFootCorner: CGFloat? = nil
 }

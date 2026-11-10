@@ -65,7 +65,7 @@ public final class CanvasViewModel {
     /// One undo step: the canvas elements plus the page background.
     // The backdrop and its description travel together: restoring one
     // without the other leaves the page describing a picture it lost.
-    private struct UndoSnapshot: Equatable {
+    fileprivate struct UndoSnapshot: Equatable {
         let items: [CanvasItem]
         let backgroundFileName: String
         let backgroundSummary: String
@@ -114,8 +114,22 @@ public final class CanvasViewModel {
     }
     private static let historyCap = 50
 
-    public init(memory: Memory) {
+    /// Text a page arrived with only to prompt the writer (the photo
+    /// trigger's question), filed once the writer has written anything on
+    /// the page -- rewriting it, or any other text; with no words of
+    /// theirs, it is not part of the page (handoff refine 5.3).
+    private let prompts: PagePrompts
+
+    /// The page as it opened, re-fitted whenever the page's text is
+    /// (`fitTextHeights`): what `isAsArrived` compares the page with.
+    private var arrival: UndoSnapshot
+
+    public init(memory: Memory, prompts: [CanvasItem.ID: String] = [:]) {
         self.memory = memory
+        self.prompts = PagePrompts(given: prompts, items: memory.items)
+        arrival = UndoSnapshot(items: memory.items, backgroundFileName: memory.backgroundFileName,
+                               backgroundSummary: memory.backgroundSummary,
+                               paper: memory.paper, pageColorName: memory.pageColorName)
     }
 
     public var items: [CanvasItem] { memory.items }
@@ -139,13 +153,10 @@ public final class CanvasViewModel {
 
     /// The elements a filing keeps: not an empty block still being written
     /// (one waiting for dictated words when the app is backgrounded) -- the
-    /// session's end removes it unless words land.
+    /// session's end removes it unless words land -- and not a prompt left
+    /// as given.
     private var filedItems: [CanvasItem] {
-        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
-    }
-
-    public var contentBottom: CGFloat {
-        memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
+        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
     }
 
     // MARK: Undo
@@ -375,6 +386,45 @@ public final class CanvasViewModel {
     public func rotate(itemID: CanvasItem.ID, degrees: Double) {
         guard let index = index(of: itemID) else { return }
         memory.items[index].rotation = degrees
+    }
+}
+
+// MARK: - Prompts
+
+/// A page's prompts: item id -> its words as given, and (with any) every
+/// text block's words as the page arrived, to tell the writer's words from
+/// the page's own.
+private struct PagePrompts {
+    let given: [CanvasItem.ID: String]
+    let arrived: [CanvasItem.ID: String]
+
+    init(given: [CanvasItem.ID: String], items: [CanvasItem]) {
+        self.given = given
+        arrived = given.isEmpty ? [:] : Self.texts(items)
+    }
+
+    /// Some text block holds words the page did not arrive with: a block
+    /// rewritten, or a new one with words in it.
+    func hasWritersWords(_ items: [CanvasItem]) -> Bool {
+        Self.texts(items).contains { id, text in
+            arrived[id] != text && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    static func texts(_ items: [CanvasItem]) -> [CanvasItem.ID: String] {
+        var texts: [CanvasItem.ID: String] = [:]
+        for item in items {
+            if case .text(let block) = item.content { texts[item.id] = block.text }
+        }
+        return texts
+    }
+}
+
+private extension CanvasViewModel {
+    /// A prompt as given on a page the writer has put no words on.
+    func isUntouchedPrompt(_ item: CanvasItem) -> Bool {
+        guard let given = prompts.given[item.id], case .text(let block) = item.content else { return false }
+        return block.text == given && !prompts.hasWritersWords(memory.items)
     }
 }
 
@@ -688,7 +738,7 @@ extension CanvasViewModel {
             composed.backgroundFileName = origin.backgroundFileName
             composed.backgroundSummary = origin.backgroundSummary
         }
-        let textBlocks: [(block: TextBlock, item: CanvasItem)] = memory.items.compactMap {
+        let textBlocks: [(block: TextBlock, item: CanvasItem)] = composed.items.compactMap {
             guard case .text(let block) = $0.content,
                   !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             return (block, $0)
@@ -766,5 +816,65 @@ private extension CanvasItem {
             return block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return false
+    }
+}
+
+extension CanvasViewModel {
+    public var contentBottom: CGFloat {
+        memory.items.map { $0.position.y + $0.size.height / 2 }.max() ?? 0
+    }
+}
+
+// MARK: - The page as it arrived (push drafts)
+
+extension CanvasViewModel {
+    /// Moves shorter than this leave an element where it was: a finger that
+    /// slid while tapping, not a new place.
+    public static let strayMoveDistance: CGFloat = 8
+
+    /// Nothing of the writer's on the page since it opened: a step undone,
+    /// a block opened for writing with nothing typed, a new block still
+    /// empty, a color only previewed and a move under `strayMoveDistance`
+    /// all leave it as it arrived. The page's own work -- text fitted to its
+    /// measure, a photo's description landing -- never counts.
+    public var isAsArrived: Bool {
+        var now = currentSnapshot.replacingItems(
+            memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
+        )
+        if let origin = pagePreviewOrigin {
+            now = UndoSnapshot(items: now.items, backgroundFileName: origin.backgroundFileName,
+                               backgroundSummary: origin.backgroundSummary,
+                               paper: now.paper, pageColorName: origin.pageColorName)
+        }
+        return now.sameEdits(as: arrival, ignoringMovesUnder: Self.strayMoveDistance)
+    }
+
+    /// The arrival page fitted as the page is (`fitTextHeights`): the fit on
+    /// open moves what is below a block that grew, on both alike.
+    func refitArrival(_ height: (CanvasItem) -> CGFloat?) {
+        arrival = arrival.replacingItems(TextFit.apply(to: arrival.items, height: height))
+    }
+}
+
+extension CanvasViewModel.UndoSnapshot {
+    /// `sameEdits`, also blind to what text fits did to an element and
+    /// to a move shorter than `stray`: each element is put back where
+    /// `other` has it when it is that close.
+    func sameEdits(as other: Self, ignoringMovesUnder stray: CGFloat) -> Bool {
+        let places = Dictionary(other.items.map { ($0.id, $0.position) }, uniquingKeysWith: { first, _ in first })
+        func settled(_ items: [CanvasItem], snapping: Bool) -> [CanvasItem] {
+            items.map { item in
+                var plain = item
+                plain.fitOffset = nil
+                plain.clearance = nil
+                if snapping, let place = places[item.id],
+                   hypot(item.position.x - place.x, item.position.y - place.y) < stray {
+                    plain.position = place
+                }
+                return plain
+            }
+        }
+        return replacingItems(settled(items, snapping: true))
+            .sameEdits(as: other.replacingItems(settled(other.items, snapping: false)))
     }
 }

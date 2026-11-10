@@ -1,6 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%1$lld photos, a %2$@ %3$@" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push body when there is no detail line; the photo count, then the weekday of the group's day (Friday) and the cover photo's daypart (night).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld 张照片，一个%2$@的%3$@"
+          }
+        }
+      }
+    },
     "%@ and %@" : {
       "comment" : "VoiceOver: a display font and a body font.",
       "extractionState" : "manual",
@@ -57,6 +69,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@，%2$@，%3$@"
+          }
+        }
+      }
+    },
+    "%@: every question type was taken nearby; the first was asked" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：备选问题的类型前后两晚都用过，用了第 1 个"
           }
         }
       }
@@ -284,6 +308,18 @@
         }
       }
     },
+    "%lld s" : {
+      "comment" : "Photo trigger debug screen (testers only): seconds one group took.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
+          }
+        }
+      }
+    },
     "%lld selected" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -326,6 +362,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "四宫格"
+          }
+        }
+      }
+    },
+    "A long gap between photos starts a new group after %@ min" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两张照片隔 %@ 分钟以上就分成新的一组"
           }
         }
       }
@@ -406,6 +454,90 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AI 图片"
+          }
+        }
+      }
+    },
+    "AI failed" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 出错"
+          }
+        }
+      }
+    },
+    "AI passed" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 通过"
+          }
+        }
+      }
+    },
+    "AI passed (remembered)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 通过（用了记住的结果）"
+          }
+        }
+      }
+    },
+    "AI timeout" : {
+      "comment" : "Photo trigger failure: the AI took too long.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 超时"
+          }
+        }
+      }
+    },
+    "AI turned it down" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 没通过"
+          }
+        }
+      }
+    },
+    "AI turned it down (remembered)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 没通过（用了记住的结果）"
+          }
+        }
+      }
+    },
+    "AI turned it down: %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 没通过：%@"
           }
         }
       }
@@ -524,6 +656,17 @@
         }
       }
     },
+    "Add to Canvas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "直接加到画布"
+          }
+        }
+      }
+    },
     "Add to Favorites" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -531,6 +674,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加入收藏"
+          }
+        }
+      }
+    },
+    "Add to Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入照片库"
           }
         }
       }
@@ -661,6 +815,18 @@
         }
       }
     },
+    "Afternoon" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): daypart 14-17.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下午"
+          }
+        }
+      }
+    },
     "Alignment" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -672,6 +838,18 @@
         }
       }
     },
+    "All details" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部详情"
+          }
+        }
+      }
+    },
     "Already on the default background." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -679,6 +857,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已经是默认背景了。"
+          }
+        }
+      }
+    },
+    "Already pushed that day" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一天推过了"
+          }
+        }
+      }
+    },
+    "Also: %@ (%@)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备选：%1$@（%2$@）"
+          }
+        }
+      }
+    },
+    "Another kind" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
           }
         }
       }
@@ -785,6 +999,30 @@
         }
       }
     },
+    "Asking the AI... (rank %lld: %@ %@, %lld photos)" : {
+      "comment" : "Photo trigger progress: rank, date (10.18), place, number of photos.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在问 AI…（第 %lld 名：%@ %@，%lld 张）"
+          }
+        }
+      }
+    },
+    "Asking the AI... (rank %lld: %@, %lld photos)" : {
+      "comment" : "Photo trigger progress: rank, date (10.18), number of photos; no place known.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在问 AI…（第 %lld 名：%@，%lld 张）"
+          }
+        }
+      }
+    },
     "B&W" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
@@ -850,6 +1088,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "空白"
+          }
+        }
+      }
+    },
+    "Blocked days and fewer buckets" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不想看的日子与少推的类别"
           }
         }
       }
@@ -924,6 +1174,18 @@
         }
       }
     },
+    "Can go out" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以推"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -931,6 +1193,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
+          }
+        }
+      }
+    },
+    "Cannot reach the backend" : {
+      "comment" : "Photo trigger failure: the photo-collections backend is down or unreachable.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连不上后端"
           }
         }
       }
@@ -943,6 +1217,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "画布"
+          }
+        }
+      }
+    },
+    "Category report" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分类报告"
           }
         }
       }
@@ -1094,6 +1380,18 @@
         }
       }
     },
+    "City and streets" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "城市街头"
+          }
+        }
+      }
+    },
     "Classic" : {
       "comment" : "Font chip: the original default face (not a font name).",
       "extractionState" : "manual",
@@ -1154,6 +1452,42 @@
         }
       }
     },
+    "Clear" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除"
+          }
+        }
+      }
+    },
+    "Clear everything" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部清空"
+          }
+        }
+      }
+    },
+    "Clear everything?" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部清空吗？"
+          }
+        }
+      }
+    },
     "Cleared the backdrop." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1205,6 +1539,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "与原图对比"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制"
+          }
+        }
+      }
+    },
+    "Copy the ledger" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制账本"
           }
         }
       }
@@ -1439,6 +1797,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认"
+          }
+        }
+      }
+    },
+    "Day %@ is blocked, since %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 这一天不想看，从 %2$@ 起"
+          }
+        }
+      }
+    },
+    "Day blocked" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一天不想看"
           }
         }
       }
@@ -1735,6 +2117,30 @@
         }
       }
     },
+    "Evening" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): daypart 17-19.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傍晚"
+          }
+        }
+      }
+    },
+    "Events and shows" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "活动演出"
+          }
+        }
+      }
+    },
     "Everything else is untouched." : {
       "comment" : "Result sheet: what was kept.",
       "extractionState" : "manual",
@@ -1816,6 +2222,18 @@
         }
       }
     },
+    "Fake AI" : {
+      "comment" : "Photo trigger debug entry: switch that builds the memory on the phone instead of asking the backend.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "假 AI"
+          }
+        }
+      }
+    },
     "Favorite" : {
       "comment" : "Glossary: Favorites = 收藏.",
       "extractionState" : "manual",
@@ -1835,6 +2253,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "收藏"
+          }
+        }
+      }
+    },
+    "Fewer %@, since %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少推 %1$@，从 %2$@ 起"
+          }
+        }
+      }
+    },
+    "Fewer like \"%@\" from now on" : {
+      "comment" : "Photo trigger story: note after Fewer like this; the argument is the push bucket's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后少推『%@』这类"
+          }
+        }
+      }
+    },
+    "Fewer like this" : {
+      "comment" : "Photo trigger story menu item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少推这类"
+          }
+        }
+      }
+    },
+    "Fewer than 3 photos" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不到 3 张"
+          }
+        }
+      }
+    },
+    "Fills the screen" : {
+      "comment" : "VoiceOver value of a story photo: the photo fills the screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "铺满屏幕"
           }
         }
       }
@@ -1874,6 +2352,18 @@
         }
       }
     },
+    "Food and drink" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美食饮品"
+          }
+        }
+      }
+    },
     "Forest" : {
       "comment" : "Appearance theme name; also a color swatch name.",
       "extractionState" : "manual",
@@ -1904,6 +2394,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已给照片加上相框。"
+          }
+        }
+      }
+    },
+    "Friday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周五"
+          }
+        }
+      }
+    },
+    "From %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自 %@"
           }
         }
       }
@@ -1972,6 +2486,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "方格"
+          }
+        }
+      }
+    },
+    "Grouping results" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分组结果"
+          }
+        }
+      }
+    },
+    "Groups %lld, candidates %lld, sent to the AI %lld" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分组 %1$lld，候选 %2$lld，送 AI %3$lld"
+          }
+        }
+      }
+    },
+    "Groups: %lld" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分组：%lld"
           }
         }
       }
@@ -2104,6 +2654,18 @@
         }
       }
     },
+    "How it was found" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "怎么找到的"
+          }
+        }
+      }
+    },
     "Hue" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -2187,6 +2749,18 @@
         }
       }
     },
+    "Imagined" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个角度想象"
+          }
+        }
+      }
+    },
     "In Favorites" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2194,6 +2768,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已收藏"
+          }
+        }
+      }
+    },
+    "In a fewer-like-this pause" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在少推期"
+          }
+        }
+      }
+    },
+    "Indoors and home" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "室内居家"
           }
         }
       }
@@ -2241,6 +2839,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保留"
+          }
+        }
+      }
+    },
+    "Keep this %@" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): the ending's button; the argument is a daypart.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留住这个%@"
           }
         }
       }
@@ -2328,6 +2938,18 @@
         }
       }
     },
+    "Ledger and actions" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账本与操作"
+          }
+        }
+      }
+    },
     "Left" : {
       "comment" : "VoiceOver: the text block's alignment.",
       "extractionState" : "manual",
@@ -2348,6 +2970,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@保持原样。"
+          }
+        }
+      }
+    },
+    "Left before the answer" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "答案回来前就离开了"
+          }
+        }
+      }
+    },
+    "Left before the answer: %lld" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "答案回来前就离开了：%lld"
           }
         }
       }
@@ -2410,6 +3056,18 @@
         }
       }
     },
+    "Loading..." : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载中..."
+          }
+        }
+      }
+    },
     "Long strip" : {
       "comment" : "Layout template: full-width and paired photos in turn.",
       "extractionState" : "manual",
@@ -2429,6 +3087,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在画布上长按任意图片或贴纸，选择“收藏”即可保存在这里。"
+          }
+        }
+      }
+    },
+    "Looking at photos %lld/%lld..." : {
+      "comment" : "Photo trigger progress: photos analysed so far / photos to analyse.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在看照片 %lld/%lld…"
           }
         }
       }
@@ -2595,6 +3265,17 @@
         }
       }
     },
+    "Making this sticker is taking too long. Try again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贴纸做得太久了，再试一次？"
+          }
+        }
+      }
+    },
     "Masonry" : {
       "comment" : "Layout template: two columns of photos at staggered heights.",
       "extractionState" : "manual",
@@ -2743,6 +3424,18 @@
         }
       }
     },
+    "MiraNote will look through your recent photos on this iPhone. For each moment it considers, it sends up to 10 photos, with when and roughly where they were taken and what is in them, to our server and an AI service that writes the reminder. This is a test feature." : {
+      "comment" : "Settings: confirmation body before the photo trigger is turned on; what is uploaded and where.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 会查看这台 iPhone 上最近的照片。每考虑一段回忆，就会把最多 10 张照片，连同拍摄时间、大致地点和照片内容，发送到我们的服务器和一个 AI 服务，用来生成回忆提醒。这是测试中的功能。"
+          }
+        }
+      }
+    },
     "MiraNote's AI server is not running. It lives on a Mac someone has to start -- let the team know." : {
       "comment" : "Server error 502.",
       "extractionState" : "manual",
@@ -2755,6 +3448,18 @@
         }
       }
     },
+    "Monday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周一"
+          }
+        }
+      }
+    },
     "Month" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2762,6 +3467,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "月"
+          }
+        }
+      }
+    },
+    "More" : {
+      "comment" : "VoiceOver: the photo trigger's more-options button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多"
           }
         }
       }
@@ -2784,6 +3501,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这里不止一张贴纸，轻点你想要的那张再问一次。"
+          }
+        }
+      }
+    },
+    "Morning" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): daypart 5-11.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上午"
           }
         }
       }
@@ -2858,6 +3587,18 @@
         }
       }
     },
+    "Nature and scenery" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自然风光"
+          }
+        }
+      }
+    },
     "Neutral" : {
       "comment" : "Mood.",
       "extractionState" : "manual",
@@ -2928,6 +3669,18 @@
         }
       }
     },
+    "Next time" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次"
+          }
+        }
+      }
+    },
     "Next week" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2935,6 +3688,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下一周"
+          }
+        }
+      }
+    },
+    "Night" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): daypart 19-5.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜晚"
           }
         }
       }
@@ -2969,6 +3734,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无背景"
+          }
+        }
+      }
+    },
+    "No group passed the rules" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有分组通过规则"
+          }
+        }
+      }
+    },
+    "No grouping yet. Open the app again or press Replan." : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有分组。再打开一次应用，或按“重新排”。"
           }
         }
       }
@@ -3028,6 +3817,54 @@
         }
       }
     },
+    "No place" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有地点"
+          }
+        }
+      }
+    },
+    "No report yet. Open the app again or press Replan." : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有报告。再打开一次应用，或按“重新排”。"
+          }
+        }
+      }
+    },
+    "No runs yet" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有运行记录"
+          }
+        }
+      }
+    },
+    "No score" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有分数"
+          }
+        }
+      }
+    },
     "No sticker on this page yet -- generate one first?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3035,6 +3872,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这一页还没有贴纸，先生成一张？"
+          }
+        }
+      }
+    },
+    "No suitable group in the last 60 days" : {
+      "comment" : "Photo trigger failure: nothing to push.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 60 天没找到合适的一组"
           }
         }
       }
@@ -3051,6 +3900,78 @@
         }
       }
     },
+    "Noon" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): daypart 11-14.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中午"
+          }
+        }
+      }
+    },
+    "Not planned yet" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没排"
+          }
+        }
+      }
+    },
+    "Not sent to the AI" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没送去 AI"
+          }
+        }
+      }
+    },
+    "Not this day" : {
+      "comment" : "Photo trigger story menu item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不想看这一天"
+          }
+        }
+      }
+    },
+    "Nothing is blocked" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有屏蔽的内容"
+          }
+        }
+      }
+    },
+    "Nothing is scheduled right now" : {
+      "comment" : "Photo trigger debug entry: nothing to preview.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在没有约好的推送"
+          }
+        }
+      }
+    },
     "Nothing waiting here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3058,6 +3979,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这里空空如也。"
+          }
+        }
+      }
+    },
+    "Notifications are off" : {
+      "comment" : "Photo trigger failure: notifications are not allowed (an Open Settings button follows).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知没开"
+          }
+        }
+      }
+    },
+    "One detail up close" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放大一个细节"
           }
         }
       }
@@ -3081,6 +4026,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "其中一张保留了背景。都在这里，任选一张吧。"
+          }
+        }
+      }
+    },
+    "One word, one number" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一个词、一个数"
+          }
+        }
+      }
+    },
+    "Only some photos are visible" : {
+      "comment" : "Photo trigger progress: the user shared only some photos (limited access).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只能看到部分照片"
           }
         }
       }
@@ -3142,6 +4111,18 @@
         }
       }
     },
+    "Order of things" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先后顺序"
+          }
+        }
+      }
+    },
     "Original" : {
       "comment" : "Photo treatment and export quality: the untouched photo (原图). The text rewrite's untouched words are \"Original text\".",
       "extractionState" : "manual",
@@ -3183,6 +4164,18 @@
         }
       }
     },
+    "Other" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        }
+      }
+    },
     "Outline" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3190,6 +4183,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "描边"
+          }
+        }
+      }
+    },
+    "Over 60 days" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "超过 60 天"
           }
         }
       }
@@ -3342,6 +4347,30 @@
         }
       }
     },
+    "People there" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有人在场"
+          }
+        }
+      }
+    },
+    "Pets and animals" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): push bucket name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宠物与动物"
+          }
+        }
+      }
+    },
     "Photo %lld" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -3350,6 +4379,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "第 %lld 张照片"
+          }
+        }
+      }
+    },
+    "Photo %lld of %lld" : {
+      "comment" : "VoiceOver: the photo trigger story's position.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 张，共 %lld 张"
           }
         }
       }
@@ -3388,6 +4429,18 @@
         }
       }
     },
+    "Photo library access is needed" : {
+      "comment" : "Photo trigger failure: photo library access denied (an Open Settings button follows).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要相册权限"
+          }
+        }
+      }
+    },
     "Photo loading" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -3396,6 +4449,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "照片加载中"
+          }
+        }
+      }
+    },
+    "Photo memories (beta)" : {
+      "comment" : "Settings: the photo trigger's switch (TestFlight builds only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片回忆（内测）"
+          }
+        }
+      }
+    },
+    "Photo trigger (test)" : {
+      "comment" : "Home: the photo trigger's debug entry (development and TestFlight builds).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片回忆（测试）"
+          }
+        }
+      }
+    },
+    "Photo trigger details" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片推送详情"
           }
         }
       }
@@ -3419,6 +4508,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "照片"
+          }
+        }
+      }
+    },
+    "Photos %lld (%lld with repeats)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片 %1$lld 张（含重复共 %2$lld 张）"
           }
         }
       }
@@ -3456,13 +4557,26 @@
         }
       }
     },
-    "Pick photos" : {
+    "Place %@, marks %@, looks %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "挑选照片"
+            "value" : "地点 %1$@，标记 %2$@，画面 %3$@"
+          }
+        }
+      }
+    },
+    "Planning..." : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在排..."
           }
         }
       }
@@ -3474,6 +4588,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "播放"
+          }
+        }
+      }
+    },
+    "Please stay here, about a minute" : {
+      "comment" : "Photo trigger progress hint while waiting for the AI: leaving the app pauses it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请留在这里，大约 1 分钟"
           }
         }
       }
@@ -3534,6 +4660,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在润色文字…"
+          }
+        }
+      }
+    },
+    "Preparing..." : {
+      "comment" : "Photo trigger progress: the press has started.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备中…"
+          }
+        }
+      }
+    },
+    "Preview the scheduled push" : {
+      "comment" : "Photo trigger debug entry: send a copy of the next scheduled push in 10 seconds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预览已约的推送"
           }
         }
       }
@@ -3605,6 +4755,18 @@
         }
       }
     },
+    "Question (%@): %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "问题（%1$@）：%2$@"
+          }
+        }
+      }
+    },
     "Quick starts" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3612,6 +4774,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "快速开始"
+          }
+        }
+      }
+    },
+    "Rank %lld did not pass (%@), trying rank %lld..." : {
+      "comment" : "Photo trigger progress: rank, the backend's reason, the next rank.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 名没通过（%@），换第 %lld 名…"
           }
         }
       }
@@ -3647,6 +4821,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "页面已重新排列。"
+          }
+        }
+      }
+    },
+    "Recency %@, story %@, people %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新近 %1$@，故事 %2$@，人物 %3$@"
           }
         }
       }
@@ -3880,6 +5066,18 @@
         }
       }
     },
+    "Replan" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新排"
+          }
+        }
+      }
+    },
     "Resized %@." : {
       "comment" : "Result sheet; %@ is 'the photo', 'the text'...",
       "extractionState" : "manual",
@@ -4042,6 +5240,18 @@
         }
       }
     },
+    "Saturday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周六"
+          }
+        }
+      }
+    },
     "Save" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4131,6 +5341,102 @@
         }
       }
     },
+    "Schedule log" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排期日志"
+          }
+        }
+      }
+    },
+    "Scheduled for %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排在 %@"
+          }
+        }
+      }
+    },
+    "Scheduled pushes" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已排好的推送"
+          }
+        }
+      }
+    },
+    "Scheduled pushes, the ledger, the log and what you chose in the menu are removed." : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已排好的推送、账本、日志和你在菜单里的选择都会被清掉。"
+          }
+        }
+      }
+    },
+    "Scheduled, the push comes in 10 s (rank %lld, score %@)" : {
+      "comment" : "Photo trigger progress: rank and score (0.63) of the group pushed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已安排，10 秒后推送（第 %lld 名，分数 %@）"
+          }
+        }
+      }
+    },
+    "Scheduled: %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已排：%@"
+          }
+        }
+      }
+    },
+    "Score %@" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分数 %@"
+          }
+        }
+      }
+    },
+    "Score under 0.40" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分数不够"
+          }
+        }
+      }
+    },
     "Scrapbook" : {
       "comment" : "Layout template: two framed photos held by the stickers as tape.",
       "extractionState" : "manual",
@@ -4172,6 +5478,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "置于底层"
+          }
+        }
+      }
+    },
+    "Set aside as documents and the like (%lld)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当作证件文档等放在一边（%lld）"
           }
         }
       }
@@ -4232,17 +5550,6 @@
         }
       }
     },
-    "Share more" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择更多照片"
-          }
-        }
-      }
-    },
     "Shortened the text." : {
       "comment" : "Result sheet: what changed.",
       "extractionState" : "manual",
@@ -4285,6 +5592,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在显示你的编辑"
+          }
+        }
+      }
+    },
+    "Shown whole" : {
+      "comment" : "VoiceOver value of a story photo: a landscape or square photo shown whole over a blurred fill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整显示"
           }
         }
       }
@@ -4342,6 +5661,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "声音备注"
+          }
+        }
+      }
+    },
+    "Sounds" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音"
           }
         }
       }
@@ -4461,6 +5792,18 @@
         }
       }
     },
+    "Sunday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周日"
+          }
+        }
+      }
+    },
     "Sunlit Pop" : {
       "comment" : "Appearance theme name.",
       "extractionState" : "manual",
@@ -4493,6 +5836,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "T 形"
+          }
+        }
+      }
+    },
+    "TESTING" : {
+      "comment" : "Settings: section label above the photo trigger's switch (TestFlight builds only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测试"
           }
         }
       }
@@ -4537,6 +5892,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "轻点头像或名字即可编辑"
+          }
+        }
+      }
+    },
+    "Taste" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "味道"
           }
         }
       }
@@ -4721,6 +6088,66 @@
         }
       }
     },
+    "That was the last group, starting from the top" : {
+      "comment" : "Photo trigger progress: push next ran past the last group.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经是最后一组，从头开始"
+          }
+        }
+      }
+    },
+    "The AI failed" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 出错"
+          }
+        }
+      }
+    },
+    "The app was left before the AI answered" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 还没回答就离开了应用"
+          }
+        }
+      }
+    },
+    "The backend said: %@" : {
+      "comment" : "Photo trigger failure: the backend's own message (Chinese) follows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后端：%@"
+          }
+        }
+      }
+    },
+    "The body's feel" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身体感受"
+          }
+        }
+      }
+    },
     "The camera isn't available here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4774,6 +6201,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我正在处理的照片不见了，所以一切保持原样。"
+          }
+        }
+      }
+    },
+    "The push for %@ comes in 10 s" : {
+      "comment" : "Photo trigger debug entry: a preview of that night's push was sent; %@ is the day.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 那晚的推送 10 秒后到"
           }
         }
       }
@@ -4875,6 +6314,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这个版本无法进入测试：它的访问权限没有设置，或已被更换。请向团队要一个新版本；重新安装这个版本没有用。"
+          }
+        }
+      }
+    },
+    "This build has no beta access" : {
+      "comment" : "Photo trigger failure: the backend refused the build's beta token (401).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个版本没有内测口令"
+          }
+        }
+      }
+    },
+    "This day won't be pushed again" : {
+      "comment" : "Photo trigger story: note after Not this day, then the story closes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一天不会再推了"
           }
         }
       }
@@ -5022,6 +6485,30 @@
         }
       }
     },
+    "Three words for that %@: __, __, __" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): question B1; the argument is a daypart (afternoon).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "那个%@的三个关键词：＿＿、＿＿、＿＿"
+          }
+        }
+      }
+    },
+    "Thursday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周四"
+          }
+        }
+      }
+    },
     "Tidied the layout." : {
       "comment" : "Result sheet: what changed.",
       "extractionState" : "manual",
@@ -5058,6 +6545,30 @@
         }
       }
     },
+    "Too few of its photos could be read" : {
+      "comment" : "Photo trigger progress: the reason a group did not pass (shown inside the rank line).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "能读到的照片不到 3 张"
+          }
+        }
+      }
+    },
+    "Total %@ (base %@ x %@)" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总分 %1$@（基础 %2$@ x %3$@）"
+          }
+        }
+      }
+    },
     "Transcribing..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5065,6 +6576,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在转写…"
+          }
+        }
+      }
+    },
+    "Tried %lld groups and none passed. You can press \"Try a group outside the schedule\" again" : {
+      "comment" : "Photo trigger progress: fewer than three groups existed and every one was turned down.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试了 %lld 组都没通过，可以再按一次「试推排期外的组」"
+          }
+        }
+      }
+    },
+    "Tried 3 groups and none passed. You can press \"Try a group outside the schedule\" again" : {
+      "comment" : "Photo trigger progress: three groups were turned down in one press.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试了 3 组都没通过，可以再按一次「试推排期外的组」"
+          }
+        }
+      }
+    },
+    "Try a group outside the schedule" : {
+      "comment" : "Photo trigger debug entry: run the AI on a group that is not among the scheduled nights and push it in 10 seconds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试推排期外的组"
           }
         }
       }
@@ -5077,6 +6624,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再试一次"
+          }
+        }
+      }
+    },
+    "Tuesday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周二"
+          }
+        }
+      }
+    },
+    "Turn On" : {
+      "comment" : "Settings: confirms turning the photo trigger on.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开"
+          }
+        }
+      }
+    },
+    "Turn on photo memories?" : {
+      "comment" : "Settings: confirmation before the photo trigger is turned on.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开照片回忆？"
           }
         }
       }
@@ -5100,6 +6683,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "写下或润色你的回忆"
+          }
+        }
+      }
+    },
+    "Under 12 hours since the last photo" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拍完不到 12 小时"
           }
         }
       }
@@ -5208,6 +6803,18 @@
         }
       }
     },
+    "Unknown type" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型不明"
+          }
+        }
+      }
+    },
     "Untitled" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5278,6 +6885,18 @@
         }
       }
     },
+    "Wednesday" : {
+      "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周三"
+          }
+        }
+      }
+    },
     "Week" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5311,6 +6930,18 @@
         }
       }
     },
+    "When on, MiraNote looks through your recent photos and sends some of them to an AI service to write memory reminders." : {
+      "comment" : "Settings: line under the photo trigger's switch; says photos go to an AI service.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开后，MiraNote 会查看你最近的照片，并把其中部分照片发送给 AI 服务来生成回忆提醒。"
+          }
+        }
+      }
+    },
     "When was my Paris trip?" : {
       "comment" : "Home ask-bar placeholder: an example question about past pages.",
       "extractionState" : "manual",
@@ -5319,6 +6950,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我的巴黎之旅是什么时候？"
+          }
+        }
+      }
+    },
+    "Where to or from" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "去向、来路"
           }
         }
       }
@@ -5412,6 +7055,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在记下…"
+          }
+        }
+      }
+    },
+    "Yes, clear everything" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是，全部清空"
           }
         }
       }
@@ -5650,6 +7305,18 @@
         }
       }
     },
+    "collapsed" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收起"
+          }
+        }
+      }
+    },
     "cream soup" : {
       "comment" : "Sticker (VoiceOver).",
       "extractionState" : "manual",
@@ -5682,6 +7349,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "饺子"
+          }
+        }
+      }
+    },
+    "expanded" : {
+      "comment" : "Photo trigger debug screen (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已展开"
           }
         }
       }

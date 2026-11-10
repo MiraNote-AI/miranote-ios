@@ -4,12 +4,18 @@ import SwiftUI
 /// Handoff screen 03: the PREFERENCES card -- Appearance and Language rows
 /// with their current values, and the text-size slider. The ACCOUNT card
 /// (email, Log Out) and PRIVACY & LEGAL (no URLs yet) are left out until
-/// there is an account and the links exist.
+/// there is an account and the links exist. A TestFlight install adds a
+/// TESTING card: the photo trigger's switch (InstallSource).
 struct SettingsView: View {
     var settings: AppSettings
+    /// The photo trigger's switch; nil hides the TESTING card.
+    var photoTriggerOptIn: Binding<Bool>?
     var onBack: () -> Void = {}
     var onOpenAppearance: () -> Void = {}
     var onOpenLanguage: () -> Void = {}
+
+    /// Turning the switch on waits for this confirmation.
+    @State private var confirmingOptIn = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -26,6 +32,14 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 19)
                 .settingsCard()
+
+                if let photoTriggerOptIn {
+                    SettingsEyebrow(text: "TESTING", size: 12, tracking: 1.5)
+                        .padding(.top, 21)
+                    PhotoTriggerOptInCard(isOn: photoTriggerOptIn, confirming: $confirmingOptIn)
+                        .padding(.horizontal, 19)
+                        .settingsCard()
+                }
             }
             .padding(.horizontal, SettingsStyle.inset)
             .padding(.top, 24)
@@ -34,6 +48,17 @@ struct SettingsView: View {
         .screenBackground()
         .safeAreaInset(edge: .top, spacing: 0) {
             SettingsHeader(title: "Settings", onBack: onBack)
+        }
+        // Photos leave the phone only after this says so (review of iOS#172).
+        .alert("Turn on photo memories?", isPresented: $confirmingOptIn) {
+            Button("Cancel", role: .cancel) {}
+            Button("Turn On") { photoTriggerOptIn?.wrappedValue = true }
+        } message: {
+            Text("""
+            MiraNote will look through your recent photos on this iPhone. For each moment it considers, it \
+            sends up to 10 photos, with when and roughly where they were taken and what is in them, to our \
+            server and an AI service that writes the reminder. This is a test feature.
+            """)
         }
     }
 
@@ -66,6 +91,35 @@ struct SettingsView: View {
         .accessibilityLabel(label)
         .accessibilityValue(value)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The photo trigger's switch and what turning it on does. Off to on asks
+/// first (`confirming`); on to off takes effect at once.
+private struct PhotoTriggerOptInCard: View {
+    @Binding var isOn: Bool
+    @Binding var confirming: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: Binding(get: { isOn }, set: { if $0 { confirming = true } else { isOn = false } })) {
+                Text("Photo memories (beta)")
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+            }
+            .tint(Palette.forest)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("settings.photoTrigger")
+            Text("""
+            When on, MiraNote looks through your recent photos and sends some of them to an AI service \
+            to write memory reminders.
+            """)
+                .font(Sans.font(size: 13, weight: 500))
+                .foregroundStyle(SettingsStyle.value)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 16)
     }
 }
 

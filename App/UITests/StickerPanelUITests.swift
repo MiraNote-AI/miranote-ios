@@ -105,6 +105,31 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["sticker.style.outline"].isEnabled)
     }
 
+    /// #169: a sticker that takes too long stops the spinner with a retry
+    /// notice, and its late result does not land afterwards.
+    func testATooSlowStickerGivesUpAndDropsTheLateResult() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-STICKER_TIME_LIMIT_MS", "2000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+
+        generate("a cup, slowly")
+        XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3))
+        let notice = any("sticker.notice")
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the time limit gives up")
+        XCTAssertEqual(notice.label, "Making this sticker is taking too long. Try again?")
+        XCTAssertFalse(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists,
+                       "the notice takes the hint's line")
+        XCTAssertFalse(any("sticker.generating").exists, "the spinner stopped")
+        XCTAssertTrue(app.buttons["sticker.generate.run"].isEnabled, "Make can be tapped again")
+
+        // The scripted sticker would have landed 8 s in.
+        sleep(8)
+        XCTAssertFalse(any("sticker.result.0").exists, "the late result is dropped")
+    }
+
     func testStylesStepBackAndForward() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))

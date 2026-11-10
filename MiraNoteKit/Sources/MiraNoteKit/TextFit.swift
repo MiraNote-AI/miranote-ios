@@ -161,5 +161,6 @@ extension CanvasViewModel {
     public func fitTextHeights(_ height: (CanvasItem) -> CGFloat?) {
         let fitted = TextFit.apply(to: memory.items, height: height)
         if fitted != memory.items { memory.items = fitted }
+        refitArrival(height)
     }
 }

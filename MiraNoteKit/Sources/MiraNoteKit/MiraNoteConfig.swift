@@ -46,8 +46,10 @@ public enum MiraNoteConfig {
             public static let image = URL(string: "https://beta-image.miranote.app")!
             public static let chat = URL(string: "https://beta-chat.miranote.app")!
             public static let voice = URL(string: "https://beta-voice.miranote.app")!
+            /// The photo trigger's photo-collections service (handoff 7.4).
+            public static let collections = URL(string: "https://beta-collections.miranote.app")!
 
-            static let all = [text, image, chat, voice]
+            static let all = [text, image, chat, voice, collections]
         }
 
         /// Simulator builds and macOS test hosts reach the dev machine's own
@@ -87,6 +89,15 @@ public enum MiraNoteConfig {
             local(port: 8002)
             #else
             Beta.image
+            #endif
+        }()
+
+        /// photo-collections POC: /collections/compose, /collections/jobs/{id}.
+        public static let collectionsBaseURL: URL = {
+            #if targetEnvironment(simulator) || os(macOS)
+            local(port: 8006)
+            #else
+            Beta.collections
             #endif
         }()
 
