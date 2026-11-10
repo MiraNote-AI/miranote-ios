@@ -284,20 +284,21 @@ struct RecentsSheet: View {
     }
 
     /// Limited access: the grid holds only the photos the user shared, so
-    /// the sheet offers the others -- share more (the system's limited
-    /// picker; the grid follows), or pick a few once.
+    /// the sheet offers the others -- add them to this grid (the system's
+    /// limited picker; the grid follows), or put a few straight on the
+    /// canvas. The hint has its own line so it never truncates (#167).
     private var limitedBar: some View {
-        HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Only the photos you shared show here.")
                 .font(.miraLabel)
                 .foregroundStyle(Palette.textSecondary)
-                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            Button("Share more", action: library.shareMorePhotos)
-                .buttonStyle(NavPill(prominent: true))
-                .accessibilityIdentifier("image.library.more")
-            systemPicker
+            HStack(spacing: 8) {
+                Button("Add to Library", action: library.shareMorePhotos)
+                    .buttonStyle(NavPill(prominent: true))
+                    .accessibilityIdentifier("image.library.more")
+                systemPicker
+            }
         }
     }
 
@@ -308,7 +309,7 @@ struct RecentsSheet: View {
             maxSelectionCount: MiraNoteConfig.maxImagesPerAdd,
             matching: .images
         ) {
-            Text("Pick photos")
+            Text("Add to Canvas")
         }
         .buttonStyle(NavPill(prominent: false))
         .accessibilityIdentifier("image.library.system")

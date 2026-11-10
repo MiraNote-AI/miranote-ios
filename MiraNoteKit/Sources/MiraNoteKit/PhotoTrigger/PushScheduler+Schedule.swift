@@ -1,0 +1,122 @@
+import Foundation
+
+/// Scheduling one night, and the run log.
+extension PushScheduler {
+    func log(_ index: Int, _ candidate: PushCandidate, _ outcome: ScheduleRun.GroupOutcome.Outcome, since: Date,
+             message: String? = nil) {
+        work.outcomes.append(ScheduleRun.GroupOutcome(
+            slotDay: work.days[index].plan.slotDay, groupKey: candidate.groupKey, belongsTo: candidate.belongsTo,
+            outcome: outcome, seconds: max(0, deps.now().timeIntervalSince(since)), message: message))
+    }
+
+    /// For the ledger of a cached answer, already composed: a failed
+    /// lookup is just no place there.
+    func placeName(_ fragment: Fragment) async -> String? {
+        guard let center = fragment.center else { return nil }
+        return (try? await deps.places.name(for: center)) ?? nil
+    }
+
+    static func describe(_ attempt: TriggerAttempt) -> String {
+        switch attempt {
+        case .pushed: return "pushed"
+        case .rejected(let message): return message
+        case .stop(let failure):
+            switch failure {
+            case .backendUnreachable: return "backendUnreachable"
+            case .aiTimeout: return "aiTimeout"
+            case .noFragment: return "noFragment"
+            case .notificationsOff: return "notificationsOff"
+            case .photosDenied: return "photosDenied"
+            case .unauthorized: return "unauthorized"
+            case .backend(let message): return message
+            }
+        }
+    }
+
+    // MARK: Scheduling
+
+    // swiftlint:disable function_parameter_count
+    /// Picks the question for the night, saves the record, schedules the
+    /// night's notification, writes the ledger row, then takes back the
+    /// push it replaces. Nights are scheduled one at a time on the actor,
+    /// so each pick sees the ledger rows of the picks before it. A memory
+    /// the fake AI made is refused once the switch is off (the run that
+    /// follows asks the backend).
+    func schedule(_ index: Int, _ candidate: PushCandidate, memory answered: TriggerMemory,
+                  photoIds: [String: String], place: String?, context: RunContext) async {
+        guard context.generation == generation else { return }
+        let plan = work.days[index].plan
+        let failed: DayState = plan.existing == nil ? .empty("aiError") : .kept
+        if let held = notNow(plan, memory: answered) {
+            work.days[index].state = held
+            return
+        }
+        let fallback: DayState = plan.existing == nil ? .empty("notificationsOff") : .kept
+        let nearby = QuestionPicker.nearbyTypes(deps.ledger.load(), around: plan.slot, calendar: context.calendar)
+        let (memory, clashed) = QuestionPicker.picking(answered, nearby: nearby)
+        let pushId = UUID().uuidString
+        let record = PushRecord(
+            pushId: pushId, memory: memory, photoIds: photoIds, createdAt: deps.now(), rank: index + 1,
+            score: candidate.score.total, bucket: memory.bucket.isEmpty ? deps.zh(candidate.bucket.catalogKey)
+                : memory.bucket,
+            bucketId: candidate.bucket, belongsTo: candidate.belongsTo, isDebug: false)
+        guard (try? deps.records.save(record)) != nil else {
+            work.days[index].state = failed
+            return
+        }
+        let identifier = PushIdentifier.make(pushId)
+        adding.insert(identifier)
+        defer { adding.remove(identifier) }
+        let parts = context.calendar.dateComponents([.year, .month, .day, .hour, .minute], from: plan.slot)
+        guard await deps.notifications.schedule(record, identifier: identifier, at: parts,
+                                                relevance: candidate.score.total)
+        else {
+            try? deps.records.remove(pushId)
+            work.days[index].state = fallback
+            return
+        }
+        let cleared = context.generation != generation
+        guard !cleared, fakeAIAllows(answered) else {
+            // Cleared, or the fake AI switched off, while it was being scheduled: take it back.
+            await deps.notifications.removePending([identifier])
+            try? deps.records.remove(pushId)
+            if !cleared { work.days[index].state = failed }
+            return
+        }
+        appendRow(pushId, candidate, memory: memory, place: place, at: plan.slot)
+        if clashed {
+            work.questionClashes.append(ScheduleRun.QuestionClash(
+                slotDay: plan.slotDay, types: answered.ending.questions.map(\.type), nearby: nearby))
+        }
+        if let existing = plan.existing {
+            await removeActive(.replaced) { $0.pushId == existing.pushId }
+        }
+        work.days[index].state = .scheduled(candidate)
+    }
+    // swiftlint:enable function_parameter_count
+
+    /// A memory the fake AI made is scheduled only while the switch is on.
+    private func fakeAIAllows(_ memory: TriggerMemory) -> Bool {
+        !memory.isFakeMade || deps.fakeAI()
+    }
+
+    /// The night's state when it is not scheduled now, else nil.
+    private func notNow(_ plan: DayPlan, memory: TriggerMemory) -> DayState? {
+        // The wave may have run into the hour before the old push fires: it stays.
+        if let existing = plan.existing,
+           existing.scheduledFor.timeIntervalSince(deps.now()) <= SchedulePlanner.lockWindow {
+            return .kept
+        }
+        guard fakeAIAllows(memory) else { return plan.existing == nil ? .empty("aiError") : .kept }
+        return nil
+    }
+
+    private func appendRow(_ pushId: String, _ candidate: PushCandidate, memory: TriggerMemory, place: String?,
+                           at slot: Date) {
+        try? deps.ledger.append(LedgerEntry(
+            pushId: pushId, belongsTo: candidate.belongsTo, groupKey: candidate.groupKey,
+            photoIds: candidate.fragment.photos.map(\.id), bucket: candidate.bucket, place: place,
+            score: candidate.score, body: memory.push.body, question: memory.ending.question,
+            questionType: memory.ending.questionType, scheduledFor: slot))
+    }
+}
