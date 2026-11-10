@@ -50,6 +50,7 @@ final class StarJarUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "the star opens the page")
         app.buttons["reading.back"].tap()
         XCTAssertTrue(star.waitForExistence(timeout: 5), "back in the jar")
+        XCTAssertEqual(shakes, 0, "a tap on a star does not shake the jar")
     }
 
     private var shakes: Int {
