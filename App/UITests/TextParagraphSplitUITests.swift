@@ -36,13 +36,22 @@ final class TextParagraphSplitUITests: XCTestCase {
         return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
-    /// The page's text blocks, top to bottom: words, top, bottom, x, width.
-    private func blocks() -> [(text: String, top: Double, bottom: Double, x: Double, w: Double)] {
+    private struct Block {
+        let text: String
+        let top: Double
+        let bottom: Double
+        let centerX: Double
+        let width: Double
+    }
+
+    /// The page's text blocks, top to bottom.
+    private func blocks() -> [Block] {
         let elements = canvasState()["elements"] as? [[String: Any]] ?? []
         return elements.filter { $0["kind"] as? String == "text" }.map { element in
-            let y = element["y"] as? Double ?? 0, h = element["h"] as? Double ?? 0
-            return (element["text"] as? String ?? "", y - h / 2, y + h / 2,
-                    element["x"] as? Double ?? 0, element["w"] as? Double ?? 0)
+            let center = element["y"] as? Double ?? 0, height = element["h"] as? Double ?? 0
+            return Block(text: element["text"] as? String ?? "", top: center - height / 2,
+                         bottom: center + height / 2, centerX: element["x"] as? Double ?? 0,
+                         width: element["w"] as? Double ?? 0)
         }
         .sorted { $0.top < $1.top }
     }
@@ -65,8 +74,8 @@ final class TextParagraphSplitUITests: XCTestCase {
         XCTAssertEqual(stack.map(\.text), ["first", "second, which is long en", "third"])
         for (upper, lower) in zip(stack, stack.dropFirst()) {
             XCTAssertGreaterThan(lower.top, upper.bottom, "no overlap")
-            XCTAssertEqual(lower.x, upper.x, accuracy: 0.5, "same column")
-            XCTAssertEqual(lower.w, upper.w, accuracy: 0.5)
+            XCTAssertEqual(lower.centerX, upper.centerX, accuracy: 0.5, "same column")
+            XCTAssertEqual(lower.width, upper.width, accuracy: 0.5)
         }
         XCTAssertGreaterThan(stack[1].bottom - stack[1].top, stack[2].bottom - stack[2].top,
                              "a wrapped line measures taller")
@@ -118,5 +127,66 @@ final class TextParagraphSplitUITests: XCTestCase {
         app.buttons["editor.undo"].tap()
         waitForBlocks(1)
         XCTAssertEqual(blocks().map(\.text), ["one\n\ntwo\n\nthree"], "one undo: the single block")
+    }
+
+    /// An open Expand is kept as its own step before a tap on the paper
+    /// splits it: two undos give back the words as typed.
+    func testATapOnThePaperKeepsAnOpenExpandBeforeSplitting() {
+        startWriting("noodle shop")
+        app.buttons["style.ai"].tap()
+        app.buttons["style.ai.expand"].tap()
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
+        waitForExpectations(timeout: 5)
+        let block = field.frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: block.midX, dy: block.minY - 30)).tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "the tap ends the writing")
+        waitForBlocks(2)
+        XCTAssertEqual(blocks().first?.text, "noodle shop", "the mock keeps the words as its first paragraph")
+
+        app.buttons["editor.undo"].tap()
+        waitForBlocks(1)
+        XCTAssertTrue(blocks().first?.text.hasPrefix("noodle shop\n\n(expanded") == true, "the Expand, whole")
+        app.buttons["editor.undo"].tap()
+        let deadline = Date().addingTimeInterval(5)
+        while blocks().map(\.text) != ["noodle shop"], Date() < deadline {
+            _ = XCTWaiter().wait(for: [XCTestExpectation()], timeout: 0.2)
+        }
+        XCTAssertEqual(blocks().map(\.text), ["noodle shop"], "the words as typed")
+    }
+
+    /// "top" and "below" written as two blocks, then "top" opened again
+    /// and a paragraph added; a tap on "below" ends the writing. The block
+    /// splits in place, "below" moves down under the stack, nothing
+    /// overlaps.
+    func testATapOnAnotherElementSplitsAndMovesWhatIsBelow() {
+        startWriting("top")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("below")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        waitForBlocks(2)
+        let below = blocks().last?.top ?? 0
+
+        let words = app.staticTexts["top"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        // The first tap selects the block, the second opens it.
+        words.tap()
+        words.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("\n\nmore")
+        app.staticTexts["below"].tap()
+        XCTAssertTrue(app.staticTexts["more"].waitForExistence(timeout: 5), "the tap ends the writing")
+
+        waitForBlocks(3)
+        let stack = blocks()
+        XCTAssertEqual(stack.map(\.text), ["top", "more", "below"])
+        for (upper, lower) in zip(stack, stack.dropFirst()) {
+            XCTAssertGreaterThan(lower.top, upper.bottom, "nothing overlaps")
+        }
+        XCTAssertGreaterThan(stack[2].top, below, "the block below moved down")
     }
 }

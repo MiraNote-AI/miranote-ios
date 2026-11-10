@@ -426,8 +426,14 @@ struct CanvasScene: View {
         }
         .onChange(of: editor.editingTextItemID) { ended, editing in
             // Writing that ended any way but Cancel splits on its blank
-            // lines, one block per paragraph (#184).
+            // lines, one block per paragraph (#184) -- after its open
+            // previews are kept, like Done keeps them, each its own step.
             if let ended, ended != editing {
+                finishRewrite()
+                if let request = colorRequest {
+                    editor.commitPreview(of: request.original)
+                    colorRequest = nil
+                }
                 if textCancelled {
                     textCancelled = false
                 } else {
@@ -452,13 +458,6 @@ struct CanvasScene: View {
             doneWaiting = nil
             afterWritingDown = nil
             if editing == nil {
-                // Ended from anywhere (a paper tap, an undo past the block):
-                // an open preview is kept, like Done keeps it.
-                finishRewrite()
-                if let request = colorRequest {
-                    editor.commitPreview(of: request.original)
-                    colorRequest = nil
-                }
                 resetTextTools()
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
