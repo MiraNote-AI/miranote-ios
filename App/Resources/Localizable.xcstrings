@@ -796,6 +796,17 @@
         }
       }
     },
+    "Ask Mira to tidy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 Mira 整理"
+          }
+        }
+      }
+    },
     "B&W" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
@@ -3115,17 +3126,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "其中一张保留了背景。都在这里，任选一张吧。"
-          }
-        }
-      }
-    },
-    "One-tap layout" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一键排版"
           }
         }
       }
