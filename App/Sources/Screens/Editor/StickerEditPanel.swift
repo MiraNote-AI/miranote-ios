@@ -52,7 +52,9 @@ struct StickerEditPanel: View {
         }
         .disabled(editing)
         .padding(.horizontal, Metrics.chromeInset)
-        InputModeBar(active: .sticker, layoutEnabled: PageLayout.isOffered(for: editor.items), onSelect: onSelectTool)
+        let layoutHint = CanvasScene.layoutHint(for: editor.items)
+        InputModeBar(active: .sticker, layoutEnabled: layoutHint == nil, layoutHint: layoutHint,
+                     onDimmedLayout: { notice = layoutHint }, onSelect: onSelectTool)
         ToolComposer(
             placeholder: "Tell Mira what to change",
             text: $instruction,

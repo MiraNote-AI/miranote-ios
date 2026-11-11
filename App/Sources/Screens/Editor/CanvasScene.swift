@@ -155,6 +155,7 @@ struct CanvasScene: View {
     /// the words were on their way does once the wait is over.
     @State var afterWritingDown: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
@@ -312,7 +313,7 @@ struct CanvasScene: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    if let receipt {
+                    if let receipt, layoutOriginal == nil {
                         // Screen 07: what Mira changed and what she kept.
                         ResultSheet(
                             title: receipt.changed,

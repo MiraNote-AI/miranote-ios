@@ -89,6 +89,7 @@ struct CanvasBoardView: View {
     /// scroll is the one to keep.
     @State private var resumed = false
     @State private var toast: Toast?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toastDismiss: Task<Void, Never>?
     /// Screen points per page point: the card fills the screen less its
     /// insets (the visible frame is the card's row, insets included).
@@ -184,7 +185,7 @@ struct CanvasBoardView: View {
                 // scroll centres the element in the grown viewport.
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(350))
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                         proxy.scrollTo(Self.revealAnchorID, anchor: .center)
                     }
                     revealItem.wrappedValue = nil
@@ -196,7 +197,7 @@ struct CanvasBoardView: View {
                 Task { @MainActor in
                     // The twin lands first, then the page scrolls to it.
                     try? await Task.sleep(for: .milliseconds(20))
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                         proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
                     }
                     try? await Task.sleep(for: .milliseconds(300))
@@ -231,8 +232,15 @@ struct CanvasBoardView: View {
                   !editor.items.contains(where: { clipID(of: $0) == playing }) else { return }
             player.stop()
         }
+        // Trying layouts: the toast's Undo would act under the preview, which
+        // then put the page back over it.
+        .onChange(of: locked) { _, locked in
+            guard locked else { return }
+            toastDismiss?.cancel()
+            toast = nil
+        }
         .overlay(alignment: .bottom) {
-            if let toast {
+            if let toast, !locked {
                 toastView(toast)
                     .padding(.bottom, 10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
