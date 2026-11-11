@@ -292,6 +292,30 @@ final class MoodJudgeTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(ContinuousClock.now - start, .milliseconds(500), "two gaps between three asks")
     }
 
+    /// #151: no AI consent, or "Mood from my words" off -- nothing is
+    /// asked; the queued page is asked once `resume()` finds it allowed.
+    @MainActor
+    func testNothingIsAskedWhileNotAllowedAndResumeAsksTheQueue() async {
+        let service = CountingMoodService(answer: .calm)
+        let page = Memory(title: "A quiet walk")
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
+        var allowed = false
+        let judge = MoodJudge(service: service, library: viewModel, allowed: { allowed })
+
+        judge.judge([page.id])
+        judge.show([page.id])
+        try? await Task.sleep(for: .milliseconds(100))
+        let before = await service.counts()
+        XCTAssertEqual(before.calls, 0, "not allowed: no request")
+        XCTAssertNil(viewModel.memory(page.id)?.mood)
+
+        allowed = true
+        judge.resume()
+        await waitUntil { viewModel.memory(page.id)?.mood == .calm }
+        let after = await service.counts()
+        XCTAssertEqual(after.calls, 1)
+    }
+
     @MainActor
     private func waitUntil(_ condition: @MainActor () async -> Bool) async {
         for _ in 0..<200 {

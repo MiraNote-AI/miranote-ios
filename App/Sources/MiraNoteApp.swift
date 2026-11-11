@@ -6,6 +6,8 @@ struct MiraNoteApp: App {
     init() {
         // The photo trigger's push shows as a banner even with the app open.
         TriggerNotificationPresenter.shared.install()
+        // The "How Mira uses AI" sheet, before the first AI action (#151).
+        AIConsentPresenter.install(.shared)
         // The detail sentence's Chinese serif is fetched once the install
         // gates say the trigger can show (TriggerController.resolveGates).
     }

@@ -144,6 +144,12 @@ public struct LiveImageStudioService: ImageStudioService {
         self.localOutline = localOutline
     }
 
+    /// A cutout with no target runs on this phone (Vision), not the server.
+    public var cutsLocally: Bool { matte != nil }
+
+    /// The Outline tool's edge is drawn on this phone, not the server.
+    public var outlinesLocally: Bool { localOutline }
+
     public func prepare() {
         matte?.warmUp()
     }

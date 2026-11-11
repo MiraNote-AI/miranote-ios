@@ -73,6 +73,18 @@
         }
       }
     },
+    "%@, mood off" : {
+      "comment" : "VoiceOver: a star's page title while moods are not read (#151).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@，心情已关闭"
+          }
+        }
+      }
+    },
     "%@: every question type was taken nearby; the first was asked" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -408,6 +420,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A4 分页"
+          }
+        }
+      }
+    },
+    "AI & PRIVACY" : {
+      "comment" : "Settings, AI & privacy (#151): section label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 与隐私"
           }
         }
       }
@@ -1369,6 +1393,18 @@
         }
       }
     },
+    "Clean, Expand, Polish, Shorten and moods" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理、扩写、润色、精简和心情"
+          }
+        }
+      }
+    },
     "Cleaned up the text." : {
       "comment" : "Result sheet: what changed.",
       "extractionState" : "manual",
@@ -1480,6 +1516,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "与原图对比"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "comment" : "AI consent sheet (#151): agrees to send content to the AI providers.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续"
           }
         }
       }
@@ -1843,6 +1891,18 @@
         }
       }
     },
+    "Details" : {
+      "comment" : "AI consent sheet (#151): opens the list of features and providers.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "详细信息"
+          }
+        }
+      }
+    },
     "Discard recording" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1953,6 +2013,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "创建副本"
+          }
+        }
+      }
+    },
+    "Each photo you add is described by Google (Gemini) so Mira can talk about it." : {
+      "comment" : "AI consent Details list (#151): what is sent and to whom.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你添加的每张照片会由 Google（Gemini）生成描述，方便 Mira 聊到它。"
           }
         }
       }
@@ -2477,6 +2549,18 @@
         }
       }
     },
+    "Has its own switch. Up to 10 photos with when and roughly where they were taken, to Alibaba Cloud (Qwen, China). What the AI wrote about them is kept for 7 days." : {
+      "comment" : "AI consent Details list (#151): photo memories, which has its own Settings switch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有单独的开关。最多 10 张照片及其大致拍摄时间和地点，发送给阿里云（通义千问，中国）。AI 对这些照片写下的文字会保留 7 天。"
+          }
+        }
+      }
+    },
     "Hi, I'm Mira. Tell me what you want to remember, change, or create." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2484,6 +2568,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你好，我是 Mira。告诉我你想记录、修改或创作些什么。"
+          }
+        }
+      }
+    },
+    "Hidden" : {
+      "comment" : "VoiceOver: the Details list is closed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收起"
           }
         }
       }
@@ -2567,6 +2663,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首页"
+          }
+        }
+      }
+    },
+    "How Mira uses AI" : {
+      "comment" : "AI consent sheet (#151): title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 如何使用 AI"
           }
         }
       }
@@ -3178,6 +3286,18 @@
         }
       }
     },
+    "Mira asks before anything is sent." : {
+      "comment" : "Settings, AI & privacy (#151): shown while AI consent is not given.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送任何内容前，Mira 都会先询问。"
+          }
+        }
+      }
+    },
     "Mira can edit this canvas directly." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3185,6 +3305,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mira 可以直接编辑这张画布。"
+          }
+        }
+      }
+    },
+    "Mira chat" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 对话"
           }
         }
       }
@@ -3218,6 +3350,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mira 没能画出来，换个说法试试？"
+          }
+        }
+      }
+    },
+    "Mira will ask again before the next AI action." : {
+      "comment" : "Settings, AI & privacy (#151): under Stop sending to AI.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次使用 AI 功能前，Mira 会再次询问。"
           }
         }
       }
@@ -3288,6 +3432,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "月"
+          }
+        }
+      }
+    },
+    "Mood from my words" : {
+      "comment" : "Settings, AI & privacy (#151): switch: read saved pages' moods.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "根据文字判断心情"
           }
         }
       }
@@ -3721,6 +3877,30 @@
         }
       }
     },
+    "Not now" : {
+      "comment" : "AI consent sheet (#151): cancels the action that asked; nothing is sent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂不"
+          }
+        }
+      }
+    },
+    "Not now cancels only this action. Everything that runs on your phone keeps working." : {
+      "comment" : "AI consent sheet (#151): footnote under the Details.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择“暂不”只会取消这一次操作。在手机上运行的功能都照常可用。"
+          }
+        }
+      }
+    },
     "Not planned yet" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -3741,6 +3921,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没送去 AI"
+          }
+        }
+      }
+    },
+    "Not sent. Mira's AI features need your OK first -- see Settings > AI & privacy." : {
+      "comment" : "Error line: an AI action cancelled with Not now (#151).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未发送。Mira 的 AI 功能需要你先同意，请前往“设置 > AI 与隐私”。"
           }
         }
       }
@@ -3800,6 +3992,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知没开"
+          }
+        }
+      }
+    },
+    "Off: saved pages are not read for a mood, and their stars stay one neutral color." : {
+      "comment" : "Settings, AI & privacy (#151): what the mood switch's off does.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭后：不会读取保存页面的心情，星星都保持同一种中性颜色。"
+          }
+        }
+      }
+    },
+    "On your phone" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在你的手机上"
           }
         }
       }
@@ -3992,6 +4208,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "其他"
+          }
+        }
+      }
+    },
+    "Our server does not save it once the result is made. A Mira chat stays in memory for up to an hour so Mira can follow along." : {
+      "comment" : "AI consent sheet (#151): what is kept.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结果生成后，我们的服务器不会保存这些内容。与 Mira 的对话会在内存中保留最多一小时，方便 Mira 接上话题。"
           }
         }
       }
@@ -4249,6 +4477,18 @@
         }
       }
     },
+    "Photo edits" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片编辑"
+          }
+        }
+      }
+    },
     "Photo library access is needed" : {
       "comment" : "Photo trigger failure: photo library access denied (an Open Settings button follows).",
       "extractionState" : "manual",
@@ -4344,6 +4584,18 @@
         }
       }
     },
+    "Photos on a page" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面上的照片"
+          }
+        }
+      }
+    },
     "Pick a page color" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4385,6 +4637,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "地点 %1$@，标记 %2$@，画面 %3$@"
+          }
+        }
+      }
+    },
+    "Plain cutouts and outlines never leave your phone." : {
+      "comment" : "AI consent Details list (#151): what stays on the phone.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "普通抠图和描边不会离开你的手机。"
           }
         }
       }
@@ -5392,6 +5656,18 @@
         }
       }
     },
+    "Shown" : {
+      "comment" : "VoiceOver: the Details list is open.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已展开"
+          }
+        }
+      }
+    },
     "Shown whole" : {
       "comment" : "VoiceOver value of a story photo: a landscape or square photo shown whole over a blurred fill.",
       "extractionState" : "manual",
@@ -5424,6 +5700,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "天空蓝"
+          }
+        }
+      }
+    },
+    "Some features need AI that does not run on your phone. When you use one, MiraNote sends what it needs to our server, which passes it to the AI providers we use." : {
+      "comment" : "AI consent sheet (#151): first paragraph, also in Settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有些功能需要的 AI 无法在手机上运行。使用这些功能时，MiraNote 会把所需内容发送到我们的服务器，再由服务器交给我们使用的 AI 服务商。"
           }
         }
       }
@@ -5532,6 +5820,18 @@
         }
       }
     },
+    "Stickers, backgrounds and pictures" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贴纸、背景和图片"
+          }
+        }
+      }
+    },
     "Stop" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5561,6 +5861,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "停止录音"
+          }
+        }
+      }
+    },
+    "Stop sending to AI" : {
+      "comment" : "Settings, AI & privacy (#151): withdraws AI consent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止发送给 AI"
           }
         }
       }
@@ -5977,6 +6289,18 @@
         }
       }
     },
+    "The photo and your instruction, to Google (Gemini). A cutout of something you name sends the photo to Gemini to find it; the name stays in our server log." : {
+      "comment" : "AI consent Details list (#151): what is sent and to whom.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片和你的指令，发送给 Google（Gemini）。抠出你指定的物体时，照片会发送给 Gemini 来找到它；物体名称会留在我们的服务器日志里。"
+          }
+        }
+      }
+    },
     "The push for %@ comes in 10 s" : {
       "comment" : "Photo trigger debug entry: a preview of that night's push was sent; %@ is the day.",
       "extractionState" : "manual",
@@ -6029,6 +6353,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我正在处理的文字不见了，所以一切保持原样。"
+          }
+        }
+      }
+    },
+    "The words on your page, photos you choose, and your voice when you dictate. Saved pages' words are also read for a mood that colors their star." : {
+      "comment" : "AI consent sheet (#151): what is sent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面上的文字、你选择的照片，以及你口述时的语音。保存的页面文字也会用来判断心情，为它的星星上色。"
           }
         }
       }
@@ -6633,6 +6969,18 @@
         }
       }
     },
+    "Voice typing" : {
+      "comment" : "AI consent Details list (#151): feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入"
+          }
+        }
+      }
+    },
     "Warm" : {
       "comment" : "Photo filter.",
       "extractionState" : "manual",
@@ -6668,6 +7016,18 @@
         }
       }
     },
+    "What is sent" : {
+      "comment" : "AI consent sheet (#151): heading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会发送什么"
+          }
+        }
+      }
+    },
     "What is this sound?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6675,6 +7035,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这是什么声音？"
+          }
+        }
+      }
+    },
+    "What we keep" : {
+      "comment" : "AI consent sheet (#151): heading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我们会保留什么"
+          }
+        }
+      }
+    },
+    "What you ask for, to Alibaba Cloud (Qwen and Z-Image, China)." : {
+      "comment" : "AI consent Details list (#151): what is sent and to whom.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你描述的内容，发送给阿里云（通义千问和 Z-Image，中国）。"
           }
         }
       }
@@ -6899,6 +7283,18 @@
         }
       }
     },
+    "Your message, the page you are on and pages that match it, to DeepSeek. When Mira looks at your page, a picture of it goes to Google (Gemini). Pictures Mira makes or edits go to the providers below." : {
+      "comment" : "AI consent Details list (#151): what is sent and to whom.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的消息、当前页面以及与之相关的页面，发送给 DeepSeek。Mira 查看页面时，页面的图片会发送给 Google（Gemini）。Mira 生成或编辑的图片交给下面列出的服务商。"
+          }
+        }
+      }
+    },
     "Your name appears on your profile." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6906,6 +7302,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的名字会显示在个人资料上。"
+          }
+        }
+      }
+    },
+    "Your recording is written down by Whisper on our server. The words then go to Alibaba Cloud (Qwen, China) to fix mistakes." : {
+      "comment" : "AI consent Details list (#151): what is sent and to whom.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的录音由我们服务器上的 Whisper 转成文字，文字再发送给阿里云（通义千问，中国）纠正错误。"
           }
         }
       }
@@ -6930,6 +7338,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你说的话会先填进输入框，发送前可以修改。"
+          }
+        }
+      }
+    },
+    "Your words, to DeepSeek." : {
+      "comment" : "AI consent Details list (#151): what is sent and to whom.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的文字，发送给 DeepSeek。"
           }
         }
       }

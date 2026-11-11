@@ -101,7 +101,7 @@ struct HomeView: View {
                         progress: flight,
                         start: CGPoint(x: proxy.size.width / 2, y: proxy.size.height - 60),
                         end: proxy[anchor],
-                        color: Palette.mood(arrivingStar?.mood)
+                        color: Palette.mood(arrivingStar?.starMood)
                     )
                 }
             }
@@ -141,7 +141,7 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
-                    .modifier(JarLanding(beat: jarBeat, color: Palette.mood(arrivingStar?.mood), reduceMotion: reduceMotion))
+                    .modifier(JarLanding(beat: jarBeat, color: Palette.mood(arrivingStar?.starMood), reduceMotion: reduceMotion))
                     .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
                     #if DEBUG
                     // UI tests count the landings.

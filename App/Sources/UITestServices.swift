@@ -284,6 +284,8 @@ struct DebugStateProbe: View {
         var state = state
         // Ground truth for "no microphone left on": every mock recorder on.
         state["micLive"] = MockAudioRecorder.liveCount
+        // Ground truth for "Not now sends nothing": requests past AI consent.
+        state["aiSent"] = AIConsent.shared.sentRequests
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
         state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10

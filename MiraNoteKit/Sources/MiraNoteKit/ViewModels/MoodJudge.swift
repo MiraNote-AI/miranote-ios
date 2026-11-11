@@ -9,12 +9,15 @@ import Foundation
 /// that is not about the page (offline, 401, 404, 429, 530, ...) pauses
 /// the whole queue for `retryAfter` instead, and asks are spaced by `gap`:
 /// the text service's per-token rate limit is shared with the text tools.
+/// While `allowed` is false (no AI consent, or Settings' "Mood from my
+/// words" off, #151) nothing is asked: queued pages wait for `resume()`.
 @MainActor
 public final class MoodJudge {
     private let service: MoodService
     private let library: HomeViewModel
     private let retryAfter: TimeInterval
     private let gap: Duration
+    private let allowed: @MainActor () -> Bool
     /// Pages saved: asked first, whatever screen shows.
     private var saved: [Memory.ID] = []
     /// Pages the star jar shows: replaced when it shows others.
@@ -29,12 +32,14 @@ public final class MoodJudge {
         service: MoodService,
         library: HomeViewModel,
         retryAfter: TimeInterval = 300,
-        gap: Duration = .milliseconds(300)
+        gap: Duration = .milliseconds(300),
+        allowed: @escaping @MainActor () -> Bool = { true }
     ) {
         self.service = service
         self.library = library
         self.retryAfter = retryAfter
         self.gap = gap
+        self.allowed = allowed
     }
 
     /// Queues saved pages to judge; one already waiting keeps its place.
@@ -52,19 +57,24 @@ public final class MoodJudge {
         startIfNeeded()
     }
 
+    /// Asks what is queued, once `allowed` turned true.
+    public func resume() {
+        startIfNeeded()
+    }
+
     private var isPaused: Bool { pausedUntil.map { Date.now < $0 } ?? false }
 
     private var hasQueued: Bool { !saved.isEmpty || !shown.isEmpty }
 
     private func startIfNeeded() {
-        guard worker == nil, hasQueued, !isPaused else { return }
+        guard worker == nil, hasQueued, !isPaused, allowed() else { return }
         worker = Task { await drain() }
     }
 
     /// Asks until the queues are empty or the service is paused; what is
     /// left waits for the next `judge` or `show`.
     private func drain() async {
-        while hasQueued, !isPaused {
+        while hasQueued, !isPaused, allowed() {
             let requested = await ask(saved.isEmpty ? shown.removeFirst() : saved.removeFirst())
             if requested, hasQueued { try? await Task.sleep(for: gap) }
         }
