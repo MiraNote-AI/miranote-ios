@@ -66,6 +66,29 @@ final class DragRenderUITests: XCTestCase {
         XCTAssertTrue(moved, "the drag did not move the photo")
     }
 
+    /// A Recents photo carried by long-press moves only its own layer
+    /// (#178 review): the canvas scene is not re-rendered per finger move.
+    func testCarryingALibraryPhotoRendersNoMoreThanItMoves() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        app.buttons["image.library.open"].tap()
+        let cell = any("image.library.photo.1")
+        XCTAssertTrue(cell.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        let before = canvasState()
+
+        // Carried across the grid and let go on the sheet: nothing lands.
+        let start = cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.6, thenDragTo: start.withOffset(CGVector(dx: 120, dy: 60)),
+                    withVelocity: 120, thenHoldForDuration: 0.4)
+        Thread.sleep(forTimeInterval: 0.8)
+        let after = canvasState()
+
+        let bodies = (after["sceneBodies"] as? Int ?? 0) - (before["sceneBodies"] as? Int ?? 0)
+        XCTAssertLessThanOrEqual(bodies, 12, "the canvas scene re-rendered \(bodies) times during one carry")
+    }
+
     /// The dragged copy is as big as the photo on the card: it must not
     /// shrink while it moves (#127 review: 182 -> 170 pt on 17 Pro).
     func testTheDraggedCopyKeepsThePhotosSize() {
