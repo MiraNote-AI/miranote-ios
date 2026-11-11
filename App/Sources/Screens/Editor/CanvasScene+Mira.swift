@@ -164,6 +164,8 @@ extension CanvasScene {
         startingMic = .mira
         Task {
             do {
+                // AI consent before the mic, not after the take (#151).
+                guard await transcription.askToSend() else { throw AIConsentError.notNow }
                 try await newRecorder.start()
                 // The chat closed while the mic came up: it stops now.
                 guard holdsMic(newRecorder) else {
@@ -176,6 +178,9 @@ extension CanvasScene {
                 // A hold let go before the mic came up: finish right away.
                 if miraFinishWhenLive { finishMiraDictation() }
             } catch {
+                // The sheet cancels the press, which lets go of the mic:
+                // Not now still says why.
+                if error is AIConsentError { miraNotice = error.localizedDescription }
                 guard holdsMic(newRecorder) else { return }
                 startingMic = nil
                 recorder = nil

@@ -114,7 +114,7 @@ public enum AIConsentError: Error, LocalizedError, Equatable {
     case notNow
 
     public var errorDescription: String? {
-        String(appCopy: "Not sent. Mira's AI features need your OK first -- see Settings > AI & privacy.")
+        String(appCopy: "Mira needs your OK to use AI. You can turn it on in Settings.")
     }
 }
 
@@ -162,6 +162,8 @@ struct AskingTranscription: VoiceTranscriptionService {
         try await consent.clearToSend()
         return try await base.transcribe(audio: audio, filename: filename)
     }
+
+    func askToSend() async -> Bool { await consent.permit() }
 }
 
 struct AskingChat: ChatService {
@@ -175,6 +177,8 @@ struct AskingChat: ChatService {
         try await consent.clearToSend()
         return try await base.reply(to: message, sessionID: sessionID, notes: notes, page: page)
     }
+
+    func askToSend() async -> Bool { await consent.permit() }
 }
 
 /// A page's mood is read after Save, never on request: it does not show
@@ -196,6 +200,8 @@ struct AskingImageStudio: ImageStudioService {
     let localOutline: Bool
 
     func prepare() { base.prepare() }
+
+    func askToSend() async -> Bool { await consent.permit() }
 
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
         try await consent.clearToSend()

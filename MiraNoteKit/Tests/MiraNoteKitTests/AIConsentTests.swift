@@ -173,6 +173,25 @@ final class AIConsentTests: XCTestCase {
         XCTAssertEqual(sheets, 1)
     }
 
+    func testAskToSendAsksOnceAndPlainServicesSayYes() async {
+        var sheets = 0
+        let consent = consent(answering: false, shown: { sheets += 1 })
+        let services = ServiceContainer.mock.asking(consent)
+        let voice = await services.voiceTranscription.askToSend()
+        let chat = await services.chat.askToSend()
+        let studio = await services.imageStudio.askToSend()
+        XCTAssertEqual([voice, chat, studio], [false, false, false])
+        XCTAssertEqual(sheets, 3, "each start asks while not granted")
+        XCTAssertEqual(consent.sentRequests, 0, "asking sends nothing")
+        let plain = await MockVoiceTranscriptionService().askToSend()
+        XCTAssertTrue(plain)
+    }
+
+    func testTheCancelledLinePointsToSettings() {
+        XCTAssertEqual(AIConsentError.notNow.errorDescription,
+                       "Mira needs your OK to use AI. You can turn it on in Settings.")
+    }
+
     func testLiveStudioReportsWhatRunsOnThePhone() {
         let live = ServiceContainer.live.imageStudio as? LiveImageStudioService
         XCTAssertEqual(live?.cutsLocally, true)

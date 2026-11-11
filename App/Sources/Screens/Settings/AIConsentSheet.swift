@@ -23,6 +23,7 @@ struct AIConsentSheet: View {
                     AIDataDetails()
                     Text("Not now cancels only this action. Everything that runs on your phone keeps working.")
                         .font(Sans.font(size: 13, weight: 500))
+                        .lineSpacing(AIDataLines.spacing(for: 13))
                         .foregroundStyle(SettingsStyle.value)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -48,6 +49,12 @@ struct AIConsentSheet: View {
     }
 }
 
+/// Body lines of this explanation, about 1.4x their size apart: Chinese
+/// set at Josefin's 1.0 em line box was cramped.
+enum AIDataLines {
+    static func spacing(for size: CGFloat) -> CGFloat { (size * 0.3).rounded() }
+}
+
 /// What is sent and what is kept: the sheet's and Settings' first lines.
 struct AIDataSummary: View {
     var body: some View {
@@ -57,6 +64,7 @@ struct AIDataSummary: View {
                 needs to our server, which passes it to the AI providers we use.
                 """)
                 .font(Sans.font(size: 15, weight: 500))
+                .lineSpacing(AIDataLines.spacing(for: 15))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             point("What is sent", """
@@ -64,8 +72,9 @@ struct AIDataSummary: View {
                 are also read for a mood that colors their star.
                 """)
             point("What we keep", """
-                Our server does not save it once the result is made. A Mira chat stays in memory for up to an \
-                hour so Mira can follow along.
+                Our server keeps no words, photos or voice after the result is made, except: Mira chats and \
+                photo-memory jobs for up to 1 hour, a photo-memory log for up to 7 days, and names of cut-out \
+                objects in server logs.
                 """)
         }
     }
@@ -77,6 +86,7 @@ struct AIDataSummary: View {
                 .foregroundStyle(Palette.ink)
             Text(text)
                 .font(Sans.font(size: 14, weight: 500))
+                .lineSpacing(AIDataLines.spacing(for: 14))
                 .foregroundStyle(SettingsStyle.intro)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -152,6 +162,7 @@ struct AIDataDetails: View {
                 .foregroundStyle(Palette.ink)
             Text(text)
                 .font(Sans.font(size: 13, weight: 500))
+                .lineSpacing(AIDataLines.spacing(for: 13))
                 .foregroundStyle(SettingsStyle.value)
                 .fixedSize(horizontal: false, vertical: true)
         }

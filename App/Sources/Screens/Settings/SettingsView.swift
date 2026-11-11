@@ -138,11 +138,12 @@ private struct AIPrivacyCard: View {
                         .accessibilityIdentifier("settings.aiWithdraw")
                     note("Mira will ask again before the next AI action.")
                 } else {
-                    Text("Mira asks before anything is sent.")
+                    Button("Turn on AI features") { Task { _ = await consent.permit() } }
                         .font(Sans.font(size: 16, weight: 600))
                         .foregroundStyle(Palette.ink)
-                        .frame(minHeight: 44, alignment: .leading)
-                        .accessibilityIdentifier("settings.aiNotGranted")
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("settings.aiAllow")
+                    note("Mira asks before anything is sent.")
                 }
             }
             .padding(.top, 8)
@@ -157,6 +158,7 @@ private struct AIPrivacyCard: View {
     private func note(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(Sans.font(size: 13, weight: 500))
+            .lineSpacing(AIDataLines.spacing(for: 13))
             .foregroundStyle(SettingsStyle.value)
             .fixedSize(horizontal: false, vertical: true)
     }

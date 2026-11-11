@@ -245,6 +245,8 @@ public final class ChatViewModel {
         voice = .recording(since: Date())
         recorderStart = Task {
             do {
+                // AI consent before the mic, not after the take (#151).
+                guard await transcription.askToSend() else { throw AIConsentError.notNow }
                 try await recorder.start()
                 return true
             } catch {

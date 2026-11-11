@@ -58,13 +58,23 @@ final class AIConsentUITests: XCTestCase {
     }
 
     /// The most requests any probe on screen counts (each scene has one).
-    private var aiSent: Int {
+    private var aiSent: Int { probeMax("aiSent") }
+
+    /// The highest `key` any debug probe on screen reports.
+    private func probeMax(_ key: String) -> Int {
         let probes = app.descendants(matching: .any).matching(identifier: "debug.state").allElementsBoundByIndex
         return probes.compactMap { probe -> Int? in
             guard let data = probe.label.data(using: .utf8),
                   let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-            return state["aiSent"] as? Int
+            return state[key] as? Int
         }.max() ?? -1
+    }
+
+    /// The line a cancelled action shows: why nothing happened.
+    private var consentLine: XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ OR value CONTAINS %@", "needs your OK", "needs your OK"
+        )).firstMatch
     }
 
     private func waitForLabel(_ element: XCUIElement, _ expected: String, timeout: TimeInterval = 8) {
@@ -101,6 +111,7 @@ final class AIConsentUITests: XCTestCase {
         app.buttons["aiConsent.notNow"].tap()
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
         XCTAssertFalse(fieldValueContains("(expanded draft -- mock)", timeout: 2), "Not now: no rewrite")
+        XCTAssertTrue(consentLine.waitForExistence(timeout: 3), "the rewrite row says why")
         XCTAssertEqual(aiSent, 0, "Not now: nothing was sent")
 
         // Not now is not remembered: the next AI action asks again.
@@ -185,13 +196,53 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(aiSent, 1)
     }
 
+    func testDictationAsksBeforeTheMicStarts() {
+        launch(asking: true)
+        startWriting("note")
+        let mic = app.buttons["style.mic"]
+        mic.tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "asked before recording")
+        XCTAssertEqual(probeMax("micLive"), 0, "no mic while the sheet is up")
+        app.buttons["aiConsent.notNow"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(consentLine.waitForExistence(timeout: 3), "the strip says why")
+        XCTAssertEqual(probeMax("micLive"), 0, "Not now: the mic never started")
+        XCTAssertNotEqual(mic.value as? String, "Listening...")
+
+        mic.tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        app.buttons["aiConsent.continue"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(probeMax("micLive"), 0, "the sheet ended the press: no take yet")
+        // Granted: the next tap records, without asking.
+        mic.tap()
+        expectation(for: NSPredicate(format: "value == %@", "Listening..."), evaluatedWith: mic)
+        waitForExpectations(timeout: 5)
+    }
+
+    func testNotNowOnAStickerSaysWhy() {
+        launch(asking: true)
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        let prompt = app.textFields["sticker.prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.tap()
+        prompt.typeText("a cat")
+        app.buttons["sticker.generate.run"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        app.buttons["aiConsent.notNow"].tap()
+        XCTAssertTrue(consentLine.waitForExistence(timeout: 5), "the panel says why")
+        XCTAssertEqual(aiSent, 0)
+    }
+
     func testWithdrawShowsTheSheetAgain() {
         launch(asking: false)
         openSettings()
         let withdraw = app.buttons["settings.aiWithdraw"]
         XCTAssertTrue(withdraw.waitForExistence(timeout: 5))
         withdraw.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["settings.aiNotGranted"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["settings.aiAllow"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.switches["settings.moodFromWords"].value as? String, "0", "no moods without consent")
         backHome()
 

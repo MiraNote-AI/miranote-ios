@@ -67,11 +67,16 @@ Alibaba Cloud Model Studio, Google Vertex AI); not reviewed here.
   (`miranote.ai.consent`); Not now cancels that action only and the next AI
   action asks again. A Save before consent asks once per launch, after the
   editor closes, because the mood is read in the background.
+- A cancelled action says why: "Mira needs your OK to use AI. You can turn
+  it on in Settings." Dictation asks before the mic starts; Mira turns and
+  sticker making ask before their time limits start.
 - Background work never shows the sheet: moods and photo descriptions are
-  simply not requested without consent.
+  simply not requested without consent. The mood queue's retries (#192)
+  stop too while moods are not allowed.
 - Settings > AI & privacy repeats the explanation, holds "Mood from my words"
   (`miranote.ai.moodFromWords`, default on; off means no `/mood` request and
-  neutral stars) and "Stop sending to AI" (withdraws; the sheet shows again).
+  neutral stars) and "Stop sending to AI" (withdraws; the sheet shows again),
+  or "Turn on AI features" (shows the sheet) while consent is not given.
 - Photo memories keep their own confirmation and switch; the AI sheet does
   not ask again for them.
 

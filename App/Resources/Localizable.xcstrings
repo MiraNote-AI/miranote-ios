@@ -3354,6 +3354,18 @@
         }
       }
     },
+    "Mira needs your OK to use AI. You can turn it on in Settings." : {
+      "comment" : "Shown where an AI action was cancelled with Not now (#151).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 需要你同意才能使用 AI。你可以在设置中打开。"
+          }
+        }
+      }
+    },
     "Mira will ask again before the next AI action." : {
       "comment" : "Settings, AI & privacy (#151): under Stop sending to AI.",
       "extractionState" : "manual",
@@ -3925,18 +3937,6 @@
         }
       }
     },
-    "Not sent. Mira's AI features need your OK first -- see Settings > AI & privacy." : {
-      "comment" : "Error line: an AI action cancelled with Not now (#151).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未发送。Mira 的 AI 功能需要你先同意，请前往“设置 > AI 与隐私”。"
-          }
-        }
-      }
-    },
     "Not this day" : {
       "comment" : "Photo trigger story menu item.",
       "extractionState" : "manual",
@@ -4212,14 +4212,14 @@
         }
       }
     },
-    "Our server does not save it once the result is made. A Mira chat stays in memory for up to an hour so Mira can follow along." : {
+    "Our server keeps no words, photos or voice after the result is made, except: Mira chats and photo-memory jobs for up to 1 hour, a photo-memory log for up to 7 days, and names of cut-out objects in server logs." : {
       "comment" : "AI consent sheet (#151): what is kept.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "结果生成后，我们的服务器不会保存这些内容。与 Mira 的对话会在内存中保留最多一小时，方便 Mira 接上话题。"
+            "value" : "结果生成后，我们的服务器不会保留你的文字、照片或语音，以下除外：Mira 对话和照片回忆任务最多保留 1 小时，照片回忆日志最多保留 7 天，抠图物体的名称会留在服务器日志里。"
           }
         }
       }
@@ -6756,6 +6756,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开"
+          }
+        }
+      }
+    },
+    "Turn on AI features" : {
+      "comment" : "Settings, AI & privacy (#151): shows the consent sheet while AI consent is not given.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 AI 功能"
           }
         }
       }
