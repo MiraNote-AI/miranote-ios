@@ -102,48 +102,6 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertFalse(app.buttons["sticker.undo"].isEnabled, "no look sits on top of the cut")
     }
 
-    func testGeneratingShowsTheSpinnerThenTheResult() {
-        generate("a cup, slowly")
-        XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3), "the generating spinner shows")
-        XCTAssertFalse(app.buttons["sticker.style.outline"].isEnabled, "styles wait for a sticker")
-        // #185: a bar under the spinner moves on while the sticker is made.
-        let progress = any("sticker.progress")
-        XCTAssertTrue(progress.exists, "the progress bar shows with the spinner")
-        let early = percent(progress)
-        sleep(3)
-        let later = percent(progress)
-        XCTAssertGreaterThan(later, early, "the bar moves on")
-        XCTAssertLessThan(later, 95, "never full while still waiting")
-        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 12))
-        XCTAssertFalse(progress.exists, "the bar goes when the sticker lands")
-        XCTAssertTrue(app.buttons["sticker.style.outline"].isEnabled)
-    }
-
-    /// #169: a sticker that takes too long stops the spinner with a retry
-    /// notice, and its late result does not land afterwards.
-    func testATooSlowStickerGivesUpAndDropsTheLateResult() {
-        app.terminate()
-        app.launchArguments = ["-UITEST", "-STICKER_TIME_LIMIT_MS", "2000"]
-        app.launch()
-        app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
-        app.buttons["mode.sticker"].tap()
-
-        generate("a cup, slowly")
-        XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3))
-        let notice = any("sticker.notice")
-        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the time limit gives up")
-        XCTAssertEqual(notice.label, "Making this sticker is taking too long. Try again?")
-        XCTAssertFalse(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists,
-                       "the notice takes the hint's line")
-        XCTAssertFalse(any("sticker.generating").exists, "the spinner stopped")
-        XCTAssertTrue(app.buttons["sticker.generate.run"].isEnabled, "Make can be tapped again")
-
-        // The scripted sticker would have landed 8 s in.
-        sleep(8)
-        XCTAssertFalse(any("sticker.result.0").exists, "the late result is dropped")
-    }
-
     func testStylesStepBackAndForward() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
@@ -331,5 +289,66 @@ final class StickerPanelUITests: XCTestCase {
             app.buttons["mode.sticker"].tap()
         }
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 5), "the made coffee cup still waits")
+    }
+}
+
+// MARK: Progress bar (#185)
+
+extension StickerPanelUITests {
+    func testGeneratingShowsTheSpinnerThenTheResult() {
+        generate("a cup, slowly")
+        XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3), "the generating spinner shows")
+        XCTAssertFalse(app.buttons["sticker.style.outline"].isEnabled, "styles wait for a sticker")
+        // #185: a bar under the spinner moves on while the sticker is made.
+        let progress = any("sticker.progress")
+        XCTAssertTrue(progress.exists, "the progress bar shows with the spinner")
+        let early = percent(progress)
+        sleep(3)
+        let later = percent(progress)
+        XCTAssertGreaterThan(later, early, "the bar moves on")
+        XCTAssertLessThan(later, 95, "never full while still waiting")
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 12))
+        XCTAssertFalse(progress.exists, "the bar goes when the sticker lands")
+        XCTAssertTrue(app.buttons["sticker.style.outline"].isEnabled)
+    }
+
+    /// #169: a sticker that takes too long stops the spinner with a retry
+    /// notice, and its late result does not land afterwards.
+    func testATooSlowStickerGivesUpAndDropsTheLateResult() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-STICKER_TIME_LIMIT_MS", "2000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+
+        generate("a cup, slowly")
+        XCTAssertTrue(any("sticker.generating").waitForExistence(timeout: 3))
+        let notice = any("sticker.notice")
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the time limit gives up")
+        XCTAssertEqual(notice.label, "Making this sticker is taking too long. Try again?")
+        XCTAssertFalse(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists,
+                       "the notice takes the hint's line")
+        XCTAssertFalse(any("sticker.generating").exists, "the spinner stopped")
+        XCTAssertFalse(any("sticker.progress").exists, "the bar went with the spinner")
+        XCTAssertTrue(app.buttons["sticker.generate.run"].isEnabled, "Make can be tapped again")
+
+        // The scripted sticker would have landed 8 s in.
+        sleep(8)
+        XCTAssertFalse(any("sticker.result.0").exists, "the late result is dropped")
+    }
+
+    /// The bar keeps its start when the Make tab is left and come back to:
+    /// it used to start over at about a third.
+    func testTheBarKeepsItsPlaceAcrossFavoritesAndBack() {
+        generate("a cup, slowly")
+        let progress = any("sticker.progress")
+        XCTAssertTrue(progress.waitForExistence(timeout: 3))
+        sleep(4)
+        let before = percent(progress)
+        app.buttons["sticker.tab.favorites"].tap()
+        app.buttons["sticker.tab.make"].tap()
+        XCTAssertTrue(progress.waitForExistence(timeout: 3), "still making")
+        XCTAssertGreaterThanOrEqual(percent(progress), before, "the bar did not start over")
     }
 }
