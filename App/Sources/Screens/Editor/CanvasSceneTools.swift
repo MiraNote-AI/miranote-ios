@@ -287,9 +287,20 @@ extension CanvasScene {
             dropColorPreview(request)
             colorRequest = nil
         }
+        textCancelled = editor.editingTextItemID != nil
         editor.cancelEditingText()
         textFocus = nil
         resetTextTools()
+    }
+
+    /// Words written in paragraphs (blank lines between them) become one
+    /// block per paragraph, stacked under the block (#184): one undo step
+    /// gives the single block back.
+    func splitWrittenParagraphs(_ id: CanvasItem.ID) {
+        editor.splitParagraphs(of: id) { block, width in
+            TextMeasure.blockHeight(text: block.text, pointSize: block.pointSize,
+                                    fontName: block.fontName, width: width)
+        }
     }
 
     /// The next session opens on the font row (screen 11).
