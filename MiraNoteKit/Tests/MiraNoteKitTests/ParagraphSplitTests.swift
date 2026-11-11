@@ -276,4 +276,33 @@ final class ParagraphSplitTests: XCTestCase {
         XCTAssertGreaterThan(top(editor.item(photo.id)), bottom(editor.item(new[0])), "under the stack")
         XCTAssertEqual(editor.item(new[0])?.rotation, 6, "the new block keeps the tilt")
     }
+
+    /// #188 review: a wide photo under the block and a sticker under the
+    /// photo but beside the block. Writing grew the block and pushed both;
+    /// the split moves the sticker with the photo, not back onto it.
+    func testWhatIsUnderAMovingElementMovesWithItInAChain() {
+        let block = CanvasItem(content: .text(TextBlock(text: "draft")), position: CGPoint(x: 150, y: 129),
+                               size: CGSize(width: 230, height: 58))
+        let photo = CanvasItem(content: .image(ImageRef(displayName: "photo")),
+                               position: CGPoint(x: 200, y: 268), size: CGSize(width: 360, height: 140), zIndex: 1)
+        let sticker = CanvasItem(content: .sticker(GeneratedSticker(prompt: "sun", symbolName: "sun.max")),
+                                 position: CGPoint(x: 340, y: 383), size: CGSize(width: 50, height: 50), zIndex: 2)
+        let editor = CanvasViewModel(memory: Memory(items: [block, photo, sticker]))
+        editor.startEditingText(block.id)
+        editor.setText(itemID: block.id, to: "first line\n\nsecond line\n\nthird line")
+        editor.fitTextHeights { item in
+            guard case .text(let text) = item.content else { return nil }
+            return self.height(text, item.size.width)
+        }
+        XCTAssertEqual(top(editor.item(sticker.id)) - bottom(editor.item(photo.id)), 20, accuracy: 0.5,
+                       "the growth pushed both")
+        editor.endEditingText()
+        let new = editor.splitParagraphs(of: block.id, height: height)
+
+        XCTAssertEqual(new.count, 2)
+        XCTAssertEqual(top(editor.item(photo.id)) - bottom(editor.item(new.last!)), 40, accuracy: 0.5,
+                       "the photo keeps its gap under the stack")
+        XCTAssertEqual(top(editor.item(sticker.id)) - bottom(editor.item(photo.id)), 20, accuracy: 0.5,
+                       "the sticker keeps its gap under the photo")
+    }
 }
