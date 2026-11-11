@@ -36,6 +36,10 @@ struct StickerPanelScene: View {
     @State private var drafts: [StickerDraft] = []
     @State private var page = 0
     @State private var generating = false
+    /// When the showing sticker started, and when it landed: kept here so
+    /// the bar does not start over when its view is rebuilt (#185).
+    @State private var generatingSince = Date()
+    @State private var generatingLanded: Date?
     /// The generation in flight; cleared when it lands or the time limit
     /// gives up on it, so only one of the two settles it.
     @State private var generationToken: UUID?
@@ -368,7 +372,7 @@ struct StickerPanelScene: View {
             VStack(spacing: 22) {
                 DotRingSpinner()
                     .accessibilityIdentifier("sticker.generating")
-                GeneratingProgress()
+                GeneratingProgress(since: generatingSince, finishedAt: generatingLanded)
             }
         } else if drafts.count == 1 {
             draftImage(drafts[0], index: 0)
@@ -626,7 +630,7 @@ struct StickerPanelScene: View {
     private func generate() {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !busy else { return }
-        generating = true
+        startGenerating()
         notice = nil
         drafts = []
         page = 0
@@ -645,6 +649,7 @@ struct StickerPanelScene: View {
             // Given up on by the time limit: a late result is dropped.
             guard generationToken == token else { return }
             generationToken = nil
+            if let batch = try? outcome.get(), !batch.images.isEmpty { await fillProgress() }
             generating = false
             do {
                 let batch = try outcome.get()
@@ -681,6 +686,18 @@ struct StickerPanelScene: View {
         }
     }
 
+    private func startGenerating() {
+        generating = true
+        generatingSince = Date()
+        generatingLanded = nil
+    }
+
+    /// #185: the bar runs to full just before the stickers show.
+    private func fillProgress() async {
+        generatingLanded = Date()
+        try? await Task.sleep(for: .seconds(GeneratingProgress.fill))
+    }
+
     private static var generationLimit: Duration {
         #if DEBUG
         // UI tests shorten it with `-STICKER_TIME_LIMIT_MS <ms>`.
@@ -692,7 +709,7 @@ struct StickerPanelScene: View {
 
     private func makeSticker(from photo: ImageRef) {
         guard !busy, let data = imageStore.data(forFileName: photo.fileName) else { return }
-        generating = true
+        startGenerating()
         notice = nil
         drafts = []
         page = 0
@@ -705,6 +722,7 @@ struct StickerPanelScene: View {
                 // canvas, which /border used to crop for the outlined variant.
                 let cut = StickerTrim.croppedToOpaqueBounds(
                     try await studio.cutout(image: data, target: nil))
+                await fillProgress()
                 drafts = [StickerDraft(prompt: photo.displayName, data: cut, style: .cutout)]
             } catch {
                 notice = (error as? LocalizedError)?.errorDescription
