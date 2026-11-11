@@ -150,6 +150,8 @@ struct CanvasScene: View {
     /// The dictation strip's subtitle when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
+    /// The writing that just ended was Cancelled: its words are not split.
+    @State var textCancelled = false
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState var miraFocus: Bool
 
@@ -433,7 +435,22 @@ struct CanvasScene: View {
             // longer polish truncates. No-op for untouched blocks.
             remeasureTextBlocks()
         }
-        .onChange(of: editor.editingTextItemID) { _, editing in
+        .onChange(of: editor.editingTextItemID) { ended, editing in
+            // Writing that ended any way but Cancel splits on its blank
+            // lines, one block per paragraph (#184) -- after its open
+            // previews are kept, like Done keeps them, each its own step.
+            if let ended, ended != editing {
+                finishRewrite()
+                if let request = colorRequest {
+                    editor.commitPreview(of: request.original)
+                    colorRequest = nil
+                }
+                if textCancelled {
+                    textCancelled = false
+                } else {
+                    splitWrittenParagraphs(ended)
+                }
+            }
             // Words on their way belong to the session that asked for them:
             // never landed after it ends or moves on -- the page says so
             // (Cancel, which drops them on purpose, let go of them first).
@@ -452,13 +469,6 @@ struct CanvasScene: View {
             doneWaiting = nil
             afterWritingDown = nil
             if editing == nil {
-                // Ended from anywhere (a paper tap, an undo past the block):
-                // an open preview is kept, like Done keeps it.
-                finishRewrite()
-                if let request = colorRequest {
-                    editor.commitPreview(of: request.original)
-                    colorRequest = nil
-                }
                 resetTextTools()
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
