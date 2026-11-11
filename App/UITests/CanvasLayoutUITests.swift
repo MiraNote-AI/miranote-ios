@@ -24,8 +24,8 @@ final class CanvasLayoutUITests: XCTestCase {
         let library = app.buttons["image.library.open"]
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         library.tap()
-        for n in 0..<3 {
-            let cell = any("image.library.photo.\(n)")
+        for index in 0..<3 {
+            let cell = any("image.library.photo.\(index)")
             XCTAssertTrue(cell.waitForExistence(timeout: 5))
             cell.tap()
         }
@@ -215,6 +215,28 @@ final class CanvasLayoutUITests: XCTestCase {
         XCTAssertFalse(app.buttons["layout.template.strip"].exists, "the strip does not open")
     }
 
+    /// QA L5: a page with only a photo says what else Layout needs.
+    func testALonePhotoAsksForWordsOrAnotherPhoto() {
+        app.terminate()
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        app.buttons["mode.image"].tap()
+        let library = app.buttons["image.library.open"]
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        library.tap()
+        let cell = any("image.library.photo.0")
+        XCTAssertTrue(cell.waitForExistence(timeout: 5))
+        cell.tap()
+        app.buttons["image.composer.add"].tap()
+        XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 5))
+        app.buttons["nav.trailing"].tap()
+        let entry = app.buttons["mode.layout"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        XCTAssertFalse(entry.isEnabled)
+        entry.tap()
+        XCTAssertTrue(app.staticTexts["Add words or another photo to use Layout"].waitForExistence(timeout: 3))
+    }
+
     /// QA L12: reopened on a page a template laid out, the strip marks it.
     func testReopeningTheStripMarksTheTemplateInUse() {
         openLayout()
@@ -226,5 +248,57 @@ final class CanvasLayoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["layout.template.tShape"].isSelected)
         XCTAssertFalse(app.buttons["layout.template.onePlusTwo"].isSelected)
         XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "nothing tried yet")
+    }
+}
+
+// MARK: What waits for an Undo or Revert while the strip opens
+
+extension CanvasLayoutUITests {
+    private func waitGone(_ element: XCUIElement, _ message: String) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 3), .completed, message)
+    }
+
+    /// The delete toast's Undo would act under the preview, which Cancel
+    /// then put back over it: the block gone and its undo step spent.
+    func testTheDeleteToastGoesWhenTheStripOpens() {
+        let title = app.staticTexts["A day by the sea"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.press(forDuration: 0.9)
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5))
+        app.buttons["Delete"].tap()
+        let undo = app.buttons["toast.undo"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 3))
+        XCTAssertFalse(title.exists)
+
+        // Within the toast's 4 s.
+        app.buttons["mode.layout"].tap()
+        XCTAssertTrue(app.buttons["layout.template.strip"].waitForExistence(timeout: 5))
+        XCTAssertFalse(undo.exists, "no Undo under the preview")
+        app.buttons["nav.leading"].tap()
+        settle()
+        XCTAssertFalse(app.buttons["toast.undo"].exists, "nor after Cancel")
+        app.buttons["editor.undo"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "the delete's undo step is still there")
+    }
+
+    /// A waiting Mira result moves on (Keep) as the strip opens: its Revert
+    /// under the preview was undone by Cancel, its undo step spent.
+    func testAWaitingMiraResultIsKeptWhenTheStripOpens() {
+        app.askMira("polish the text")
+        XCTAssertTrue(app.buttons["mira.revert"].waitForExistence(timeout: 8))
+        let polished = app.staticTexts["(polished -- mock) A day by the sea"]
+        XCTAssertTrue(polished.waitForExistence(timeout: 5))
+
+        app.buttons["mode.layout"].tap()
+        XCTAssertTrue(app.buttons["layout.template.strip"].waitForExistence(timeout: 5))
+        waitGone(app.buttons["mira.revert"], "no Revert under the preview")
+        app.buttons["nav.leading"].tap()
+        settle()
+        XCTAssertFalse(app.buttons["mira.revert"].exists, "the result was kept")
+        XCTAssertTrue(polished.exists)
+        app.buttons["editor.undo"].tap()
+        XCTAssertTrue(app.staticTexts["A day by the sea"].waitForExistence(timeout: 5),
+                      "one undo takes Mira's words back")
     }
 }

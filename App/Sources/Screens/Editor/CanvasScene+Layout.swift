@@ -9,8 +9,14 @@ extension CanvasScene {
     var layoutBlocked: String? {
         if mira.isWorking { return String(appCopy: "Layout waits for Mira to finish") }
         if case .recording = recorderState { return String(appCopy: "Layout waits for the recording to finish") }
-        if PageLayout.isOffered(for: editor.memory.items) { return nil }
-        return editor.memory.items.contains { if case .image = $0.content { return true }; return false }
+        return Self.layoutHint(for: editor.memory.items)
+    }
+
+    /// What the page still needs for Layout; nil when it can be arranged.
+    /// The Sticker panels' tool bars say it too.
+    static func layoutHint(for items: [CanvasItem]) -> String? {
+        if PageLayout.isOffered(for: items) { return nil }
+        return items.contains { if case .image = $0.content { return true }; return false }
             ? String(appCopy: "Add words or another photo to use Layout")
             : String(appCopy: "Add a photo to use Layout")
     }
@@ -22,6 +28,9 @@ extension CanvasScene {
 
     func openLayout() {
         editor.select(nil)
+        // A waiting result moves on (Keep), as Background does: its Revert
+        // would act under the preview, which then put the page back over it.
+        if receipt != nil { mira.dismiss() }
         let items = editor.memory.items
         // A page laid out by a template already shows that card picked.
         layoutPick = PageLayout.templates(for: items).first { PageLayout.sameArrangement(laidOut($0, items), items) }
@@ -34,25 +43,26 @@ extension CanvasScene {
     func tryLayout(_ template: PageLayout.Template) {
         guard let original = layoutOriginal else { return }
         layoutPick = template
-        withAnimation(.spring(duration: 0.35)) {
+        withAnimation(layoutMotion) {
             editor.previewLayout(laidOut(template, original))
         }
         // Templates start at the page's top: show it.
-        revealItem = editor.memory.items.min { $0.position.y - $0.size.height / 2 < $1.position.y - $1.size.height / 2 }?.id
+        let top = { (item: CanvasItem) in item.position.y - item.size.height / 2 }
+        revealItem = editor.memory.items.min { top($0) < top($1) }?.id
     }
 
     /// The header's undo while the strip is open: the page as it was, the
     /// strip still open.
     func undoLayoutTry() {
         guard let original = layoutOriginal else { return }
-        withAnimation(.spring(duration: 0.35)) { editor.previewLayout(original) }
+        withAnimation(layoutMotion) { editor.previewLayout(original) }
         layoutPick = nil
         scrollBack = layoutScroll
     }
 
     func cancelLayout() {
         guard let original = layoutOriginal else { return }
-        withAnimation(.spring(duration: 0.35)) { editor.previewLayout(original) }
+        withAnimation(layoutMotion) { editor.cancelLayout(to: original) }
         layoutOriginal = nil
         layoutPick = nil
         scrollBack = layoutScroll
@@ -64,6 +74,11 @@ extension CanvasScene {
         editor.commitLayout(from: original)
         layoutOriginal = nil
         layoutPick = nil
+    }
+
+    /// Elements moving to a template's places; at once with Reduce Motion.
+    private var layoutMotion: Animation? {
+        reduceMotion ? nil : .spring(duration: 0.35)
     }
 
     func laidOut(_ template: PageLayout.Template, _ items: [CanvasItem]) -> [CanvasItem] {
@@ -97,7 +112,7 @@ extension CanvasScene {
             .onAppear { if let layoutPick { proxy.scrollTo(layoutPick) } }
             .onChange(of: layoutPick) { _, pick in
                 guard let pick else { return }
-                withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(pick) }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { proxy.scrollTo(pick) }
             }
         }
     }
@@ -170,10 +185,12 @@ private struct LayoutThumbnail: View {
                         piece.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(Palette.ink.opacity(0.35)))
                     case .text:
                         let lines = max(1, min(3, Int(rect.height / 4)))
-                        for n in 0..<lines {
-                            let width = rect.width * (n == lines - 1 && lines > 1 ? 0.6 : 1)
-                            let line = CGRect(x: rect.minX, y: rect.minY + CGFloat(n) * 4 + 1, width: width, height: 2)
-                            piece.fill(Path(roundedRect: line, cornerRadius: 1), with: .color(Palette.ink.opacity(0.55)))
+                        for row in 0..<lines {
+                            let width = rect.width * (row == lines - 1 && lines > 1 ? 0.6 : 1)
+                            let line = CGRect(x: rect.minX, y: rect.minY + CGFloat(row) * 4 + 1,
+                                              width: width, height: 2)
+                            piece.fill(Path(roundedRect: line, cornerRadius: 1),
+                                       with: .color(Palette.ink.opacity(0.55)))
                         }
                     case .sticker:
                         piece.fill(Path(ellipseIn: rect), with: .color(Palette.forest.opacity(0.7)))

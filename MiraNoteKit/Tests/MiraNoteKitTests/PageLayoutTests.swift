@@ -408,6 +408,23 @@ final class PageLayoutTests: XCTestCase {
         XCTAssertEqual(editor.memory.items, original)
         XCTAssertEqual(editor.undoDepth, depth, "nothing kept, nothing to undo")
     }
+
+    /// A page backgrounded (and killed) with the strip open reopens as it
+    /// was, not laid out by a template nobody kept.
+    @MainActor func testTheAutosaveFilesThePageNotTheTemplateBeingTried() {
+        let original = page(photos: 3)
+        let editor = CanvasViewModel(memory: Memory(items: original))
+        editor.previewLayout(laid(.tShape, original))
+        XCTAssertNotEqual(editor.memory.items, original, "the template shows")
+        XCTAssertEqual(editor.autosavedMemory?.items, original)
+        XCTAssertEqual(editor.autosavedMemory?.isDraft, false, "a saved page left as it was stays saved")
+
+        editor.cancelLayout(to: original)
+        XCTAssertEqual(editor.autosavedMemory?.items, original)
+        editor.previewLayout(laid(.tShape, original))
+        editor.commitLayout(from: original)
+        XCTAssertEqual(editor.autosavedMemory?.items, laid(.tShape, original), "Done keeps it")
+    }
 }
 
 private extension CanvasItem.Content {

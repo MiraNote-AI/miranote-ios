@@ -70,6 +70,11 @@ public final class CanvasViewModel {
     /// shown: the autosave files this, not a color nobody applied.
     var pagePreviewOrigin: PageLook?
 
+    /// The elements as they were before a layout template was tried, while
+    /// the strip is open: the autosave files these, not a template nobody
+    /// kept.
+    var layoutPreviewOrigin: [CanvasItem]?
+
     /// One undo step: the canvas elements plus the page background.
     // The backdrop and its description travel together: restoring one
     // without the other leaves the page describing a picture it lost.
@@ -164,7 +169,8 @@ public final class CanvasViewModel {
     /// session's end removes it unless words land -- and not a prompt left
     /// as given.
     private var filedItems: [CanvasItem] {
-        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
+        (layoutPreviewOrigin ?? memory.items)
+            .filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
     }
 
     // MARK: Undo
@@ -889,12 +895,12 @@ extension CanvasViewModel {
 
     /// Nothing of the writer's on the page since it opened: a step undone,
     /// a block opened for writing with nothing typed, a new block still
-    /// empty, a color only previewed and a move under `strayMoveDistance`
+    /// empty, a color or layout only previewed and a move under `strayMoveDistance`
     /// all leave it as it arrived. The page's own work -- text fitted to its
     /// measure, a photo's description landing -- never counts.
     public var isAsArrived: Bool {
         var now = currentSnapshot.replacingItems(
-            memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
+            (layoutPreviewOrigin ?? memory.items).filter { !($0.id == editingTextItemID && $0.isEmptyText) }
         )
         if let origin = pagePreviewOrigin {
             now = UndoSnapshot(items: now.items, backgroundFileName: origin.backgroundFileName,

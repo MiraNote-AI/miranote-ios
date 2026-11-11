@@ -104,7 +104,9 @@ struct StickerPanelScene: View {
                 .offset(y: flight == nil ? 0 : 700)
                 .animation(.easeIn(duration: Self.hop), value: flight == nil)
         } bottom: {
-            InputModeBar(active: .sticker, layoutEnabled: PageLayout.isOffered(for: editor.items), onSelect: { mode in
+            let layoutHint = CanvasScene.layoutHint(for: editor.items)
+            InputModeBar(active: .sticker, layoutEnabled: layoutHint == nil, layoutHint: layoutHint,
+                         onDimmedLayout: { notice = layoutHint }, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
                 guard mode == .sticker || !placingWouldDropWork else {
                     notice = String(appCopy: "Add the sticker you made first, or Cancel to let it go.")
