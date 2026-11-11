@@ -549,7 +549,13 @@ extension HomeFlow {
             return FileCollectionStore(url: file)
         }
         if arguments.contains("-UITEST") {
-            return InMemoryCollectionStore(collections: MemoryCollection.seed)
+            var seed = MemoryCollection.seed
+            // `-JAR_STARS <n>`: n more pages this month, a crowd in the jar.
+            let extra = UserDefaults.standard.integer(forKey: "JAR_STARS")
+            seed[0].memories += (0..<extra).map { index in
+                Memory(title: "Star \(index + 1)", mood: Mood.allCases[index % Mood.allCases.count])
+            }
+            return InMemoryCollectionStore(collections: seed)
         }
         #endif
         return FileCollectionStore()

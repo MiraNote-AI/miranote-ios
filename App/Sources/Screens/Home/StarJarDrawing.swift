@@ -34,13 +34,21 @@ struct JarGeometry {
     }
 
     func body(closed: Bool) -> Path {
-        let left = (size.width - mouthWidth) / 2
-        let right = left + mouthWidth
-        let bottom = size.height - Self.stroke / 2
-        let side = Self.stroke / 2
+        outline(inset: Self.stroke / 2, closed: closed)
+    }
+
+    /// The glass's outline `inset` in from the jar's frame, the neck
+    /// included: `body` at the stroke's middle, the inside of the glass
+    /// further in.
+    func outline(inset: CGFloat, closed: Bool = true) -> Path {
+        let left = (size.width - mouthWidth) / 2 + inset - Self.stroke / 2
+        let right = (size.width + mouthWidth) / 2 - inset + Self.stroke / 2
+        let top = lid.maxY + inset - Self.stroke / 2
+        let bottom = size.height - inset
+        let side = inset
         let far = size.width - side
         var path = Path()
-        path.move(to: CGPoint(x: left, y: lid.maxY))
+        path.move(to: CGPoint(x: left, y: top))
         path.addLine(to: CGPoint(x: left, y: mouthY))
         path.addQuadCurve(to: CGPoint(x: side, y: shoulderY), control: CGPoint(x: side, y: mouthY))
         path.addLine(to: CGPoint(x: side, y: bottom - corner))
@@ -49,7 +57,7 @@ struct JarGeometry {
         path.addQuadCurve(to: CGPoint(x: far, y: bottom - corner), control: CGPoint(x: far, y: bottom))
         path.addLine(to: CGPoint(x: far, y: shoulderY))
         path.addQuadCurve(to: CGPoint(x: right, y: mouthY), control: CGPoint(x: far, y: mouthY))
-        path.addLine(to: CGPoint(x: right, y: lid.maxY))
+        path.addLine(to: CGPoint(x: right, y: top))
         if closed { path.closeSubpath() }
         return path
     }
@@ -109,6 +117,54 @@ struct JarLid: View {
             .frame(width: lid.width, height: lid.height)
             .offset(x: lid.minX, y: lid.minY)
             .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Star
+
+/// The star's face: the mood's fill, a soft light from above, and a
+/// hairline edge so neighbors in a pile stay apart.
+struct StarMark: View {
+    let color: Color
+
+    var body: some View {
+        RoundedStar()
+            .fill(color)
+            .overlay(
+                RoundedStar().fill(
+                    LinearGradient(colors: [Color.white.opacity(0.3), .clear], startPoint: .top, endPoint: .center)
+                )
+            )
+            .overlay(RoundedStar().stroke(Palette.ink.opacity(0.1), lineWidth: 0.6))
+    }
+}
+
+/// A five-point star with softened tips.
+struct RoundedStar: Shape {
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY + rect.height * 0.04)
+        let outer = min(rect.width, rect.height) / 2
+        let inner = outer * 0.5
+        let points: [CGPoint] = (0..<10).map { index in
+            let radius = index.isMultiple(of: 2) ? outer : inner
+            let angle = -Double.pi / 2 + Double(index) * Double.pi / 5
+            return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
+        func toward(_ from: CGPoint, _ to: CGPoint, _ share: CGFloat) -> CGPoint {
+            CGPoint(x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share)
+        }
+        var path = Path()
+        for index in 0..<10 {
+            let point = points[index]
+            let previous = points[(index + 9) % 10]
+            let next = points[(index + 1) % 10]
+            let share: CGFloat = index.isMultiple(of: 2) ? 0.24 : 0.12
+            let start = toward(point, previous, share)
+            if index == 0 { path.move(to: start) } else { path.addLine(to: start) }
+            path.addQuadCurve(to: toward(point, next, share), control: point)
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
