@@ -28,7 +28,8 @@ public final class MoodJudge {
     /// until its wake-up clears it.
     private var isPaused = false
     /// Errors about the service in a row: one more than `backoff` holds
-    /// stops the queue until the next `judge`, `show` or `resume`.
+    /// stops the queue until the next `judge`, `show` or `resume`. Starts
+    /// over once nothing is left to ask, so a later page gets fresh tries.
     private var serviceFailures = 0
     private var worker: Task<Void, Never>?
 
@@ -62,9 +63,10 @@ public final class MoodJudge {
     }
 
     /// Asks what is still queued, with fresh tries if the last ones were
-    /// spent (the app came back to the foreground). Waits out a pause.
+    /// spent (the app came back to the foreground) or nothing is queued
+    /// (the jar closed). Waits out a pause.
     public func resume() {
-        if serviceFailures > backoff.count { serviceFailures = 0 }
+        if serviceFailures > backoff.count || !hasQueued { serviceFailures = 0 }
         startIfNeeded()
     }
 
@@ -95,6 +97,7 @@ public final class MoodJudge {
                 try? await Task.sleep(for: gap)
             }
         }
+        if !hasQueued { serviceFailures = 0 }
         worker = nil
     }
 

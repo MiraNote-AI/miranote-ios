@@ -1,7 +1,8 @@
 import XCTest
 @testable import MiraNoteKit
 
-/// #159, after #192: which of the server's 502s are about the service.
+/// #159, after #192: which of the server's 502s are about the service,
+/// and tries that start over once nothing is left to ask.
 final class MoodJudgeRetryTests: XCTestCase {
     /// miranote-api's /mood answers 502 "LLM call failed: ..." when its LLM
     /// provider fails (down, out of credit, out of reach), and a proxy in
@@ -46,6 +47,57 @@ final class MoodJudgeRetryTests: XCTestCase {
             XCTAssertEqual(calls, 2, "\(detail): not asked again before retryAfter")
             XCTAssertNil(viewModel.memory(pages[0].id)?.mood, "\(detail): no mood guessed")
         }
+    }
+
+    /// Tries an earlier outage spent are not carried over to a later Save.
+    /// The jar was opened offline twice and left during each pause; later
+    /// a page is saved and its first ask hits one hiccup. It is still
+    /// asked again by itself, not stopped as a third failure in a row.
+    @MainActor
+    func testALaterSaveGetsFreshTriesAfterAnEarlierOutage() async {
+        let service = ScriptedMoodService(failing: [1, 2, 3], error: .unreachable)
+        let old = Memory(title: "Old page")
+        let new = Memory(title: "New page")
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [old, new])])
+        let judge = MoodJudge(
+            service: service, library: viewModel, gap: .zero,
+            backoff: [.milliseconds(300), .milliseconds(300)]
+        )
+
+        for visit in 1...2 {
+            judge.show([old.id])
+            await waitUntil("jar visit \(visit) asked") { await service.calls == visit }
+            try? await Task.sleep(for: .milliseconds(100))
+            judge.show([])
+            try? await Task.sleep(for: .milliseconds(400))
+        }
+        judge.judge([new.id])
+        await waitUntil("the saved page asked again") { viewModel.memory(new.id)?.mood == .calm }
+        let calls = await service.calls
+        XCTAssertEqual(calls, 4, "two jar visits, the hiccup at Save, and the try that answered")
+    }
+
+    /// Also when the paused page needs no ask by its turn (Home left it a
+    /// draft meanwhile): the next Save's hiccup is still asked again.
+    @MainActor
+    func testAPausedPageThatNeedsNoAskLeavesFreshTries() async {
+        let service = ScriptedMoodService(failing: [1, 2], error: .unreachable)
+        let first = Memory(title: "First page")
+        let second = Memory(title: "Second page")
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [first, second])])
+        let judge = MoodJudge(service: service, library: viewModel, gap: .zero, backoff: [.milliseconds(200)])
+
+        judge.judge([first.id])
+        await waitUntil("the first page asked") { await service.calls == 1 }
+        var draft = viewModel.memory(first.id)!
+        draft.isDraft = true
+        viewModel.file(draft, underCollectionTitled: "Daily Log")
+        try? await Task.sleep(for: .milliseconds(400))
+
+        judge.judge([second.id])
+        await waitUntil("the second page asked again") { viewModel.memory(second.id)?.mood == .calm }
+        let calls = await service.calls
+        XCTAssertEqual(calls, 3, "the first page's failed try, the hiccup, and the try that answered")
     }
 
     @MainActor
