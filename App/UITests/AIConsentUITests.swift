@@ -151,6 +151,9 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertTrue(star.waitForExistence(timeout: 5))
         waitForLabel(star, "A happy picnic, mood off")
         XCTAssertEqual(aiSent, 0, "no mood was asked")
+        // The star's label is neutral whatever came back, and aiSent counts
+        // inside the gate: only the service's own count shows nothing went.
+        XCTAssertEqual(probeMax("moodServed"), 0, "no mood request reached the service")
     }
 
     func testContinueAfterASaveReadsTheMood() {
@@ -184,6 +187,7 @@ final class AIConsentUITests: XCTestCase {
         _ = XCTWaiter().wait(for: [XCTestExpectation(description: "no mood")], timeout: 2)
         waitForLabel(star, "A happy picnic, mood off")
         XCTAssertEqual(aiSent, 0, "mood off: no mood request after the Save")
+        XCTAssertEqual(probeMax("moodServed"), 0, "mood off: no mood request reached the service")
 
         // On again: the saved page is read.
         app.buttons["Home"].tap()
@@ -194,6 +198,7 @@ final class AIConsentUITests: XCTestCase {
         openJar()
         waitForLabel(star, "A happy picnic, Joyful")
         XCTAssertGreaterThanOrEqual(aiSent, 1)
+        XCTAssertGreaterThanOrEqual(probeMax("moodServed"), 1)
     }
 
     func testDictationAsksBeforeTheMicStarts() {
