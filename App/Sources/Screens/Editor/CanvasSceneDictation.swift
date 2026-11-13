@@ -58,8 +58,16 @@ extension CanvasScene {
             cancelDictationIfNeeded()
             return
         }
-        // iOS suspends the app seconds after it leaves: ask for time to
-        // stop the take and send it, until its words land or time is up.
+        stopTakeInBackground {
+            stopDictation()
+            return lastTake
+        }
+    }
+
+    /// iOS suspends the app seconds after it leaves: ask for time to stop
+    /// the take (`stop`, which returns its task) and send it, until its
+    /// words land or time is up. Both strips (#148, #150).
+    func stopTakeInBackground(_ stop: () -> Task<Void, Never>?) {
         let app = UIApplication.shared
         var assertion = UIBackgroundTaskIdentifier.invalid
         func end() {
@@ -68,8 +76,7 @@ extension CanvasScene {
             assertion = .invalid
         }
         assertion = app.beginBackgroundTask(withName: "dictation take", expirationHandler: end)
-        stopDictation()
-        let take = lastTake
+        let take = stop()
         Task {
             await take?.value
             end()
@@ -168,17 +175,7 @@ extension CanvasScene {
             dictationHint = String(appCopy: "Tap a text block first, then dictate.")
             return nil
         }
-        let trips = leftForeground
-        let away = { UIApplication.shared.applicationState != .active || leftForeground != trips }
-        let sentAway = away()
-        var transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
-        // A trip away cuts the request off (the app is suspended): the take
-        // is sent once more back in the foreground, still in its place.
-        if transcript == nil, sentAway || away() {
-            await backInForeground()
-            transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
-        }
-        guard let transcript else {
+        guard let transcript = await transcribeAcrossATripAway(data) else {
             dictationHint = String(appCopy: "Couldn't reach the transcriber -- try again?")
             return nil
         }
@@ -188,6 +185,21 @@ extension CanvasScene {
             return nil
         }
         return words
+    }
+
+    /// The take's transcript, or nil. A trip away cuts the request off
+    /// (the app is suspended): the take is sent once more back in the
+    /// foreground, still in its place. Both strips (#148, #150).
+    func transcribeAcrossATripAway(_ data: Data) async -> String? {
+        let trips = leftForeground
+        let away = { UIApplication.shared.applicationState != .active || leftForeground != trips }
+        let sentAway = away()
+        if let transcript = try? await transcription.transcribe(audio: data, filename: "dictation.m4a") {
+            return transcript
+        }
+        guard sentAway || away() else { return nil }
+        await backInForeground()
+        return try? await transcription.transcribe(audio: data, filename: "dictation.m4a")
     }
 
     private func backInForeground() async {
