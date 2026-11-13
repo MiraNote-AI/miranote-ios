@@ -254,7 +254,9 @@ public struct LiveAccountsAPI: AccountsAPI {
     private let now: @Sendable () -> Date
 
     public init(
-        baseURL: URL = MiraNoteConfig.Backend.accountsBaseURL,
+        // Not configured, nobody is asked to sign in, so this is never
+        // called; the beta address is only a placeholder.
+        baseURL: URL = MiraNoteConfig.Backend.accountsBaseURL ?? MiraNoteConfig.Backend.Beta.accounts,
         client: HTTPClient = HTTPClient(betaToken: nil),
         now: @escaping @Sendable () -> Date = Date.init
     ) {

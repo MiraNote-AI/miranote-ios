@@ -4,7 +4,8 @@ import SwiftUI
 /// Handoff screen 03: the PREFERENCES card -- Appearance and Language rows
 /// with their current values, and the text-size slider. ACCOUNT shows
 /// whether this phone is signed in with Apple, with Sign out (api #95; no
-/// email: we never ask Apple for one). PRIVACY & LEGAL (no URLs yet) is
+/// email: we never ask Apple for one), in a build that offers sign-in
+/// (`Account.isOffered`). PRIVACY & LEGAL (no URLs yet) is
 /// left out until the links exist. AI & PRIVACY says what goes
 /// to the AI providers, holds the mood switch and withdraws consent
 /// (#151). A TestFlight install adds a TESTING card: the photo trigger's
@@ -38,11 +39,13 @@ struct SettingsView: View {
                 .padding(.horizontal, 19)
                 .settingsCard()
 
-                SettingsEyebrow(text: "ACCOUNT", size: 12, tracking: 1.5)
-                    .padding(.top, 21)
-                AccountCard(account: account)
-                    .padding(.horizontal, 19)
-                    .settingsCard()
+                if Account.isOffered {
+                    SettingsEyebrow(text: "ACCOUNT", size: 12, tracking: 1.5)
+                        .padding(.top, 21)
+                    AccountCard(account: account)
+                        .padding(.horizontal, 19)
+                        .settingsCard()
+                }
 
                 SettingsEyebrow(text: "AI & PRIVACY", size: 12, tracking: 1.5)
                     .padding(.top, 21)

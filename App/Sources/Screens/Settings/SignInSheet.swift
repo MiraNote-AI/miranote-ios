@@ -128,7 +128,10 @@ private struct AppleIDButton: UIViewRepresentable {
 /// needs.
 @MainActor
 enum SignInPresenter {
+    /// Nothing to install while the build names no accounts service
+    /// (`Account.isOffered`): consent alone lets server AI through.
     static func install(_ account: Account, consent: AIConsent) {
+        guard Account.isOffered else { return }
         account.present = { show(account) }
         consent.signIn = { await account.permit() }
     }
@@ -208,6 +211,19 @@ extension LiveAppleCredentialProvider: ASAuthorizationControllerDelegate,
 }
 
 extension Account {
+    /// Whether this build asks anyone to sign in: only when it names an
+    /// accounts service (`ACCOUNTS_BASE_URL`, empty in Config/App.xcconfig
+    /// until the service is deployed). Until then no sign-in sheet shows,
+    /// Settings has no ACCOUNT card, and server AI asks for consent only,
+    /// as before. UI tests are offered sign-in unless `-NO-ACCOUNTS`.
+    static var isOffered: Bool {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITEST") { return !arguments.contains("-NO-ACCOUNTS") }
+        #endif
+        return MiraNoteConfig.Backend.accountsBaseURL != nil
+    }
+
     /// The app's one account. UI tests get mocks for Apple and the accounts
     /// service and start signed in, so suites that are not about sign-in
     /// are never stopped by it -- unless they launch with `-SIGN-IN-ASK`.

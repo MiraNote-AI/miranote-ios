@@ -139,6 +139,29 @@ final class SignInUITests: XCTestCase {
         XCTAssertTrue(fieldValueContains("(expanded draft -- mock)"))
     }
 
+    /// A build that names no accounts service (the default until it is
+    /// deployed): AI asks for consent only, never to sign in, and Settings
+    /// offers no sign-in.
+    func testNoAccountsServiceAsksOnlyForConsent() {
+        launch(["-AI-CONSENT-ASK", "-SIGN-IN-ASK", "-NO-ACCOUNTS"])
+        startWriting("noodle shop")
+        expand()
+        XCTAssertTrue(consentSheet.waitForExistence(timeout: 5), "consent still asks")
+        app.buttons["aiConsent.continue"].tap()
+        XCTAssertTrue(consentSheet.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(signInSheet.waitForExistence(timeout: 2), "no sign-in to ask for")
+        XCTAssertTrue(fieldValueContains("(expanded draft -- mock)"), "consent is enough")
+        XCTAssertEqual(probeMax("aiSent"), 1)
+        XCTAssertEqual(probeMax("signedIn"), 0)
+
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 5))
+        openSettings()
+        XCTAssertFalse(app.buttons["settings.signIn"].exists, "no ACCOUNT card")
+        XCTAssertFalse(app.staticTexts["settings.signedIn"].exists)
+    }
+
     func testSignInFromSettings() {
         launch(["-SIGN-IN-ASK"])
         openSettings()
