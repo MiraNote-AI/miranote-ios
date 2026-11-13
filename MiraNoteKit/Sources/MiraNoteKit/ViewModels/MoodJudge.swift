@@ -146,14 +146,18 @@ public final class MoodJudge {
     }
 
     /// Errors no other page would escape: no network, no access, no
-    /// endpoint, rate-limited, or the server or its tunnel down. A 502 is
-    /// the server's "could not read the model's reply" -- about the page.
+    /// endpoint, rate-limited, or the server, its tunnel or its LLM provider
+    /// down. Only the server's own "could not read the model's reply" -- a
+    /// 502 whose detail starts "LLM reply" -- is about the page; its other
+    /// 502s ("LLM call failed: ...") and a proxy's are not.
     private static func isAboutTheService(_ error: Error) -> Bool {
         switch error as? BackendError {
         case .unreachable, .timedOut:
             return true
+        case .server(status: 502, let detail):
+            return detail?.contains("LLM reply") != true
         case .server(let status, _):
-            return [401, 404, 429].contains(status) || (status >= 500 && status != 502)
+            return [401, 404, 429].contains(status) || status >= 500
         case .decoding, nil:
             return false
         }

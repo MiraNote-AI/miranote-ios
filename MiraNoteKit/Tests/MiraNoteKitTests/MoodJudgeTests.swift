@@ -315,7 +315,8 @@ final class MoodJudgeTests: XCTestCase {
     /// neutral but asked again after `retryAfter`.
     @MainActor
     func testAnUnreadableReplyFailsOnlyThatPage() async {
-        let service = CountingMoodService(answer: nil, error: .server(status: 502, detail: nil))
+        let unreadable = BackendError.server(status: 502, detail: #"{"detail":"LLM reply named no mood"}"#)
+        let service = CountingMoodService(answer: nil, error: unreadable)
         let pages = (0..<3).map { Memory(title: "Page \($0)") }
         let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
         let judge = MoodJudge(service: service, library: viewModel, gap: .zero)
