@@ -328,6 +328,7 @@ struct DebugStateProbe: View {
         state["aiSent"] = AIConsent.shared.sentRequests
         // Mood requests that reached the service, past the gate or not.
         state["moodServed"] = UITestScriptedMood.served
+        state["signedIn"] = Account.shared.isSignedIn ? 1 : 0
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
         state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10

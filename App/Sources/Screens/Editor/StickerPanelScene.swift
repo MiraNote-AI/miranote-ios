@@ -652,8 +652,10 @@ struct StickerPanelScene: View {
         // AI consent before the time limit starts (#151): reading the sheet
         // is not the wait.
         Task {
-            guard await studio.askToSend() else {
-                notice = AIConsentError.notNow.errorDescription
+            do {
+                try await studio.askToSend()
+            } catch {
+                notice = error.localizedDescription
                 return
             }
             runGeneration(trimmed)

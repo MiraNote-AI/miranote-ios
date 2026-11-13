@@ -330,7 +330,7 @@ public final class MiraCanvasCoordinator {
 
         do {
             // AI consent first (#151): reading the sheet is not the wait.
-            guard await chat.askToSend() else { throw AIConsentError.notNow }
+            try await chat.askToSend()
             let limit = intent.isSlowImageWork ? imageTimeout : timeout
             let outcome = try await withTimeout(limit) { [text, chat, sessionID, imageStudio] in
                 try await intent.perform(
