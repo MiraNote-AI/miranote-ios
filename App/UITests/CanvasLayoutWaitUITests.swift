@@ -1,7 +1,10 @@
 import XCTest
 
 /// #187 review: Layout waits while something is still on its way to the
-/// page, and a dimmed Layout says why on every Sticker panel tab.
+/// page (Mira's turn, a clip being recorded, a photo edit kept running with
+/// Done), a dimmed Layout says why on every Sticker panel tab, and Cancel and
+/// the undo while trying put a long, scrolled page back where it stood
+/// (46adcd0).
 final class CanvasLayoutWaitUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -27,6 +30,10 @@ final class CanvasLayoutWaitUITests: XCTestCase {
 
     private var photos: XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: "element.image")
+    }
+
+    private var photoFrames: [CGRect] {
+        photos.allElementsBoundByIndex.map(\.frame).sorted { ($0.minY, $0.minX) < ($1.minY, $1.minX) }
     }
 
     private func settle(_ seconds: TimeInterval = 0.8) {
@@ -106,6 +113,29 @@ final class CanvasLayoutWaitUITests: XCTestCase {
         XCTAssertTrue(app.buttons["layout.template.tShape"].waitForExistence(timeout: 5))
     }
 
+    /// QA L5/L6.
+    func testLayoutWaitsForMiraToFinish() {
+        start(["-CHAT_DELAY", "8000"])
+        addWords("A day by the sea")
+        addPhotos(0..<3)
+        XCTAssertTrue(app.buttons["mode.layout"].isEnabled)
+        app.askMira("give this page a title")
+        assertLayoutWaits("Layout waits for Mira to finish")
+    }
+
+    /// QA L5/L6: and the take stays live.
+    func testLayoutWaitsForTheRecordingToFinish() {
+        start()
+        addWords("A day by the sea")
+        addPhotos(0..<3)
+        app.buttons["mode.voice"].tap()
+        app.buttons["recorder.record"].tap()
+        XCTAssertTrue(app.buttons["recorder.stop"].waitForExistence(timeout: 5))
+        assertLayoutWaits("Layout waits for the recording to finish")
+        XCTAssertTrue(app.buttons["recorder.stop"].exists, "the take is still being recorded")
+        app.buttons["recorder.discard"].tap()
+    }
+
     // MARK: The Sticker panel
 
     func testTheStickerPanelsDimmedLayoutSaysWhyOnEveryTab() {
@@ -123,6 +153,46 @@ final class CanvasLayoutWaitUITests: XCTestCase {
             XCTAssertTrue(hint.waitForExistence(timeout: 3), "the \(tab) tab says why")
             XCTAssertTrue(hint.isHittable, "on the \(tab) tab, in view")
             XCTAssertLessThan(hint.frame.maxY, entry.frame.minY, "above the tool bar on the \(tab) tab")
+        }
+    }
+
+    // MARK: A long, scrolled page (46adcd0)
+
+    func testCancelAndTheUndoWhileTryingPutALongScrolledPageBack() {
+        start(["-SAMPLE_SHAPES"])
+        addWords("A day by the sea")
+        addPhotos(0..<3)
+        addPhotos(3..<6)
+        addWords("The last words at the foot of a long page")
+        // The words just written are kept in view: the page stands scrolled.
+        let title = app.staticTexts["A day by the sea"].firstMatch
+        let titleY = title.frame.minY, frames = photoFrames
+        XCTAssertLessThan(titleY, 0, "the page is scrolled down, its title above the screen")
+
+        app.buttons["mode.layout"].tap()
+        XCTAssertTrue(app.buttons["layout.template.magazine"].waitForExistence(timeout: 5))
+        app.buttons["layout.template.magazine"].tap()
+        settle()
+        app.buttons["editor.undo"].tap()
+        settle(1.5)
+        assertPutBack(frames, titleY, "the undo while trying")
+
+        app.buttons["layout.template.journal"].tap()
+        settle()
+        app.buttons["nav.leading"].tap()
+        settle(1.5)
+        assertPutBack(frames, titleY, "Cancel")
+    }
+
+    private func assertPutBack(_ frames: [CGRect], _ titleY: CGFloat, _ what: String,
+                               file: StaticString = #filePath, line: UInt = #line) {
+        let title = app.staticTexts["A day by the sea"].firstMatch
+        XCTAssertEqual(title.frame.minY, titleY, accuracy: 1, "\(what): the page scrolled back", file: file, line: line)
+        let now = photoFrames
+        XCTAssertEqual(now.count, frames.count, file: file, line: line)
+        for (put, was) in zip(now, frames) {
+            XCTAssertEqual(put.minX, was.minX, accuracy: 1, "\(what): each photo back", file: file, line: line)
+            XCTAssertEqual(put.minY, was.minY, accuracy: 1, "\(what): each photo back", file: file, line: line)
         }
     }
 }
