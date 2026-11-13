@@ -3421,6 +3421,18 @@
         }
       }
     },
+    "Making the sticker" : {
+      "comment" : "VoiceOver: the progress bar while a sticker is made.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在生成贴纸"
+          }
+        }
+      }
+    },
     "Making this sticker is taking too long. Try again?" : {
       "extractionState" : "manual",
       "localizations" : {
