@@ -114,7 +114,8 @@ struct UITestScriptedStudio: ImageStudioService {
 /// (`UITestTimedRecorder`); `-FAIL_FIRST_TAKE` fails the first take.
 /// `-HOLD_FIRST_TAKE` answers the first take only once a second is sent,
 /// and the second only after the first answered: the two cross in that
-/// order however slowly the simulator brings a mic up (#125).
+/// order however slowly the simulator brings a mic up (#125). With no
+/// second take the first never answers.
 struct UITestScriptedTranscription: VoiceTranscriptionService {
     private let mock = MockVoiceTranscriptionService()
     @MainActor private static var takes = 0
