@@ -172,6 +172,22 @@ final class LiveImageStudioServiceTests: XCTestCase {
         )
     }
 
+    /// A known reason reads as the app's copy even when the body has no
+    /// message: the app never shows the message for one.
+    func testStylizeWithAKnownReasonAndNoMessageShowsTheAppsCopy() async {
+        let bodies = [
+            #"{"status": "error", "reason": "no_image", "message": null}"#,
+            #"{"status": "error", "reason": "no_image"}"#
+        ]
+        for body in bodies {
+            let error = await stylizeError(status: 500, body: body)
+
+            XCTAssertEqual(
+                (error as? LocalizedError)?.errorDescription, "Mira couldn't make the edit. Try again.", body
+            )
+        }
+    }
+
     /// A 504 is a timeout whatever its body (Cloudflare replaces it); a
     /// body without a reason (an older server, Cloudflare's 502 page)
     /// keeps the status-only text as before.

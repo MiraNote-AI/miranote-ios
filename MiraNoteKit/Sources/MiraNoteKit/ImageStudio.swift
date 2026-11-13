@@ -148,13 +148,15 @@ public struct ImageEditError: LocalizedError, Equatable {
         struct Body: Decodable {
             let status: String
             let reason: String
-            let message: String
+            // Shown only for a reason the app does not know, so a body
+            // without one still reads as the app's copy.
+            let message: String?
         }
         if status == 504 { return BackendError.timedOut }
         if let data = detail?.data(using: .utf8),
            let body = try? JSONDecoder().decode(Body.self, from: data),
            body.status == "error", !body.reason.isEmpty {
-            return ImageEditError(status: status, reason: body.reason, message: body.message)
+            return ImageEditError(status: status, reason: body.reason, message: body.message ?? "")
         }
         return BackendError.server(status: status, detail: detail)
     }
