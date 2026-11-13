@@ -15,8 +15,24 @@ extension ServiceContainer {
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
-        imageStudio: UITestScriptedStudio()
+        imageStudio: UITestScriptedStudio(),
+        mood: UITestScriptedMood()
     )
+}
+
+/// The mock mood ("happy" reads as joyful), except that the first
+/// `-MOOD_FAIL_FIRST <n>` asks fail as an unreachable backend does: the
+/// retry after a hiccup at Save can be driven (#159).
+actor UITestScriptedMood: MoodService {
+    private let mock = MockMoodService()
+    private var failuresLeft = UserDefaults.standard.integer(forKey: "MOOD_FAIL_FIRST")
+
+    func mood(for text: String) async throws -> Mood {
+        guard failuresLeft > 0 else { return try await mock.mood(for: text) }
+        failuresLeft -= 1
+        try? await Task.sleep(for: .milliseconds(300))
+        throw BackendError.unreachable
+    }
 }
 
 /// The mock studio, except that a sticker prompt with "slowly" holds long
@@ -112,9 +128,14 @@ struct UITestScriptedStudio: ImageStudioService {
 /// `-NUMBER_TAKES` ends each take's words with its number, in the order
 /// the takes were let go; `-TIME_TAKES` with how long it recorded
 /// (`UITestTimedRecorder`); `-FAIL_FIRST_TAKE` fails the first take.
+/// `-HOLD_FIRST_TAKE` answers the first take only once a second is sent,
+/// and the second only after the first answered: the two cross in that
+/// order however slowly the simulator brings a mic up (#125). With no
+/// second take the first never answers.
 struct UITestScriptedTranscription: VoiceTranscriptionService {
     private let mock = MockVoiceTranscriptionService()
     @MainActor private static var takes = 0
+    @MainActor private static var firstAnswered = false
 
     func transcribe(audio: Data, filename: String) async throws -> String {
         let take = await Self.countTake()
@@ -123,12 +144,26 @@ struct UITestScriptedTranscription: VoiceTranscriptionService {
         let first = UserDefaults.standard.integer(forKey: "TRANSCRIBE_FIRST_DELAY")
         if first > 0, take == 1 { try await Task.sleep(for: .milliseconds(first)) }
         let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-HOLD_FIRST_TAKE") {
+            if take == 1 {
+                while await Self.takes < 2 { try await Task.sleep(for: .milliseconds(50)) }
+                await Self.markFirstAnswered()
+            } else if take == 2 {
+                while await !Self.firstAnswered { try await Task.sleep(for: .milliseconds(50)) }
+                // The first take's outcome reaches the strip first.
+                try await Task.sleep(for: .milliseconds(300))
+            }
+        }
         if take == 1, arguments.contains("-FAIL_FIRST_TAKE") { throw URLError(.notConnectedToInternet) }
         let words = try await mock.transcribe(audio: audio, filename: filename)
         if arguments.contains("-TIME_TAKES") {
             return "\(words) (\(String(bytes: audio, encoding: .utf8) ?? "?") s)"
         }
         return arguments.contains("-NUMBER_TAKES") ? "\(words) #\(take)" : words
+    }
+
+    @MainActor private static func markFirstAnswered() {
+        firstAnswered = true
     }
 
     @MainActor private static func countTake() -> Int {
