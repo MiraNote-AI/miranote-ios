@@ -698,7 +698,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "直接加到画布"
+            "value" : "放到画布"
           }
         }
       }
@@ -720,7 +720,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "加入照片库"
+            "value" : "加入图库"
           }
         }
       }
