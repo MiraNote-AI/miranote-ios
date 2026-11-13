@@ -79,9 +79,13 @@ struct UITestScriptedStudio: ImageStudioService {
     }
 
     /// Slower by `-AI_EDIT_DELAY <ms>`: an AI photo edit still running.
+    /// Fails as /stylize would with `-AI_EDIT_FAIL <status>:<reason>`.
     func stylize(image: Data, instruction: String) async throws -> Data {
         let delay = UserDefaults.standard.integer(forKey: "AI_EDIT_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
+        if UITestStylizeFailure.requested != nil {
+            return try await UITestStylizeFailure.studio().stylize(image: image, instruction: instruction)
+        }
         return try await mock.stylize(image: image, instruction: instruction)
     }
 
