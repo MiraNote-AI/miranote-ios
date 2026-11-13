@@ -15,8 +15,22 @@ extension ServiceContainer {
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
-        imageStudio: UITestScriptedStudio()
+        imageStudio: UITestScriptedStudio(),
+        mood: UITestCountingMood()
     )
+}
+
+/// The mock mood, counting the requests that reach it: the UI tests'
+/// ground truth for "no mood was asked". `aiSent` is counted inside the
+/// consent gate, so it cannot see a request that skips the gate.
+struct UITestCountingMood: MoodService {
+    private let mock = MockMoodService()
+    @MainActor static var served = 0
+
+    func mood(for text: String) async throws -> Mood {
+        await MainActor.run { Self.served += 1 }
+        return try await mock.mood(for: text)
+    }
 }
 
 /// The mock studio, except that a sticker prompt with "slowly" holds long
@@ -286,6 +300,8 @@ struct DebugStateProbe: View {
         state["micLive"] = MockAudioRecorder.liveCount
         // Ground truth for "Not now sends nothing": requests past AI consent.
         state["aiSent"] = AIConsent.shared.sentRequests
+        // Mood requests that reached the service, past the gate or not.
+        state["moodServed"] = UITestCountingMood.served
         state["signedIn"] = Account.shared.isSignedIn ? 1 : 0
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
