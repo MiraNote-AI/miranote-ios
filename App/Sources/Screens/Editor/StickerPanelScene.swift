@@ -104,7 +104,9 @@ struct StickerPanelScene: View {
                 .offset(y: flight == nil ? 0 : 700)
                 .animation(.easeIn(duration: Self.hop), value: flight == nil)
         } bottom: {
-            InputModeBar(active: .sticker, onSelect: { mode in
+            let layoutHint = CanvasScene.layoutHint(for: editor.items)
+            InputModeBar(active: .sticker, layoutEnabled: layoutHint == nil, layoutHint: layoutHint,
+                         onDimmedLayout: { notice = layoutHint }, onSelect: { mode in
                 // Another tool leaves the panel: same rule as the presets.
                 guard mode == .sticker || !placingWouldDropWork else {
                     notice = String(appCopy: "Add the sticker you made first, or Cancel to let it go.")
@@ -176,13 +178,16 @@ struct StickerPanelScene: View {
     /// the tabs; 500 while making or showing a sticker (32-33, with the
     /// "Add to page" row); 420 for a full grid (34-35).
     private static let folded: CGFloat = 170
+    /// The notice's line under the empty Favorites words (a dimmed
+    /// Layout's hint), so the words keep both their lines.
+    private static let noticeRoom: CGFloat = 26
 
     private var sheetHeight: CGFloat {
         if promptFocused { return Self.folded }
         let wanted: CGFloat
         switch tab {
         case .make: wanted = showsWork ? 500 : Self.folded
-        case .favorites: wanted = favorites.isEmpty ? Self.folded : 420
+        case .favorites: wanted = favorites.isEmpty ? Self.folded + (notice == nil ? 0 : Self.noticeRoom) : 420
         case .set: wanted = 420
         }
         // Never over the header: on a small phone (375 x 667) the card is
@@ -497,17 +502,30 @@ struct StickerPanelScene: View {
 
     @ViewBuilder private var favoritesTab: some View {
         if favorites.isEmpty {
-            Text("Long-press any image or sticker on the canvas and choose Favorite to keep it here.")
-                .font(.miraLabel)
-                .foregroundStyle(Palette.textSecondary)
-                .padding(.top, 12)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Long-press any image or sticker on the canvas and choose Favorite to keep it here.")
+                    .font(.miraLabel)
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.top, 12)
+                tabNotice
+            }
         } else {
             // One column: the line, then the grid under it (the Group the
             // tab sits in would frame them apart).
             VStack(alignment: .leading, spacing: 0) {
                 waitingWorkLine
+                tabNotice
                 favoritesGrid
             }
+        }
+    }
+
+    /// The notice on the Favorites and set tabs (Make has its own place for
+    /// it): a tap on the dimmed Layout says why here too.
+    @ViewBuilder private var tabNotice: some View {
+        if notice != nil {
+            noticeLine
+                .padding(.top, 10)
         }
     }
 
@@ -554,6 +572,7 @@ struct StickerPanelScene: View {
     private func setTab(_ set: StickerSet) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             waitingWorkLine
+            tabNotice
             setGrid(set)
         }
     }
