@@ -8,6 +8,9 @@ struct MiraNoteApp: App {
         TriggerNotificationPresenter.shared.install()
         // The "How Mira uses AI" sheet, before the first AI action (#151).
         AIConsentPresenter.install(.shared)
+        // Sign in with Apple right after it, at the first server-AI action
+        // (api #95).
+        SignInPresenter.install(.shared, consent: .shared)
         // The detail sentence's Chinese serif is fetched once the install
         // gates say the trigger can show (TriggerController.resolveGates).
     }

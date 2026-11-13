@@ -2,15 +2,17 @@ import MiraNoteKit
 import SwiftUI
 
 /// Handoff screen 03: the PREFERENCES card -- Appearance and Language rows
-/// with their current values, and the text-size slider. The ACCOUNT card
-/// (email, Log Out) and PRIVACY & LEGAL (no URLs yet) are left out until
-/// there is an account and the links exist. AI & PRIVACY says what goes
+/// with their current values, and the text-size slider. ACCOUNT shows
+/// whether this phone is signed in with Apple, with Sign out (api #95; no
+/// email: we never ask Apple for one). PRIVACY & LEGAL (no URLs yet) is
+/// left out until the links exist. AI & PRIVACY says what goes
 /// to the AI providers, holds the mood switch and withdraws consent
 /// (#151). A TestFlight install adds a TESTING card: the photo trigger's
 /// switch (InstallSource).
 struct SettingsView: View {
     var settings: AppSettings
     var consent: AIConsent = .shared
+    var account: Account = .shared
     /// The photo trigger's switch; nil hides the TESTING card.
     var photoTriggerOptIn: Binding<Bool>?
     var onBack: () -> Void = {}
@@ -35,6 +37,12 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 19)
                 .settingsCard()
+
+                SettingsEyebrow(text: "ACCOUNT", size: 12, tracking: 1.5)
+                    .padding(.top, 21)
+                AccountCard(account: account)
+                    .padding(.horizontal, 19)
+                    .settingsCard()
 
                 SettingsEyebrow(text: "AI & PRIVACY", size: 12, tracking: 1.5)
                     .padding(.top, 21)
@@ -100,6 +108,47 @@ struct SettingsView: View {
         .accessibilityLabel(label)
         .accessibilityValue(value)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Signed in with Apple and Sign out, or Sign in, which shows the sign-in
+/// sheet. Signed out, everything on the phone keeps working.
+private struct AccountCard: View {
+    var account: Account
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if account.isSignedIn {
+                Text("Signed in with Apple")
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.signedIn")
+                Button("Sign out") { Task { await account.signOut() } }
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.signOut")
+                note("Your pages stay on this phone. Mira's AI asks you to sign in again.")
+            } else {
+                Button("Sign in with Apple") { Task { _ = await account.permit() } }
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.signIn")
+                note("Only Mira's AI needs an account. Everything else works without one.")
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+    }
+
+    private func note(_ text: LocalizedStringKey) -> some View {
+        Text(text)
+            .font(Sans.font(size: 13, weight: 500))
+            .lineSpacing(AIDataLines.spacing(for: 13))
+            .foregroundStyle(SettingsStyle.value)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

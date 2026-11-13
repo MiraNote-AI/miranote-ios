@@ -165,7 +165,7 @@ extension CanvasScene {
         Task {
             do {
                 // AI consent before the mic, not after the take (#151).
-                guard await transcription.askToSend() else { throw AIConsentError.notNow }
+                try await transcription.askToSend()
                 try await newRecorder.start()
                 // The chat closed while the mic came up: it stops now.
                 guard holdsMic(newRecorder) else {

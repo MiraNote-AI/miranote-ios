@@ -48,16 +48,17 @@ public protocol ImageStudioService: Sendable {
     func describe(image: Data) async throws -> String
     /// Stickers plus per-image matte results, for callers that offer a choice.
     func generateStickers(prompt: String) async throws -> StickerGeneration
-    /// Asks the writer's OK to send content before the work starts (#151):
-    /// the consent wrapper (`ServiceContainer.asking`) shows the sheet when
-    /// needed; any other service says yes.
-    func askToSend() async -> Bool
+    /// Asks the writer's OK to send content before the work starts (#151),
+    /// then for sign-in (#95): the consent wrapper (`ServiceContainer.asking`)
+    /// shows the sheets when needed and throws `AIConsentError` for a Not
+    /// now; any other service says yes.
+    func askToSend() async throws
 }
 
 public extension ImageStudioService {
     func prepare() {}
 
-    func askToSend() async -> Bool { true }
+    func askToSend() async throws {}
 
     /// Default for any service that mattes server-side: what comes back is
     /// already cut out, or the call threw.

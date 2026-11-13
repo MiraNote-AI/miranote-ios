@@ -75,6 +75,9 @@ targets:
         # never reaches the repository. Absent in a build without one, which
         # the app reports as a 401 it can explain rather than refusing to run.
         BetaAPIToken: $(BETA_API_TOKEN)
+        # The accounts service (Sign in with Apple, api #95). Defaults in
+        # Config/App.xcconfig; Secrets.xcconfig can point a build elsewhere.
+        AccountsBaseURL: $(ACCOUNTS_BASE_URL)
         # NSAllowsLocalNetworking and NSLocalNetworkUsageDescription are gone
         # on purpose: devices reach the backends over HTTPS through the
         # Cloudflare tunnel now, not over mDNS, so the app no longer needs the
@@ -108,6 +111,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.miranote.app
+        # Sign in with Apple (api #95). The path comes from the xcconfigs so a
+        # device build on a team without the capability (a free personal
+        # team) can blank it in Secrets.xcconfig; a target setting here
+        # would override any xcconfig.
+        CODE_SIGN_ENTITLEMENTS: $(MIRANOTE_ENTITLEMENTS)
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "1.0"

@@ -169,14 +169,15 @@ public protocol ChatService: Sendable {
         to message: String, sessionID: String?,
         notes: [ChatNote], page: PageContext?
     ) async throws -> ChatReply
-    /// Asks the writer's OK to send content before the work starts (#151):
-    /// the consent wrapper (`ServiceContainer.asking`) shows the sheet when
-    /// needed; any other service says yes.
-    func askToSend() async -> Bool
+    /// Asks the writer's OK to send content before the work starts (#151),
+    /// then for sign-in (#95): the consent wrapper (`ServiceContainer.asking`)
+    /// shows the sheets when needed and throws `AIConsentError` for a Not
+    /// now; any other service says yes.
+    func askToSend() async throws
 }
 
 public extension ChatService {
-    func askToSend() async -> Bool { true }
+    func askToSend() async throws {}
 
     func reply(to message: String, sessionID: String?, notes: [ChatNote]) async throws -> ChatReply {
         try await reply(to: message, sessionID: sessionID, notes: notes, page: nil)

@@ -48,8 +48,10 @@ public enum MiraNoteConfig {
             public static let voice = URL(string: "https://beta-voice.miranote.app")!
             /// The photo trigger's photo-collections service (handoff 7.4).
             public static let collections = URL(string: "https://beta-collections.miranote.app")!
+            /// The accounts service (api #95): sign-in and our tokens.
+            public static let accounts = URL(string: "https://beta-accounts.miranote.app")!
 
-            static let all = [text, image, chat, voice, collections]
+            static let all = [text, image, chat, voice, collections, accounts]
         }
 
         /// Simulator builds and macOS test hosts reach the dev machine's own
@@ -99,6 +101,19 @@ public enum MiraNoteConfig {
             #else
             Beta.collections
             #endif
+        }()
+
+        /// The accounts service: Sign in with Apple and our tokens (api #95).
+        /// `ACCOUNTS_BASE_URL` in Config/App.xcconfig (Secrets.xcconfig
+        /// overrides it), read back out of Info.plist; this default when the
+        /// build has none, simulator included -- there is no local copy of
+        /// the accounts service on the usual ports.
+        public static let accountsBaseURL: URL = {
+            guard let value = Bundle.main.object(forInfoDictionaryKey: "AccountsBaseURL") as? String,
+                  !value.isEmpty, !value.hasPrefix("$("),
+                  let url = URL(string: value)
+            else { return Beta.accounts }
+            return url
         }()
 
         /// The beta bearer token, injected at build time from an untracked

@@ -202,7 +202,8 @@ enum AIConsentPresenter {
         top.present(host, animated: true)
     }
 
-    private static func topController() -> UIViewController? {
+    /// The controller on top of the key window: where a sheet goes.
+    static func topController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
         var top = scene?.keyWindow?.rootViewController

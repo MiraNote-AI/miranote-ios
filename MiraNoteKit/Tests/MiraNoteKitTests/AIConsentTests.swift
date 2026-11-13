@@ -29,6 +29,16 @@ final class AIConsentTests: XCTestCase {
         return consent
     }
 
+    /// The `AIConsentError` `body` throws, nil when it goes through.
+    private func refusal(_ body: () async throws -> Void) async -> AIConsentError? {
+        do {
+            try await body()
+            return nil
+        } catch {
+            return error as? AIConsentError
+        }
+    }
+
     // MARK: Stored state
 
     func testAFreshInstallHasNotAgreedAndReadsMoodsOnceItDoes() {
@@ -177,14 +187,14 @@ final class AIConsentTests: XCTestCase {
         var sheets = 0
         let consent = consent(answering: false, shown: { sheets += 1 })
         let services = ServiceContainer.mock.asking(consent)
-        let voice = await services.voiceTranscription.askToSend()
-        let chat = await services.chat.askToSend()
-        let studio = await services.imageStudio.askToSend()
-        XCTAssertEqual([voice, chat, studio], [false, false, false])
+        let voice = await refusal { try await services.voiceTranscription.askToSend() }
+        let chat = await refusal { try await services.chat.askToSend() }
+        let studio = await refusal { try await services.imageStudio.askToSend() }
+        XCTAssertEqual([voice, chat, studio], [.notNow, .notNow, .notNow])
         XCTAssertEqual(sheets, 3, "each start asks while not granted")
         XCTAssertEqual(consent.sentRequests, 0, "asking sends nothing")
-        let plain = await MockVoiceTranscriptionService().askToSend()
-        XCTAssertTrue(plain)
+        let plain = await refusal { try await MockVoiceTranscriptionService().askToSend() }
+        XCTAssertNil(plain)
     }
 
     func testTheCancelledLinePointsToSettings() {

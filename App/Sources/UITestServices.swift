@@ -286,6 +286,7 @@ struct DebugStateProbe: View {
         state["micLive"] = MockAudioRecorder.liveCount
         // Ground truth for "Not now sends nothing": requests past AI consent.
         state["aiSent"] = AIConsent.shared.sentRequests
+        state["signedIn"] = Account.shared.isSignedIn ? 1 : 0
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
         state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10

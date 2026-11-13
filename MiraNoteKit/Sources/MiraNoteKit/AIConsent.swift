@@ -56,6 +56,11 @@ public final class AIConsent {
     /// Shows the sheet. Unset, nobody can answer, so nothing is sent.
     @ObservationIgnored public var present: (@MainActor () -> Void)?
 
+    /// Asked after consent, before an action the writer started (#95): the
+    /// sign-in sheet (`Account.permit`). Unset, consent is enough. Saves,
+    /// Settings and background work never ask it.
+    @ObservationIgnored public var signIn: (@MainActor () async -> Bool)?
+
     @ObservationIgnored private var waiting: [CheckedContinuation<Bool, Never>] = []
 
     public init(defaults: UserDefaults, grantedByDefault: Bool = false) {
@@ -94,9 +99,17 @@ public final class AIConsent {
         isGranted = false
     }
 
-    /// Asks if needed; throws `AIConsentError.notNow` unless granted.
-    func clearToSend() async throws {
+    /// What an action the writer just started needs before anything
+    /// leaves the phone: consent, then sign-in. Each asks only if needed;
+    /// a Not now on either throws, and only this action is cancelled.
+    public func askToSend() async throws {
         guard await permit() else { throw AIConsentError.notNow }
+        if let signIn, !(await signIn()) { throw AIConsentError.signedOut }
+    }
+
+    /// `askToSend`, counting the request it lets through.
+    func clearToSend() async throws {
+        try await askToSend()
         sentRequests += 1
     }
 
@@ -109,12 +122,19 @@ public final class AIConsent {
     }
 }
 
-/// An AI action that did not run because the writer has not agreed yet.
+/// An AI action that did not run because the writer has not agreed yet,
+/// or has not signed in (#95).
 public enum AIConsentError: Error, LocalizedError, Equatable {
     case notNow
+    case signedOut
 
     public var errorDescription: String? {
-        String(appCopy: "Mira needs your OK to use AI. You can turn it on in Settings.")
+        switch self {
+        case .notNow:
+            return String(appCopy: "Mira needs your OK to use AI. You can turn it on in Settings.")
+        case .signedOut:
+            return String(appCopy: "Sign in to use Mira's AI. You can sign in from Settings.")
+        }
     }
 }
 
@@ -163,7 +183,7 @@ struct AskingTranscription: VoiceTranscriptionService {
         return try await base.transcribe(audio: audio, filename: filename)
     }
 
-    func askToSend() async -> Bool { await consent.permit() }
+    func askToSend() async throws { try await consent.askToSend() }
 }
 
 struct AskingChat: ChatService {
@@ -178,7 +198,7 @@ struct AskingChat: ChatService {
         return try await base.reply(to: message, sessionID: sessionID, notes: notes, page: page)
     }
 
-    func askToSend() async -> Bool { await consent.permit() }
+    func askToSend() async throws { try await consent.askToSend() }
 }
 
 /// A page's mood is read after Save, never on request: it does not show
@@ -201,7 +221,7 @@ struct AskingImageStudio: ImageStudioService {
 
     func prepare() { base.prepare() }
 
-    func askToSend() async -> Bool { await consent.permit() }
+    func askToSend() async throws { try await consent.askToSend() }
 
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
         try await consent.clearToSend()

@@ -424,6 +424,18 @@
         }
       }
     },
+    "ACCOUNT" : {
+      "comment" : "Settings section header (api #95).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账户"
+          }
+        }
+      }
+    },
     "AI & PRIVACY" : {
       "comment" : "Settings, AI & privacy (#151): section label.",
       "extractionState" : "manual",
@@ -857,6 +869,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "备选：%1$@（%2$@）"
+          }
+        }
+      }
+    },
+    "An account id from Apple. Not your email, not your name." : {
+      "comment" : "Sign-in sheet (api #95): we ask Apple for no scopes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 提供的一个账户编号。不包括你的邮箱，也不包括你的名字。"
           }
         }
       }
@@ -1552,6 +1576,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "复制账本"
+          }
+        }
+      }
+    },
+    "Could not sign in. Check your connection and try again." : {
+      "comment" : "Sign-in sheet (api #95): the accounts service could not be reached or refused.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法登录。请检查网络连接后重试。"
           }
         }
       }
@@ -3378,6 +3414,18 @@
         }
       }
     },
+    "Mira's AI runs on our server, so it needs an account. Sign in with Apple once on this phone." : {
+      "comment" : "Sign-in sheet (api #95): why an account is needed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 的 AI 在我们的服务器上运行，所以需要一个账户。在这台手机上用 Apple 登录一次即可。"
+          }
+        }
+      }
+    },
     "MiraNote can't see your photos. Allow access in Settings, or pick a few here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4074,6 +4122,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "一键排版"
+          }
+        }
+      }
+    },
+    "Only Mira's AI needs an account. Everything else works without one." : {
+      "comment" : "Settings > Account (api #95): under Sign in with Apple.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有 Mira 的 AI 需要账户。其他功能无需账户也能使用。"
           }
         }
       }
@@ -5680,6 +5740,66 @@
         }
       }
     },
+    "Sign in to use Mira's AI" : {
+      "comment" : "Sign-in sheet title (api #95): shown after AI consent at the first server-AI action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录以使用 Mira 的 AI"
+          }
+        }
+      }
+    },
+    "Sign in to use Mira's AI. You can sign in from Settings." : {
+      "comment" : "Shown where an AI action was cancelled with Not now on the sign-in sheet (api #95).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录后才能使用 Mira 的 AI。你可以在设置中登录。"
+          }
+        }
+      }
+    },
+    "Sign in with Apple" : {
+      "comment" : "Settings > Account (api #95): opens the sign-in sheet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过 Apple 登录"
+          }
+        }
+      }
+    },
+    "Sign out" : {
+      "comment" : "Settings > Account (api #95): signs this phone out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出登录"
+          }
+        }
+      }
+    },
+    "Signed in with Apple" : {
+      "comment" : "Settings > Account (api #95): this phone is signed in.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已通过 Apple 登录"
+          }
+        }
+      }
+    },
     "Size %@" : {
       "comment" : "VoiceOver: size S, M or L.",
       "extractionState" : "manual",
@@ -7051,6 +7171,30 @@
         }
       }
     },
+    "What stays on your phone" : {
+      "comment" : "Sign-in sheet (api #95): heading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "什么会留在你的手机上"
+          }
+        }
+      }
+    },
+    "What we get" : {
+      "comment" : "Sign-in sheet (api #95): heading of what the account holds.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我们会得到什么"
+          }
+        }
+      }
+    },
     "What we keep" : {
       "comment" : "AI consent sheet (#151): heading.",
       "extractionState" : "manual",
@@ -7314,6 +7458,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的名字会显示在个人资料上。"
+          }
+        }
+      }
+    },
+    "Your pages stay on this phone. Mira's AI asks you to sign in again." : {
+      "comment" : "Settings > Account (api #95): under Sign out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的页面会留在这台手机上。再次使用 Mira 的 AI 时会请你重新登录。"
+          }
+        }
+      }
+    },
+    "Your pages, photos and voice. Signing in uploads none of them." : {
+      "comment" : "Sign-in sheet (api #95): signing in uploads nothing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的页面、照片和语音。登录不会上传其中任何内容。"
           }
         }
       }

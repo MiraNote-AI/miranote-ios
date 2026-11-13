@@ -19,6 +19,12 @@ extension MiraNoteConfigTests {
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.chat.absoluteString, "https://beta-chat.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.voice.absoluteString, "https://beta-voice.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.collections.absoluteString, "https://beta-collections.miranote.app")
+        XCTAssertEqual(MiraNoteConfig.Backend.Beta.accounts.absoluteString, "https://beta-accounts.miranote.app")
+    }
+
+    /// A test host has no Info.plist key, so the default applies.
+    func testAccountsDefaultsToTheBetaHost() {
+        XCTAssertEqual(MiraNoteConfig.Backend.accountsBaseURL, MiraNoteConfig.Backend.Beta.accounts)
     }
 
     func testBetaHostsAreHTTPS() {
@@ -42,6 +48,6 @@ extension MiraNoteConfigTests {
     }
 
     func testBetaHostsAreDistinct() {
-        XCTAssertEqual(Set(MiraNoteConfig.Backend.Beta.all).count, 5)
+        XCTAssertEqual(Set(MiraNoteConfig.Backend.Beta.all).count, 6)
     }
 }

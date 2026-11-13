@@ -11,6 +11,18 @@ BETA_API_TOKEN =
 // every `xcodegen generate` resets their team back to this one.
 DEVELOPMENT_TEAM = FBY8RBCZ9M
 
+// The accounts service: Sign in with Apple and our tokens (api #95).
+// "$()" keeps xcconfig from reading "//" as a comment. Secrets.xcconfig can
+// override it (a local accounts service, another deployment).
+ACCOUNTS_BASE_URL = https:/$()/beta-accounts.miranote.app
+
+// Sign in with Apple's entitlement (api #95). Simulator builds sign locally
+// and take it as is. A device build needs the "Sign in with Apple"
+// capability on the App ID of the team that signs it, which a free personal
+// team cannot have: such a build sets this empty in Secrets.xcconfig (and
+// cannot sign in).
+MIRANOTE_ENTITLEMENTS = App/Entitlements/MiraNote.entitlements
+
 // No app icon is committed yet (MiraNote-AI/.github#26). Empty here keeps
 // debug builds icon-free; a TestFlight build sets AppIcon in Secrets.xcconfig.
 MIRANOTE_APP_ICON =
