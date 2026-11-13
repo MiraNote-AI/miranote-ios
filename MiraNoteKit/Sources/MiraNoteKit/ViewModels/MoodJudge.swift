@@ -4,7 +4,7 @@ import Foundation
 /// answer onto the page in the library. A page is asked only when it has
 /// no mood or its words changed since it was judged: a reopened jar or a
 /// page saved unchanged costs no request. A failed ask leaves the mood as
-/// it was, and the same words are not asked again for `retryAfter` -- an
+/// it was, and the same words are not asked again for `retryAfter` -- a
 /// page that cannot be read costs one request per `retryAfter`, not one
 /// per visit. An error that is not about the page (offline, 401, 404,
 /// 429, 530, ...) keeps the page at the front of its queue and pauses the
@@ -31,9 +31,13 @@ public final class MoodJudge {
     /// until its wake-up clears it.
     private var isPaused = false
     /// Errors about the service in a row: one more than `backoff` holds
-    /// stops the queue until the next `judge`, `show` or `resume`.
+    /// stops the queue until the next `judge`, `show` or `resume`. Starts
+    /// over once nothing is left to ask, so a later page gets fresh tries.
     private var serviceFailures = 0
     private var worker: Task<Void, Never>?
+    /// Counts `show` calls: a jar page whose ask hit a service error goes
+    /// back only if the jar showed nothing new meanwhile.
+    private var shows = 0
 
     public init(
         service: MoodService,
@@ -63,13 +67,15 @@ public final class MoodJudge {
     /// before: a period left, or the jar closed (`[]`), is not asked for.
     public func show(_ noteIDs: [Memory.ID]) {
         shown = noteIDs
+        shows += 1
         resume()
     }
 
     /// Asks what is still queued, with fresh tries if the last ones were
-    /// spent (the app came back to the foreground). Waits out a pause.
+    /// spent (the app came back to the foreground) or nothing is queued
+    /// (the jar closed). Waits out a pause.
     public func resume() {
-        if serviceFailures > backoff.count { serviceFailures = 0 }
+        if serviceFailures > backoff.count || !hasQueued { serviceFailures = 0 }
         startIfNeeded()
     }
 
@@ -89,18 +95,19 @@ public final class MoodJudge {
         while hasQueued, !isStopped {
             let fromSaved = !saved.isEmpty
             let id = fromSaved ? saved.removeFirst() : shown.removeFirst()
-            let jar = shown
+            let jar = shows
             let outcome = await ask(id)
             if outcome == .serviceDown {
                 // Back at the front, unless Save queued it again meanwhile
-                // or the jar moved on to other pages.
+                // or the jar showed its pages anew or closed.
                 if fromSaved, !saved.contains(id) { saved.insert(id, at: 0) }
-                if !fromSaved, shown == jar { shown.insert(id, at: 0) }
+                if !fromSaved, shows == jar { shown.insert(id, at: 0) }
                 pause()
             } else if outcome == .asked, hasQueued {
                 try? await Task.sleep(for: gap)
             }
         }
+        if !hasQueued { serviceFailures = 0 }
         worker = nil
     }
 
@@ -152,14 +159,18 @@ public final class MoodJudge {
     }
 
     /// Errors no other page would escape: no network, no access, no
-    /// endpoint, rate-limited, or the server or its tunnel down. A 502 is
-    /// the server's "could not read the model's reply" -- about the page.
+    /// endpoint, rate-limited, or the server, its tunnel or its LLM provider
+    /// down. Only the server's own "could not read the model's reply" -- a
+    /// 502 whose detail starts "LLM reply" -- is about the page; its other
+    /// 502s ("LLM call failed: ...") and a proxy's are not.
     private static func isAboutTheService(_ error: Error) -> Bool {
         switch error as? BackendError {
         case .unreachable, .timedOut:
             return true
+        case .server(status: 502, let detail):
+            return detail?.contains("LLM reply") != true
         case .server(let status, _):
-            return [401, 404, 429].contains(status) || (status >= 500 && status != 502)
+            return [401, 404, 429].contains(status) || status >= 500
         case .decoding, nil:
             return false
         }

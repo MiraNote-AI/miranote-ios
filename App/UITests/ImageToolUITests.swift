@@ -234,9 +234,28 @@ final class ImageToolUITests: XCTestCase {
         app.buttons["mode.image"].tap()
         openRecents()
 
-        XCTAssertTrue(app.buttons["image.library.more"].exists, "share more photos with MiraNote")
-        XCTAssertTrue(app.buttons["image.library.system"].exists, "or pick any photo once")
+        XCTAssertEqual(app.buttons["image.library.more"].label, "Add to Library", "share more photos with MiraNote")
+        XCTAssertEqual(app.buttons["image.library.system"].label, "Add to Canvas", "or pick any photo once")
         XCTAssertTrue(any("image.library.photo.0").isHittable, "the shared photos are still the grid")
+    }
+
+    // The same two buttons in Chinese say where the photos go: into the
+    // library, or onto the page (#167).
+    func testLimitedAccessButtonsSayWhereThePhotosGoInChinese() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-PHOTOS-LIMITED", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let library = app.buttons["image.library.open"]
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        library.tap()
+
+        let more = app.buttons["image.library.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        XCTAssertEqual(more.label, "\u{52A0}\u{5165}\u{56FE}\u{5E93}")
+        XCTAssertEqual(app.buttons["image.library.system"].label, "\u{653E}\u{5230}\u{9875}\u{9762}")
     }
 }
 
