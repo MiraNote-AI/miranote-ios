@@ -64,8 +64,8 @@ final class RecentPhotos {
             access = .denied
             return
         }
-        fetch()
         access = status == .limited ? .limited : .granted
+        fetch()
         if observer == nil {
             let observer = LibraryObserver { [weak self] in
                 Task { @MainActor in self?.fetch() }
@@ -87,14 +87,51 @@ final class RecentPhotos {
     private func fetch() {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = 60
+        // Limited: every shared photo, however old, so a fresh share is
+        // never cut off by the 60 newest taken.
+        if access != .limited { options.fetchLimit = Self.shown }
         let result = PHAsset.fetchAssets(with: .image, options: options)
-        var fetched: [LibraryPhoto] = []
+        var ids: [String] = []
         result.enumerateObjects { asset, _, _ in
             self.assets[asset.localIdentifier] = asset
-            fetched.append(LibraryPhoto(id: asset.localIdentifier))
+            ids.append(asset.localIdentifier)
         }
-        photos = fetched
+        if access == .limited {
+            let defaults = UserDefaults.standard
+            let stored = defaults.dictionary(forKey: Self.sharedAtKey) as? [String: Date]
+            let shared = Self.sharedOrder(ids, sharedAt: stored, now: Date())
+            defaults.set(shared.sharedAt, forKey: Self.sharedAtKey)
+            ids = shared.ids
+        }
+        photos = ids.map(LibraryPhoto.init(id:))
+    }
+
+    /// When each photo was first seen shared, by library identifier.
+    private static let sharedAtKey = "photos.limited.sharedAt"
+
+    /// The most photos the grid holds.
+    nonisolated static let shown = 60
+
+    /// Limited access: PhotoKit does not say when a photo was shared, so a
+    /// photo first seen now counts as shared now, and the grid shows the
+    /// latest shares first (#167). `ids` come newest taken first; the
+    /// photos already shared before anything was recorded (`sharedAt` nil)
+    /// keep that order, below any later share. A photo no longer shared
+    /// is forgotten, so sharing it again brings it back to the top. The
+    /// first `shown` come back, cut after the sort so an old photo shared
+    /// last is among them; `sharedAt` keeps every share.
+    nonisolated static func sharedOrder(
+        _ ids: [String], sharedAt: [String: Date]?, now: Date
+    ) -> (ids: [String], sharedAt: [String: Date]) {
+        var seen: [String: Date] = [:]
+        for id in ids { seen[id] = sharedAt?[id] ?? (sharedAt == nil ? .distantPast : now) }
+        let ordered = ids.enumerated()
+            .sorted { lhs, rhs in
+                let left = seen[lhs.element, default: .distantPast], right = seen[rhs.element, default: .distantPast]
+                return left != right ? left > right : lhs.offset < rhs.offset
+            }
+            .map(\.element)
+        return (Array(ordered.prefix(shown)), seen)
     }
 
     func thumbnail(_ photo: LibraryPhoto, side: CGFloat) async -> UIImage? {
@@ -183,9 +220,20 @@ final class RecentPhotos {
         }
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
-        return UIGraphicsImageRenderer(size: CGSize(width: 120, height: 120), format: format).pngData { context in
+        // `-SAMPLE_SHAPES`: portrait and landscape in turn, a pale disc in
+        // the middle, so layout crops show.
+        let shapes = ProcessInfo.processInfo.arguments.contains("-SAMPLE_SHAPES")
+        let size = !shapes ? CGSize(width: 120, height: 120)
+            : index % 2 == 0 ? CGSize(width: 300, height: 400) : CGSize(width: 400, height: 260)
+        return UIGraphicsImageRenderer(size: size, format: format).pngData { context in
             sampleColors[index].setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 120, height: 120))
+            context.fill(CGRect(origin: .zero, size: size))
+            if shapes {
+                UIColor.white.withAlphaComponent(0.6).setFill()
+                let side = min(size.width, size.height) * 0.4
+                context.cgContext.fillEllipse(in: CGRect(x: (size.width - side) / 2, y: (size.height - side) / 2,
+                                                         width: side, height: side))
+            }
         }
     }
 }

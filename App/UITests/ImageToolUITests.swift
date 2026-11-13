@@ -26,6 +26,14 @@ final class ImageToolUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
+    private func canvasState() -> [String: Any] {
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        let data = probe.label.data(using: .utf8) ?? Data()
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
     private var photos: XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: "element.image")
     }
@@ -103,6 +111,62 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [shown], timeout: 5), .completed, "the canvas scrolled to the photo")
     }
 
+    /// #167: long-press a Recents photo and drag it onto the page: it lands
+    /// where it was let go, the sheet stays for the next one, and a drop
+    /// back on the sheet places nothing.
+    func testALongPressedPhotoDragsStraightOntoThePage() {
+        openRecents()
+        let cell = any("image.library.photo.1")
+        let grid = any("image.library.grid")
+
+        // Let go on the sheet itself: nothing lands.
+        cell.press(forDuration: 0.6, thenDragTo: any("image.library.photo.4"))
+        sleep(1)
+        XCTAssertEqual(photos.count, 0, "a drop on the sheet places nothing")
+
+        let target = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.width * 0.3, dy: grid.frame.minY - 160))
+        cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.6, thenDragTo: target)
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 1"), object: photos)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 5), .completed, "the photo landed")
+        let photo = photos.firstMatch
+        XCTAssertLessThan(abs(photo.frame.midX - target.screenPoint.x), 40, "where it was let go (x)")
+        XCTAssertLessThan(abs(photo.frame.midY - target.screenPoint.y), 40, "where it was let go (y)")
+        XCTAssertTrue(grid.exists, "Recents stays open for the next one")
+        XCTAssertFalse(cell.isSelected, "dragging is not picking")
+
+        app.buttons["nav.leading"].tap()
+        XCTAssertEqual(photos.count, 1, "Cancel shows the placed photo, still on the page")
+    }
+
+    /// #178 review: an import landing while a photo is carried closes
+    /// Recents and cancels the drag; the carried photo must not stay over
+    /// the canvas.
+    func testAnImportLandingMidCarryLeavesNoCarriedPhoto() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-IMPORT_DELAY", "3000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        openRecents()
+        let grid = any("image.library.grid")
+        any("image.library.photo.0").tap()
+        app.buttons["image.composer.add"].tap()
+
+        // Hold another photo over the page until the import lands.
+        let target = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.width * 0.3, dy: grid.frame.minY - 160))
+        any("image.library.photo.1").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.6, thenDragTo: target, withVelocity: 600, thenHoldForDuration: 4)
+        XCTAssertFalse(grid.exists, "the import landed mid-carry and closed Recents")
+        sleep(1)
+        XCTAssertEqual(photos.count, 1, "only the added pick landed")
+        XCTAssertEqual(canvasState()["photoDragging"] as? Bool, false,
+                       "the carried photo stayed over the canvas")
+    }
+
     /// A slow import (held 4 s): the header Add tapped twice lands the
     /// picks once, and Add / Editing wait out the import.
     func testASecondAddDuringASlowImportAddsNothingTwice() {
@@ -170,9 +234,28 @@ final class ImageToolUITests: XCTestCase {
         app.buttons["mode.image"].tap()
         openRecents()
 
-        XCTAssertTrue(app.buttons["image.library.more"].exists, "share more photos with MiraNote")
-        XCTAssertTrue(app.buttons["image.library.system"].exists, "or pick any photo once")
+        XCTAssertEqual(app.buttons["image.library.more"].label, "Add to Library", "share more photos with MiraNote")
+        XCTAssertEqual(app.buttons["image.library.system"].label, "Add to Canvas", "or pick any photo once")
         XCTAssertTrue(any("image.library.photo.0").isHittable, "the shared photos are still the grid")
+    }
+
+    // The same two buttons in Chinese say where the photos go: into the
+    // library, or onto the page (#167).
+    func testLimitedAccessButtonsSayWhereThePhotosGoInChinese() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-PHOTOS-LIMITED", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.image"].tap()
+        let library = app.buttons["image.library.open"]
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        library.tap()
+
+        let more = app.buttons["image.library.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        XCTAssertEqual(more.label, "\u{52A0}\u{5165}\u{56FE}\u{5E93}")
+        XCTAssertEqual(app.buttons["image.library.system"].label, "\u{653E}\u{5230}\u{9875}\u{9762}")
     }
 }
 

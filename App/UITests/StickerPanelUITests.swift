@@ -188,7 +188,9 @@ final class StickerPanelUITests: XCTestCase {
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any)["canvas.textEditor"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.typeText("Top line" + String(repeating: "\n", count: 30) + "Bottom line")
+        // No blank lines: since #188 a blank line splits the block, and this
+        // page needs one tall block.
+        field.typeText("Top line" + String(repeating: "\n.", count: 30) + "\nBottom line")
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.buttons["keyboard.done"].waitForNonExistence(timeout: 5))
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.6)).tap()
