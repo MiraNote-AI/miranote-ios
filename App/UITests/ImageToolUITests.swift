@@ -255,7 +255,7 @@ final class ImageToolUITests: XCTestCase {
         let more = app.buttons["image.library.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 5))
         XCTAssertEqual(more.label, "\u{52A0}\u{5165}\u{56FE}\u{5E93}")
-        XCTAssertEqual(app.buttons["image.library.system"].label, "\u{653E}\u{5230}\u{9875}\u{9762}")
+        XCTAssertEqual(app.buttons["image.library.system"].label, "\u{653E}\u{5230}\u{753B}\u{5E03}")
     }
 }
 

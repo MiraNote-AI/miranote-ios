@@ -117,6 +117,103 @@ final class LiveImageStudioServiceTests: XCTestCase {
             XCTFail("unexpected error type \(error)")
         }
     }
+
+    private func stylizeError(status: Int, body: String) async -> Error? {
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil
+            )!
+            return (response, Data(body.utf8))
+        }
+        do {
+            _ = try await makeService().stylize(image: Data("img".utf8), instruction: "make it blue")
+            return nil
+        } catch {
+            return error
+        }
+    }
+
+    private func body(_ reason: String, _ message: String = "server words") -> String {
+        #"{"status": "error", "reason": "\#(reason)", "message": "\#(message)"}"#
+    }
+
+    /// Every reason /stylize names (miranote-api #96) reads as the app's
+    /// own copy, not the server's English message.
+    func testStylizeShowsTheAppsCopyForEachReason() async {
+        // swiftlint:disable:next large_tuple
+        let cases: [(Int, String, String?)] = [
+            (400, "unreadable_image", "Mira couldn't read that picture. Try a different one."),
+            (413, "image_too_large", "That picture is too large to edit. Try a smaller one."),
+            (400, "bad_request", "Mira couldn't make sense of that edit. Try different words."),
+            (422, "edit_refused", "Mira won't make that edit. Try describing it differently."),
+            (500, "no_image", "Mira couldn't make the edit. Try again."),
+            (502, "no_image", "Mira couldn't make the edit. Try again."),
+            (500, "provider_error", "Mira couldn't make the edit. Try again."),
+            (503, "busy", "Mira is busy right now. Wait a moment and try again."),
+            (500, "edit_timeout", BackendError.timedOut.errorDescription)
+        ]
+        for (status, reason, copy) in cases {
+            let error = await stylizeError(status: status, body: body(reason))
+
+            XCTAssertEqual(
+                error as? ImageEditError, ImageEditError(status: status, reason: reason, message: "server words")
+            )
+            XCTAssertEqual((error as? LocalizedError)?.errorDescription, copy, "\(status) \(reason)")
+        }
+    }
+
+    /// A reason this build does not know yet: the server's message, and
+    /// with none, the status text.
+    func testStylizeWithAnUnknownReasonShowsTheServersMessage() async {
+        let named = await stylizeError(status: 422, body: body("too_many_faces", "Too many faces."))
+        XCTAssertEqual((named as? LocalizedError)?.errorDescription, "Too many faces.")
+
+        let unnamed = await stylizeError(status: 422, body: body("too_many_faces", ""))
+        XCTAssertEqual(
+            (unnamed as? LocalizedError)?.errorDescription,
+            BackendError.server(status: 422, detail: nil).errorDescription
+        )
+    }
+
+    /// A known reason reads as the app's copy even when the body has no
+    /// message: the app never shows the message for one.
+    func testStylizeWithAKnownReasonAndNoMessageShowsTheAppsCopy() async {
+        let bodies = [
+            #"{"status": "error", "reason": "no_image", "message": null}"#,
+            #"{"status": "error", "reason": "no_image"}"#
+        ]
+        for body in bodies {
+            let error = await stylizeError(status: 500, body: body)
+
+            XCTAssertEqual(
+                (error as? LocalizedError)?.errorDescription, "Mira couldn't make the edit. Try again.", body
+            )
+        }
+    }
+
+    /// A 504 is a timeout whatever its body (Cloudflare replaces it); a
+    /// body without a reason (an older server, Cloudflare's 502 page)
+    /// keeps the status-only text as before.
+    func testStylizeWithoutAReasonKeepsTheStatusText() async {
+        // swiftlint:disable:next large_tuple
+        let cases: [(Int, String, BackendError)] = [
+            (504, "<html>Gateway timeout</html>", .timedOut),
+            (504, body("edit_timeout"), .timedOut),
+            (502, "<html>Bad gateway</html>", .server(status: 502, detail: "<html>Bad gateway</html>")),
+            (400, #"{"detail": "prompt is required"}"#,
+             .server(status: 400, detail: #"{"detail": "prompt is required"}"#))
+        ]
+        for (status, body, expected) in cases {
+            let error = await stylizeError(status: status, body: body)
+
+            XCTAssertEqual(error as? BackendError, expected, "\(status) \(body)")
+        }
+        let notRunning = await stylizeError(status: 502, body: "<html>Bad gateway</html>")
+        XCTAssertEqual(
+            (notRunning as? LocalizedError)?.errorDescription,
+            BackendError.server(status: 502, detail: nil).errorDescription
+        )
+    }
 }
 
 final class ImageFileStoreTests: XCTestCase {
