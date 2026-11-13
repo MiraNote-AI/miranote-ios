@@ -16,8 +16,16 @@ enum UITestStylizeFailure {
         return (status, parts[1])
     }
 
+    /// The edit: the requested failure if there is one, else `fallback`'s.
+    static func stylize(
+        image: Data, instruction: String, otherwise fallback: ImageStudioService
+    ) async throws -> Data {
+        guard requested != nil else { return try await fallback.stylize(image: image, instruction: instruction) }
+        return try await studio().stylize(image: image, instruction: instruction)
+    }
+
     /// A live studio whose every request gets that failure.
-    static func studio() -> LiveImageStudioService {
+    private static func studio() -> LiveImageStudioService {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [Answer.self]
         return LiveImageStudioService(
