@@ -53,16 +53,89 @@ final class StarJarUITests: XCTestCase {
         XCTAssertEqual(shakes, 0, "a tap on a star does not shake the jar")
     }
 
-    private var shakes: Int {
+    private var shakes: Int { jarState["shakes"] as? Int ?? -1 }
+
+    private var jarState: [String: Any] {
         // Home's probe stays under the pushed jar: read the jar's own.
         let probes = app.descendants(matching: .any).matching(identifier: "debug.state").allElementsBoundByIndex
         for probe in probes {
             guard let data = probe.label.data(using: .utf8),
                   let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   state["scene"] as? String == "jar" else { continue }
-            return state["shakes"] as? Int ?? -1
+            return state
         }
-        return -1
+        return [:]
+    }
+
+    private func relaunch(_ arguments: [String]) {
+        app.terminate()
+        app.launchArguments = ["-UITEST"] + arguments
+        app.launch()
+    }
+
+    /// Opens the jar and waits out the stars dropping in.
+    private func openSettledJar() -> XCUIElement {
+        openJar()
+        let glass = app.otherElements["jar.glass"]
+        XCTAssertTrue(glass.waitForExistence(timeout: 5))
+        sleep(2)
+        return glass
+    }
+
+    /// A tap in the jar's neck, above any star.
+    private func tapNeck(of glass: XCUIElement) {
+        glass.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
+    }
+
+    private func waitUntilSettled(tosses: Int, _ message: String) {
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.jarState["tosses"] as? Int == tosses && self.jarState["settled"] as? Bool == true
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [settled], timeout: 6), .completed, "\(message): \(jarState)")
+    }
+
+    /// #179: a tap on the jar tosses the stars, which land again; a star
+    /// still opens its page after.
+    func testAStarStillOpensAfterAToss() {
+        let glass = openSettledJar()
+        tapNeck(of: glass)
+        waitUntilSettled(tosses: 1, "one toss, landed")
+        XCTAssertEqual(shakes, 1)
+        let star = app.buttons["jar.star.Slow morning, good coffee"]
+        XCTAssertTrue(star.waitForExistence(timeout: 3))
+        star.tap()
+        XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "the star opens the page")
+    }
+
+    /// #179: fast taps keep a crowd in the air, and every star lands inside
+    /// the glass.
+    func testTossedStarsStayInTheJar() {
+        relaunch(["-JAR_STARS", "60"])
+        let glass = openSettledJar()
+        for _ in 0..<3 { tapNeck(of: glass) }
+        waitUntilSettled(tosses: 3, "three taps, one toss in the air, landed")
+        let frame = glass.frame
+        let stars = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'jar.star.'"))
+            .allElementsBoundByIndex
+        XCTAssertGreaterThanOrEqual(stars.count, 60)
+        for star in stars {
+            let center = CGPoint(x: star.frame.midX, y: star.frame.midY)
+            XCTAssertTrue(frame.insetBy(dx: 2, dy: 2).contains(center),
+                          "\(star.identifier) at \(center) is outside the jar \(frame)")
+            XCTAssertGreaterThan(center.y, frame.minY + frame.height * 0.06, "\(star.identifier) is under the lid")
+        }
+    }
+
+    /// #179: under Reduce Motion a tap only sways the jar: no stars fly.
+    func testReduceMotionSkipsTheToss() {
+        relaunch(["-REDUCE_MOTION"])
+        let glass = openSettledJar()
+        tapNeck(of: glass)
+        let shook = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.shakes == 1 }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [shook], timeout: 3), .completed, "the jar sways")
+        sleep(1)
+        XCTAssertEqual(jarState["tosses"] as? Int, 0, "no star is thrown")
+        XCTAssertEqual(jarState["settled"] as? Bool, true)
     }
 
     /// A tap on the jar, away from any star, shakes it; a tap on a star

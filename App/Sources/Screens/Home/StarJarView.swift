@@ -1,11 +1,12 @@
 import MiraNoteKit
+import SpriteKit
 import SwiftUI
 
 /// The star jar (team decision 2026-10-24, no design screen): every saved
 /// page is a star colored by its mood, a week or a month to a jar. Drawn
 /// in the app's own language -- paper, hairlines, quiet type. Its motion:
 /// pages saved since the jar was last opened drop in, and a tap on the
-/// jar (not on a star) shakes it, the stars jostling inside.
+/// jar (not on a star) shakes it, tossing the stars up like popcorn.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
@@ -16,7 +17,8 @@ struct StarJarView: View {
     /// waits for its next Save (#137). `[]` when the jar closes.
     var onShow: ([Memory.ID]) -> Void = { _ in }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.theme) private var theme
     @State private var period: JarPeriod = .month
     @State private var interval = JarPeriod.month.interval(containing: .now)
@@ -26,6 +28,13 @@ struct StarJarView: View {
     @State private var viewport: CGFloat = 0
     /// Taps on the jar so far: each one shakes it.
     @State private var shakes = 0
+    /// The shakes that threw the stars (none under Reduce Motion).
+    @State private var tosses = 0
+    /// Stars in the air: drawn by `tossScene`, their buttons hidden.
+    @State private var tossing = false
+    @State private var tossScene = StarTossScene(size: .zero)
+    /// Where the last toss left each star, until the visit ends.
+    @State private var settled: [Memory.ID: StarPile.Spot] = [:]
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
@@ -35,6 +44,14 @@ struct StarJarView: View {
     }
 
     private var isCurrent: Bool { interval.contains(.now) }
+
+    /// `-REDUCE_MOTION` stands in for the setting in UI tests.
+    private var reduceMotion: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-REDUCE_MOTION") { return true }
+        #endif
+        return systemReduceMotion
+    }
 
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
@@ -67,7 +84,10 @@ struct StarJarView: View {
             .padding(.bottom, 24)
         }
         #if DEBUG
-        .background(DebugStateProbe { ["scene": "jar", "shakes": shakes] })
+        .background(DebugStateProbe {
+            ["scene": "jar", "shakes": shakes, "tosses": tosses, "settled": !tossing,
+             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs]
+        })
         #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
         .screenBackground()
@@ -76,7 +96,15 @@ struct StarJarView: View {
         .task(id: interval) {
             onShow(stars.map(\.id))
         }
-        .onDisappear { onShow([]) }
+        .onChange(of: interval) {
+            settled = [:]
+            tossing = false
+        }
+        .onDisappear {
+            onShow([])
+            // Opened mid-air: the stars lie where they did before the toss.
+            tossing = false
+        }
     }
 
     private var header: some View {
@@ -166,24 +194,30 @@ struct StarJarView: View {
         GeometryReader { proxy in
             let geometry = JarGeometry(size: proxy.size)
             let pile = StarPile.layout(stars.map(\.id), in: geometry.interior)
+            let spots = zip(stars, pile.spots).map { settled[$0.id] ?? $1 }
             ZStack(alignment: .topLeading) {
                 JarGlass(geometry: geometry)
                 // After the visit has decided what drops in.
                 ForEach(Array((visited ? stars : []).enumerated()), id: \.element.id) { index, star in
-                    let spot = pile.spots[index]
+                    let spot = spots[index]
                     StarButton(
                         star: star,
                         size: pile.starSize,
                         rotation: spot.rotation,
                         drop: dropOffset(for: star.id, at: spot.center, geometry: geometry),
                         delay: dropDelay(for: star.id),
-                        reduceMotion: reduceMotion,
-                        shakes: shakes
+                        reduceMotion: reduceMotion
                     ) {
                         onOpenNote(star)
                     }
                     .position(spot.center)
+                    .opacity(tossing ? 0 : 1)
                 }
+                SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .opacity(tossing ? 1 : 0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 JarShine(geometry: geometry)
                 JarLid(geometry: geometry)
                 if stars.isEmpty {
@@ -198,42 +232,92 @@ struct StarJarView: View {
             }
             // Small stars hit-test at 1.3x: a tap between them opens the
             // nearest within 17 pt, so even a crowd keeps a 34 pt target
-            // without one star covering another.
+            // without one star covering another. In the air, where it is.
             .contentShape(Rectangle())
             .onTapGesture { point in
                 guard visited else { return }
-                let nearest = zip(stars, pile.spots)
-                    .map { (star: $0, distance: hypot($1.center.x - point.x, $1.center.y - point.y)) }
+                let flying = tossing ? tossScene.spots() : [:]
+                let nearest = zip(stars, spots)
+                    .map { star, spot in
+                        let center = flying[star.id]?.center ?? spot.center
+                        return (star: star, distance: hypot(center.x - point.x, center.y - point.y))
+                    }
                     .min { $0.distance < $1.distance }
                 if let nearest, nearest.distance <= 17 {
                     onOpenNote(nearest.star)
                 } else {
                     shakes += 1
+                    throwStars(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
                 }
             }
-            // A shake: a few damped swings from the jar's foot (none under
-            // Reduce Motion, where the stars only twinkle).
-            .keyframeAnimator(initialValue: 0.0, trigger: shakes) { content, angle in
-                content.rotationEffect(.degrees(angle), anchor: .bottom)
+            .onChange(of: proxy.size) { settled = [:] }
+            // A shake: pressed down, a small hop, a sway or two from the
+            // foot. Under Reduce Motion only a small sway.
+            .keyframeAnimator(initialValue: JarPose(), trigger: shakes) { content, pose in
+                content
+                    .rotationEffect(.degrees(pose.angle), anchor: .bottom)
+                    .offset(y: pose.lift)
             } keyframes: { _ in
-                KeyframeTrack {
+                KeyframeTrack(\.lift) {
                     if reduceMotion {
                         LinearKeyframe(0, duration: 0.01)
                     } else {
-                        SpringKeyframe(-5, duration: 0.09)
-                        SpringKeyframe(4, duration: 0.12)
-                        SpringKeyframe(-2.5, duration: 0.12)
-                        SpringKeyframe(1, duration: 0.12)
-                        SpringKeyframe(0, duration: 0.25)
+                        SpringKeyframe(5, duration: 0.08)
+                        SpringKeyframe(-7, duration: 0.14)
+                        SpringKeyframe(0, duration: 0.4, spring: .bouncy)
+                    }
+                }
+                KeyframeTrack(\.angle) {
+                    if reduceMotion {
+                        SpringKeyframe(-1.5, duration: 0.15)
+                        SpringKeyframe(1, duration: 0.2)
+                        SpringKeyframe(0, duration: 0.3)
+                    } else {
+                        LinearKeyframe(0, duration: 0.08)
+                        SpringKeyframe(-3.5, duration: 0.14)
+                        SpringKeyframe(2.5, duration: 0.18)
+                        SpringKeyframe(-1, duration: 0.18)
+                        SpringKeyframe(0, duration: 0.3)
                     }
                 }
             }
             .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: shakes)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("jar.glass")
         }
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)
         // As wide as fits, short enough that the count and legend stay on
         // screen on a small phone (the rest of the column is ~290 pt).
         .frame(maxWidth: min(320, max(220, (viewport - 290) * JarGeometry.aspect)))
+    }
+
+}
+
+// MARK: - Toss and words
+
+extension StarJarView {
+    /// Throws the stars up from where they lie, or adds to a toss in the
+    /// air. Not under Reduce Motion, nor while stars are still dropping in.
+    private func throwStars(
+        _ resting: [(star: JarStar, spot: StarPile.Spot)], starSize: CGFloat, geometry: JarGeometry
+    ) {
+        guard !reduceMotion, arriving.isEmpty, !resting.isEmpty else { return }
+        if !tossing {
+            var faces: [Mood?: SKTexture] = [:]
+            tossScene.load(resting, starSize: starSize, geometry: geometry) { mood in
+                if let face = faces[mood] { return face }
+                let face = StarTossScene.face(mood, size: starSize, scale: displayScale)
+                faces[mood] = face
+                return face
+            }
+            tossScene.onSettle = { spots in
+                settled = spots
+                tossing = false
+            }
+            tossing = true
+        }
+        tosses += 1
+        tossScene.toss()
     }
 
     private var emptyLine: String {
@@ -274,7 +358,6 @@ struct StarJarView: View {
         }
         .frame(maxWidth: 300)
     }
-
 }
 
 // MARK: - Arrivals
@@ -313,51 +396,5 @@ extension StarJarView {
         guard let index = arriving.firstIndex(of: id) else { return 0 }
         let stagger = min(0.08, 0.9 / Double(max(1, arriving.count - 1)))
         return Double(index) * stagger
-    }
-}
-
-/// The star's face: the mood's fill, a soft light from above, and a
-/// hairline edge so neighbors in a pile stay apart.
-struct StarMark: View {
-    let color: Color
-
-    var body: some View {
-        RoundedStar()
-            .fill(color)
-            .overlay(
-                RoundedStar().fill(
-                    LinearGradient(colors: [Color.white.opacity(0.3), .clear], startPoint: .top, endPoint: .center)
-                )
-            )
-            .overlay(RoundedStar().stroke(Palette.ink.opacity(0.1), lineWidth: 0.6))
-    }
-}
-
-/// A five-point star with softened tips.
-struct RoundedStar: Shape {
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY + rect.height * 0.04)
-        let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.5
-        let points: [CGPoint] = (0..<10).map { index in
-            let radius = index.isMultiple(of: 2) ? outer : inner
-            let angle = -Double.pi / 2 + Double(index) * Double.pi / 5
-            return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-        }
-        func toward(_ from: CGPoint, _ to: CGPoint, _ share: CGFloat) -> CGPoint {
-            CGPoint(x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share)
-        }
-        var path = Path()
-        for index in 0..<10 {
-            let point = points[index]
-            let previous = points[(index + 9) % 10]
-            let next = points[(index + 1) % 10]
-            let share: CGFloat = index.isMultiple(of: 2) ? 0.24 : 0.12
-            let start = toward(point, previous, share)
-            if index == 0 { path.move(to: start) } else { path.addLine(to: start) }
-            path.addQuadCurve(to: toward(point, next, share), control: point)
-        }
-        path.closeSubpath()
-        return path
     }
 }
