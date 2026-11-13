@@ -23,6 +23,18 @@ extension PhotoTriggerUITests {
         waitForExpectations(timeout: 8)
     }
 
+    /// The draft toast lives two seconds, and `waitForExistence` looks
+    /// only once a second: two waits in a row after Home can miss it.
+    /// This looks every tenth of a second.
+    private func appears(_ element: XCUIElement, within timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists { return true }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        return false
+    }
+
     private func assertNoPageOnHome(file: StaticString = #filePath, line: UInt = #line) {
         let log = app.buttons["collection.Daily Log"]
         XCTAssertTrue(log.waitForExistence(timeout: 6), file: file, line: line)
@@ -96,9 +108,9 @@ extension PhotoTriggerUITests {
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.staticTexts["my own words"].waitForExistence(timeout: 5))
         app.buttons["Home"].tap()
-        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 6))
         let toast = app.descendants(matching: .any).matching(identifier: "draft.toast").firstMatch
-        XCTAssertTrue(toast.waitForExistence(timeout: 5), "leaving says the page was kept as a draft")
+        XCTAssertTrue(appears(toast, within: 6), "leaving says the page was kept as a draft")
+        XCTAssertTrue(app.buttons["Start a memory"].exists)
         waitForLedger(made: true)
         let log = app.buttons["collection.Daily Log"]
         XCTAssertTrue(log.waitForExistence(timeout: 4))

@@ -18,6 +18,9 @@ public final class CanvasViewModel {
     /// The text element currently being edited in place, if any.
     public var editingTextItemID: CanvasItem.ID? {
         didSet {
+            if let ended = oldValue, ended != editingTextItemID {
+                endedSession = (ended, Self.paragraphCount(of: sessionOrigin))
+            }
             if editingTextItemID == nil {
                 sessionSteps = nil
                 sessionOrigin = nil
@@ -48,6 +51,11 @@ public final class CanvasViewModel {
     /// session's to take back.
     private var sessionOrigin: CanvasItem?
 
+    /// The session that ended last: its block, and how many paragraphs the
+    /// block held when the session began (0 for a block it made). Only a
+    /// session that added a paragraph break splits (#184).
+    private var endedSession: (id: CanvasItem.ID, paragraphs: Int)?
+
     /// Bumps per recorded mutation and undo (receipt honesty).
     public private(set) var changeCount = 0
 
@@ -61,6 +69,11 @@ public final class CanvasViewModel {
     /// The page as it was before a live page color preview, while one is
     /// shown: the autosave files this, not a color nobody applied.
     var pagePreviewOrigin: PageLook?
+
+    /// The elements as they were before a layout template was tried, while
+    /// the strip is open: the autosave files these, not a template nobody
+    /// kept.
+    var layoutPreviewOrigin: [CanvasItem]?
 
     /// One undo step: the canvas elements plus the page background.
     // The backdrop and its description travel together: restoring one
@@ -156,7 +169,8 @@ public final class CanvasViewModel {
     /// session's end removes it unless words land -- and not a prompt left
     /// as given.
     private var filedItems: [CanvasItem] {
-        memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
+        (layoutPreviewOrigin ?? memory.items)
+            .filter { !($0.id == editingTextItemID && $0.isEmptyText) && !isUntouchedPrompt($0) }
     }
 
     // MARK: Undo
@@ -536,6 +550,7 @@ extension CanvasViewModel {
     /// Vision metadata from import-time describe. Silent: no undo step,
     /// no changeCount bump (receipts stay honest).
     public func setImageSummary(itemID: CanvasItem.ID, to summary: String) {
+        keepSentenceWhileTrying(itemID: itemID, summary: summary)
         guard let index = index(of: itemID),
               case .image(var ref) = memory.items[index].content else { return }
         ref.summary = summary
@@ -588,6 +603,53 @@ extension CanvasViewModel {
         memory.items[index].content = .image(restored)
     }
 
+}
+
+// MARK: - Paragraph split
+
+extension CanvasViewModel {
+    /// A text block whose writing just ended, if its words hold more than
+    /// one paragraph -- blank lines between them (#184) -- and the session
+    /// added a paragraph break (more paragraphs than when it began): a block
+    /// opened and left as it was, a page's old body or a Mira reply, stays
+    /// whole. It keeps the first paragraph, and each further one becomes a
+    /// block in its style and tilt under it (ParagraphSplit), as one undo
+    /// step of its own -- one undo gives back the single block. A single
+    /// line break stays inside its paragraph. `height` measures a block at
+    /// a width. Returns the new blocks, top to bottom.
+    @discardableResult
+    public func splitParagraphs(of id: CanvasItem.ID, height: (TextBlock, CGFloat) -> CGFloat) -> [CanvasItem.ID] {
+        guard let ended = endedSession, ended.id == id else { return [] }
+        endedSession = nil
+        guard let index = index(of: id), case .text(var block) = memory.items[index].content else { return [] }
+        let paragraphs = ParagraphSplit.paragraphs(of: block.text)
+        guard paragraphs.count > max(1, ended.paragraphs), let first = paragraphs.first else { return [] }
+        beginChange()
+        let written = memory.items[index]
+        let moving = ParagraphSplit.below(written, in: memory.items)
+        let width = written.size.width
+        block.text = first
+        memory.items[index].content = .text(block)
+        let fitted = max(36, height(block, width))
+        memory.items = TextFit.apply(to: memory.items) { $0.id == id ? fitted : nil }
+        let blocks = paragraphs.dropFirst().enumerated().map { offset, paragraph in
+            var next = block
+            next.text = paragraph
+            return CanvasItem(content: .text(next), position: .zero,
+                              size: CGSize(width: width, height: max(36, height(next, width))),
+                              rotation: written.rotation, zIndex: topZ + 1 + offset)
+        }
+        if let anchor = item(id) {
+            memory.items = ParagraphSplit.stack(blocks, under: anchor, moving: moving, in: memory.items,
+                                                gap: ParagraphSplit.gap)
+        }
+        return blocks.map(\.id)
+    }
+
+    private static func paragraphCount(of item: CanvasItem?) -> Int {
+        guard case .text(let block) = item?.content else { return 0 }
+        return ParagraphSplit.paragraphs(of: block.text).count
+    }
 }
 
 // MARK: - Element operations
@@ -834,12 +896,12 @@ extension CanvasViewModel {
 
     /// Nothing of the writer's on the page since it opened: a step undone,
     /// a block opened for writing with nothing typed, a new block still
-    /// empty, a color only previewed and a move under `strayMoveDistance`
+    /// empty, a color or layout only previewed and a move under `strayMoveDistance`
     /// all leave it as it arrived. The page's own work -- text fitted to its
     /// measure, a photo's description landing -- never counts.
     public var isAsArrived: Bool {
         var now = currentSnapshot.replacingItems(
-            memory.items.filter { !($0.id == editingTextItemID && $0.isEmptyText) }
+            (layoutPreviewOrigin ?? memory.items).filter { !($0.id == editingTextItemID && $0.isEmptyText) }
         )
         if let origin = pagePreviewOrigin {
             now = UndoSnapshot(items: now.items, backgroundFileName: origin.backgroundFileName,

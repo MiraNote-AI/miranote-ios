@@ -183,9 +183,20 @@ final class RecentPhotos {
         }
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
-        return UIGraphicsImageRenderer(size: CGSize(width: 120, height: 120), format: format).pngData { context in
+        // `-SAMPLE_SHAPES`: portrait and landscape in turn, a pale disc in
+        // the middle, so layout crops show.
+        let shapes = ProcessInfo.processInfo.arguments.contains("-SAMPLE_SHAPES")
+        let size = !shapes ? CGSize(width: 120, height: 120)
+            : index % 2 == 0 ? CGSize(width: 300, height: 400) : CGSize(width: 400, height: 260)
+        return UIGraphicsImageRenderer(size: size, format: format).pngData { context in
             sampleColors[index].setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 120, height: 120))
+            context.fill(CGRect(origin: .zero, size: size))
+            if shapes {
+                UIColor.white.withAlphaComponent(0.6).setFill()
+                let side = min(size.width, size.height) * 0.4
+                context.cgContext.fillEllipse(in: CGRect(x: (size.width - side) / 2, y: (size.height - side) / 2,
+                                                         width: side, height: side))
+            }
         }
     }
 }
