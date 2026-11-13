@@ -77,6 +77,9 @@ public final class Account {
         let identityToken = try await apple.identityToken(nonceHash: Self.nonceHash(nonce))
         let tokens = try await api.signIn(identityToken: identityToken, nonce: nonce)
         store.save(tokens)
+        // A Keychain that refused the write keeps nothing: say so now, not
+        // at the first request that needs a token.
+        guard store.load() == tokens else { throw AccountError.notSaved }
         isSignedIn = true
     }
 
@@ -104,7 +107,16 @@ public final class Account {
     }
 
     private func refreshed(_ tokens: AccountTokens) async throws -> AccountTokens {
-        if let refreshing { return try await refreshing.value }
+        if let refreshing {
+            // Another caller's refresh: its outcome, read the same way.
+            do {
+                let fresh = try await refreshing.value
+                guard isSignedIn else { throw AccountError.signedOut }
+                return fresh
+            } catch BackendError.server(status: 401, _) {
+                throw AccountError.signedOut
+            }
+        }
         let task = Task { [api] in try await api.refresh(refreshToken: tokens.refreshToken) }
         refreshing = task
         defer { if refreshing == task { refreshing = nil } }
@@ -121,10 +133,12 @@ public final class Account {
         }
     }
 
-    /// 32 random bytes, base64url: the raw nonce the server checks.
+    /// 32 random bytes, base64url: the raw nonce the server checks. The
+    /// system generator is cryptographically secure and cannot fail, unlike
+    /// SecRandomCopyBytes, whose failure would leave 32 zero bytes.
     static func newNonce() -> String {
-        var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        var generator = SystemRandomNumberGenerator()
+        let bytes = (0..<32).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
         return Data(bytes).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
@@ -141,6 +155,8 @@ public final class Account {
 public enum AccountError: Error, Equatable {
     /// No tokens, or the server no longer accepts them: sign in again.
     case signedOut
+    /// Signed in with the server, but the Keychain did not keep the tokens.
+    case notSaved
 }
 
 public enum AppleSignInError: Error, Equatable {

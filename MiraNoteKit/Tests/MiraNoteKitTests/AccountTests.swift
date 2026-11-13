@@ -295,6 +295,40 @@ final class AccountTests: XCTestCase {
     }
 }
 
+/// Review of #200: a refused refresh reaches every caller waiting on it
+/// as `signedOut`, and a Keychain that keeps nothing is not a sign-in.
+extension AccountTests {
+    func testParallelCallersAreBothSignedOutByARefusedRefresh() async {
+        let store = InMemoryTokenStore(tokens(1, expiresIn: -10))
+        let api = FakeAccountsAPI(refreshResults: [.failure(BackendError.server(status: 401, detail: nil))])
+        api.refreshDelay = 50_000_000
+        let account = account(store: store, api: api)
+        func attempt() async -> Result<String, Error> {
+            do { return .success(try await account.accessToken()) } catch { return .failure(error) }
+        }
+        async let first = attempt()
+        async let second = attempt()
+        let results = await [first, second]
+        for result in results {
+            XCTAssertThrowsError(try result.get()) { XCTAssertEqual($0 as? AccountError, .signedOut) }
+        }
+        XCTAssertEqual(api.refreshes, ["refresh-1"])
+        XCTAssertFalse(account.isSignedIn)
+    }
+
+    func testAKeychainThatKeepsNothingIsNotASignIn() async {
+        let account = Account(store: DroppingTokenStore(), api: FakeAccountsAPI(signInResult: tokens(1)),
+                              apple: FakeApple(), now: { [unowned self] in clock })
+        do {
+            try await account.signIn()
+            XCTFail("expected not saved")
+        } catch {
+            XCTAssertEqual(error as? AccountError, .notSaved)
+        }
+        XCTAssertFalse(account.isSignedIn, "no tokens to send: not signed in")
+    }
+}
+
 // MARK: - Doubles
 
 private struct SeenRequest {
@@ -316,6 +350,12 @@ private final class FakeApple: AppleCredentialProvider, @unchecked Sendable {
         if let error { throw error }
         return "apple-identity-token"
     }
+}
+
+/// A Keychain that refuses every write.
+private struct DroppingTokenStore: TokenStore {
+    func load() -> AccountTokens? { nil }
+    func save(_ tokens: AccountTokens?) {}
 }
 
 private final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
