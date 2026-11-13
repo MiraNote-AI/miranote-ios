@@ -9,6 +9,9 @@ extension CanvasScene {
     var layoutBlocked: String? {
         if mira.isWorking { return String(appCopy: "Layout waits for Mira to finish") }
         if case .recording = recorderState { return String(appCopy: "Layout waits for the recording to finish") }
+        // Landing under a template being tried, the new pixels would go with
+        // Cancel and leave the template as the step under them.
+        if photoEditors.anyWorking { return String(appCopy: "Layout waits for the photo edit to finish") }
         return Self.layoutHint(for: editor.memory.items)
     }
 

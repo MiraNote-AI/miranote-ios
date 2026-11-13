@@ -340,6 +340,10 @@ struct PhotoEditors {
 
     subscript(id: CanvasItem.ID) -> PhotoEditController? { byPhoto[id] }
 
+    /// A photo's edit is still on its way (kept running with Done): it
+    /// lands on whatever the page shows then.
+    var anyWorking: Bool { byPhoto.values.contains { $0.working } }
+
     /// The editor for a photo being opened: its running one, now reporting
     /// `onEdited` / `onClose` to the opener, or a new visit (`make`, built
     /// with the same two).

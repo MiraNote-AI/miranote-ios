@@ -2914,6 +2914,18 @@
         }
       }
     },
+    "Layout waits for the photo edit to finish" : {
+      "comment" : "Why the tool bar's Layout is dimmed while a photo edit kept running with Done is on its way.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片编辑完成后才能排版"
+          }
+        }
+      }
+    },
     "Layout waits for the recording to finish" : {
       "comment" : "Why the tool bar's Layout is dimmed while a voice clip records.",
       "extractionState" : "manual",
