@@ -123,7 +123,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // MARK: 07
 
     // Opening Background moves on from a waiting result: the sheet would
-    // cover the curated sets and One-tap layout.
+    // cover the curated sets and the Mira tidy button.
     func testOpeningBackgroundClosesTheResultSheet() {
         addText("sunny afternoon by the bridge")
         app.askMira("polish the text")
