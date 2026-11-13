@@ -274,7 +274,7 @@ public struct LiveAccountsAPI: AccountsAPI {
         // called; the beta address is only a placeholder.
         baseURL: URL = MiraNoteConfig.Backend.accountsBaseURL ?? MiraNoteConfig.Backend.Beta.accounts,
         client: HTTPClient = HTTPClient(betaToken: nil),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.baseURL = baseURL
         self.client = client
