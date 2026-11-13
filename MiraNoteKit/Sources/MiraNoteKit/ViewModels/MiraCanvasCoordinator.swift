@@ -490,6 +490,11 @@ public final class MiraCanvasCoordinator {
         if let consent = error as? AIConsentError {
             return MiraFailure(kind: .retry, message: consent.errorDescription ?? "", chips: ["Try again"])
         }
+        // A failed photo or sticker edit says why (api #103), in the same
+        // app copy the Photo and Sticker editors show.
+        if let edit = error as? ImageEditError, let message = edit.errorDescription {
+            return MiraFailure(kind: .retry, message: message, chips: ["Try again", "Rephrase"])
+        }
         return MiraFailure(
             kind: .retry,
             message: String(appCopy: "That one did not go through. Try again, or say it differently?"),
