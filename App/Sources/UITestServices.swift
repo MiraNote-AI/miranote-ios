@@ -99,11 +99,11 @@ struct UITestScriptedStudio: ImageStudioService {
         try await mock.cutout(image: image, target: target)
     }
 
-    /// Slower by `-AI_EDIT_DELAY <ms>`: an AI photo edit still running.
+    /// Slower by `-AI_EDIT_DELAY <ms>`; fails with `-AI_EDIT_FAIL` (UITestStylizeFailure).
     func stylize(image: Data, instruction: String) async throws -> Data {
         let delay = UserDefaults.standard.integer(forKey: "AI_EDIT_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
-        return try await mock.stylize(image: image, instruction: instruction)
+        return try await UITestStylizeFailure.stylize(image: image, instruction: instruction, otherwise: mock)
     }
 
     func outline(image: Data) async throws -> Data {
