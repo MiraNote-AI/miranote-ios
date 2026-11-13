@@ -550,6 +550,7 @@ extension CanvasViewModel {
     /// Vision metadata from import-time describe. Silent: no undo step,
     /// no changeCount bump (receipts stay honest).
     public func setImageSummary(itemID: CanvasItem.ID, to summary: String) {
+        keepSentenceWhileTrying(itemID: itemID, summary: summary)
         guard let index = index(of: itemID),
               case .image(var ref) = memory.items[index].content else { return }
         ref.summary = summary
