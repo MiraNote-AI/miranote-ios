@@ -24,6 +24,15 @@ public protocol TextTransformService: Sendable {
 /// Backend mapping: voice-to-text POC (:8005).
 public protocol VoiceTranscriptionService: Sendable {
     func transcribe(audio: Data, filename: String) async throws -> String
+    /// Asks the writer's OK to send content before the work starts (#151):
+    /// the consent wrapper (`ServiceContainer.asking`) shows the sheet when
+    /// needed; any other service says yes.
+    /// Dictation asks before the mic starts, not after the take.
+    func askToSend() async -> Bool
+}
+
+public extension VoiceTranscriptionService {
+    func askToSend() async -> Bool { true }
 }
 
 /// AI sticker generation (sketch 2.2, D2 entry one).

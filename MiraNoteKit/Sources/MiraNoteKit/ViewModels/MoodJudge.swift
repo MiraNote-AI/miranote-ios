@@ -12,12 +12,15 @@ import Foundation
 /// once those are spent it waits for the next Save, jar visit or
 /// `resume()`. Asks are spaced by `gap`: the text service's per-token rate
 /// limit is shared with the text tools.
+/// While `allowed` is false (no AI consent, or Settings' "Mood from my
+/// words" off, #151) nothing is asked: queued pages wait for `resume()`.
 @MainActor
 public final class MoodJudge {
     private let service: MoodService
     private let library: HomeViewModel
     private let retryAfter: TimeInterval
     private let gap: Duration
+    private let allowed: @MainActor () -> Bool
     private let backoff: [Duration]
     /// Pages saved: asked first, whatever screen shows.
     private var saved: [Memory.ID] = []
@@ -41,12 +44,14 @@ public final class MoodJudge {
         library: HomeViewModel,
         retryAfter: TimeInterval = 300,
         gap: Duration = .milliseconds(300),
-        backoff: [Duration] = [.seconds(10), .seconds(60)]
+        backoff: [Duration] = [.seconds(10), .seconds(60)],
+        allowed: @escaping @MainActor () -> Bool = { true }
     ) {
         self.service = service
         self.library = library
         self.retryAfter = retryAfter
         self.gap = gap
+        self.allowed = allowed
         self.backoff = backoff
     }
 
@@ -76,7 +81,8 @@ public final class MoodJudge {
 
     private var hasQueued: Bool { !saved.isEmpty || !shown.isEmpty }
 
-    private var isStopped: Bool { isPaused || serviceFailures > backoff.count }
+    /// Paused, out of tries, or not allowed to ask at all.
+    private var isStopped: Bool { isPaused || serviceFailures > backoff.count || !allowed() }
 
     private func startIfNeeded() {
         guard worker == nil, hasQueued, !isStopped else { return }

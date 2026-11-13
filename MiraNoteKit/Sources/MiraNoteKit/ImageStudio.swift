@@ -48,10 +48,16 @@ public protocol ImageStudioService: Sendable {
     func describe(image: Data) async throws -> String
     /// Stickers plus per-image matte results, for callers that offer a choice.
     func generateStickers(prompt: String) async throws -> StickerGeneration
+    /// Asks the writer's OK to send content before the work starts (#151):
+    /// the consent wrapper (`ServiceContainer.asking`) shows the sheet when
+    /// needed; any other service says yes.
+    func askToSend() async -> Bool
 }
 
 public extension ImageStudioService {
     func prepare() {}
+
+    func askToSend() async -> Bool { true }
 
     /// Default for any service that mattes server-side: what comes back is
     /// already cut out, or the call threw.
@@ -196,6 +202,12 @@ public struct LiveImageStudioService: ImageStudioService {
         self.matte = matte
         self.localOutline = localOutline
     }
+
+    /// A cutout with no target runs on this phone (Vision), not the server.
+    public var cutsLocally: Bool { matte != nil }
+
+    /// The Outline tool's edge is drawn on this phone, not the server.
+    public var outlinesLocally: Bool { localOutline }
 
     public func prepare() {
         matte?.warmUp()

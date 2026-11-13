@@ -27,7 +27,7 @@ struct StarButton: View {
     var body: some View {
         let waiting = drop != nil && !landed
         Button(action: action) {
-            StarMark(color: Palette.mood(star.memory.mood))
+            StarMark(color: Palette.mood(star.memory.starMood))
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(waiting && !reduceMotion ? 0 : rotation))
                 .frame(width: size * 1.3, height: size * 1.3)
@@ -57,7 +57,7 @@ struct StarButton: View {
                 LinearKeyframe(0, duration: 0.45)
             }
         }
-        .animation(.easeInOut(duration: 0.6), value: star.memory.mood)
+        .animation(.easeInOut(duration: 0.6), value: star.memory.starMood)
         .onAppear {
             guard drop != nil, !landed else { return }
             let motion: Animation = reduceMotion
@@ -71,6 +71,15 @@ struct StarButton: View {
 
     private var accessibilityText: String {
         let title = star.memory.title.isEmpty ? CaptionDate.string(for: star.memory.memoryDate) : star.memory.title
+        guard AIConsent.shared.allowsMood else { return String(appCopy: "\(title), mood off") }
         return String(appCopy: "\(title), \(star.memory.mood?.displayName ?? String(appCopy: "mood not read yet"))")
+    }
+}
+
+extension Memory {
+    /// The mood its star shows: none, so one neutral color, while moods are
+    /// not read (no AI consent, or "Mood from my words" off, #151).
+    @MainActor var starMood: Mood? {
+        AIConsent.shared.allowsMood ? mood : nil
     }
 }

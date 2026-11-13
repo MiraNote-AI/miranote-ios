@@ -649,6 +649,20 @@ struct StickerPanelScene: View {
     private func generate() {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !busy else { return }
+        // AI consent before the time limit starts (#151): reading the sheet
+        // is not the wait.
+        Task {
+            guard await studio.askToSend() else {
+                notice = AIConsentError.notNow.errorDescription
+                return
+            }
+            runGeneration(trimmed)
+        }
+    }
+
+    /// `generate()` once consent is given: the bar (#185), the request and
+    /// its time limit.
+    private func runGeneration(_ trimmed: String) {
         startGenerating()
         notice = nil
         drafts = []

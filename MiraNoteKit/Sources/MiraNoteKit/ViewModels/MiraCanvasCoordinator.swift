@@ -329,6 +329,8 @@ public final class MiraCanvasCoordinator {
         }
 
         do {
+            // AI consent first (#151): reading the sheet is not the wait.
+            guard await chat.askToSend() else { throw AIConsentError.notNow }
             let limit = intent.isSlowImageWork ? imageTimeout : timeout
             let outcome = try await withTimeout(limit) { [text, chat, sessionID, imageStudio] in
                 try await intent.perform(
@@ -484,6 +486,9 @@ public final class MiraCanvasCoordinator {
         }
         if let clarify = error as? MiraClarifyError {
             return MiraFailure(kind: .clarify, message: clarify.question, chips: clarify.chips)
+        }
+        if let consent = error as? AIConsentError {
+            return MiraFailure(kind: .retry, message: consent.errorDescription ?? "", chips: ["Try again"])
         }
         // A failed photo or sticker edit says why (api #103), in the same
         // app copy the Photo and Sticker editors show.

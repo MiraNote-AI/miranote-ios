@@ -224,127 +224,9 @@ final class MoodJudgeTests: XCTestCase {
         XCTAssertNil(viewModel.memory(page.id)?.mood)
     }
 
-    /// Offline, no access, no endpoint, rate-limited, tunnel down: the
-    /// first failure pauses the queue, not one request per page.
+    /// Also used by the queue tests (MoodJudgeQueueTests.swift).
     @MainActor
-    func testAnErrorAboutTheServicePausesTheWholeQueue() async {
-        for error in [BackendError.unreachable, .timedOut, .server(status: 401, detail: nil),
-                      .server(status: 404, detail: nil), .server(status: 429, detail: nil),
-                      .server(status: 530, detail: nil)] {
-            let service = CountingMoodService(answer: nil, error: error)
-            let pages = (0..<3).map { Memory(title: "Page \($0)") }
-            let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-            let judge = MoodJudge(service: service, library: viewModel, gap: .zero)
-            judge.show(pages.map(\.id))
-            judge.judge([pages[2].id])
-            await waitUntil { await service.counts().calls == 1 }
-            try? await Task.sleep(for: .milliseconds(100))
-            judge.show(pages.map(\.id))
-            try? await Task.sleep(for: .milliseconds(50))
-
-            let calls = await service.counts().calls
-            XCTAssertEqual(calls, 1, "\(error): paused after the first failure")
-        }
-    }
-
-    /// #159: the ask at Save hit a service hiccup. With no further Save or
-    /// jar visit the queue resumes by itself, asks the same page again, and
-    /// the page's star -- already in the jar, uncolored -- takes the mood.
-    @MainActor
-    func testAPageWhoseAskHitAServiceErrorIsAskedAgainByItself() async {
-        let service = CountingMoodService(answer: .calm, error: .server(status: 530, detail: nil), failFirst: 1)
-        let page = Memory(title: "A quiet walk")
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
-        let judge = MoodJudge(service: service, library: viewModel, gap: .zero, backoff: [.milliseconds(100)])
-        let month = JarPeriod.month.interval(containing: page.memoryDate)
-
-        judge.judge([page.id])
-        await waitUntil { await service.counts().calls == 1 }
-        XCTAssertEqual(StarJar.stars(in: viewModel.library, during: month).map(\.memory.mood), [nil])
-
-        await waitUntil { viewModel.memory(page.id)?.mood == .calm }
-        XCTAssertEqual(StarJar.stars(in: viewModel.library, during: month).map(\.memory.mood), [.calm])
-        let calls = await service.counts().calls
-        XCTAssertEqual(calls, 2)
-    }
-
-    /// Saved again and shown in the jar while paused: still one ask per
-    /// try, not one per call.
-    @MainActor
-    func testAPausedPageQueuedAgainIsNotAskedTwice() async {
-        let service = CountingMoodService(answer: .calm, error: .unreachable, failFirst: 1)
-        let page = Memory(title: "A quiet walk")
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
-        let judge = MoodJudge(service: service, library: viewModel, gap: .zero, backoff: [.milliseconds(150)])
-
-        judge.judge([page.id])
-        await waitUntil { await service.counts().calls == 1 }
-        judge.judge([page.id])
-        judge.show([page.id])
-        await waitUntil { viewModel.memory(page.id)?.mood == .calm }
-        try? await Task.sleep(for: .milliseconds(100))
-
-        let calls = await service.counts().calls
-        XCTAssertEqual(calls, 2, "the failed try and the one that answered")
-    }
-
-    /// Tries are bounded: after the last step of the backoff the queue
-    /// waits, and coming back to the app (or the next Save) asks again.
-    @MainActor
-    func testTriesStopAfterTheBackoffAndResumeAsksAgain() async {
-        let service = CountingMoodService(answer: nil, error: .server(status: 530, detail: nil))
-        let page = Memory(title: "A quiet walk")
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
-        let judge = MoodJudge(
-            service: service, library: viewModel, gap: .zero,
-            backoff: [.milliseconds(30), .milliseconds(30)]
-        )
-
-        judge.judge([page.id])
-        await waitUntil { await service.counts().calls == 3 }
-        try? await Task.sleep(for: .milliseconds(150))
-        let spent = await service.counts().calls
-        XCTAssertEqual(spent, 3, "one try and two retries")
-
-        judge.resume()
-        await waitUntil { await service.counts().calls == 4 }
-    }
-
-    /// The server's 502 (it could not read the model's reply) is about the
-    /// page: the others are still asked, and the page is not stored as
-    /// neutral but asked again after `retryAfter`.
-    @MainActor
-    func testAnUnreadableReplyFailsOnlyThatPage() async {
-        let unreadable = BackendError.server(status: 502, detail: #"{"detail":"LLM reply named no mood"}"#)
-        let service = CountingMoodService(answer: nil, error: unreadable)
-        let pages = (0..<3).map { Memory(title: "Page \($0)") }
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-        let judge = MoodJudge(service: service, library: viewModel, gap: .zero)
-        judge.show(pages.map(\.id))
-        await waitUntil { await service.counts().calls == 3 }
-        judge.show(pages.map(\.id))
-        try? await Task.sleep(for: .milliseconds(100))
-
-        let calls = await service.counts().calls
-        XCTAssertEqual(calls, 3, "each page waits out its own retry time")
-        XCTAssertTrue(pages.allSatisfy { viewModel.memory($0.id)?.mood == nil }, "not stored as neutral")
-    }
-
-    @MainActor
-    func testConsecutiveAsksAreSpacedByTheGap() async {
-        let service = CountingMoodService(answer: .calm)
-        let pages = (0..<3).map { Memory(title: "Page \($0)") }
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-        let judge = MoodJudge(service: service, library: viewModel, gap: .milliseconds(250))
-        let start = ContinuousClock.now
-        judge.judge(pages.map(\.id))
-        await waitUntil { pages.allSatisfy { viewModel.memory($0.id)?.mood == .calm } }
-
-        XCTAssertGreaterThanOrEqual(ContinuousClock.now - start, .milliseconds(500), "two gaps between three asks")
-    }
-
-    @MainActor
-    private func waitUntil(_ condition: @MainActor () async -> Bool) async {
+    func waitUntil(_ condition: @MainActor () async -> Bool) async {
         for _ in 0..<200 {
             if await condition() { return }
             try? await Task.sleep(for: .milliseconds(10))
@@ -357,7 +239,7 @@ final class MoodJudgeTests: XCTestCase {
 /// contains, else `answer` (nil: fails with `error`), after a beat and
 /// after `failFirst` failures,
 /// counting the asks and how many were in flight at once.
-private actor CountingMoodService: MoodService {
+actor CountingMoodService: MoodService {
     let answer: Mood?
     let byWord: [String: Mood]
     let error: BackendError
