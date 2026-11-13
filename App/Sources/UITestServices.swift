@@ -15,8 +15,24 @@ extension ServiceContainer {
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
-        imageStudio: UITestScriptedStudio()
+        imageStudio: UITestScriptedStudio(),
+        mood: UITestScriptedMood()
     )
+}
+
+/// The mock mood ("happy" reads as joyful), except that the first
+/// `-MOOD_FAIL_FIRST <n>` asks fail as an unreachable backend does: the
+/// retry after a hiccup at Save can be driven (#159).
+actor UITestScriptedMood: MoodService {
+    private let mock = MockMoodService()
+    private var failuresLeft = UserDefaults.standard.integer(forKey: "MOOD_FAIL_FIRST")
+
+    func mood(for text: String) async throws -> Mood {
+        guard failuresLeft > 0 else { return try await mock.mood(for: text) }
+        failuresLeft -= 1
+        try? await Task.sleep(for: .milliseconds(300))
+        throw BackendError.unreachable
+    }
 }
 
 /// The mock studio, except that a sticker prompt with "slowly" holds long
