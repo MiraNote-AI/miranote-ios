@@ -340,6 +340,12 @@ struct HomeFlow: View {
         if !consent.isGranted, consent.moodFromWords, !moodConsentAsked { moodConsentPending = true }
     }
 
+    /// A cover closed: a draft's toast, then the mood's consent ask.
+    private func coverDismissed() {
+        showPendingDraftToast()
+        askMoodConsentIfPending()
+    }
+
     /// The editor is gone: a Save before consent asks for it now. Granted,
     /// `allowsMood` turns true and the queue resumes.
     private func askMoodConsentIfPending() {
@@ -457,10 +463,7 @@ struct HomeFlow: View {
         .onChange(of: consent.allowsMood) {
             if consent.allowsMood { moodJudge?.resume() }
         }
-        .fullScreenCover(item: $route, onDismiss: {
-            showPendingDraftToast()
-            askMoodConsentIfPending()
-        }) { presented in
+        .fullScreenCover(item: $route, onDismiss: coverDismissed) { presented in
             switch presented {
             case .editor, .editorIn:
                 let journal = presented.journal
