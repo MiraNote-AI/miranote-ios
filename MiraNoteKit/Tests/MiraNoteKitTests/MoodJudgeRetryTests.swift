@@ -2,7 +2,8 @@ import XCTest
 @testable import MiraNoteKit
 
 /// #159, after #192: which of the server's 502s are about the service,
-/// and tries that start over once nothing is left to ask.
+/// tries that start over once nothing is left to ask, and a jar closed
+/// while its page's ask is out.
 final class MoodJudgeRetryTests: XCTestCase {
     /// miranote-api's /mood answers 502 "LLM call failed: ..." when its LLM
     /// provider fails (down, out of credit, out of reach), and a proxy in
@@ -98,6 +99,44 @@ final class MoodJudgeRetryTests: XCTestCase {
         await waitUntil("the second page asked again") { viewModel.memory(second.id)?.mood == .calm }
         let calls = await service.calls
         XCTAssertEqual(calls, 3, "the first page's failed try, the hiccup, and the try that answered")
+    }
+
+    /// The jar showed one page and closed while its ask was out; the ask
+    /// hit a service error. A closed jar is not asked for.
+    @MainActor
+    func testAJarClosedWhileItsLastAskIsOutIsNotAskedForAgain() async {
+        let service = ScriptedMoodService(failing: [1], error: .unreachable, beat: .milliseconds(200))
+        let page = Memory(title: "Shown page")
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
+        let judge = MoodJudge(service: service, library: viewModel, gap: .zero, backoff: [.milliseconds(50)])
+
+        judge.show([page.id])
+        await waitUntil("the ask went out") { await service.calls == 1 }
+        judge.show([])
+        try? await Task.sleep(for: .milliseconds(600))
+
+        let calls = await service.calls
+        XCTAssertEqual(calls, 1, "the closed jar's page is not asked again")
+        XCTAssertNil(viewModel.memory(page.id)?.mood)
+    }
+
+    /// Shown again while the ask is out (the jar reopened): the page is
+    /// still asked after the pause.
+    @MainActor
+    func testAJarShownAgainWhileTheAskIsOutStillGetsItsPageAsked() async {
+        let service = ScriptedMoodService(failing: [1], error: .unreachable, beat: .milliseconds(200))
+        let page = Memory(title: "Shown page")
+        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
+        let judge = MoodJudge(service: service, library: viewModel, gap: .zero, backoff: [.milliseconds(50)])
+
+        judge.show([page.id])
+        await waitUntil("the ask went out") { await service.calls == 1 }
+        judge.show([])
+        judge.show([page.id])
+        await waitUntil("asked again after the pause") { viewModel.memory(page.id)?.mood == .calm }
+
+        let calls = await service.calls
+        XCTAssertEqual(calls, 2)
     }
 
     @MainActor

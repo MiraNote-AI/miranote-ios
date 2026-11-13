@@ -4,7 +4,7 @@ import Foundation
 /// answer onto the page in the library. A page is asked only when it has
 /// no mood or its words changed since it was judged: a reopened jar or a
 /// page saved unchanged costs no request. A failed ask leaves the mood as
-/// it was, and the same words are not asked again for `retryAfter` -- an
+/// it was, and the same words are not asked again for `retryAfter` -- a
 /// page that cannot be read costs one request per `retryAfter`, not one
 /// per visit. An error that is not about the page (offline, 401, 404,
 /// 429, 530, ...) keeps the page at the front of its queue and pauses the
@@ -32,6 +32,9 @@ public final class MoodJudge {
     /// over once nothing is left to ask, so a later page gets fresh tries.
     private var serviceFailures = 0
     private var worker: Task<Void, Never>?
+    /// Counts `show` calls: a jar page whose ask hit a service error goes
+    /// back only if the jar showed nothing new meanwhile.
+    private var shows = 0
 
     public init(
         service: MoodService,
@@ -59,6 +62,7 @@ public final class MoodJudge {
     /// before: a period left, or the jar closed (`[]`), is not asked for.
     public func show(_ noteIDs: [Memory.ID]) {
         shown = noteIDs
+        shows += 1
         resume()
     }
 
@@ -85,13 +89,13 @@ public final class MoodJudge {
         while hasQueued, !isStopped {
             let fromSaved = !saved.isEmpty
             let id = fromSaved ? saved.removeFirst() : shown.removeFirst()
-            let jar = shown
+            let jar = shows
             let outcome = await ask(id)
             if outcome == .serviceDown {
                 // Back at the front, unless Save queued it again meanwhile
-                // or the jar moved on to other pages.
+                // or the jar showed its pages anew or closed.
                 if fromSaved, !saved.contains(id) { saved.insert(id, at: 0) }
-                if !fromSaved, shown == jar { shown.insert(id, at: 0) }
+                if !fromSaved, shows == jar { shown.insert(id, at: 0) }
                 pause()
             } else if outcome == .asked, hasQueued {
                 try? await Task.sleep(for: gap)
