@@ -12,7 +12,14 @@ struct GeneratingProgress: View {
     /// When the stickers landed: the bar runs from where it stood to full.
     let finishedAt: Date?
 
-    static let fill: TimeInterval = 0.2
+    static let fill: TimeInterval = {
+        #if DEBUG
+        // UI tests stretch it with `-STICKER_FILL_MS <ms>` to read the run to full.
+        let override = UserDefaults.standard.integer(forKey: "STICKER_FILL_MS")
+        if override > 0 { return Double(override) / 1000 }
+        #endif
+        return 0.2
+    }()
 
     /// 0.95 * (1 - e^(-t/3)): about 88% at 8 s, 95% at most.
     static func fraction(after seconds: TimeInterval) -> Double {

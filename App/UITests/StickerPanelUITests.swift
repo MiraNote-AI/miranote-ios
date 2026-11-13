@@ -356,4 +356,32 @@ extension StickerPanelUITests {
         XCTAssertTrue(progress.waitForExistence(timeout: 3), "still making")
         XCTAssertGreaterThanOrEqual(percent(progress), before, "the bar did not start over")
     }
+
+    /// #185: when the stickers land, the bar runs on past 95 (where waiting
+    /// stops) to full before they show. The 0.2 s run is stretched to 6 s
+    /// so the test can read it.
+    func testTheBarRunsToFullBeforeTheStickersShow() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-STICKER_FILL_MS", "6000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+
+        generate("a cup, slowly")
+        let progress = any("sticker.progress")
+        let result = any("sticker.result.0")
+        XCTAssertTrue(progress.waitForExistence(timeout: 3))
+        var highest = percent(progress)
+        let deadline = Date().addingTimeInterval(20)
+        // Read from a snapshot: the bar can go between two reads.
+        while highest <= 95, !result.exists, Date() < deadline,
+              let value = (try? progress.snapshot())?.value as? String {
+            highest = max(highest, Int(value.prefix { $0.isNumber }) ?? -1)
+        }
+        XCTAssertGreaterThan(highest, 95, "the bar runs past 95 once the stickers are in")
+        XCTAssertFalse(result.exists, "the stickers wait for the full bar")
+        XCTAssertTrue(result.waitForExistence(timeout: 8))
+        XCTAssertFalse(progress.exists, "the bar goes when the stickers show")
+    }
 }
