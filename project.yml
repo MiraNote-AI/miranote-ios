@@ -111,10 +111,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.miranote.app
-        # Sign in with Apple (api #95). The path comes from the xcconfigs so a
-        # device build on a team without the capability (a free personal
-        # team) can blank it in Secrets.xcconfig; a target setting here
-        # would override any xcconfig.
+        # Sign in with Apple (api #95). The path comes from the xcconfigs:
+        # empty (off) in Config/App.xcconfig until the accounts service is
+        # live, so builds on the free personal team still sign; a target
+        # setting here would override any xcconfig.
         CODE_SIGN_ENTITLEMENTS: $(MIRANOTE_ENTITLEMENTS)
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1"

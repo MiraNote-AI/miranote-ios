@@ -21,12 +21,13 @@ DEVELOPMENT_TEAM = FBY8RBCZ9M
 // accounts service, another deployment).
 ACCOUNTS_BASE_URL =
 
-// Sign in with Apple's entitlement (api #95). Simulator builds sign locally
-// and take it as is. A device build needs the "Sign in with Apple"
-// capability on the App ID of the team that signs it, which a free personal
-// team cannot have: such a build sets this empty in Secrets.xcconfig (and
-// cannot sign in).
-MIRANOTE_ENTITLEMENTS = App/Entitlements/MiraNote.entitlements
+// Sign in with Apple's entitlement (api #95), off while ACCOUNTS_BASE_URL
+// is empty: nothing asks to sign in then. A device build that carries it
+// needs the "Sign in with Apple" capability on the App ID of the team that
+// signs it, which the free personal team above cannot have. Turn it on
+// with ACCOUNTS_BASE_URL, once the App ID has the capability:
+// MIRANOTE_ENTITLEMENTS = App/Entitlements/MiraNote.entitlements
+MIRANOTE_ENTITLEMENTS =
 
 // No app icon is committed yet (MiraNote-AI/.github#26). Empty here keeps
 // debug builds icon-free; a TestFlight build sets AppIcon in Secrets.xcconfig.
