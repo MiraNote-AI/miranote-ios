@@ -1,7 +1,7 @@
 import XCTest
 
 /// Handoff screen 05: a curated set dresses the page -- display and body
-/// faces, text color and page color -- in one undoable tap; one-tap layout
+/// faces, text color and page color -- in one undoable tap; the Mira tidy
 /// waits for something to arrange.
 final class BackgroundTypeUITests: XCTestCase {
     private var app: XCUIApplication!

@@ -112,7 +112,7 @@ struct StaticElementView: View {
                     .scaledToFill()
                     .frame(width: item.size.width, height: item.size.height)
                     .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
+                    .photoFrame(ref.frameName)
             } else {
                 GradientPlaceholder(tint: Palette.tan)
             }
