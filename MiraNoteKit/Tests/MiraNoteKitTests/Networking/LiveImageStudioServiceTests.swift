@@ -140,6 +140,7 @@ final class LiveImageStudioServiceTests: XCTestCase {
     /// Every reason /stylize names (miranote-api #96) reads as the app's
     /// own copy, not the server's English message.
     func testStylizeShowsTheAppsCopyForEachReason() async {
+        // swiftlint:disable:next large_tuple
         let cases: [(Int, String, String?)] = [
             (400, "unreadable_image", "Mira couldn't read that picture. Try a different one."),
             (413, "image_too_large", "That picture is too large to edit. Try a smaller one."),
@@ -149,12 +150,14 @@ final class LiveImageStudioServiceTests: XCTestCase {
             (502, "no_image", "Mira couldn't make the edit. Try again."),
             (500, "provider_error", "Mira couldn't make the edit. Try again."),
             (503, "busy", "Mira is busy right now. Wait a moment and try again."),
-            (500, "edit_timeout", BackendError.timedOut.errorDescription),
+            (500, "edit_timeout", BackendError.timedOut.errorDescription)
         ]
         for (status, reason, copy) in cases {
             let error = await stylizeError(status: status, body: body(reason))
 
-            XCTAssertEqual(error as? ImageEditError, ImageEditError(status: status, reason: reason, message: "server words"))
+            XCTAssertEqual(
+                error as? ImageEditError, ImageEditError(status: status, reason: reason, message: "server words")
+            )
             XCTAssertEqual((error as? LocalizedError)?.errorDescription, copy, "\(status) \(reason)")
         }
     }
@@ -192,11 +195,13 @@ final class LiveImageStudioServiceTests: XCTestCase {
     /// body without a reason (an older server, Cloudflare's 502 page)
     /// keeps the status-only text as before.
     func testStylizeWithoutAReasonKeepsTheStatusText() async {
+        // swiftlint:disable:next large_tuple
         let cases: [(Int, String, BackendError)] = [
             (504, "<html>Gateway timeout</html>", .timedOut),
             (504, body("edit_timeout"), .timedOut),
             (502, "<html>Bad gateway</html>", .server(status: 502, detail: "<html>Bad gateway</html>")),
-            (400, #"{"detail": "prompt is required"}"#, .server(status: 400, detail: #"{"detail": "prompt is required"}"#)),
+            (400, #"{"detail": "prompt is required"}"#,
+             .server(status: 400, detail: #"{"detail": "prompt is required"}"#))
         ]
         for (status, body, expected) in cases {
             let error = await stylizeError(status: status, body: body)
