@@ -36,6 +36,15 @@ final class RecentPhotosOrderTests: XCTestCase {
         XCTAssertEqual(RecentPhotos.sharedOrder(["b", "a"], sharedAt: sharedAt, now: now + 2).ids, ["a", "b"])
     }
 
+    func testALateShareOfAnOldPhotoIsAmongTheSixtyShown() {
+        let taken = (0..<61).map { "p\($0)" }
+        let first = RecentPhotos.sharedOrder(Array(taken.dropLast()), sharedAt: nil, now: now)
+        let order = RecentPhotos.sharedOrder(taken, sharedAt: first.sharedAt, now: now + 1)
+        XCTAssertEqual(order.ids.count, 60, "the grid shows 60")
+        XCTAssertEqual(order.ids.first, "p60", "the oldest photo, shared last, leads")
+        XCTAssertEqual(order.sharedAt.count, 61, "every share is remembered, shown or not")
+    }
+
     func testAnEmptyRecordStillCountsAsRecorded() {
         let empty = RecentPhotos.sharedOrder([], sharedAt: nil, now: now)
         XCTAssertEqual(empty.sharedAt, [:])

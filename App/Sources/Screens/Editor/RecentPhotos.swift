@@ -89,7 +89,7 @@ final class RecentPhotos {
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         // Limited: every shared photo, however old, so a fresh share is
         // never cut off by the 60 newest taken.
-        if access != .limited { options.fetchLimit = 60 }
+        if access != .limited { options.fetchLimit = Self.shown }
         let result = PHAsset.fetchAssets(with: .image, options: options)
         var ids: [String] = []
         result.enumerateObjects { asset, _, _ in
@@ -101,7 +101,7 @@ final class RecentPhotos {
             let stored = defaults.dictionary(forKey: Self.sharedAtKey) as? [String: Date]
             let shared = Self.sharedOrder(ids, sharedAt: stored, now: Date())
             defaults.set(shared.sharedAt, forKey: Self.sharedAtKey)
-            ids = Array(shared.ids.prefix(60))
+            ids = shared.ids
         }
         photos = ids.map(LibraryPhoto.init(id:))
     }
@@ -109,12 +109,17 @@ final class RecentPhotos {
     /// When each photo was first seen shared, by library identifier.
     private static let sharedAtKey = "photos.limited.sharedAt"
 
+    /// The most photos the grid holds.
+    nonisolated static let shown = 60
+
     /// Limited access: PhotoKit does not say when a photo was shared, so a
     /// photo first seen now counts as shared now, and the grid shows the
     /// latest shares first (#167). `ids` come newest taken first; the
     /// photos already shared before anything was recorded (`sharedAt` nil)
     /// keep that order, below any later share. A photo no longer shared
-    /// is forgotten, so sharing it again brings it back to the top.
+    /// is forgotten, so sharing it again brings it back to the top. The
+    /// first `shown` come back, cut after the sort so an old photo shared
+    /// last is among them; `sharedAt` keeps every share.
     nonisolated static func sharedOrder(
         _ ids: [String], sharedAt: [String: Date]?, now: Date
     ) -> (ids: [String], sharedAt: [String: Date]) {
@@ -126,7 +131,7 @@ final class RecentPhotos {
                 return left != right ? left > right : lhs.offset < rhs.offset
             }
             .map(\.element)
-        return (ordered, seen)
+        return (Array(ordered.prefix(shown)), seen)
     }
 
     func thumbnail(_ photo: LibraryPhoto, side: CGFloat) async -> UIImage? {
