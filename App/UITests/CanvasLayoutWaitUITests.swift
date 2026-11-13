@@ -1,7 +1,7 @@
 import XCTest
 
 /// #187 review: Layout waits while something is still on its way to the
-/// page.
+/// page, and a dimmed Layout says why on every Sticker panel tab.
 final class CanvasLayoutWaitUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -104,5 +104,25 @@ final class CanvasLayoutWaitUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [offered], timeout: 15), .completed, "the edit landed: Layout again")
         entry.tap()
         XCTAssertTrue(app.buttons["layout.template.tShape"].waitForExistence(timeout: 5))
+    }
+
+    // MARK: The Sticker panel
+
+    func testTheStickerPanelsDimmedLayoutSaysWhyOnEveryTab() {
+        start()
+        addWords("Only words")
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5))
+        let entry = app.buttons["mode.layout"]
+        XCTAssertFalse(entry.isEnabled, "no photo: dimmed")
+        let hint = app.staticTexts["Add a photo to use Layout"]
+        for tab in ["food", "favorites", "make"] {
+            app.buttons["sticker.tab.\(tab)"].tap()
+            settle(0.4)
+            entry.tap()
+            XCTAssertTrue(hint.waitForExistence(timeout: 3), "the \(tab) tab says why")
+            XCTAssertTrue(hint.isHittable, "on the \(tab) tab, in view")
+            XCTAssertLessThan(hint.frame.maxY, entry.frame.minY, "above the tool bar on the \(tab) tab")
+        }
     }
 }
