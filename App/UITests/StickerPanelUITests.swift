@@ -344,9 +344,14 @@ extension StickerPanelUITests {
         generate("a cup, slowly")
         let progress = any("sticker.progress")
         XCTAssertTrue(progress.waitForExistence(timeout: 3))
-        sleep(4)
+        // The steps below take about 5 s; the scripted sticker lands at 8 s.
+        sleep(1)
         let before = percent(progress)
         app.buttons["sticker.tab.favorites"].tap()
+        // Make is rebuilt only once its view has gone: tapped back while the
+        // sheet's spring still runs, it gets the old view, and its state, back.
+        XCTAssertTrue(progress.waitForNonExistence(timeout: 3), "the Make tab is off screen")
+        sleep(1)
         app.buttons["sticker.tab.make"].tap()
         XCTAssertTrue(progress.waitForExistence(timeout: 3), "still making")
         XCTAssertGreaterThanOrEqual(percent(progress), before, "the bar did not start over")
