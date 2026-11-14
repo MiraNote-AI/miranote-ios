@@ -69,12 +69,13 @@ extension BackendError: LocalizedError {
                 Nothing on your phone can fix this one; try again later.
                 """)
         case 504:
-            // The image service gave up on a picture that ran past its own
-            // time budget (api GENERATE_DEADLINE, 50 s), before the sticker
-            // panel's 60 s limit. Unlike .timedOut nothing is wrong with the
-            // connection, so a retry is the whole fix.
+            // A service gave up on a request that ran past its own time
+            // budget. Unlike .timedOut nothing is wrong with the connection,
+            // so a retry is the whole fix. Generic on purpose: this table
+            // serves every endpoint, and /generate says "picture" itself
+            // (GenerationTimeoutError).
             return String(appCopy: """
-                That picture took too long to make. Try again; \
+                The server took too long to answer. Try again; \
                 if it keeps happening, tell the team.
                 """)
         case 530:

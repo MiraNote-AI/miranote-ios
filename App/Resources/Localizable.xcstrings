@@ -6594,7 +6594,7 @@
       }
     },
     "That picture took too long to make. Try again; if it keeps happening, tell the team." : {
-      "comment" : "Server error 504: an image generation ran out of time on the server.",
+      "comment" : "Image generation answered 504: the picture ran out of time on the server.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
@@ -6787,6 +6787,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服务器返回了意外的响应。"
+          }
+        }
+      }
+    },
+    "The server took too long to answer. Try again; if it keeps happening, tell the team." : {
+      "comment" : "Server error 504: a service ran out of its own time budget for this request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器处理得太久了，请再试一次；如果一直这样，请告诉团队。"
           }
         }
       }

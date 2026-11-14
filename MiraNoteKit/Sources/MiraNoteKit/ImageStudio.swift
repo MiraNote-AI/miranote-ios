@@ -169,6 +169,18 @@ public struct ImageEditError: LocalizedError, Equatable {
     }
 }
 
+/// A /generate the image service gave up on (504): the picture ran past the
+/// server's own time budget for one generation. Said here rather than in
+/// BackendError's status table, which every endpoint shares.
+public struct GenerationTimeoutError: LocalizedError, Equatable {
+    public var errorDescription: String? {
+        String(appCopy: """
+            That picture took too long to make. Try again; \
+            if it keeps happening, tell the team.
+            """)
+    }
+}
+
 /// Live client for the image-generation POC.
 ///
 /// Given a `matte`, the two pipelines that are pure background removal stop
@@ -272,12 +284,17 @@ public struct LiveImageStudioService: ImageStudioService {
         // Cloudflare's 125s proxy read timeout, which cannot be raised below
         // the Enterprise plan. Measured worst case on the host Mac is 36.8s
         // for a cutout, so 110s is a ceiling rather than the normal path.
-        let response: Response = try await client.postJSON(
-            to: baseURL.appendingPathComponent("generate"),
-            body: Request(command: kind.rawValue, prompt: prompt,
-                          expand: true, matte: matte),
-            timeout: 110
-        )
+        let response: Response
+        do {
+            response = try await client.postJSON(
+                to: baseURL.appendingPathComponent("generate"),
+                body: Request(command: kind.rawValue, prompt: prompt,
+                              expand: true, matte: matte),
+                timeout: 110
+            )
+        } catch BackendError.server(status: 504, _) {
+            throw GenerationTimeoutError()
+        }
         let decoded = response.images.compactMap { Data(base64Encoded: $0) }
         guard !decoded.isEmpty else { throw BackendError.decoding }
         return decoded

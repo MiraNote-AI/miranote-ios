@@ -1,10 +1,10 @@
 import XCTest
 @testable import MiraNoteKit
 
-/// Six distinguishable failures, each needing a different action from the
+/// Distinguishable failures, each needing a different action from the
 /// tester. Without this every one of them reads "The server returned an error
-/// (status N)", and ten non-technical testers report all six as "the app is
-/// broken".
+/// (status N)", and ten non-technical testers report all of them as "the app
+/// is broken".
 final class BackendErrorTests: XCTestCase {
     private func message(_ error: BackendError) -> String {
         error.errorDescription ?? ""
@@ -62,15 +62,16 @@ final class BackendErrorTests: XCTestCase {
         XCTAssertNotEqual(mapped[429], mapped[503])
     }
 
-    /// The image service answers 504 when a generation runs out of its 50 s
-    /// budget (api `GENERATE_DEADLINE`), which is before the sticker panel's
-    /// own 60 s limit, so this is the message a tester actually sees.
-    func testServerTimeoutInvitesARetry() {
+    /// A service answers 504 when a request runs out of its own time budget.
+    /// The table serves every endpoint, so the words must not name one:
+    /// /generate says "picture" itself (GenerationTimeoutError).
+    func testServerTimeoutInvitesARetryWithoutNamingAnEndpoint() {
         let text = message(.server(status: 504, detail: nil)).lowercased()
         XCTAssertTrue(
             text.contains("again") || text.contains("retry"),
             "a server-side timeout should invite a retry: \(text)"
         )
+        XCTAssertFalse(text.contains("picture"), "shared by every endpoint: \(text)")
     }
 
     func testTimeoutInvitesOneManualRetry() {

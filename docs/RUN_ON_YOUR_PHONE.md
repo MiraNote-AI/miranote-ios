@@ -102,6 +102,8 @@ reading literally rather than reporting as "the app is broken".
 | "link to MiraNote's AI server is down" | 530. The tunnel is down, or its Mac is asleep or offline | check the host Mac; the launchd job restarts the tunnel itself |
 | "sending requests faster than the beta allows" | 429. Our own per-token rate limit | wait about a minute |
 | "image service has used up its quota" | 503. The upstream image provider refused us | nothing on the phone; the backend team has to raise quota |
+| "picture took too long to make" | 504 from image generation. It ran past the server's own time budget (waiting for a slot, or a slow provider) | try again; report it if it keeps happening |
+| "server took too long to answer" | 504 from any other service | try again; report it if it keeps happening |
 | "took longer than the server allows" | Client timeout | try once more, then report it |
 | "Couldn't reach MiraNote's AI server" | No answer at all | check your connection first, then whether the tunnel is up |
 
