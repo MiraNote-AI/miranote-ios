@@ -16,6 +16,7 @@ final class BackendErrorTests: XCTestCase {
             429: message(.server(status: 429, detail: nil)),
             502: message(.server(status: 502, detail: nil)),
             503: message(.server(status: 503, detail: nil)),
+            504: message(.server(status: 504, detail: nil)),
             530: message(.server(status: 530, detail: nil))
         ]
     }
@@ -59,6 +60,17 @@ final class BackendErrorTests: XCTestCase {
     /// the messages must not suggest the same cause.
     func testRateLimitAndProviderQuotaAreNotConfused() {
         XCTAssertNotEqual(mapped[429], mapped[503])
+    }
+
+    /// The image service answers 504 when a generation runs out of its 50 s
+    /// budget (api `GENERATE_DEADLINE`), which is before the sticker panel's
+    /// own 60 s limit, so this is the message a tester actually sees.
+    func testServerTimeoutInvitesARetry() {
+        let text = message(.server(status: 504, detail: nil)).lowercased()
+        XCTAssertTrue(
+            text.contains("again") || text.contains("retry"),
+            "a server-side timeout should invite a retry: \(text)"
+        )
     }
 
     func testTimeoutInvitesOneManualRetry() {

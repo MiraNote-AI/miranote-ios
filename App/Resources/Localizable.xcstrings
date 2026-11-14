@@ -6593,6 +6593,18 @@
         }
       }
     },
+    "That picture took too long to make. Try again; if it keeps happening, tell the team." : {
+      "comment" : "Server error 504: an image generation ran out of time on the server.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张图做得太久了，请再试一次；如果一直这样，请告诉团队。"
+          }
+        }
+      }
+    },
     "That sticker couldn't be saved. Try again?" : {
       "extractionState" : "manual",
       "localizations" : {

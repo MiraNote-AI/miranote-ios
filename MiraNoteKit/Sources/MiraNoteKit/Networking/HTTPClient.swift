@@ -68,6 +68,15 @@ extension BackendError: LocalizedError {
                 The image service has used up its quota with the provider. \
                 Nothing on your phone can fix this one; try again later.
                 """)
+        case 504:
+            // The image service gave up on a picture that ran past its own
+            // time budget (api GENERATE_DEADLINE, 50 s), before the sticker
+            // panel's 60 s limit. Unlike .timedOut nothing is wrong with the
+            // connection, so a retry is the whole fix.
+            return String(appCopy: """
+                That picture took too long to make. Try again; \
+                if it keeps happening, tell the team.
+                """)
         case 530:
             return String(appCopy: """
                 The link to MiraNote's AI server is down, most likely because \
