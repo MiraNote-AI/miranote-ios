@@ -31,15 +31,23 @@ public enum ParagraphSplit {
         return paragraphs
     }
 
-    /// The elements a split of `block` moves down: those starting under its
-    /// bottom edge, as it was written, and sharing some of its width (as
-    /// TextFit pushes). An element beside the block stays.
+    /// The elements a split of `block` moves down, as the page was written:
+    /// those starting under its bottom edge and sharing some of its width,
+    /// and in a chain (as TextFit pushes) those under a moving element and
+    /// sharing its width, top to bottom. An element beside the block, with
+    /// nothing moving above it, stays.
     static func below(_ block: CanvasItem, in items: [CanvasItem]) -> Set<CanvasItem.ID> {
-        let bottom = block.position.y + block.size.height / 2
-        return Set(items.filter { item in
-            item.id != block.id && item.position.y - item.size.height / 2 >= bottom - 0.5
-                && abs(item.position.x - block.position.x) < (item.size.width + block.size.width) / 2
-        }.map(\.id))
+        func top(_ item: CanvasItem) -> CGFloat { item.position.y - item.size.height / 2 }
+        func under(_ item: CanvasItem, _ above: CanvasItem) -> Bool {
+            top(item) >= above.position.y + above.size.height / 2 - 0.5
+                && abs(item.position.x - above.position.x) < (item.size.width + above.size.width) / 2
+        }
+        var moving: [CanvasItem] = []
+        for item in items.filter({ $0.id != block.id }).sorted(by: { top($0) < top($1) })
+        where under(item, block) || moving.contains(where: { under(item, $0) }) {
+            moving.append(item)
+        }
+        return Set(moving.map(\.id))
     }
 
     /// `blocks` stacked under `anchor`, `gap` apart, at its x: the elements
