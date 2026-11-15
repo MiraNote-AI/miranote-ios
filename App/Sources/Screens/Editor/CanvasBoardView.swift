@@ -91,6 +91,10 @@ struct CanvasBoardView: View {
     @State private var toast: Toast?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toastDismiss: Task<Void, Never>?
+    /// The keep-clear scroll still waiting to run: a newer reason to scroll
+    /// (the tools rising another step) replaces it, so one rise makes one
+    /// scroll, not one per step (#162).
+    @State private var clearScroll: Task<Void, Never>?
     /// Screen points per page point: the card fills the screen less its
     /// insets (the visible frame is the card's row, insets included).
     private var pageScale: CGFloat { CanvasCard.pageScale(rowWidth: visibleFrame.width) }
@@ -381,9 +385,11 @@ struct CanvasBoardView: View {
         // Once the twin is laid out and the page has grown its room below
         // (writing has just begun): a scroll before that clamps short. The
         // caret is read then too, when the tap that placed it has landed.
-        Task { @MainActor in
+        clearScroll?.cancel()
+        clearScroll = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(120))
-            guard let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
+            guard !Task.isCancelled,
+                  let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
                   let toolsTop = textToolsTop, visibleFrame.height > 0 else { return }
             let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
             // The band is screen points; the block's height is the page's,
@@ -410,6 +416,7 @@ struct CanvasBoardView: View {
             scrollMemo.scrolledForWriting = true
             // The twin moves first, then the page scrolls to it.
             try? await Task.sleep(for: .milliseconds(20))
+            guard !Task.isCancelled else { return }
             TextOpenTiming.noteClearScroll()
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))

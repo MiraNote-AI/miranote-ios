@@ -168,6 +168,14 @@ median) / 2, rounded up to the next 50 ms: ______
 
 Mutation ledger:
 - Task 2: default beat back to 250 -> `testTextToolOpenLatency` FAILS (warm median 919 > 703); reverted -> PASS (636).
+- Task 4: `clearScroll?.cancel()` removed -> `testLowBlockScrollsClearOnce` FAILS (3 scrolls); restored -> PASS (1).
+
+Task 4 outcome: on a full page one open made 3 keep-clear scrolls (one per
+step of the tools' rise), each a 0.2 s ease-out restarted 140 ms after its
+step; now 1, same target. H5 refuted: 6 scene bodies per open, constant.
+Open item: `TextVisibilityUITests.testDoneScrollsThePageBackToWhereItWas`
+failed once on iPhone 17 Pro after the change (reopened block at 686 under
+the tools at 416); 0 of 12 repeats failed after, 0 of 12 before.
 
 ## Global Constraints
 

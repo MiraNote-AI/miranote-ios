@@ -150,6 +150,21 @@ final class TextToolLatencyUITests: XCTestCase {
         }
     }
 
+    // MARK: The page under the rising tools
+
+    /// On a full page the new block lands low and the page scrolls it
+    /// clear of the tools: one scroll, not one per step of the tools'
+    /// rise (three stacked scrolls read as a stutter).
+    func testLowBlockScrollsClearOnce() throws {
+        write("first line of the day")
+        write("second, a little longer than the first one")
+        write("third")
+        try openText()
+        sleep(1)
+        let open = textOpen(after: 4)
+        XCTAssertEqual(open["clearScrolls"] as? Int, 1, "\(open)")
+    }
+
     // MARK: Settled layout
 
     /// Frames recorded on dev 8adad30, iPhone 17, iOS 26.5, before any
