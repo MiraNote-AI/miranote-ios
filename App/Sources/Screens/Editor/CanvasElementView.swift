@@ -186,6 +186,10 @@ struct CanvasElementView: View {
 enum DarkKeyboard {
     @MainActor
     static func apply() {
+        #if DEBUG
+        // #162 A/B: the light keyboard, no swap.
+        if UserDefaults.standard.bool(forKey: "NO_DARK_KEYBOARD") { return }
+        #endif
         // After the focus change lands: the field is first responder then.
         DispatchQueue.main.async {
             guard let field = UIResponder.currentFirstResponder else { return }

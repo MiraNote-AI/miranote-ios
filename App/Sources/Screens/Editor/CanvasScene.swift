@@ -43,6 +43,9 @@ struct CanvasScene: View {
     /// The beat between tapping Text and the block appearing (screen 10):
     /// the Text tool shows active and the composer reads as text entry.
     @State var textModeArming = false
+    /// Bumped when the keyboard comes and goes outside a writing session,
+    /// so the page's hold under a leaving keyboard (`TextKeyboard`) is let go.
+    @State private var keyboardMoves = 0
     /// The dictation strip's press in progress.
     @State var dictationPress: (start: Date, wasLive: Bool)?
     @State var miraPrompt = ""
@@ -234,13 +237,32 @@ struct CanvasScene: View {
         .transition(.opacity)
     }
 
+    /// While words are written the page keeps its size and the keyboard
+    /// rides over the dock -- and after, until that keyboard is gone (#162:
+    /// the page used to shrink above the falling keyboard at once, then
+    /// grow back down with it).
+    private var holdsPageUnderKeyboard: Bool {
+        _ = keyboardMoves
+        return editor.editingTextItemID != nil || TextKeyboard.up
+    }
+
     /// The canvas with the text chrome floating over it.
     private var canvas: some View {
         ZStack(alignment: .bottom) {
             scaffold
                 // While words are written the page keeps its size and the
                 // keyboard rides over the dock, as drawn (screens 11-20).
-                .ignoresSafeArea(.keyboard, edges: editor.editingTextItemID != nil ? .bottom : [])
+                .ignoresSafeArea(.keyboard, edges: holdsPageUnderKeyboard ? .bottom : [])
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                    TextKeyboard.up = editor.editingTextItemID != nil
+                    // Never redraw the scene while words are written: that
+                    // writes the field's light keyboard back (#162).
+                    if editor.editingTextItemID == nil { keyboardMoves += 1 }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+                    TextKeyboard.up = false
+                    if editor.editingTextItemID == nil { keyboardMoves += 1 }
+                }
             // The text chrome floats over the page, on the keyboard.
             if editor.editingTextItemID != nil {
                 Group {
@@ -1512,3 +1534,11 @@ extension CanvasScene {
     }
 }
 #endif
+
+/// Whether the keyboard a writing session raised is still on screen. Not
+/// observed: kept off SwiftUI state so a keyboard event never redraws the
+/// scene mid-session.
+@MainActor
+enum TextKeyboard {
+    static var up = false
+}

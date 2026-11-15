@@ -164,6 +164,7 @@ struct CanvasBoardView: View {
             .onChange(of: textToolsTop) { keepWrittenBlockClear(proxy) }
             .onChange(of: editor.editingTextItemID) { old, id in
                 if old == nil, id != nil {
+                    TextOpenTiming.noteSessionBegan()
                     scrollMemo.beforeWriting = scrollMemo.offset
                     scrollMemo.cardHeight = visibleFrame.height
                 }
@@ -217,8 +218,14 @@ struct CanvasBoardView: View {
         .background(
             GeometryReader { geo in
                 Color.clear
-                    .onAppear { visibleFrame = geo.frame(in: .global) }
-                    .onChange(of: geo.frame(in: .global)) { _, frame in visibleFrame = frame }
+                    .onAppear {
+                        visibleFrame = geo.frame(in: .global)
+                        TextOpenTiming.noteCardHeight(visibleFrame.height, writing: writing)
+                    }
+                    .onChange(of: geo.frame(in: .global)) { _, frame in
+                        visibleFrame = frame
+                        TextOpenTiming.noteCardHeight(frame.height, writing: writing)
+                    }
             }
         )
         // Derived from the @GestureState, so a cancelled drag clears the
@@ -294,7 +301,7 @@ struct CanvasBoardView: View {
             // A blank page is just the page (handoff screen 04): the tools
             // and the composer below are the invitation.
             paper
-                .blur(radius: writing ? 4 : 0)
+                .blur(radius: writing ? Self.writingBlur : 0)
             if writing {
                 // Taps fall through to the paper, which ends editing.
                 Rectangle()
@@ -309,7 +316,7 @@ struct CanvasBoardView: View {
             ForEach(editor.orderedItems) { item in
                 let edited = editor.editingTextItemID == item.id
                 element(item)
-                    .blur(radius: writing && !edited ? 4 : 0)
+                    .blur(radius: writing && !edited ? Self.writingBlur : 0)
                     .zIndex(edited ? 2 : 0)
             }
             if let pendingSoundMarker {
@@ -364,6 +371,15 @@ struct CanvasBoardView: View {
             }
         )
     }
+
+    /// The frost over the page while words are written.
+    private static let writingBlur: CGFloat = {
+        #if DEBUG
+        // #162 A/B: the frost without its blur.
+        if UserDefaults.standard.bool(forKey: "NO_WRITING_BLUR") { return 0 }
+        #endif
+        return 4
+    }()
 
     /// At least the card's own height, so the page always fills the card;
     /// while writing, a card's height below the content, so the block being

@@ -151,6 +151,25 @@ final class TextToolLatencyUITests: XCTestCase {
         }
     }
 
+    // MARK: Leaving with nothing written
+
+    /// Text, nothing written, a tap on the bare page: the page holds still
+    /// while the keyboard goes. (It used to shrink above the falling
+    /// keyboard at once, then grow back down with it -- a jump.)
+    func testEmptyExitKeepsThePageStill() throws {
+        try openText()
+        sleep(1)
+        // Bare page above the new block.
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 200, dy: 160)).tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        sleep(1)
+        let state = canvasState()
+        XCTAssertEqual(state["writing"] as? String ?? "", "", "the session ended")
+        let shrink = (state["textOpen"] as? [String: Any])?["exitShrink"] as? Int
+        XCTAssertNotNil(shrink, "\(state["textOpen"] ?? "-")")
+        XCTAssertLessThanOrEqual(shrink ?? 999, 1, "the page shrank \(shrink ?? -1) pt as the keyboard left")
+    }
+
     // MARK: The page under the rising tools
 
     /// On a full page the new block lands low and the page scrolls it

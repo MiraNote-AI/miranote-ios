@@ -17,6 +17,10 @@ enum TextOpenTiming {
     private static var accessoryMs = -1
     private static var focusMs = -1
     private static var keyboardMs = -1
+    private static var willShowMs = -1
+    private static var riseMs = -1
+    private static var riseCurve = -1
+    private static var lateReloads = 0
     private static var keyboardShows = 0
     private static var clearScrolls = 0
     private static var opens = 0
@@ -32,6 +36,10 @@ enum TextOpenTiming {
         accessoryMs = -1
         focusMs = -1
         keyboardMs = -1
+        willShowMs = -1
+        riseMs = -1
+        riseCurve = -1
+        lateReloads = 0
         keyboardShows = 0
         clearScrolls = 0
     }
@@ -51,6 +59,8 @@ enum TextOpenTiming {
     /// DarkKeyboard swapped a keyboard that was already up.
     static func noteDarkReload() {
         darkReloads += 1
+        // After the rise began: the keyboard is swapped in plain sight.
+        if willShowMs >= 0 { lateReloads += 1 }
         signposter.emitEvent("darkReload")
     }
 
@@ -61,10 +71,34 @@ enum TextOpenTiming {
         signposter.emitEvent("clearScroll")
     }
 
+    // MARK: The page as a session ends
+
+    private static var cardHeight: CGFloat = 0
+    private static var exitFrom: CGFloat?
+    private static var exitShrink: CGFloat = 0
+
+    /// The card holding the page has this height now. Once the session
+    /// has ended (not writing) and until the keyboard is gone, how far it
+    /// is below its height when the session began (it should hold still).
+    static func noteCardHeight(_ height: CGFloat, writing: Bool) {
+        if let exitFrom, !writing { exitShrink = max(exitShrink, exitFrom - height) }
+        if exitFrom == nil { cardHeight = height }
+    }
+
+    /// A writing session began on a card of the last noted height.
+    static func noteSessionBegan() {
+        observeKeyboard()
+        exitFrom = cardHeight
+        exitShrink = 0
+    }
+
     static var snapshot: [String: Any] {
         ["opens": opens, "ms": keyboardMs, "accessoryMs": accessoryMs, "focusMs": focusMs,
-         "keyboardMs": keyboardMs, "keyboardShows": keyboardShows, "clearScrolls": clearScrolls,
-         "darkReloads": darkReloads, "darkArmed": false]
+         "keyboardMs": keyboardMs, "willShowMs": willShowMs, "riseMs": riseMs, "riseCurve": riseCurve,
+         "lateReloads": lateReloads,
+         "keyboardShows": keyboardShows, "clearScrolls": clearScrolls,
+         "darkReloads": darkReloads,
+         "exitShrink": Int(exitShrink.rounded())]
     }
 
     private static func elapsed() -> Int? {
@@ -76,15 +110,26 @@ enum TextOpenTiming {
         guard !observing else { return }
         observing = true
         let center = NotificationCenter.default
-        center.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { _ in
+        center.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { note in
+            // The system's own rise: how long, on which curve.
+            let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
+            let curve = note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int
             MainActor.assumeIsolated {
                 guard start != nil else { return }
                 keyboardShows += 1
+                if willShowMs < 0, let ms = elapsed() {
+                    willShowMs = ms
+                    riseMs = Int(((duration ?? -0.001) * 1000).rounded())
+                    riseCurve = curve ?? -1
+                }
                 signposter.emitEvent("keyboardWillShow")
             }
         }
         center.addObserver(forName: UIResponder.keyboardDidShowNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { keyboardLanded() }
+        }
+        center.addObserver(forName: UIResponder.keyboardDidHideNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { exitFrom = nil }
         }
     }
 
@@ -95,7 +140,8 @@ enum TextOpenTiming {
         if let interval { signposter.endInterval("TextOpen", interval) }
         interval = nil
         log.info("""
-            text open ms=\(ms) accessory=\(accessoryMs) focus=\(focusMs) \
+            text open ms=\(ms) accessory=\(accessoryMs) focus=\(focusMs) willShow=\(willShowMs) \
+            rise=\(riseMs) curve=\(riseCurve) \
             shows=\(keyboardShows) reloads=\(darkReloads) open=\(opens)
             """)
     }
