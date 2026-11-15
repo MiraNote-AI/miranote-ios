@@ -56,7 +56,7 @@ enum TextOpenTiming {
         signposter.emitEvent("focused")
     }
 
-    /// DarkKeyboard swapped a keyboard that was already up.
+    /// The keyboard was reloaded to swap its appearance.
     static func noteDarkReload() {
         darkReloads += 1
         // After the rise began: the keyboard is swapped in plain sight.

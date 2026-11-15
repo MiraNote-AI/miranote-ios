@@ -151,6 +151,42 @@ final class TextToolLatencyUITests: XCTestCase {
         }
     }
 
+    // MARK: The keyboard's color
+
+    /// How light the keyboard's key caps are once it has landed, 0-1: the
+    /// dark keyboard's caps are gray (about 0.4), the light one's white.
+    /// Sampled off the letter, a fifth in from the Q key's left edge.
+    private func keyCapLuminance() -> Double {
+        let key = app.keyboards.keys.matching(NSPredicate(format: "label ==[c] 'q'")).firstMatch
+        guard key.waitForExistence(timeout: 5),
+              let image = XCUIScreen.main.screenshot().image.cgImage else { return -1 }
+        let scale = Double(image.width) / Double(app.windows.firstMatch.frame.width)
+        let column = Int((key.frame.minX + key.frame.width * 0.2) * scale)
+        let row = Int((key.frame.minY + key.frame.height * 0.3) * scale)
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let context = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.draw(image, in: CGRect(x: -column, y: row - image.height + 1, width: image.width, height: image.height))
+        return (0.299 * Double(pixel[0]) + 0.587 * Double(pixel[1]) + 0.114 * Double(pixel[2])) / 255
+    }
+
+    /// The keyboard rises dark: never light first and swapped on the way
+    /// up (a swap mid-rise stalls or skips the rise -- up to 365 ms with no
+    /// frame on the iPhone 17 sim). No reload once it has started to rise.
+    func testKeyboardRisesDarkWithoutASwap() throws {
+        for open in 1...3 {
+            try openText()
+            let row = textOpen(after: open)
+            XCTAssertEqual(row["lateReloads"] as? Int, 0, "open \(open): swapped mid-rise: \(row)")
+            sleep(1)
+            let caps = keyCapLuminance()
+            XCTAssertGreaterThan(caps, 0, "open \(open): no Q key")
+            XCTAssertLessThan(caps, 0.6, "open \(open): the keyboard is light (caps \(caps))")
+            cancelText()
+        }
+    }
+
     // MARK: Leaving with nothing written
 
     /// Text, nothing written, a tap on the bare page: the page holds still
