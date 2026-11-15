@@ -102,10 +102,11 @@ final class TextToolLatencyUITests: XCTestCase {
         XCTAssertLessThanOrEqual(Self.median(warm), Self.warmCeilingMs, line)
     }
 
-    /// Warm opens on iPhone 17 simulators took a median 903 ms before the
-    /// fix (the 250 ms Text beat, then the keyboard). Provisional until the
-    /// after numbers exist: the before median less 200.
-    private static let warmCeilingMs = 703
+    /// Warm opens on iPhone 17 simulators: a median 903 ms before the fix
+    /// (the 250 ms Text beat, then the keyboard), 620 after. The ceiling is
+    /// halfway, rounded up to 50: a just-booted simulator ran 757, the beat
+    /// put back runs 919.
+    private static let warmCeilingMs = 800
 
     // MARK: Fast taps
 

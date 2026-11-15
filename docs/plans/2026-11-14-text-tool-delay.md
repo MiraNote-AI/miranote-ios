@@ -139,7 +139,14 @@ top 136 in 9 runs of 10 and at 253.4 once, before any change.
 | iPhone 17 sim | before | 1559 | 903 | 319 | 5 / 5 | 6 | 0 | - |
 | iPhone 17 Pro Max sim | before | 1419 | 902 | 314 | 5 / 5 | 6 | 0 | - |
 | phone (model?) | before | | | | | | | |
-| (same four rows) | after | | | | | | | |
+| iPhone SE (3rd gen) sim | after | 1440 | 587 | 43 | 5 / 5 | 6 | 0 | - |
+| iPhone 17 sim | after | 1228 | 620 | 45 | 5 / 5 | 6 | 0 | - |
+| iPhone 17 Pro Max sim | after | 1476 | 653 | 45 | 5 / 5 | 6 | 0 | - |
+| phone (model?) | after | | | | | | | |
+
+After rows: commit 8ca8c26, same method. The first run after switching
+simulators was slower on two devices (757 warm on iPhone 17 and on 17 Pro
+Max). On a full page (low block): clearScrolls 3 before, 1 after.
 
 Task 3 outcome (dropped, per its Step 3 rule): no way found to make the
 keyboard rise dark without the swap.
@@ -164,7 +171,7 @@ keyboard rise dark without the swap.
   fallback reload when willShow came first.
 
 Threshold T (iPhone 17 sim) = after median + (before median - after
-median) / 2, rounded up to the next 50 ms: ______
+median) / 2, rounded up to the next 50 ms: 620 + 141.5 = 761.5 -> **800**.
 
 Mutation ledger:
 - Task 2: default beat back to 250 -> `testTextToolOpenLatency` FAILS (warm median 919 > 703); reverted -> PASS (636).
