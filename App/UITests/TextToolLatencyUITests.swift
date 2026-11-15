@@ -99,6 +99,55 @@ final class TextToolLatencyUITests: XCTestCase {
         attachment.name = "text-open-ms"
         attachment.lifetime = .keepAlways
         add(attachment)
+        XCTAssertLessThanOrEqual(Self.median(warm), Self.warmCeilingMs, line)
+    }
+
+    /// Warm opens on iPhone 17 simulators took a median 903 ms before the
+    /// fix (the 250 ms Text beat, then the keyboard). Provisional until the
+    /// after numbers exist: the before median less 200.
+    private static let warmCeilingMs = 703
+
+    // MARK: Fast taps
+
+    /// A double tap on Text: one block, one session, and the words land.
+    func testDoubleTapOnTextOpensOneSession() {
+        app.buttons["mode.text"].doubleTap()
+        let field = any("canvas.textEditor")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("one")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "one").count
+                       + app.staticTexts.matching(NSPredicate(format: "label == 'one'")).count > 0, true)
+        let texts = (canvasState()["elements"] as? [[String: Any]] ?? []).filter { $0["kind"] as? String == "text" }
+        XCTAssertEqual(texts.count, 1, "\(texts)")
+        XCTAssertEqual(texts.first?["text"] as? String, "one")
+    }
+
+    /// Text, then Sticker as fast as a finger goes: wherever the second tap
+    /// lands, no empty block is left behind on the page.
+    func testTextThenStickerLeavesNoEmptyBlock() {
+        // Where Sticker sits now, as a screen point: the tool bar may be
+        // gone by the time the second tap lands.
+        let frame = app.buttons["mode.sticker"].frame
+        let sticker = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.midX, dy: frame.midY))
+        app.buttons["mode.text"].tap()
+        sticker.tap()
+        sleep(2)
+        if app.buttons["sticker.tab.make"].exists {
+            app.buttons["nav.leading"].tap()
+            XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+            sleep(1)
+        }
+        let state = canvasState()
+        let writing = state["writing"] as? String ?? ""
+        let texts = (state["elements"] as? [[String: Any]] ?? []).filter { $0["kind"] as? String == "text" }
+        if writing.isEmpty {
+            XCTAssertTrue(texts.isEmpty, "an empty block outlived its session: \(texts)")
+        } else {
+            XCTAssertEqual(texts.count, 1, "one session, one block: \(texts)")
+        }
     }
 
     // MARK: Settled layout

@@ -144,7 +144,8 @@ top 136 in 9 runs of 10 and at 253.4 once, before any change.
 Threshold T (iPhone 17 sim) = after median + (before median - after
 median) / 2, rounded up to the next 50 ms: ______
 
-Mutation ledger: ______
+Mutation ledger:
+- Task 2: default beat back to 250 -> `testTextToolOpenLatency` FAILS (warm median 919 > 703); reverted -> PASS (636).
 
 ## Global Constraints
 
