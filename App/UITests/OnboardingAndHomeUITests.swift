@@ -92,6 +92,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         waitUntilGone(intro)
         XCTAssertTrue(app.descendants(matching: .any)["canvas.textEditor"].waitForExistence(timeout: 5),
                       "the Text tool opened")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "the new block took focus")
     }
 
     /// The card by id, whatever element type its modal trait gives it.
