@@ -141,6 +141,28 @@ top 136 in 9 runs of 10 and at 253.4 once, before any change.
 | phone (model?) | before | | | | | | | |
 | (same four rows) | after | | | | | | | |
 
+Task 3 outcome (dropped, per its Step 3 rule): no way found to make the
+keyboard rise dark without the swap.
+- Appearance proxy (`UITextView.appearance().keyboardAppearance`): crashes.
+  `keyboardAppearance` is not an appearance property; UIKit throws when it
+  applies the proxy as SwiftUI adds the field to the window
+  (`_UIAppearance _applyInvocationsTo` -> `objc_exception_throw`).
+- Set `.dark` in `textDidBeginEditing`: it takes (read back 1), but SwiftUI
+  writes `.default` back on the field (`VerticalTextView`, a `UITextView`)
+  in the same update; it is 0 again one main-queue turn later.
+- `.environment(\.colorScheme, .dark)` on the field: no effect on the trait.
+- Cost of the swap, measured: with `apply()` removed entirely (light
+  keyboard), warm medians 675 / 609 / 605 ms against 636 / 620 ms with it on
+  the iPhone 17 sim -- within noise. The ~500 ms from focus to
+  keyboardDidShow is the system rise itself. Whether the swap causes a
+  hitch only a phone can show (Instruments, `darkReload` signpost event).
+- Untested lead, for a follow-up only if the phone shows a hitch at
+  `darkReload`: one main-queue turn after `textDidBeginEditing`, SwiftUI
+  has finished and `keyboardWillShow` has not fired yet (trace:
+  begin, set=1, nextTurn=0, willShow, apply); setting `.dark` there without
+  a reload could beat the rise. It races the keyboard, so it needs a
+  fallback reload when willShow came first.
+
 Threshold T (iPhone 17 sim) = after median + (before median - after
 median) / 2, rounded up to the next 50 ms: ______
 
