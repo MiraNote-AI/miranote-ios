@@ -410,6 +410,7 @@ struct CanvasBoardView: View {
             scrollMemo.scrolledForWriting = true
             // The twin moves first, then the page scrolls to it.
             try? await Task.sleep(for: .milliseconds(20))
+            TextOpenTiming.noteClearScroll()
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))
             }

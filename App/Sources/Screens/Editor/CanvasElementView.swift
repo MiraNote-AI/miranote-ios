@@ -86,7 +86,10 @@ struct CanvasElementView: View {
                 .multilineTextAlignment(block.alignment.textAlignment)
                 .focused(textFocus, equals: item.id)
                 .onChange(of: textFocus.wrappedValue == item.id, initial: true) { _, focused in
-                    if focused { DarkKeyboard.apply() }
+                    if focused {
+                        TextOpenTiming.markFocused()
+                        DarkKeyboard.apply()
+                    }
                 }
                 .accessibilityIdentifier("canvas.textEditor")
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: block.alignment.frameAlignment)
@@ -189,9 +192,11 @@ enum DarkKeyboard {
             if let textView = field as? UITextView, textView.keyboardAppearance != .dark {
                 textView.keyboardAppearance = .dark
                 textView.reloadInputViews()
+                TextOpenTiming.noteDarkReload()
             } else if let textField = field as? UITextField, textField.keyboardAppearance != .dark {
                 textField.keyboardAppearance = .dark
                 textField.reloadInputViews()
+                TextOpenTiming.noteDarkReload()
             }
         }
     }

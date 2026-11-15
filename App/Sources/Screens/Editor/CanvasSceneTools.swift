@@ -171,6 +171,7 @@ extension CanvasScene {
         // 4 above the keyboard.
         .padding(.bottom, 4)
         .animation(.easeOut(duration: 0.15), value: textTool)
+        .onAppear { TextOpenTiming.markAccessoryShown() }
     }
 
     /// The strip's line when it is not at rest: a new take listening while

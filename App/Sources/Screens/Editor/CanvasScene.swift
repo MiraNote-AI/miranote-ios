@@ -799,6 +799,7 @@ struct CanvasScene: View {
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
             guard !textModeArming else { return }
+            TextOpenTiming.begin()
             armTextMode()
         case .voice:
             // The tool arms the recorder; only the Record button goes live.
@@ -1491,7 +1492,8 @@ extension CanvasScene {
             "backdropDescribes": editor.memory.backgroundSummary,
             "pageColor": editor.memory.pageColorName,
             "paper": editor.memory.paper.rawValue,
-            "elements": editor.items.map(Self.debugElement)
+            "elements": editor.items.map(Self.debugElement),
+            "textOpen": TextOpenTiming.snapshot
         ]
     }
 
