@@ -113,7 +113,7 @@ final class TextToolLatencyUITests: XCTestCase {
     func testDoubleTapOnTextOpensOneSession() {
         app.buttons["mode.text"].doubleTap()
         let field = any("canvas.textEditor")
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "no writing session: \(canvasState())")
         field.typeText("one")
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
