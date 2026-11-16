@@ -184,6 +184,43 @@ Open item: `TextVisibilityUITests.testDoneScrollsThePageBackToWhereItWas`
 failed once on iPhone 17 Pro after the change (reopened block at 686 under
 the tools at 416); 0 of 12 repeats failed after, 0 of 12 before.
 
+## Rounds 2-5: the owner's simulator review
+
+The owner watched each round in the Simulator and on 1/4-speed films
+(`simctl io recordVideo`, scenes in `TextMotionRecordingUITests`). The
+gate was the look: nothing splits, flashes or jumps; the settled UI is
+unchanged.
+
+- Round 2 (b76d3f6): an empty exit shrank the page above the falling
+  keyboard (301 pt on iPhone 17) and grew it back. The page now keeps
+  its height until `keyboardDidHide`; the flag is off SwiftUI state.
+- Round 3 (81fc691): the Task 3 outcome above is superseded. The field
+  asks SwiftUI for the dark color scheme (as the Mira chat field does),
+  so the keyboard rises dark from its first frame and is never reloaded.
+  Filmed before: 5 of 12 opens froze 80-365 ms mid-rise at the swap.
+- Round 4 (44490a9): the tools showed ~140 ms before the keyboard. They
+  now show in the `keyboardWillShow` frame (8 of 8) and ride up with it.
+  The font row (a UIKit-backed scroll view that ignores SwiftUI offsets)
+  rides as a static copy of its chips, offset to where the real row
+  scrolls (pixel rounded), and hands over on `keyboardDidShow`.
+  Film: font row and tool bar 0-1 pt apart on every frame; no chip
+  shift at the hand-over. Accepted: a 1 px glyph nudge for one frame at
+  the hand-over; the ~20 pt gap above the keyboard early in the rise
+  (as before).
+- Round 5 (c0ee30c): after Done the page went back in steps (probe:
+  dropped 691 -> 483 as the writing room went, still 178 ms, then
+  scrolled to 242). It now keeps the room until one 0.35 s slide lands
+  (probe: one move, 75 -> 410 ms, 6 of 6; film: 1 phase against 2 on
+  dev).
+
+Deferred (minor, from the branch review):
+- M1: `TextKeyboard.up` can go stale on a reopen during the keyboard's
+  fall.
+- M2: `noteDarkReload` has no caller since round 3.
+- M6: the probe's `textToolsTop` reads 34 pt low while the tools wait
+  hidden.
+- M8: the `TextOpenTiming` probes are not DEBUG-gated.
+
 ## Global Constraints
 
 - Committed text is ASCII only (org rule 3): code, comments, this doc, PR text.
