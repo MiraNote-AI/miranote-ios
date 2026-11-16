@@ -84,6 +84,10 @@ struct CanvasBoardView: View {
     /// Where the page stood before the writing scrolled it; while the
     /// scroll back is in flight, the spot to scroll the page's top to.
     @State private var restoreAnchor: CGPoint?
+    /// The page keeps the room it grew for the writing until the scroll
+    /// back has landed: given back at once, it would clamp the page down
+    /// first, ahead of that scroll (#162).
+    @State private var keepsWritingRoom = false
     @State private var scrollMemo = ScrollMemo()
     /// The page is back where it stood (`scrollMemory`): from here on its
     /// scroll is the one to keep.
@@ -147,6 +151,7 @@ struct CanvasBoardView: View {
                         $0.frame(in: .named(Self.scrollSpace)).minY
                     } action: {
                         scrollMemo.offset = -$0
+                        TextOpenTiming.notePageOffset(-$0)
                         if resumed { scrollMemory.offset = max(0, -$0 / pageScale) }
                     }
             }
@@ -169,6 +174,7 @@ struct CanvasBoardView: View {
                     scrollMemo.cardHeight = visibleFrame.height
                 }
                 if id == nil {
+                    TextOpenTiming.noteSessionEnded(offset: scrollMemo.offset)
                     // The flag is cleared only here: the written block's
                     // first frame can land (and set it) before this handler
                     // sees the session start.
@@ -387,7 +393,7 @@ struct CanvasBoardView: View {
     private var boardHeight: CGFloat {
         let cardHeight = visibleFrame.height / pageScale
         return max(minBoardHeight, cardHeight,
-                   editor.contentBottom + (writing ? max(240, cardHeight) : 240))
+                   editor.contentBottom + (writing || keepsWritingRoom ? max(240, cardHeight) : 240))
     }
 
     /// Keeps the block being written between the card's top and the text
@@ -457,17 +463,19 @@ struct CanvasBoardView: View {
         // The offsets are screen points; the anchor sits on the page, which
         // the card shows scaled.
         restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target) / pageScale)
-        // Once the keyboard is down and the page has given back the room
-        // it grew for the writing (its 0.2 s shrink in flight cut the
-        // scroll 50 pt short).
+        // One slide, as the keyboard falls, on a page that keeps its room
+        // till it lands; the room then goes, off screen below.
+        keepsWritingRoom = true
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(350))
+            // The anchor lands first, then the page scrolls to it.
+            try? await Task.sleep(for: .milliseconds(20))
             if editor.editingTextItemID == nil {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(.easeOut(duration: 0.35)) {
                     proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
                 }
-                try? await Task.sleep(for: .milliseconds(300))
+                try? await Task.sleep(for: .milliseconds(400))
             }
+            keepsWritingRoom = false
             restoreAnchor = nil
         }
     }

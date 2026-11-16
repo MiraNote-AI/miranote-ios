@@ -181,6 +181,40 @@ final class TextVisibilityUITests: XCTestCase {
         XCTAssertEqual(photo.frame.minY, before, accuracy: 2, "Done scrolls the page back to where it was")
     }
 
+    /// #162, owner: after Done the page went back in steps -- down with the
+    /// keyboard, a beat still, then the rest. It slides back in one move,
+    /// begun at once, for a new block below the fold and for one opened
+    /// again in view.
+    func testDonePutsThePageBackInOneSlide() {
+        fillThePage()
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lunch by the river")
+        assertClearOfTheTools("a new block")
+        app.buttons["keyboard.done"].tap()
+        assertOneSlideBack("a new block")
+
+        let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'lunch by the river'")).firstMatch
+        block.tap()
+        if !field.exists { block.tap() }
+        assertClearOfTheTools("the block opened again")
+        app.buttons["keyboard.done"].tap()
+        assertOneSlideBack("the block opened again")
+    }
+
+    private func assertOneSlideBack(_ when: String) {
+        Thread.sleep(forTimeInterval: 1.6)
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        let state = (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8)) as? [String: Any]) ?? [:]
+        let exit = state["textOpen"] as? [String: Any] ?? [:]
+        let trace = exit["exitTrace"] as? String ?? ""
+        XCTAssertEqual(exit["exitMoves"] as? Int, 1, "\(when): the page goes back in one move (ms:offset \(trace))")
+        XCTAssertLessThanOrEqual(exit["exitLandMs"] as? Int ?? .max, 600,
+                                 "\(when): and is back soon (ms:offset \(trace))")
+    }
+
     /// The text rows and the custom color sheet used along the way (the
     /// sheet lowers the keyboard and the tools move): Done still scrolls
     /// the page back.

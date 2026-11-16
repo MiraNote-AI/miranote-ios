@@ -101,6 +101,39 @@ enum TextOpenTiming {
         exitShrink = 0
     }
 
+    // MARK: The page's way back after a session
+
+    private static var endedAt: CFTimeInterval?
+    private static var lastOffset: CGFloat?
+    private static var lastMoveAt: CFTimeInterval?
+    private static var exitMoves = 0
+    private static var exitLandMs = -1
+    private static var exitTrace: [String] = []
+
+    /// A writing session ended at this scroll offset.
+    static func noteSessionEnded(offset: CGFloat) {
+        endedAt = CACurrentMediaTime()
+        lastOffset = offset
+        lastMoveAt = nil
+        exitMoves = 0
+        exitLandMs = -1
+        exitTrace = []
+    }
+
+    /// The page stands at this scroll offset now. For 1.5 s after a
+    /// session ends: how many separate moves it makes (a still beat of
+    /// 80 ms or more parts two), and when it last moved.
+    static func notePageOffset(_ offset: CGFloat) {
+        guard let endedAt, let lastOffset, abs(offset - lastOffset) > 0.25 else { return }
+        let now = CACurrentMediaTime()
+        guard now - endedAt < 1.5 else { return }
+        if lastMoveAt.map({ now - $0 >= 0.08 }) ?? true { exitMoves += 1 }
+        lastMoveAt = now
+        self.lastOffset = offset
+        exitLandMs = Int(((now - endedAt) * 1000).rounded())
+        exitTrace.append("\(exitLandMs):\(Int(offset.rounded()))")
+    }
+
     static var snapshot: [String: Any] {
         ["opens": opens, "ms": keyboardMs, "accessoryMs": accessoryMs, "toolsVisibleMs": toolsVisibleMs,
          "focusMs": focusMs,
@@ -108,7 +141,8 @@ enum TextOpenTiming {
          "lateReloads": lateReloads,
          "keyboardShows": keyboardShows, "clearScrolls": clearScrolls,
          "darkReloads": darkReloads,
-         "exitShrink": Int(exitShrink.rounded())]
+         "exitShrink": Int(exitShrink.rounded()),
+         "exitMoves": exitMoves, "exitLandMs": exitLandMs, "exitTrace": exitTrace.joined(separator: " ")]
     }
 
     private static func elapsed() -> Int? {

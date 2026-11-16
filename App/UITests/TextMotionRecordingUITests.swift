@@ -117,6 +117,37 @@ final class TextMotionRecordingUITests: XCTestCase {
                            withVelocity: 300, thenHoldForDuration: 0.1)
                 sleep(2)
             }
+        case "done-back":
+            // A block low on a full page scrolls it up; Done takes it back.
+            launchCanvas()
+            app.buttons["mode.image"].tap()
+            app.buttons["image.library.open"].tap()
+            let first = app.descendants(matching: .any).matching(identifier: "image.library.photo.0").firstMatch
+            XCTAssertTrue(first.waitForExistence(timeout: 5))
+            for index in 0..<3 {
+                app.descendants(matching: .any).matching(identifier: "image.library.photo.\(index)").firstMatch.tap()
+            }
+            app.buttons["image.composer.add"].tap()
+            app.buttons["nav.trailing"].tap()
+            XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+            app.buttons["mode.text"].tap()
+            let field = app.descendants(matching: .any).matching(identifier: "canvas.textEditor").firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            field.typeText("lunch by the river")
+            sleep(2)
+            mark("done-back-new")
+            app.buttons["keyboard.done"].tap()
+            sleep(2)
+            let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'lunch by the river'")).firstMatch
+            let rounds = Int(ProcessInfo.processInfo.environment["REC_ROUNDS"] ?? "") ?? 3
+            for round in 1...rounds {
+                block.tap()
+                if !field.waitForExistence(timeout: 2) { block.tap() }
+                sleep(2)
+                mark("done-back-\(round)")
+                app.buttons["keyboard.done"].tap()
+                sleep(2)
+            }
         case "mira-open":
             // The Mira chat field's keyboard, to compare with Text's.
             launchCanvas()
