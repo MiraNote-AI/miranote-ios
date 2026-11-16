@@ -237,6 +237,8 @@ struct RecentsSheet: View {
 
     @State private var systemPicks: [PhotosPickerItem] = []
     @State private var gridWidth: CGFloat = 298
+    /// A photo is being carried: the grid holds still under it.
+    @State private var carrying = false
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
     var body: some View {
@@ -275,7 +277,14 @@ struct RecentsSheet: View {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(Array(library.photos.enumerated()), id: \.element) { index, photo in
                     RecentCell(library: library, photo: photo, order: order(of: photo),
-                               onTap: { toggle(photo) }, onDrag: onDrag, onDrop: onDrop)
+                               onTap: { toggle(photo) },
+                               onDrag: { drag in
+                                   carrying = drag != nil
+                                   onDrag(drag)
+                               },
+                               onDrop: onDrop)
+                        // The last row in view: the next page.
+                        .onAppear { if index >= library.photos.count - 3 { library.loadMore() } }
                         .accessibilityElement()
                         .accessibilityAddTraits(.isButton)
                         .accessibilityAddTraits(order(of: photo) != nil ? .isSelected : [])
@@ -284,6 +293,7 @@ struct RecentsSheet: View {
                 }
             }
         }
+        .scrollDisabled(carrying)
         // Three full rows show, as drawn (284 on the design's 298-wide grid).
         .frame(height: 3 * ((gridWidth - 20) / 3 * 88 / 92) + 20)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
@@ -388,9 +398,9 @@ private struct RecentCell: View {
     var onDrop: (PhotoDrag) -> Void
 
     @State private var image: UIImage?
-    /// Resets on a cancel too (Recents closing mid-carry), where `onEnded`
-    /// never runs.
-    @GestureState private var lifted = false
+    /// Cleared on a cancel too, and when Recents closes mid-carry, where
+    /// the recognizer may never end.
+    @State private var lifted = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.imageCorner)
@@ -420,27 +430,89 @@ private struct RecentCell: View {
             .contentShape(shape)
             .opacity(lifted ? 0.4 : 1)
             // A tap picks the photo; a long-press lifts it out of the grid.
-            .onTapGesture(perform: onTap)
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.35)
-                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-                    .updating($lifted) { value, state, _ in
-                        if case .second(true, _) = value { state = true }
+            // UIKit recognizers, so a swipe that starts on a photo still
+            // scrolls the grid (#203).
+            .overlay {
+                CellPressRecognizer(
+                    onTap: onTap,
+                    onLift: { point in
+                        lifted = true
+                        onDrag(PhotoDrag(photo: photo, thumb: image, point: point))
+                    },
+                    onMove: { point in
+                        guard lifted else { return }
+                        onDrag(PhotoDrag(photo: photo, thumb: image, point: point))
+                    },
+                    onEnd: { point in
+                        guard lifted else { return }
+                        if let point { onDrop(PhotoDrag(photo: photo, thumb: image, point: point)) }
+                        lifted = false
                     }
-                    .onChanged { value in
-                        guard case .second(true, let drag?) = value else { return }
-                        onDrag(PhotoDrag(photo: photo, thumb: image, point: drag.location))
-                    }
-                    .onEnded { value in
-                        guard case .second(true, let drag?) = value else { return }
-                        onDrop(PhotoDrag(photo: photo, thumb: image, point: drag.location))
-                    }
-            )
+                )
+            }
+            .accessibilityAction { onTap() }
             .onChange(of: lifted) { _, now in
                 if !now { onDrag(nil) }
             }
+            .onDisappear {
+                if lifted {
+                    lifted = false
+                    onDrag(nil)
+                }
+            }
             .sensoryFeedback(.impact(weight: .light), trigger: lifted) { _, new in new }
             .task(id: photo) { image = await library.thumbnail(photo, side: 92) }
+    }
+}
+
+/// A Recents cell's tap and long-press as UIKit recognizers: unlike a
+/// SwiftUI long-press -> drag sequence, they give way to the grid's scroll
+/// when the finger moves before the press fires. Points are in the window
+/// (`.global`).
+private struct CellPressRecognizer: UIViewRepresentable {
+    var onTap: () -> Void
+    var onLift: (CGPoint) -> Void
+    var onMove: (CGPoint) -> Void
+    /// Where it was let go; nil when the press was cancelled.
+    var onEnd: (CGPoint?) -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.addGestureRecognizer(UITapGestureRecognizer(
+            target: context.coordinator, action: #selector(Coordinator.tapped)))
+        let press = UILongPressGestureRecognizer(
+            target: context.coordinator, action: #selector(Coordinator.pressed(_:)))
+        press.minimumPressDuration = 0.35
+        view.addGestureRecognizer(press)
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        context.coordinator.parent = self
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    final class Coordinator: NSObject {
+        var parent: CellPressRecognizer
+
+        init(parent: CellPressRecognizer) {
+            self.parent = parent
+        }
+
+        @objc func tapped() { parent.onTap() }
+
+        @objc func pressed(_ press: UILongPressGestureRecognizer) {
+            let point = press.location(in: nil)
+            switch press.state {
+            case .began: parent.onLift(point)
+            case .changed: parent.onMove(point)
+            case .ended: parent.onEnd(point)
+            case .cancelled, .failed: parent.onEnd(nil)
+            default: break
+            }
+        }
     }
 }
 

@@ -3,7 +3,7 @@ import XCTest
 /// The Image tool in place over the canvas (handoff screens 23-26, 29):
 /// Choose photos, the Recents grid with ordered picks, Add that stays in
 /// Image mode, Cancel that takes the visit's photos back, and "Editing"
-/// for a single pick. -UITEST reads nine painted samples instead of the
+/// for a single pick. -UITEST reads 120 painted samples instead of the
 /// photo library.
 final class ImageToolUITests: XCTestCase {
     private var app: XCUIApplication!
