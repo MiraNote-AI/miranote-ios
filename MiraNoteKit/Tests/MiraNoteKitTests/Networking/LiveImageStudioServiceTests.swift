@@ -118,6 +118,27 @@ final class LiveImageStudioServiceTests: XCTestCase {
         }
     }
 
+    /// The image service answers 504 when a generation runs past its own time
+    /// budget; whatever the body (Cloudflare may replace it), the tester is
+    /// told the picture took too long, not a status number.
+    func testGenerateOutOfTimeSaysThePictureTookTooLong() async {
+        StubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 504, httpVersion: nil, headerFields: nil
+            )!
+            return (response, Data(#"{"detail": "that picture took too long; try again"}"#.utf8))
+        }
+        do {
+            _ = try await makeService().generate(kind: .sticker, prompt: "a cat")
+            XCTFail("a 504 must not decode as images")
+        } catch {
+            XCTAssertEqual(error as? GenerationTimeoutError, GenerationTimeoutError())
+            let text = (error as? LocalizedError)?.errorDescription ?? ""
+            XCTAssertTrue(text.contains("picture"), text)
+            XCTAssertFalse(text.contains("504"), text)
+        }
+    }
+
     private func stylizeError(status: Int, body: String) async -> Error? {
         StubURLProtocol.handler = { request in
             let response = HTTPURLResponse(

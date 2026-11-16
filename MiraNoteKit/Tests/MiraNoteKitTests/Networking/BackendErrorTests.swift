@@ -1,10 +1,10 @@
 import XCTest
 @testable import MiraNoteKit
 
-/// Six distinguishable failures, each needing a different action from the
+/// Distinguishable failures, each needing a different action from the
 /// tester. Without this every one of them reads "The server returned an error
-/// (status N)", and ten non-technical testers report all six as "the app is
-/// broken".
+/// (status N)", and ten non-technical testers report all of them as "the app
+/// is broken".
 final class BackendErrorTests: XCTestCase {
     private func message(_ error: BackendError) -> String {
         error.errorDescription ?? ""
@@ -16,6 +16,7 @@ final class BackendErrorTests: XCTestCase {
             429: message(.server(status: 429, detail: nil)),
             502: message(.server(status: 502, detail: nil)),
             503: message(.server(status: 503, detail: nil)),
+            504: message(.server(status: 504, detail: nil)),
             530: message(.server(status: 530, detail: nil))
         ]
     }
@@ -59,6 +60,18 @@ final class BackendErrorTests: XCTestCase {
     /// the messages must not suggest the same cause.
     func testRateLimitAndProviderQuotaAreNotConfused() {
         XCTAssertNotEqual(mapped[429], mapped[503])
+    }
+
+    /// A service answers 504 when a request runs out of its own time budget.
+    /// The table serves every endpoint, so the words must not name one:
+    /// /generate says "picture" itself (GenerationTimeoutError).
+    func testServerTimeoutInvitesARetryWithoutNamingAnEndpoint() {
+        let text = message(.server(status: 504, detail: nil)).lowercased()
+        XCTAssertTrue(
+            text.contains("again") || text.contains("retry"),
+            "a server-side timeout should invite a retry: \(text)"
+        )
+        XCTAssertFalse(text.contains("picture"), "shared by every endpoint: \(text)")
     }
 
     func testTimeoutInvitesOneManualRetry() {
