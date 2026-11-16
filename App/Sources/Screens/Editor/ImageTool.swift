@@ -279,13 +279,15 @@ struct RecentsSheet: View {
                     RecentCell(library: library, photo: photo, order: order(of: photo),
                                onTap: { toggle(photo) },
                                onDrag: { drag in
-                                   carrying = drag != nil
+                                   if carrying != (drag != nil) { carrying = drag != nil }
                                    onDrag(drag)
                                },
                                onDrop: onDrop)
                         // The last row in view: the next page.
                         .onAppear { if index >= library.photos.count - 3 { library.loadMore() } }
                         .accessibilityElement()
+                        // The tap is a UIKit recognizer the element hides.
+                        .accessibilityAction { toggle(photo) }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityAddTraits(order(of: photo) != nil ? .isSelected : [])
                         .accessibilityLabel("Photo \(index + 1)")
@@ -450,7 +452,6 @@ private struct RecentCell: View {
                     }
                 )
             }
-            .accessibilityAction { onTap() }
             .onChange(of: lifted) { _, now in
                 if !now { onDrag(nil) }
             }
@@ -479,8 +480,9 @@ private struct CellPressRecognizer: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
         view.backgroundColor = .clear
-        view.addGestureRecognizer(UITapGestureRecognizer(
-            target: context.coordinator, action: #selector(Coordinator.tapped)))
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped))
+        tap.delegate = context.coordinator
+        view.addGestureRecognizer(tap)
         let press = UILongPressGestureRecognizer(
             target: context.coordinator, action: #selector(Coordinator.pressed(_:)))
         press.minimumPressDuration = 0.35
@@ -494,11 +496,21 @@ private struct CellPressRecognizer: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: CellPressRecognizer
 
         init(parent: CellPressRecognizer) {
             self.parent = parent
+        }
+
+        /// A tap that stops a moving grid only stops it: it picks nothing.
+        /// Asked at touch-down; by the tap's end the touch has already
+        /// stopped the grid.
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var view = recognizer.view?.superview
+            while let current = view, !(current is UIScrollView) { view = current.superview }
+            guard let scroll = view as? UIScrollView else { return true }
+            return !scroll.isDecelerating && !scroll.isDragging
         }
 
         @objc func tapped() { parent.onTap() }

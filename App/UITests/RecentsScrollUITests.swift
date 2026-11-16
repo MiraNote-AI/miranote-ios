@@ -69,6 +69,7 @@ final class RecentsScrollUITests: XCTestCase {
         XCTAssertTrue(!cell(0).exists || cell(0).frame.minY < top - row,
                       "the grid moved up by more than a row")
         XCTAssertEqual(photos.count, 0, "a swipe places nothing")
+        XCTAssertFalse(cell(4).exists && cell(4).isSelected, "a swipe picks nothing")
         XCTAssertEqual(canvasState()["photoDragging"] as? Bool, false, "a swipe carries nothing")
     }
 
