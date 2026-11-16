@@ -194,6 +194,7 @@ extension CanvasScene {
             FontChipRow(
                 fontName: block?.fontName ?? "",
                 pointSize: block?.pointSize ?? TextFace.newBlockSize,
+                riding: textToolsRiding,
                 onFont: { name in
                     guard let id = editor.editingTextItemID else { return }
                     editor.setTextFont(itemID: id, to: name)

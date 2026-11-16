@@ -15,6 +15,7 @@ enum TextOpenTiming {
     private static var start: CFTimeInterval?
     private static var interval: OSSignpostIntervalState?
     private static var accessoryMs = -1
+    private static var toolsVisibleMs = -1
     private static var focusMs = -1
     private static var keyboardMs = -1
     private static var willShowMs = -1
@@ -34,6 +35,7 @@ enum TextOpenTiming {
         start = CACurrentMediaTime()
         interval = signposter.beginAnimationInterval("TextOpen")
         accessoryMs = -1
+        toolsVisibleMs = -1
         focusMs = -1
         keyboardMs = -1
         willShowMs = -1
@@ -48,6 +50,13 @@ enum TextOpenTiming {
         guard accessoryMs < 0, let ms = elapsed() else { return }
         accessoryMs = ms
         signposter.emitEvent("accessory")
+    }
+
+    /// The tools can be seen (and tapped).
+    static func markToolsVisible() {
+        guard toolsVisibleMs < 0, let ms = elapsed() else { return }
+        toolsVisibleMs = ms
+        signposter.emitEvent("toolsVisible")
     }
 
     static func markFocused() {
@@ -93,7 +102,8 @@ enum TextOpenTiming {
     }
 
     static var snapshot: [String: Any] {
-        ["opens": opens, "ms": keyboardMs, "accessoryMs": accessoryMs, "focusMs": focusMs,
+        ["opens": opens, "ms": keyboardMs, "accessoryMs": accessoryMs, "toolsVisibleMs": toolsVisibleMs,
+         "focusMs": focusMs,
          "keyboardMs": keyboardMs, "willShowMs": willShowMs, "riseMs": riseMs, "riseCurve": riseCurve,
          "lateReloads": lateReloads,
          "keyboardShows": keyboardShows, "clearScrolls": clearScrolls,

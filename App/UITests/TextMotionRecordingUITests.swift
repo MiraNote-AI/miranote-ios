@@ -71,6 +71,67 @@ final class TextMotionRecordingUITests: XCTestCase {
             write("third")
             sleep(2)
             filmOpens("open-full")
+        case "open-font":
+            // A block set in a later face, so the font row opens scrolled.
+            launchCanvas()
+            app.buttons["mode.text"].tap()
+            let field = app.descendants(matching: .any).matching(identifier: "canvas.textEditor").firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            app.buttons["style.font.Didot"].tap()
+            field.typeText("set in didot")
+            app.buttons["keyboard.done"].tap()
+            let block = app.staticTexts["set in didot"]
+            XCTAssertTrue(block.waitForExistence(timeout: 5))
+            sleep(2)
+            let rounds = Int(ProcessInfo.processInfo.environment["REC_ROUNDS"] ?? "") ?? 3
+            for round in 1...rounds {
+                mark("open-font-\(round)")
+                // Done leaves the block selected: one tap writes again.
+                block.tap()
+                sleep(2)
+                let state = probe()
+                if let range = state.range(of: "\"textOpen\":\\{[^}]*\\}", options: .regularExpression) {
+                    print("REC-PROBE open-font-\(round) \(state[range])")
+                }
+                app.buttons["keyboard.done"].tap()
+                sleep(2)
+            }
+        case "done-scroll":
+            // Words, Done, then the page dragged up and back at once.
+            launchCanvas()
+            let rounds = Int(ProcessInfo.processInfo.environment["REC_ROUNDS"] ?? "") ?? 3
+            for round in 1...rounds {
+                app.buttons["mode.text"].tap()
+                let field = app.descendants(matching: .any).matching(identifier: "canvas.textEditor").firstMatch
+                XCTAssertTrue(field.waitForExistence(timeout: 5))
+                field.typeText("line \(round)")
+                mark("done-scroll-\(round)")
+                app.buttons["keyboard.done"].tap()
+                // Slowly, on the page's bare right edge, through the
+                // keyboard's fall and the page settling after it.
+                let page = app.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.45))
+                page.press(forDuration: 0.02, thenDragTo: page.withOffset(CGVector(dx: 0, dy: -300)),
+                           withVelocity: 300, thenHoldForDuration: 0.1)
+                usleep(300_000)
+                page.press(forDuration: 0.02, thenDragTo: page.withOffset(CGVector(dx: 0, dy: 300)),
+                           withVelocity: 300, thenHoldForDuration: 0.1)
+                sleep(2)
+            }
+        case "mira-open":
+            // The Mira chat field's keyboard, to compare with Text's.
+            launchCanvas()
+            let rounds = Int(ProcessInfo.processInfo.environment["REC_ROUNDS"] ?? "") ?? 3
+            for round in 1...rounds {
+                mark("mira-open-\(round)")
+                app.buttons["mira.composer"].tap()
+                sleep(2)
+                let state = probe()
+                if let range = state.range(of: "\"textOpen\":\\{[^}]*\\}", options: .regularExpression) {
+                    print("REC-PROBE mira-open-\(round) \(state[range])")
+                }
+                app.buttons["nav.trailing"].firstMatch.tap()
+                sleep(2)
+            }
         case "exit-empty":
             launchCanvas()
             for round in 1...3 {

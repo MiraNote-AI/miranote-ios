@@ -108,6 +108,105 @@ final class TextToolLatencyUITests: XCTestCase {
     /// put back runs 919.
     private static let warmCeilingMs = 800
 
+    /// The tools come up with the keyboard, not before it: they show the
+    /// frame the keyboard starts to rise and ride up on it (they used to
+    /// sit over the tool bar for ~120 ms first, then jump up).
+    func testToolsAppearWithTheKeyboard() throws {
+        for open in 1...3 {
+            try openText()
+            let row = textOpen(after: open)
+            let shown = row["toolsVisibleMs"] as? Int ?? -1, rise = row["willShowMs"] as? Int ?? -1
+            XCTAssertGreaterThanOrEqual(rise, 0, "open \(open): no keyboard rise heard: \(row)")
+            XCTAssertGreaterThanOrEqual(shown, rise - 20, "open \(open): tools before the keyboard: \(row)")
+            XCTAssertLessThanOrEqual(shown, rise + 40, "open \(open): tools after the keyboard: \(row)")
+            cancelText()
+        }
+    }
+
+    /// No keyboard rise heard (as with some hardware keyboards): the tools
+    /// still show, after the wait for one, and can be used.
+    func testToolsShowWhenNoKeyboardRises() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-NO_KEYBOARD_SIGNAL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let deadline = Date().addingTimeInterval(5)
+        var row: [String: Any] = [:]
+        while Date() < deadline {
+            row = canvasState()["textOpen"] as? [String: Any] ?? [:]
+            if (row["toolsVisibleMs"] as? Int ?? -1) >= 0 { break }
+            usleep(100_000)
+        }
+        XCTAssertGreaterThanOrEqual(row["toolsVisibleMs"] as? Int ?? -1, 0, "tools never showed: \(row)")
+        // And they work: a tap on a font sets it.
+        let futura = app.buttons["style.font.Futura"]
+        futura.tap()
+        expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: futura)
+        waitForExpectations(timeout: 3)
+    }
+
+    /// The wait for a keyboard that never comes belongs to one open: an
+    /// earlier open's wait, run out, never shows the next open's tools
+    /// ahead of its own keyboard (#162's pop, back again).
+    func testAnEarlierOpensWaitLeavesTheNextOpenAlone() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-NO_KEYBOARD_SIGNAL", "-LONG_TOOLS_WAIT"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        write("kept")
+        let block = app.staticTexts["kept"]
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        // One open and out, then the next as soon as the keyboard is down.
+        block.tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].waitForExistence(timeout: 5))
+        app.buttons["keyboard.done"].tap()
+        let down = NSPredicate(format: "exists == false")
+        expectation(for: down, evaluatedWith: app.keyboards.firstMatch)
+        waitForExpectations(timeout: 5)
+        let start = Date()
+        block.tap()
+        var shownAfter = -1.0
+        while Date().timeIntervalSince(start) < 7 {
+            if canvasState()["textToolsShown"] as? Bool == true {
+                shownAfter = Date().timeIntervalSince(start)
+                break
+            }
+            usleep(50_000)
+        }
+        // The wait is 4 s here; the earlier open's runs out ~3 s sooner.
+        XCTAssertGreaterThan(shownAfter, 3.0, "the tools showed \(shownAfter) s into the open")
+    }
+
+    /// While the tools ride up the font row is a still copy: a tap on it,
+    /// even between two chips, stays in the session and sets the font (it
+    /// used to fall through to the page and end the writing).
+    func testATapOnTheRisingFontRowStaysInTheSession() throws {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-HOLD_TOOLS_RIDING"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        try openText()
+        let futura = app.buttons["style.font.Futura"]
+        XCTAssertTrue(futura.waitForExistence(timeout: 5))
+        let frame = futura.frame
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(CGVector(dx: frame.maxX + 3, dy: frame.midY)).tap()
+        sleep(1)
+        XCTAssertTrue(app.buttons["text.cancel"].exists, "a tap between two chips ended the writing")
+        origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+        let selected = NSPredicate(format: "isSelected == true")
+        expectation(for: selected, evaluatedWith: futura)
+        waitForExpectations(timeout: 3)
+        XCTAssertTrue(app.buttons["text.cancel"].exists, "a tap on a chip ended the writing")
+    }
+
     // MARK: Fast taps
 
     /// A double tap on Text: one block, one session, and the words land.
