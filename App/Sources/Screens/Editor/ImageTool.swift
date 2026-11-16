@@ -276,7 +276,7 @@ struct RecentsSheet: View {
         ScrollView(showsIndicators: false) {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(Array(library.photos.enumerated()), id: \.element) { index, photo in
-                    RecentCell(library: library, photo: photo, order: order(of: photo),
+                    RecentCell(library: library, photo: photo, height: cellHeight, order: order(of: photo),
                                onTap: { toggle(photo) },
                                onDrag: { drag in
                                    if carrying != (drag != nil) { carrying = drag != nil }
@@ -296,12 +296,19 @@ struct RecentsSheet: View {
             }
         }
         .scrollDisabled(carrying)
-        // Three full rows show, as drawn (284 on the design's 298-wide grid).
-        .frame(height: 3 * ((gridWidth - 20) / 3 * 88 / 92) + 20)
+        .frame(height: gridHeight)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
         .padding(.leading, 1)
         .accessibilityIdentifier("image.library.grid")
     }
+
+    /// The panel's grid height as drawn: three rows of 92 x 88 cells (284
+    /// on the design's 298-wide grid).
+    private var gridHeight: CGFloat { 3 * ((gridWidth - 20) / 3 * 88 / 92) + 20 }
+
+    /// Three and a half rows fill that height, so the half-shown fourth row
+    /// says the grid scrolls (#203).
+    private var cellHeight: CGFloat { (gridHeight - 30) / 3.5 }
 
     private var denied: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -388,12 +395,13 @@ struct RecentsSheet: View {
     }
 }
 
-/// One Recents cell: 92 x 88 r18 on the design's 374 pt screen (wider
-/// phones widen it at the same aspect); a pick wears a 3 pt ink ring and a
+/// One Recents cell: a column wide, `height` tall (three and a half rows
+/// fill the grid), r18; a pick wears a 3 pt ink ring and a
 /// 22 pt ink badge with its order at the top right.
 private struct RecentCell: View {
     let library: RecentPhotos
     let photo: LibraryPhoto
+    let height: CGFloat
     let order: Int?
     var onTap: () -> Void
     var onDrag: (PhotoDrag?) -> Void
@@ -407,7 +415,7 @@ private struct RecentCell: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.imageCorner)
         Color.clear
-            .aspectRatio(92.0 / 88.0, contentMode: .fit)
+            .frame(height: height)
             .overlay {
                 if let image {
                     Image(uiImage: image).resizable().scaledToFill()
