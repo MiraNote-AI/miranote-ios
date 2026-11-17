@@ -22,6 +22,13 @@ struct StarPaint {
     static let paper = StarPaint(StarStrip.look(StarPixels(width: 40, height: 8, fill: StarColor(236, 228, 212))))
 }
 
+/// What a star wears under its light: its page's paint, drawn live, or
+/// that paint baked once into an upright image (`PaperStar.dressing`).
+enum StarDress {
+    case paint(StarPaint)
+    case baked(Image)
+}
+
 /// The matte puffy paper star of the fold demo (v4, `drawStar`): rounded
 /// points, bowed sides, the page's washed colors with a flat tint per
 /// arm, each arm lit on one side and shaded on the other, darker valleys,
@@ -73,10 +80,38 @@ enum PaperStar {
         var opacity: CGFloat = 1
     }
 
-    /// Draws the star centered at `center`.
+    /// The dress under the light, upright in a 2.1 `radius` square
+    /// centered at the origin: the washed strip's middle under five flat
+    /// arm tints. The star's outline clips it; its light is drawn over it
+    /// unturned, so a turned star keeps its light from the top left.
+    static func dressing(in context: GraphicsContext, radius R: CGFloat, paint: StarPaint) {
+        let scale = R * 2.1 / paint.textureSize.height
+        context.draw(paint.texture, in: CGRect(
+            x: -paint.textureSize.width / 2 * scale, y: -R * 1.05,
+            width: paint.textureSize.width * scale, height: R * 2.1
+        ))
+        let reach = R * 0.809, band = R * 0.5
+        for k in 0..<5 {
+            var arm = context
+            arm.rotate(by: .degrees(-144 + Double(k) * 72))
+            arm.opacity *= 0.92 * 0.8
+            arm.fill(Path(CGRect(x: -R * 1.15, y: reach - band, width: R * 2.3, height: band + R * 0.3)),
+                     with: .color(paint.tints[k]))
+        }
+    }
+
     static func draw(
         in context: GraphicsContext, at center: CGPoint, radius: CGFloat, inner: [CGFloat],
         rotation: CGFloat, paint: StarPaint, style: Style = Style()
+    ) {
+        draw(in: context, at: center, radius: radius, inner: inner, rotation: rotation, dress: .paint(paint),
+             style: style)
+    }
+
+    /// Draws the star centered at `center`.
+    static func draw(
+        in context: GraphicsContext, at center: CGPoint, radius: CGFloat, inner: [CGFloat],
+        rotation: CGFloat, dress: StarDress, style: Style = Style()
     ) {
         guard radius >= 0.5, style.opacity > 0 else { return }
         var ctx = context
@@ -103,19 +138,9 @@ enum PaperStar {
         face.clip(to: outline)
         var turned = face
         turned.rotate(by: .radians(rotation))
-        // The washed strip's middle square under the arm tints.
-        let scale = R * 2.1 / paint.textureSize.height
-        turned.draw(paint.texture, in: CGRect(
-            x: -paint.textureSize.width / 2 * scale, y: -R * 1.05,
-            width: paint.textureSize.width * scale, height: R * 2.1
-        ))
-        let reach = R * 0.809, band = R * 0.5
-        for k in 0..<5 {
-            var arm = turned
-            arm.rotate(by: .degrees(-144 + Double(k) * 72))
-            arm.opacity *= 0.92 * 0.8
-            arm.fill(Path(CGRect(x: -R * 1.15, y: reach - band, width: R * 2.3, height: band + R * 0.3)),
-                     with: .color(paint.tints[k]))
+        switch dress {
+        case .paint(let paint): dressing(in: turned, radius: R, paint: paint)
+        case .baked(let image): turned.draw(image, in: CGRect(x: -R * 1.05, y: -R * 1.05, width: R * 2.1, height: R * 2.1))
         }
 
         if puff > 0 {
@@ -176,18 +201,28 @@ enum PaperStar {
     static let rest: [CGFloat] = Array(repeating: 0.6, count: 5)
 }
 
-/// A page's star as an image (jar, toss): `PaperStar` at rest with a
-/// light shadow, nudged down so the five tips sit centered in the frame.
+/// A star at rest in a frame (jar, toss): `PaperStar` with a light
+/// shadow, turned `rotation` radians under a light that stays top left,
+/// nudged down so the five tips sit centered in the frame.
 struct PaperStarView: View {
-    let paint: StarPaint
+    let dress: StarDress
     var rotation: CGFloat = 0
+
+    init(dress: StarDress, rotation: CGFloat = 0) {
+        self.dress = dress
+        self.rotation = rotation
+    }
+
+    init(paint: StarPaint) {
+        self.init(dress: .paint(paint))
+    }
 
     var body: some View {
         Canvas { context, size in
             let radius = min(size.width, size.height) * 0.45
             PaperStar.draw(
                 in: context, at: CGPoint(x: size.width / 2, y: size.height / 2 + radius * 0.07),
-                radius: radius, inner: PaperStar.rest, rotation: rotation, paint: paint,
+                radius: radius, inner: PaperStar.rest, rotation: rotation, dress: dress,
                 style: .init(shadow: 0.35)
             )
         }

@@ -214,12 +214,9 @@ struct JarPose {
 }
 
 extension StarTossScene {
-    /// A page's star as a texture: the same baked face the resting star
-    /// shows, so the hand-over between the two never shows.
+    /// A page's star as a texture: the resting star's own dress, lit
+    /// upright (in the air its light turns with it).
     @MainActor static func face(of memory: Memory) -> SKTexture {
-        if let face = StarFace.face(for: memory) { return SKTexture(image: face) }
-        let renderer = ImageRenderer(content: PaperStarView(paint: .paper).frame(width: 96, height: 96))
-        renderer.scale = 2
-        return SKTexture(image: renderer.uiImage ?? UIImage())
+        SKTexture(image: StarFace.face(for: memory.id))
     }
 }

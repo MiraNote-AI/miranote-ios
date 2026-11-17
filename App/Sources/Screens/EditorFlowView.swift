@@ -204,6 +204,9 @@ struct HomeFlow: View {
     @State private var arrivingStar: Memory.ID?
     /// Its page, cut and ready to fold over Home.
     @State private var arrivingFold: StarPaper?
+    /// A Save's page is being cut for its fold: the editor stays up until
+    /// it is ready, and a second Save meanwhile is not taken.
+    @State private var cuttingFold = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     /// Home left a page without Save (#137): a toast says it was kept,
     /// once the editor is gone.
@@ -341,10 +344,22 @@ struct HomeFlow: View {
     private func saved(_ memory: Memory, wasStar: Bool) {
         let arrival = StarFold.arrival(saved: true, wasStar: wasStar, onHome: path.isEmpty,
                                        reduceMotion: ReduceMotion.resolved(systemReduceMotion))
-        arrivingFold = arrival == .fold ? StarFace.paper(for: memory) : nil
-        // A fold keeps its star once it has landed (`onStarLanded`).
-        if arrivingFold == nil { StarFace.bake(memory) }
-        if arrival != .none { arrivingStar = memory.id }
+        guard arrival == .fold else {
+            Task { await StarFace.bake(memory) }
+            if arrival != .none { arrivingStar = memory.id }
+            closeEditor()
+            return
+        }
+        // The page is cut off the main actor; the fold takes over from the
+        // editor once it is. It keeps its star once it has landed.
+        cuttingFold = true
+        Task { @MainActor in
+            arrivingFold = await StarFace.paper(for: memory)
+            if arrivingFold == nil { await StarFace.bake(memory) }
+            arrivingStar = memory.id
+            cuttingFold = false
+            closeEditor()
+        }
     }
 
     /// The editor's cover goes: at once when the fold takes over from it
@@ -373,11 +388,15 @@ struct HomeFlow: View {
                 triggerEntry: openTriggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil,
                 arrivingStar: arrivingStar.flatMap(viewModel.memory),
                 arrivingFold: arrivingFold,
-                onStarLanded: {
+                onStarLanded: { skipped in
                     if let arrivingStar, let arrivingFold {
-                        // After the landing's ring: the bake is a frame or two.
+                        // After the landing's ring: the bake is a frame or
+                        // two. A skipped fold keeps it at once, before the
+                        // jar it may be opening bakes the page again.
                         Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(600))
+                            if !skipped { try? await Task.sleep(for: .milliseconds(600)) }
+                            // Deleted meanwhile: nothing to keep.
+                            guard viewModel.memory(arrivingStar) != nil else { return }
                             StarFace.keep(arrivingFold, for: arrivingStar)
                         }
                     }
@@ -481,13 +500,13 @@ struct HomeFlow: View {
                 EditorFlowView(
                     onExit: { route = nil },
                     onComplete: { memory, saved in
+                        guard !cuttingFold else { return }
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
                         draftToastPending = memory.isDraft
                         // Only Home shows the jar, and only a saved page
                         // earns a star: a page saved over a collection, or
                         // left as a draft, lands without the flight.
-                        if saved { self.saved(memory, wasStar: false) }
-                        closeEditor()
+                        if saved { self.saved(memory, wasStar: false) } else { closeEditor() }
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
@@ -501,10 +520,10 @@ struct HomeFlow: View {
                     prompts: Self.prompts(of: presented),
                     onExit: { route = nil },
                     onComplete: { edited, saved in
+                        guard !cuttingFold else { return }
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
                         draftToastPending = edited.isDraft
-                        if saved { self.saved(edited, wasStar: memory.hasBeenSaved) }
-                        closeEditor()
+                        if saved { self.saved(edited, wasStar: memory.hasBeenSaved) } else { closeEditor() }
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,

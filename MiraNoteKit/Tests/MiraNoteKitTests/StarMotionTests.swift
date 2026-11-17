@@ -17,16 +17,28 @@ final class StarMotionTests: XCTestCase {
         XCTAssertEqual(StarFold.arrival(saved: true, wasStar: false, onHome: true, reduceMotion: true), .glow)
     }
 
-    func testTheFoldKeepsTheDemosBeats() {
-        let beats = [0, StarFold.shrinkEnd, StarFold.cutEnd, StarFold.windEnd, StarFold.pinchEnd,
-                     StarFold.land, StarFold.end]
-        XCTAssertEqual(beats, beats.sorted(), "in order")
-        XCTAssertLessThan(StarFold.throwStart, StarFold.pinchEnd, "the throw overlaps the pinch")
-        XCTAssertEqual(StarFold.end, 1620)
-        XCTAssertLessThanOrEqual(StarFold.haptics.count + 1, 3, "three haptics at most, the landing's included")
-        XCTAssertLessThanOrEqual(StarUnfold.haptics.count, 3)
-        XCTAssertEqual([StarUnfold.riseEnd, StarUnfold.unwindEnd, StarUnfold.dockEnd, StarUnfold.unrollEnd],
-                       [StarUnfold.riseEnd, StarUnfold.unwindEnd, StarUnfold.dockEnd, StarUnfold.unrollEnd].sorted())
+    /// The fold demo v4's save: shrink 0-180, cut 180-400, wind 400-780,
+    /// pinch from 780, thrown from 880, in the jar at 1320, over at 1620.
+    func testTheFoldShowsTheDemosBeatsAtTheirTimes() {
+        let expected: [(Double, StarFold.Beat)] = [
+            (0, .shrink), (179, .shrink), (180, .cut), (399, .cut), (400, .wind), (779, .wind),
+            (780, .pinch), (879, .pinch), (880, .throw), (1319, .throw), (1320, .landed), (1619, .landed),
+            (1620, .done)
+        ]
+        for (ms, beat) in expected { XCTAssertEqual(StarFold.beat(at: ms), beat, "at \(ms) ms") }
+        XCTAssertLessThan(StarFold.haptics.count + 1, 4, "at most three haptics, the landing's included")
+        XCTAssertTrue(StarFold.haptics.allSatisfy { StarFold.beat(at: $0) != .done }, "all during the fold")
+    }
+
+    /// The open after the commit: rise to 210, unwind to 470, dock to
+    /// 630, unroll to 770, then the page opens.
+    func testTheOpenShowsTheDemosBeatsAtTheirTimes() {
+        let expected: [(Double, StarUnfold.Beat)] = [
+            (0, .rise), (209, .rise), (210, .unwind), (469, .unwind), (470, .dock), (629, .dock),
+            (630, .unroll), (769, .unroll), (770, .open)
+        ]
+        for (ms, beat) in expected { XCTAssertEqual(StarUnfold.beat(at: ms), beat, "at \(ms) ms") }
+        XCTAssertEqual(StarUnfold.beat(at: StarUnfold.haptics[1]), .dock, "the second haptic as the strip docks")
     }
 
     // MARK: Hold
@@ -68,6 +80,16 @@ final class StarMotionTests: XCTestCase {
         XCTAssertEqual(hold.moved(10.5), .cancel)
         XCTAssertEqual(hold.tick(at: 0.4), .none, "a cancelled hold never opens")
         XCTAssertEqual(hold.up(at: 0.5), .none)
+    }
+
+    func testACancelledPressNeverOpensAndTheNextPressWorks() {
+        var hold = StarHold()
+        hold.down(at: 0)
+        XCTAssertTrue(hold.reset(), "a hold still gathering springs back")
+        XCTAssertEqual(hold.tick(at: 0.4), .none, "the timer cannot open it")
+        XCTAssertFalse(hold.reset(), "nothing left to spring back")
+        hold.down(at: 1)
+        XCTAssertEqual(hold.up(at: 1.05), .shake, "the next tap shakes")
     }
 
     func testTensionBuildsFrom120To350ms() {

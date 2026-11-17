@@ -94,6 +94,27 @@ final class StarJarUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "a hold opens the page")
     }
 
+    /// #212 review: a drag that starts on a star and becomes the jar
+    /// screen's scroll is cancelled by the system, not ended. The hold
+    /// must die with it: no page opens, and the star still answers.
+    func testAScrollThatStartsOnAStarOpensNothing() {
+        relaunch(["-JAR_STARS", "30"])
+        _ = openSettledJar()
+        let star = app.buttons["jar.star.Star 1"]
+        XCTAssertTrue(star.waitForExistence(timeout: 3))
+        let from = star.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -300)),
+                   withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertFalse(app.buttons["reading.back"].waitForExistence(timeout: 2), "a scroll opens nothing")
+        XCTAssertEqual(shakes, 0, "nor shakes")
+        star.tap()
+        let shook = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.shakes == 1 }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [shook], timeout: 3), .completed, "the star still answers a tap")
+        waitUntilSettled(tosses: 1, "the toss landed")
+        star.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "and a hold")
+    }
+
     private var shakes: Int { jarState["shakes"] as? Int ?? -1 }
 
     private var anyStar: XCUIElement {

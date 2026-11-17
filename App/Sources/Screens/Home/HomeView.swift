@@ -24,7 +24,8 @@ struct HomeView: View {
     /// Its page ready to fold (#206); nil under Reduce Motion, where the
     /// jar only glows.
     var arrivingFold: StarPaper?
-    var onStarLanded: () -> Void = {}
+    /// The star is in; `skipped` when a tap or leaving cut the fold short.
+    var onStarLanded: (_ skipped: Bool) -> Void = { _ in }
 
     @Environment(\.theme) private var theme
     @State private var prompt = ""
@@ -37,6 +38,8 @@ struct HomeView: View {
     /// When the fold started; nil when none is playing.
     @State private var foldStart: Date?
     @State private var homeScale: CGFloat = 1
+    /// The jar circle swells just before the folded star drops in.
+    @State private var jarSwell = false
     /// Landings so far: each one bounces (or glows) the jar circle.
     @State private var jarBeat = 0
 
@@ -155,7 +158,7 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
-                    .modifier(JarLanding(beat: jarBeat, reduceMotion: ReduceMotion.resolved(reduceMotion)))
+                    .modifier(JarLanding(beat: jarBeat, swell: jarSwell, reduceMotion: ReduceMotion.resolved(reduceMotion)))
                     .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
                     #if DEBUG
                     // UI tests count the landings.
@@ -183,7 +186,10 @@ struct HomeView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.5)
                 try await sleep(until: StarFold.haptics[1], from: start)
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
+                try await sleep(until: StarFold.land - StarFold.swell, from: start)
+                withAnimation(.easeOut(duration: StarFold.swell / 1000)) { jarSwell = true }
                 try await sleep(until: StarFold.land, from: start)
+                jarSwell = false
                 landed()
                 try await sleep(until: StarFold.end, from: start)
                 foldStart = nil
@@ -196,7 +202,7 @@ struct HomeView: View {
         } catch {
             return
         }
-        onStarLanded()
+        onStarLanded(false)
     }
 
     /// The jar circle takes the star in; VoiceOver, which sees none of
@@ -218,7 +224,8 @@ struct HomeView: View {
         if Date.now.timeIntervalSince(start) * 1000 < StarFold.land { landed() }
         foldStart = nil
         homeScale = 1
-        onStarLanded()
+        jarSwell = false
+        onStarLanded(true)
     }
 
     private func headerCircle(_ icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {

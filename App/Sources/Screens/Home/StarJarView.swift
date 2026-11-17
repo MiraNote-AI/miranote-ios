@@ -46,6 +46,9 @@ struct StarJarView: View {
     /// Its page, cut while the hold gathers, ready to unfold.
     @State private var held: (id: Memory.ID, paper: StarPaper)?
     @State private var opening: Opening?
+    @State private var openTask: Task<Void, Never>?
+    /// A hold has opened a page: the hint has done its job.
+    @AppStorage(StarJarView.openedKey) private var hasOpened = false
     /// The jar fades as a star unfolds over it.
     @State private var jarFade = 1.0
 
@@ -64,6 +67,7 @@ struct StarJarView: View {
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
+    static let openedKey = "starJar.heldOpen"
 
     private var stars: [JarStar] {
         StarJar.stars(in: viewModel.library, during: interval)
@@ -88,10 +92,12 @@ struct StarJarView: View {
                     .padding(.bottom, 14)
                 jar
                     .padding(.bottom, 18)
+                // Until a hold has opened a page once.
                 Text("Tap to shake. Hold a star to open.")
                     .font(.miraCaption)
                     .foregroundStyle(theme.muted(Palette.textSecondary))
                     .multilineTextAlignment(.center)
+                    .opacity(hasOpened ? 0 : 1)
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, Metrics.chromeInset)
@@ -118,6 +124,15 @@ struct StarJarView: View {
         .onDisappear {
             // Opened mid-air: the stars lie where they did before the toss.
             tossing = false
+            // Left (an edge swipe back) before the page opened: it never
+            // opens on top of where the jar was.
+            if opening?.unrolled != true {
+                openTask?.cancel()
+                opening = nil
+                holding = nil
+                held = nil
+                jarFade = 1
+            }
         }
     }
 
@@ -400,46 +415,66 @@ extension StarJarView {
     private func tension(_ on: Bool, on star: JarStar) {
         guard on else {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { holding = nil }
+            held = nil
             return
         }
         withAnimation(.linear(duration: StarHold.commitAfter - StarHold.tapWindow)) { holding = star.id }
+        guard held?.id != star.id else { return }
         Task { @MainActor in
-            await Task.yield()
-            guard holding == star.id, held?.id != star.id, let paper = StarFace.paper(for: star.memory) else { return }
-            held = (star.id, paper)
+            guard let paper = await StarFace.paper(for: star.memory) else { return }
+            if holding == star.id { held = (star.id, paper) }
         }
     }
 
     /// The hold committed: the star unfolds into its page, which opens
     /// (`StarUnfold`); under Reduce Motion the page fades in.
     private func open(_ star: JarStar, from point: CGPoint, size: CGFloat, rotation: Double) {
-        guard opening == nil else { return }
-        let paper = held?.id == star.id ? held?.paper : StarFace.paper(for: star.memory)
+        guard opening == nil, openTask == nil else { return }
+        let ready = held?.id == star.id ? held?.paper : nil
         holding = nil
         held = nil
-        guard let paper else {
-            onOpenNote(star, .push)
-            return
-        }
-        let start = Date.now
-        opening = Opening(star: star, paper: paper, from: point,
-                          radius: size * 0.45 * (1 + StarButton.grow), rotation: rotation, start: start)
-        Task { @MainActor in
-            if reduceMotion {
-                withAnimation(.linear(duration: StarUnfold.fade / 1000)) { jarFade = 0 }
-                try? await Task.sleep(for: .milliseconds(Int(StarUnfold.fade)))
-                onOpenNote(star, .instant)
+        openTask = Task { @MainActor in
+            // Usually cut while the hold gathered; else cut now.
+            let paper: StarPaper? = if let ready { ready } else { await StarFace.paper(for: star.memory) }
+            guard !Task.isCancelled else { return }
+            guard let paper else {
+                opened(star, .push)
                 return
             }
-            withAnimation(.easeOut(duration: StarUnfold.riseEnd / 1000)) { jarFade = 0.25 }
-            try? await Task.sleep(for: .milliseconds(450))
-            withAnimation(.linear(duration: 0.16)) { jarFade = 0 }
-            try? await Task.sleep(for: .seconds(StarUnfold.haptics[1] / 1000 - Date.now.timeIntervalSince(start)))
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.4)
-            try? await Task.sleep(for: .seconds(StarUnfold.unrollEnd / 1000 - Date.now.timeIntervalSince(start)))
-            opening?.unrolled = true
-            onOpenNote(star, .zoom)
+            let start = Date.now
+            opening = Opening(star: star, paper: paper, from: point,
+                              radius: size * 0.45 * (1 + StarButton.grow), rotation: rotation, start: start)
+            // A cancel (the jar left meanwhile) stops it before the page opens.
+            do {
+                if reduceMotion {
+                    withAnimation(.linear(duration: StarUnfold.fade / 1000)) { jarFade = 0 }
+                    try await Task.sleep(for: .milliseconds(Int(StarUnfold.fade)))
+                    opened(star, .instant)
+                    return
+                }
+                withAnimation(.easeOut(duration: StarUnfold.riseEnd / 1000)) { jarFade = 0.25 }
+                try await Task.sleep(for: .milliseconds(450))
+                withAnimation(.linear(duration: 0.16)) { jarFade = 0 }
+                try await sleep(until: StarUnfold.haptics[1], from: start)
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.4)
+                try await sleep(until: StarUnfold.unrollEnd, from: start)
+                opening?.unrolled = true
+                opened(star, .zoom)
+            } catch {
+                return
+            }
         }
+    }
+
+    private func sleep(until ms: Double, from start: Date) async throws {
+        let left = ms / 1000 - Date.now.timeIntervalSince(start)
+        if left > 0 { try await Task.sleep(for: .seconds(left)) }
+    }
+
+    private func opened(_ star: JarStar, _ style: OpenStyle) {
+        openTask = nil
+        hasOpened = true
+        onOpenNote(star, style)
     }
 
     /// Back from the page: once it has zoomed home, the jar comes back.
@@ -447,7 +482,7 @@ extension StarJarView {
     private func cameBack() {
         guard opening != nil else { return }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(250))
             withAnimation(.easeOut(duration: 0.3)) {
                 jarFade = 1
                 opening = nil

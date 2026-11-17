@@ -20,6 +20,28 @@ public enum StarFold {
     public static let haptics = [0.0, 840.0]
     /// The page's scale on stage while it folds.
     public static let pageScale = 0.6
+    /// The jar circle swells a little just before the star drops in.
+    public static let swell = 140.0
+
+    /// What the fold shows at `ms`.
+    public enum Beat: Equatable, Sendable {
+        case shrink, cut, wind, pinch, `throw`
+        /// In the jar: the star rests over the circle a moment, then goes in.
+        case landed
+        case done
+    }
+
+    public static func beat(at ms: Double) -> Beat {
+        switch ms {
+        case ..<shrinkEnd: return .shrink
+        case ..<cutEnd: return .cut
+        case ..<windEnd: return .wind
+        case ..<throwStart: return .pinch
+        case ..<land: return .throw
+        case ..<end: return .landed
+        default: return .done
+        }
+    }
 
     /// What a Save shows on Home.
     public enum Arrival: Equatable, Sendable {
@@ -53,6 +75,23 @@ public enum StarUnfold {
     public static let haptics = [0.0, 470.0]
     /// Under Reduce Motion the page cross-fades in instead.
     public static let fade = 200.0
+
+    /// What the open shows at `ms` after the commit.
+    public enum Beat: Equatable, Sendable {
+        case rise, unwind, dock, unroll
+        /// The page has unrolled: it opens.
+        case open
+    }
+
+    public static func beat(at ms: Double) -> Beat {
+        switch ms {
+        case ..<riseEnd: return .rise
+        case ..<unwindEnd: return .unwind
+        case ..<dockEnd: return .dock
+        case ..<unrollEnd: return .unroll
+        default: return .open
+        }
+    }
 }
 
 /// A press on a jar star (#206): a quick tap shakes the jar, a 350 ms
@@ -112,6 +151,15 @@ public struct StarHold: Equatable, Sendable {
         let held = time - since
         if held < Self.tapWindow { return .shake }
         return held >= Self.commitAfter ? .commit : .cancel
+    }
+
+    /// The press was taken away without a release (the system cancelled
+    /// the gesture: a scroll, a call, the app leaving): no shake, no open.
+    /// True when a hold was still gathering and must spring back.
+    public mutating func reset() -> Bool {
+        let wasPressing = isPressing
+        phase = .idle
+        return wasPressing
     }
 
     /// The tension, 0 before the tap window closes, 1 at the commit.

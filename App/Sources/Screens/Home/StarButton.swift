@@ -27,6 +27,9 @@ struct StarButton: View {
     @State private var hold = StarHold()
     /// The finger is down (a cancelled hold waits for it to lift).
     @State private var touching = false
+    /// Resets when the press ends or the system cancels it: a cancel
+    /// never reaches `onEnded`.
+    @GestureState private var pressed = false
     @State private var tension: CGFloat = 0
     @State private var timer: Task<Void, Never>?
     @State private var center: CGPoint = .zero
@@ -37,20 +40,26 @@ struct StarButton: View {
 
     var body: some View {
         let waiting = drop != nil && !landed
-        PageStar(memory: star.memory)
+        // Turned under a light that stays top left.
+        PageStar(memory: star.memory, rotation: waiting && !reduceMotion ? 0 : rotation)
             .frame(width: size, height: size)
             // Where it rests, before the hold lifts it.
             .onGeometryChange(for: CGPoint.self) {
                 let frame = $0.frame(in: .global)
                 return CGPoint(x: frame.midX, y: frame.midY)
             } action: { center = $0 }
-            .rotationEffect(.degrees(waiting && !reduceMotion ? 0 : rotation))
             .scaleEffect(1 + Self.grow * tension)
             .overlay { ring }
             .offset(y: -Self.lift * tension)
             .frame(width: size * 1.3, height: size * 1.3)
             .contentShape(Circle())
             .gesture(press)
+            .onChange(of: pressed) { _, down in
+                guard !down else { return }
+                touching = false
+                // Cancelled, not released: the hold must not open later.
+                if hold.reset() { springBack() }
+            }
             .offset(waiting && !reduceMotion ? drop ?? .zero : .zero)
             .opacity(waiting ? 0 : 1)
             .onAppear {
@@ -60,7 +69,11 @@ struct StarButton: View {
                     : .spring(response: 0.55, dampingFraction: 0.68)
                 withAnimation(motion.delay(delay)) { landed = true }
             }
-            .onDisappear { timer?.cancel() }
+            .onDisappear {
+                timer?.cancel()
+                touching = false
+                _ = hold.reset()
+            }
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(label)
@@ -87,6 +100,7 @@ struct StarButton: View {
 
     private var press: some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($pressed) { _, pressed, _ in pressed = true }
             .onChanged { value in
                 if !touching {
                     touching = true

@@ -53,15 +53,21 @@ struct SaveFold: View {
 
         let pageHeight = fold.pageSize(1).height
         let from = CGPoint(x: middle.x, y: Self.editorPageTop + pageHeight / 2)
-        if t < StarFold.shrinkEnd {
+        // The pinch (780-920) overlaps the throw (880-1320).
+        let inner = (0..<5).map { k in
+            E.lerp(0.809, 0.6, E.inOut(E.seg(t, 780 + 20 * CGFloat(k), 840 + 20 * CGFloat(k))))
+        }
+        let pinch = E.keyframes(t, [(780, 1, nil), (825, 0.88, E.inQ), (880, 1.08, E.outC), (920, 1, E.sine)])
+        let knot = fold.knotRadius, hero = FoldDrawing.hero
+
+        switch StarFold.beat(at: Double(t)) {
+        case .shrink:
             let p = E.spring(E.seg(t, 0, 180), 0.6)
             fold.page(in: context, center: CGPoint(x: middle.x, y: E.lerp(from.y, middle.y, p)),
                       scale: E.lerp(1, stage, p), corner: E.lerp(Metrics.canvasCorner, 18, p),
                       shadow: E.lerp(0.4, 1, E.seg(t, 0, 180)))
-            return
-        }
-        if t < StarFold.cutEnd {
-            // The cut: the page recedes, its strip lifts, holds, and turns level.
+        case .cut:
+            // The page recedes, its strip lifts, holds, and turns level.
             let recede = E.outC(E.seg(t, 180, 400)), scale = E.lerp(stage, 0.57, recede)
             let center = CGPoint(x: middle.x, y: middle.y + 6 * recede)
             let shown = 1 - E.inQ(E.seg(t, 270, 400))
@@ -75,21 +81,11 @@ struct SaveFold: View {
                        at: CGPoint(x: E.lerp(band.center.x, middle.x, move), y: E.lerp(band.center.y, middle.y, move)),
                        angle: E.lerp(band.angle, 0, move), scale: E.lerp(band.scale, stage * fold.unit, move) * grow,
                        lift: lift, sheen: E.seg(t, 190, 360))
-            return
-        }
-        if t < StarFold.windEnd {
+        case .wind:
             // Half sine, half linear: the wind leaves rest at once.
             let u = E.seg(t, 400, 780)
             fold.wind(in: context, mid: middle, f: 0.5 * E.sine(u) + 0.5 * u)
-            return
-        }
-        // The pinch (780-920), overlapping the throw (880-1320).
-        let inner = (0..<5).map { k in
-            E.lerp(0.809, 0.6, E.inOut(E.seg(t, 780 + 20 * CGFloat(k), 840 + 20 * CGFloat(k))))
-        }
-        let pinch = E.keyframes(t, [(780, 1, nil), (825, 0.88, E.inQ), (880, 1.08, E.outC), (920, 1, E.sine)])
-        let knot = fold.knotRadius, hero = FoldDrawing.hero
-        if t < StarFold.throwStart {
+        case .pinch:
             PaperStar.draw(in: context, at: middle, radius: E.lerp(knot, hero, E.outC(E.seg(t, 780, 880))) * pinch,
                            inner: inner, rotation: 0, paint: paper.paint, style: .init(shadow: 1, hero: true))
             let knotFade = 1 - E.seg(t, 780, 830)
@@ -100,20 +96,30 @@ struct SaveFold: View {
                 ctx.scaleBy(x: pinch, y: pinch)
                 fold.knotFace(in: ctx, radius: knot, rotation: 0, wraps: CGFloat(FoldDrawing.wraps), shadow: 0)
             }
-            return
+        case .throw:
+            // An arc that crests above the jar and drops in, spinning to rest.
+            let a = E.seg(t, StarFold.throwStart, StarFold.land)
+            let e = pow(a, 1.6), m = 1 - e
+            let crest = CGPoint(x: size.width * 0.744, y: jar.y - 84)
+            let at = CGPoint(x: m * m * middle.x + 2 * m * e * crest.x + e * e * jar.x,
+                             y: m * m * middle.y + 2 * m * e * crest.y + e * e * jar.y)
+            let shadow = a < 0.8 ? E.lerp(1, 0.5, a / 0.8) : 0.5 * (1 - (a - 0.8) / 0.2)
+            PaperStar.draw(in: context, at: at, radius: E.lerp(hero * pinch, Self.landed, E.inQ(a)),
+                           inner: a < 0.5 ? inner : PaperStar.rest, rotation: E.outC(a) * Self.spin,
+                           paint: paper.paint, style: .init(shadow: shadow, hero: a < 0.5, puff: E.lerp(1, 0.6, a)))
+        case .landed:
+            // The newest star rests over the jar circle while it rings,
+            // then goes in.
+            PaperStar.draw(in: context, at: jar, radius: Self.landed, inner: PaperStar.rest, rotation: Self.spin,
+                           paint: paper.paint,
+                           style: .init(puff: 0.6, opacity: 1 - E.seg(t, 1480, CGFloat(StarFold.end))))
+        case .done:
+            break
         }
-        let a = E.seg(t, StarFold.throwStart, StarFold.land)
-        guard a < 1 else { return }
-        // An arc that crests above the jar and drops in, spinning to rest.
-        let e = pow(a, 1.6), m = 1 - e
-        let crest = CGPoint(x: size.width * 0.744, y: jar.y - 84)
-        let at = CGPoint(x: m * m * middle.x + 2 * m * e * crest.x + e * e * jar.x,
-                         y: m * m * middle.y + 2 * m * e * crest.y + e * e * jar.y)
-        let shadow = a < 0.8 ? E.lerp(1, 0.5, a / 0.8) : 0.5 * (1 - (a - 0.8) / 0.2)
-        PaperStar.draw(in: context, at: at, radius: E.lerp(hero * pinch, 5.5, E.inQ(a)),
-                       inner: a < 0.5 ? inner : PaperStar.rest, rotation: E.outC(a) * Self.spin,
-                       paint: paper.paint, style: .init(shadow: shadow, hero: a < 0.5, puff: E.lerp(1, 0.6, a)))
     }
+
+    /// The star's radius in the jar circle.
+    private static let landed: CGFloat = 5.5
 
     /// The throw's turn: three points round, so it lands upright.
     private static let spin: CGFloat = 3 * 72 * .pi / 180

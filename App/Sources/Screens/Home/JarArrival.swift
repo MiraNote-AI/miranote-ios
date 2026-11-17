@@ -24,6 +24,8 @@ enum ReduceMotion {
 /// glow. `beat` counts the landings.
 struct JarLanding: ViewModifier {
     let beat: Int
+    /// The star is about to drop in: the circle swells a little for it.
+    var swell = false
     let reduceMotion: Bool
 
     private static let glow = Color(hex: 0xE8B04B)
@@ -41,7 +43,7 @@ struct JarLanding: ViewModifier {
             .keyframeAnimator(initialValue: Pose(), trigger: beat) { view, pose in
                 view
                     .background(Circle().fill(Self.glow).blur(radius: 10).opacity(pose.glow))
-                    .scaleEffect(pose.scale)
+                    .scaleEffect(pose.scale * (swell ? 1.06 : 1))
                     .overlay {
                         // 22 to 40 pt out from a 44 pt circle.
                         Circle()

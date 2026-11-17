@@ -63,10 +63,11 @@ struct OpenUnfold: View {
         let pageFrame = Self.pageFrame(paper, size: size)
         let pageCenter = CGPoint(x: pageFrame.midX, y: pageFrame.midY)
         let knot = fold.knotRadius
+        let beat = StarUnfold.beat(at: Double(t))
         // From here the page itself (`pageFrame`) opens.
-        guard t < CGFloat(StarUnfold.unrollEnd) else { return }
+        guard beat != .open else { return }
 
-        if t <= CGFloat(StarUnfold.riseEnd) {
+        if beat == .rise {
             // The commit's pop, then the rise to hero size and back to the knot.
             let pop = E.keyframes(t, [(0, 1, nil), (60, 1.42 / 1.3, E.outC), (120, 1.36 / 1.3, E.sine)])
             let rise = E.bezier(0.3, 0, 0.1, 1, E.seg(t, 0, 210))
@@ -89,7 +90,7 @@ struct OpenUnfold: View {
             }
             return
         }
-        if t <= CGFloat(StarUnfold.unwindEnd) {
+        if beat == .unwind {
             // The strip tilts to its cut while it unwinds.
             let u = E.seg(t, 210, 470), f = 1 - (0.5 * E.sine(u) + 0.5 * u)
             var ctx = context
