@@ -570,6 +570,18 @@
         }
       }
     },
+    "A MiraNote Plus subscription continues until you cancel it in your Apple Account settings." : {
+      "comment" : "Settings > Delete account (api #95 step 6): done: subscription reminder.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote Plus 订阅会持续，直到你在 Apple 账户设置中取消。"
+          }
+        }
+      }
+    },
     "A long gap between photos starts a new group after %@ min" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -2135,6 +2147,42 @@
         }
       }
     },
+    "Delete account" : {
+      "comment" : "Settings > Account (api #95 step 6): opens the account deletion sheet; also the sheet's delete button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除账户"
+          }
+        }
+      }
+    },
+    "Delete your account" : {
+      "comment" : "Settings > Delete account (api #95 step 6): the sheet's title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除你的账户"
+          }
+        }
+      }
+    },
+    "Delete your account?" : {
+      "comment" : "Settings > Delete account (api #95 step 6): the confirmation alert's title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要删除你的账户吗？"
+          }
+        }
+      }
+    },
     "Deleted" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2142,6 +2190,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已删除"
+          }
+        }
+      }
+    },
+    "Deleting your account does not cancel MiraNote Plus. If you subscribe, Apple keeps billing you until you cancel in your Apple Account settings." : {
+      "comment" : "Settings > Delete account (api #95 step 6): deletion does not cancel a subscription (Guideline 5.1.1(v)).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除账户不会取消 MiraNote Plus。如果你已订阅，Apple 会继续扣费，直到你在 Apple 账户设置中取消订阅。"
           }
         }
       }
@@ -3684,6 +3744,18 @@
         }
       }
     },
+    "Manage subscriptions" : {
+      "comment" : "Settings > Delete account (api #95 step 6): link to Apple's subscriptions page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理订阅"
+          }
+        }
+      }
+    },
     "Many more chats and rewrites with Mira every day" : {
       "comment" : "Paywall: a Plus benefit.",
       "extractionState" : "manual",
@@ -3972,6 +4044,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MiraNote 看不到你的照片。请在设置中允许访问，或在这里挑选几张。"
+          }
+        }
+      }
+    },
+    "MiraNote did not answer in time, so your account may not be deleted. Try again." : {
+      "comment" : "Settings > Delete account (api #95 step 6): error: timed out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 未能及时响应，你的账户可能尚未删除。请重试。"
           }
         }
       }
@@ -6484,6 +6568,18 @@
         }
       }
     },
+    "Sign in with Apple did not confirm it's you, so nothing was deleted. Try again." : {
+      "comment" : "Settings > Delete account (api #95 step 6): error: Apple's sheet failed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“通过 Apple 登录”未能确认你的身份，因此没有删除任何内容。请重试。"
+          }
+        }
+      }
+    },
     "Sign out" : {
       "comment" : "Settings > Account (api #95): signs this phone out.",
       "extractionState" : "manual",
@@ -7374,6 +7470,18 @@
         }
       }
     },
+    "This cannot be undone. Sign in with Apple asks you to confirm next." : {
+      "comment" : "Settings > Delete account (api #95 step 6): the confirmation alert's message.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作无法撤销。接下来“通过 Apple 登录”会请你确认身份。"
+          }
+        }
+      }
+    },
     "This day won't be pushed again" : {
       "comment" : "Photo trigger story: note after Not this day, then the story closes.",
       "extractionState" : "manual",
@@ -7597,6 +7705,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在整理版面…"
+          }
+        }
+      }
+    },
+    "To also remove MiraNote from Sign in with Apple, open the Settings app, tap your name, then Sign-In & Security, then Sign in with Apple." : {
+      "comment" : "Settings > Delete account (api #95 step 6): done, when Apple could not be told; the iOS Settings path.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如需同时从“通过 Apple 登录”中移除 MiraNote，请打开“设置”App，轻点你的名字，然后依次轻点“登录与安全性”和“通过 Apple 登录”。"
           }
         }
       }
@@ -7988,6 +8108,18 @@
         }
       }
     },
+    "What is deleted" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会删除什么"
+          }
+        }
+      }
+    },
     "What is sent" : {
       "comment" : "AI consent sheet (#151): heading.",
       "extractionState" : "manual",
@@ -8007,6 +8139,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这是什么声音？"
+          }
+        }
+      }
+    },
+    "What stays" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会保留什么"
           }
         }
       }
@@ -8257,6 +8401,18 @@
         }
       }
     },
+    "You're offline, so nothing was deleted. Connect to the internet and try again." : {
+      "comment" : "Settings > Delete account (api #95 step 6): error: no network.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你目前处于离线状态，因此没有删除任何内容。请连接网络后重试。"
+          }
+        }
+      }
+    },
     "You've reached the free limit" : {
       "comment" : "Paywall title when a free allowance ran out.",
       "extractionState" : "manual",
@@ -8289,6 +8445,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这项功能暂时达到上限了，请稍后再试。"
+          }
+        }
+      }
+    },
+    "Your MiraNote account, your AI usage, and your Sign in with Apple link to MiraNote." : {
+      "comment" : "Settings > Delete account (api #95 step 6): what the server deletes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 MiraNote 账户、AI 使用记录，以及 MiraNote 与“通过 Apple 登录”的关联。"
+          }
+        }
+      }
+    },
+    "Your account could not be deleted. Try again later." : {
+      "comment" : "Settings > Delete account (api #95 step 6): error: the server failed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法删除你的账户。请稍后重试。"
+          }
+        }
+      }
+    },
+    "Your account is deleted" : {
+      "comment" : "Settings > Delete account (api #95 step 6): done title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的账户已删除"
           }
         }
       }
@@ -8350,6 +8542,18 @@
         }
       }
     },
+    "Your pages are still on this phone. Mira's AI asks you to sign in again, with a new account." : {
+      "comment" : "Settings > Delete account (api #95 step 6): done: pages stay.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的页面仍在这台手机上。使用 Mira 的 AI 时会请你重新登录，并创建一个新账户。"
+          }
+        }
+      }
+    },
     "Your pages stay on this phone. Mira's AI asks you to sign in again." : {
       "comment" : "Settings > Account (api #95): under Sign out.",
       "extractionState" : "manual",
@@ -8358,6 +8562,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的页面会留在这台手机上。再次使用 Mira 的 AI 时会请你重新登录。"
+          }
+        }
+      }
+    },
+    "Your pages, photos and voice stay on this phone. Deleting your account removes none of them." : {
+      "comment" : "Settings > Delete account (api #95 step 6): local pages are never deleted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的页面、照片和语音都保留在这台手机上。删除账户不会移除其中任何内容。"
           }
         }
       }
@@ -8398,6 +8614,18 @@
         }
       }
     },
+    "Your sign-in has ended, so nothing was deleted. Sign in again, then delete your account." : {
+      "comment" : "Settings > Delete account (api #95 step 6): error: our session had already ended (401).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的登录已失效，因此没有删除任何内容。请重新登录，然后再删除账户。"
+          }
+        }
+      }
+    },
     "Your sign-in has ended. Sign in again to use Mira's AI." : {
       "comment" : "Error: the server no longer accepts this phone's sign-in.",
       "extractionState" : "manual",
@@ -8406,6 +8634,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登录已失效。请重新登录以使用 Mira 的 AI。"
+          }
+        }
+      }
+    },
+    "Your subscription" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的订阅"
           }
         }
       }

@@ -88,11 +88,36 @@ public final class Account {
     /// what the writer asked for, and the refresh token is gone either way.
     public func signOut() async {
         let tokens = store.load()
+        forgetTokens()
+        if let tokens { try? await api.signOut(refreshToken: tokens.refreshToken) }
+    }
+
+    /// Deletes the account on the server (api #95 step 6): Apple confirms
+    /// the writer first and gives a fresh authorization code, which the
+    /// server needs to revoke the Sign in with Apple link. Once the server
+    /// says deleted, our tokens are forgotten; pages are never touched.
+    /// Returns whether Apple was told too. A 401 means the sign-in had
+    /// already ended: nothing was deleted, and the dead tokens go.
+    public func deleteAccount() async throws -> Bool {
+        // Apple first: the writer may take a while there, and the access
+        // token is checked for expiry after.
+        let code = try await apple.authorizationCode()
+        let token = try await accessToken()
+        do {
+            let appleRevoked = try await api.deleteAccount(accessToken: token, authorizationCode: code)
+            forgetTokens()
+            return appleRevoked
+        } catch BackendError.server(status: 401, _) {
+            forgetTokens()
+            throw AccountError.signedOut
+        }
+    }
+
+    private func forgetTokens() {
         refreshing?.cancel()
         refreshing = nil
         store.save(nil)
         isSignedIn = false
-        if let tokens { try? await api.signOut(refreshToken: tokens.refreshToken) }
     }
 
     /// A valid access token for `Authorization: Bearer`, refreshed first when
@@ -223,6 +248,8 @@ public enum AppleSignInError: Error, Equatable {
     case cancelled
     /// Apple answered without an identity token.
     case noIdentityToken
+    /// Apple answered without an authorization code.
+    case noAuthorizationCode
 }
 
 /// Our tokens from the accounts service.
@@ -244,6 +271,9 @@ public struct AccountTokens: Codable, Equatable, Sendable {
 /// AuthenticationServices in the app, a mock under -UITEST.
 public protocol AppleCredentialProvider: Sendable {
     @MainActor func identityToken(nonceHash: String) async throws -> String
+    /// A fresh, single-use authorization code (valid 5 minutes): account
+    /// deletion sends it so the server can revoke the Apple link.
+    @MainActor func authorizationCode() async throws -> String
 }
 
 // MARK: - Token storage
@@ -318,10 +348,13 @@ public protocol AccountsAPI: Sendable {
     func signIn(identityToken: String, nonce: String) async throws -> AccountTokens
     func refresh(refreshToken: String) async throws -> AccountTokens
     func signOut(refreshToken: String) async throws
+    /// `DELETE /me`. True when Apple revoked the link too; false when the
+    /// account is deleted but Apple refused or was not asked (502/503).
+    func deleteAccount(accessToken: String, authorizationCode: String) async throws -> Bool
 }
 
 /// The accounts service (miranote-api `poc/accounts`): `/auth/apple`,
-/// `/auth/refresh`, `/auth/signout`. No beta token: the service checks
+/// `/auth/refresh`, `/auth/signout`, `DELETE /me`. No beta token: the service checks
 /// its own credentials.
 public struct LiveAccountsAPI: AccountsAPI {
     private let baseURL: URL
@@ -391,6 +424,45 @@ public struct LiveAccountsAPI: AccountsAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(RefreshBody(refreshToken: refreshToken))
         _ = try await client.send(request)
+    }
+
+    private struct DeleteBody: Encodable {
+        let authorizationCode: String
+
+        enum CodingKeys: String, CodingKey {
+            case authorizationCode = "authorization_code"
+        }
+    }
+
+    private struct Deleted: Decodable {
+        let deleted: Bool
+        let appleRevoked: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case deleted, appleRevoked = "apple_revoked"
+        }
+    }
+
+    public func deleteAccount(accessToken: String, authorizationCode: String) async throws -> Bool {
+        var request = URLRequest(url: baseURL.appendingPathComponent("me"))
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(DeleteBody(authorizationCode: authorizationCode))
+        let data: Data
+        do {
+            data = try await client.send(request)
+        } catch BackendError.server(let status, let detail) where status == 502 || status == 503 {
+            // Our data is deleted; only Apple's side failed.
+            guard let body = detail.flatMap({ $0.data(using: .utf8) }),
+                  (try? JSONDecoder().decode(Deleted.self, from: body))?.deleted == true
+            else { throw BackendError.server(status: status, detail: detail) }
+            return false
+        }
+        guard let answer = try? JSONDecoder().decode(Deleted.self, from: data), answer.deleted else {
+            throw BackendError.decoding
+        }
+        return answer.appleRevoked
     }
 
     private func tokens(_ pair: Pair) -> AccountTokens {

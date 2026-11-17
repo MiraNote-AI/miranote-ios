@@ -192,8 +192,12 @@ private struct NoAccountsAPI: AccountsAPI {
     func signIn(identityToken: String, nonce: String) async throws -> AccountTokens { throw AccountError.signedOut }
     func refresh(refreshToken: String) async throws -> AccountTokens { throw AccountError.signedOut }
     func signOut(refreshToken: String) async throws {}
+    func deleteAccount(accessToken: String, authorizationCode: String) async throws -> Bool {
+        throw AccountError.signedOut
+    }
 }
 
 private struct NoApple: AppleCredentialProvider {
     func identityToken(nonceHash: String) async throws -> String { throw AppleSignInError.cancelled }
+    func authorizationCode() async throws -> String { throw AppleSignInError.cancelled }
 }

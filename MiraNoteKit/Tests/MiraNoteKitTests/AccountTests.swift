@@ -340,6 +340,7 @@ private struct SeenRequest {
 final class FakeApple: AppleCredentialProvider, @unchecked Sendable {
     private let error: Error?
     var nonceHashes: [String] = []
+    var codesGiven = 0
 
     init(error: Error? = nil) {
         self.error = error
@@ -349,6 +350,12 @@ final class FakeApple: AppleCredentialProvider, @unchecked Sendable {
         nonceHashes.append(nonceHash)
         if let error { throw error }
         return "apple-identity-token"
+    }
+
+    func authorizationCode() async throws -> String {
+        codesGiven += 1
+        if let error { throw error }
+        return "apple-code-\(codesGiven)"
     }
 }
 
@@ -363,6 +370,8 @@ final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
     var refreshResults: [Result<AccountTokens, Error>]
     var refreshDelay: UInt64 = 0
     var signOutError: Error?
+    var deleteResult: Result<Bool, Error> = .success(true)
+    var deletes: [(accessToken: String, authorizationCode: String)] = []
     var signIns: [(identityToken: String, nonce: String)] = []
     var refreshes: [String] = []
     var signOuts: [String] = []
@@ -387,5 +396,10 @@ final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
     func signOut(refreshToken: String) async throws {
         signOuts.append(refreshToken)
         if let signOutError { throw signOutError }
+    }
+
+    func deleteAccount(accessToken: String, authorizationCode: String) async throws -> Bool {
+        deletes.append((accessToken, authorizationCode))
+        return try deleteResult.get()
     }
 }
