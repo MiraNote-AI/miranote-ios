@@ -185,6 +185,9 @@ struct StickerPanelScene: View {
     private static let folded: CGFloat = 170
     /// A Favorites or set cell, three across the sheet (#205).
     private static let cell: CGFloat = 84
+    /// The bundled presets are 50 px PNGs: drawn larger than this they turn
+    /// blocky, so they sit centered in the cell.
+    private static let presetSide: CGFloat = 60
     /// The notice's line under the empty Favorites words (a dimmed
     /// Layout's hint), so the words keep both their lines.
     private static let noticeRoom: CGFloat = 26
@@ -600,6 +603,7 @@ struct StickerPanelScene: View {
                         Image(set.imageName(name))
                             .resizable()
                             .scaledToFit()
+                            .frame(width: Self.presetSide, height: Self.presetSide)
                             .frame(width: Self.cell, height: Self.cell)
                     }
                     .buttonStyle(.plain)
