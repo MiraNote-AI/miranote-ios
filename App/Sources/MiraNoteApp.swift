@@ -11,6 +11,8 @@ struct MiraNoteApp: App {
         // Sign in with Apple right after it, at the first server-AI action
         // (api #95).
         SignInPresenter.install(.shared, consent: .shared)
+        // MiraNote Plus: the paywall when a free allowance runs out (api #95).
+        PaywallPresenter.install(.shared, consent: .shared)
         // The detail sentence's Chinese serif is fetched once the install
         // gates say the trigger can show (TriggerController.resolveGates).
     }

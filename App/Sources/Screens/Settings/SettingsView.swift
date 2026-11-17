@@ -4,7 +4,8 @@ import SwiftUI
 /// Handoff screen 03: the PREFERENCES card -- Appearance and Language rows
 /// with their current values, and the text-size slider. ACCOUNT shows
 /// whether this phone is signed in with Apple, with Sign out (api #95; no
-/// email: we never ask Apple for one), in a build that offers sign-in
+/// email: we never ask Apple for one), and PLUS the current plan with the
+/// paywall and Restore, in a build that offers sign-in
 /// (`Account.isOffered`). PRIVACY & LEGAL (no URLs yet) is
 /// left out until the links exist. AI & PRIVACY says what goes
 /// to the AI providers, holds the mood switch and withdraws consent
@@ -14,6 +15,7 @@ struct SettingsView: View {
     var settings: AppSettings
     var consent: AIConsent = .shared
     var account: Account = .shared
+    var plus: PlusStore = .shared
     /// The photo trigger's switch; nil hides the TESTING card.
     var photoTriggerOptIn: Binding<Bool>?
     var onBack: () -> Void = {}
@@ -43,6 +45,11 @@ struct SettingsView: View {
                     SettingsEyebrow(text: "ACCOUNT", size: 12, tracking: 1.5)
                         .padding(.top, 21)
                     AccountCard(account: account)
+                        .padding(.horizontal, 19)
+                        .settingsCard()
+                    SettingsEyebrow(text: "PLUS", size: 12, tracking: 1.5)
+                        .padding(.top, 21)
+                    PlusCard(plus: plus)
                         .padding(.horizontal, 19)
                         .settingsCard()
                 }
@@ -152,6 +159,68 @@ private struct AccountCard: View {
             .lineSpacing(AIDataLines.spacing(for: 13))
             .foregroundStyle(SettingsStyle.value)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// The plan this phone's Apple Account holds, the paywall, and Restore
+/// Purchases (Guideline 3.1.1).
+private struct PlusCard: View {
+    var plus: PlusStore
+
+    @State private var busy = false
+    @State private var message: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(planName)
+                .font(Sans.font(size: 16, weight: 600))
+                .foregroundStyle(Palette.ink)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("settings.plan")
+            if !plus.isPlus {
+                Button("See Plus plans") { PaywallPresenter.show(plus, limitReached: false) }
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.seePlans")
+            }
+            Button("Restore Purchases", action: restore)
+                .font(Sans.font(size: 16, weight: 600))
+                .foregroundStyle(Palette.ink)
+                .frame(minHeight: 44)
+                .disabled(busy)
+                .accessibilityIdentifier("settings.restore")
+            if let message {
+                Text(message)
+                    .font(Sans.font(size: 13, weight: 500))
+                    .foregroundStyle(SettingsStyle.value)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("settings.restoreMessage")
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+        .task { await plus.refreshEntitlement() }
+    }
+
+    private var planName: LocalizedStringKey {
+        guard let entitlement = plus.entitlement else { return "Free plan" }
+        return entitlement.isYearly ? "Plus, yearly" : "Plus, monthly"
+    }
+
+    private func restore() {
+        busy = true
+        message = nil
+        Task {
+            defer { busy = false }
+            do {
+                message = try await plus.restore()
+                    ? String(appCopy: "Plus is restored.")
+                    : String(appCopy: "No Plus subscription was found for this Apple Account.")
+            } catch {
+                message = error.localizedDescription
+            }
+        }
     }
 }
 

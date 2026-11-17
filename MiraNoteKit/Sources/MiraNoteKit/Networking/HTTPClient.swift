@@ -12,6 +12,33 @@ public enum BackendError: Error, Equatable {
     case server(status: Int, detail: String?)
     /// Response body could not be decoded into the expected shape.
     case decoding
+    /// A 429 with `reason: quota` (api #95 step 3): the signed-in writer
+    /// used up this feature's allowance for its window.
+    case limitReached(AILimit)
+}
+
+/// Which allowance ran out, from the AI service's 429 body
+/// `{"reason": "quota", "feature", "plan", ...}`.
+public struct AILimit: Equatable, Sendable {
+    /// `chat`, `expand`, `image_generate`, `image_edit`, `photo_push`, `mood`.
+    public let feature: String
+    /// `free` or `plus`: only a free writer is offered Plus.
+    public let plan: String
+
+    public init(feature: String, plan: String) {
+        self.feature = feature
+        self.plan = plan
+    }
+
+    public var isFree: Bool { plan != "plus" }
+
+    /// The limit in a 429 body, nil for any other 429 (the beta token's
+    /// rate limit has no `reason`).
+    init?(body: Data) {
+        guard let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+              object["reason"] as? String == "quota" else { return nil }
+        self.init(feature: object["feature"] as? String ?? "", plan: object["plan"] as? String ?? "free")
+    }
 }
 
 extension BackendError: LocalizedError {
@@ -31,6 +58,10 @@ extension BackendError: LocalizedError {
             return Self.message(for: status)
         case .decoding:
             return String(appCopy: "The server sent an unexpected response.")
+        case .limitReached(let limit):
+            return limit.isFree
+                ? String(appCopy: "You've reached the free limit for this. MiraNote Plus gives you more.")
+                : String(appCopy: "You've reached this limit for now. Try again later.")
         }
     }
 
@@ -95,13 +126,19 @@ extension BackendError: LocalizedError {
 public struct HTTPClient: Sendable {
     private let session: URLSession
     private let betaToken: String?
+    private let userTokens: UserTokenSource?
 
+    /// `userTokens`: signed in, requests carry our access token instead of
+    /// the beta token (api #95 step 3). The accounts service's own calls
+    /// pass nil: a refresh must never wait on a refresh.
     public init(
         session: URLSession = .shared,
-        betaToken: String? = MiraNoteConfig.Backend.betaToken
+        betaToken: String? = MiraNoteConfig.Backend.betaToken,
+        userTokens: UserTokenSource? = UserTokens.current
     ) {
         self.session = session
         self.betaToken = betaToken
+        self.userTokens = userTokens
     }
 
     /// Send a prepared request; return the body data on a 2xx response.
@@ -111,11 +148,31 @@ public struct HTTPClient: Sendable {
     /// are built as multipart elsewhere, so injecting here is what makes
     /// "every call is authenticated" true rather than "every call we
     /// remembered".
+    ///
+    /// Signed in, the bearer is our access token and the request gets an
+    /// `X-Request-ID`, which the AI services meter by. A 401 renews the
+    /// token once (one refresh for all requests that got it) and sends the
+    /// request again with the same id: the 401 came before anything was
+    /// counted. Signed out, or in a build that offers no sign-in, the beta
+    /// token goes as before.
     public func send(_ request: URLRequest) async throws -> Data {
         var request = request
-        if let betaToken {
-            request.setValue("Bearer \(betaToken)", forHTTPHeaderField: "Authorization")
+        guard let userTokens, let token = try await userTokens.accessTokenIfSignedIn() else {
+            if let betaToken {
+                request.setValue("Bearer \(betaToken)", forHTTPHeaderField: "Authorization")
+            }
+            return try checked(await exchange(request))
         }
+        request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Request-ID")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await exchange(request)
+        guard response.statusCode == 401 else { return try checked((data, response)) }
+        let renewed = try await userTokens.renewAccessToken(after: token)
+        request.setValue("Bearer \(renewed)", forHTTPHeaderField: "Authorization")
+        return try checked(await exchange(request))
+    }
+
+    private func exchange(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let data: Data
         let response: URLResponse
         do {
@@ -129,13 +186,20 @@ public struct HTTPClient: Sendable {
         guard let http = response as? HTTPURLResponse else {
             throw BackendError.unreachable
         }
+        return (data, http)
+    }
+
+    private func checked(_ answer: (Data, HTTPURLResponse)) throws -> Data {
+        let (data, http) = answer
         guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 429, let limit = AILimit(body: data) {
+                throw BackendError.limitReached(limit)
+            }
             let detail = data.isEmpty ? nil : String(data: data, encoding: .utf8)
             throw BackendError.server(status: http.statusCode, detail: detail)
         }
         return data
     }
-
     /// POST `body` encoded as JSON, then decode the response body.
     /// `timeout` overrides URLSession's 60s default for endpoints that
     /// legitimately work longer (image generation).

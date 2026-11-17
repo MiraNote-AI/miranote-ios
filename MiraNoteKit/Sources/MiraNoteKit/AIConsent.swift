@@ -61,6 +61,11 @@ public final class AIConsent {
     /// Settings and background work never ask it.
     @ObservationIgnored public var signIn: (@MainActor () async -> Bool)?
 
+    /// Shown when an action the writer started used up a free allowance
+    /// (api #95 step 4): the paywall. Unset, the action's error alone says
+    /// so. Background work never shows it.
+    @ObservationIgnored public var limitReached: (@MainActor (AILimit) -> Void)?
+
     @ObservationIgnored private var waiting: [CheckedContinuation<Bool, Never>] = []
 
     public init(defaults: UserDefaults, grantedByDefault: Bool = false) {
@@ -111,6 +116,18 @@ public final class AIConsent {
     func clearToSend() async throws {
         try await askToSend()
         sentRequests += 1
+    }
+
+    /// `work` once clear to send; a free allowance it finds used up also
+    /// shows `limitReached`.
+    func send<T>(_ work: () async throws -> T) async throws -> T {
+        try await clearToSend()
+        do {
+            return try await work()
+        } catch BackendError.limitReached(let limit) where limit.isFree {
+            limitReached?(limit)
+            throw BackendError.limitReached(limit)
+        }
     }
 
     /// For work the writer did not just ask for -- a page's mood
@@ -169,8 +186,7 @@ struct AskingTextTransform: TextTransformService {
     let consent: AIConsent
 
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
-        try await consent.clearToSend()
-        return try await base.transform(text, mode: mode)
+        try await consent.send { try await base.transform(text, mode: mode) }
     }
 }
 
@@ -194,8 +210,9 @@ struct AskingChat: ChatService {
         to message: String, sessionID: String?,
         notes: [ChatNote], page: PageContext?
     ) async throws -> ChatReply {
-        try await consent.clearToSend()
-        return try await base.reply(to: message, sessionID: sessionID, notes: notes, page: page)
+        try await consent.send {
+            try await base.reply(to: message, sessionID: sessionID, notes: notes, page: page)
+        }
     }
 
     func askToSend() async throws { try await consent.askToSend() }
@@ -224,13 +241,11 @@ struct AskingImageStudio: ImageStudioService {
     func askToSend() async throws { try await consent.askToSend() }
 
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
-        try await consent.clearToSend()
-        return try await base.generate(kind: kind, prompt: prompt)
+        try await consent.send { try await base.generate(kind: kind, prompt: prompt) }
     }
 
     func generateStickers(prompt: String) async throws -> StickerGeneration {
-        try await consent.clearToSend()
-        return try await base.generateStickers(prompt: prompt)
+        try await consent.send { try await base.generateStickers(prompt: prompt) }
     }
 
     func cutout(image: Data, target: String?) async throws -> Data {
@@ -240,8 +255,7 @@ struct AskingImageStudio: ImageStudioService {
     }
 
     func stylize(image: Data, instruction: String) async throws -> Data {
-        try await consent.clearToSend()
-        return try await base.stylize(image: image, instruction: instruction)
+        try await consent.send { try await base.stylize(image: image, instruction: instruction) }
     }
 
     func outline(image: Data) async throws -> Data {

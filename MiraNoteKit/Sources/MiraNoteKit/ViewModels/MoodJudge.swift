@@ -165,7 +165,7 @@ public final class MoodJudge {
     /// 502s ("LLM call failed: ...") and a proxy's are not.
     private static func isAboutTheService(_ error: Error) -> Bool {
         switch error as? BackendError {
-        case .unreachable, .timedOut:
+        case .unreachable, .timedOut, .limitReached:
             return true
         case .server(status: 502, let detail):
             return detail?.contains("LLM reply") != true

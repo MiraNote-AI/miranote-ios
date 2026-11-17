@@ -172,6 +172,7 @@ public struct LiveComposeClient: ComposeClient {
         switch error {
         case .unreachable, .timedOut: return .unreachable
         case .decoding: return .server(200)
+        case .limitReached: return .rateLimited
         case .server(let status, let detail):
             switch status {
             case 400: return .badRequest(message(in: detail) ?? "")

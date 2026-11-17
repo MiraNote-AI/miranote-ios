@@ -129,11 +129,14 @@ private struct AppleIDButton: UIViewRepresentable {
 @MainActor
 enum SignInPresenter {
     /// Nothing to install while the build names no accounts service
-    /// (`Account.isOffered`): consent alone lets server AI through.
+    /// (`Account.isOffered`): consent alone lets server AI through, with
+    /// the beta token. Installed, a signed-in writer's requests carry our
+    /// access token instead (`UserTokens`).
     static func install(_ account: Account, consent: AIConsent) {
         guard Account.isOffered else { return }
         account.present = { show(account) }
         consent.signIn = { await account.permit() }
+        UserTokens.installed = account
     }
 
     private static func show(_ account: Account) {
@@ -262,7 +265,9 @@ private struct UITestApple: AppleCredentialProvider {
 /// -UITEST: the accounts service, answering every call.
 private struct UITestAccounts: AccountsAPI {
     static func tokens() -> AccountTokens {
-        AccountTokens(accessToken: "uitest-access", refreshToken: "uitest-refresh", userID: "uitest-user",
+        // A UUID, as the server's ids are: a purchase's appAccountToken.
+        AccountTokens(accessToken: "uitest-access", refreshToken: "uitest-refresh",
+                      userID: "00000000-0000-4000-8000-000000000001",
                       accessExpiresAt: Date().addingTimeInterval(3600))
     }
 
