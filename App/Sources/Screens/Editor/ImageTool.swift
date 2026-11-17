@@ -219,7 +219,7 @@ struct ChoosePhotosSheet: View {
 }
 
 /// Screens 24 and 26: the Recents sheet -- the newest library photos in
-/// the design's 3-column grid of r18 cells, picks ringed in ink with their
+/// a 4-column grid of square r18 cells, picks ringed in ink with their
 /// order. The header counts the picks, or offers "Editing" for a single one.
 /// Without photo access it says so and offers Settings or the system picker.
 struct RecentsSheet: View {
@@ -239,7 +239,8 @@ struct RecentsSheet: View {
     @State private var gridWidth: CGFloat = 298
     /// A photo is being carried: the grid holds still under it.
     @State private var carrying = false
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
+    /// Four columns of square cells (about 82 pt on a 17 Pro), 5 pt apart.
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 4)
 
     var body: some View {
         GlassSheet(fillOpacity: 0.5, elevation: .raised) {
@@ -274,9 +275,9 @@ struct RecentsSheet: View {
 
     private var grid: some View {
         ScrollView(showsIndicators: false) {
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: columns, spacing: 5) {
                 ForEach(Array(library.photos.enumerated()), id: \.element) { index, photo in
-                    RecentCell(library: library, photo: photo, height: cellHeight, order: order(of: photo),
+                    RecentCell(library: library, photo: photo, order: order(of: photo),
                                onTap: { toggle(photo) },
                                onDrag: { drag in
                                    if carrying != (drag != nil) { carrying = drag != nil }
@@ -284,7 +285,7 @@ struct RecentsSheet: View {
                                },
                                onDrop: onDrop)
                         // The last row in view: the next page.
-                        .onAppear { if index >= library.photos.count - 3 { library.loadMore() } }
+                        .onAppear { if index >= library.photos.count - 4 { library.loadMore() } }
                         .accessibilityElement()
                         // The tap is a UIKit recognizer the element hides.
                         .accessibilityAction { toggle(photo) }
@@ -303,12 +304,9 @@ struct RecentsSheet: View {
     }
 
     /// The panel's grid height as drawn: three rows of 92 x 88 cells (284
-    /// on the design's 298-wide grid).
+    /// on the design's 298-wide grid). The square cells fill it with about
+    /// 3.8 rows, so the cut fourth row says the grid scrolls (#203).
     private var gridHeight: CGFloat { 3 * ((gridWidth - 20) / 3 * 88 / 92) + 20 }
-
-    /// Three and a half rows fill that height, so the half-shown fourth row
-    /// says the grid scrolls (#203).
-    private var cellHeight: CGFloat { (gridHeight - 30) / 3.5 }
 
     private var denied: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -395,13 +393,12 @@ struct RecentsSheet: View {
     }
 }
 
-/// One Recents cell: a column wide, `height` tall (three and a half rows
-/// fill the grid), r18; a pick wears a 3 pt ink ring and a
+/// One Recents cell: a square column wide, the photo filling it, r18; a
+/// pick wears a 3 pt ink ring and a
 /// 22 pt ink badge with its order at the top right.
 private struct RecentCell: View {
     let library: RecentPhotos
     let photo: LibraryPhoto
-    let height: CGFloat
     let order: Int?
     var onTap: () -> Void
     var onDrag: (PhotoDrag?) -> Void
@@ -415,7 +412,7 @@ private struct RecentCell: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.imageCorner)
         Color.clear
-            .frame(height: height)
+            .aspectRatio(1, contentMode: .fit)
             .overlay {
                 if let image {
                     Image(uiImage: image).resizable().scaledToFill()
