@@ -40,60 +40,67 @@ struct HomeView: View {
     /// design does not draw (New collection, Recently deleted).
     static let dateColor = Color(hex: 0x8F8477)
 
+    /// The top of the page, to scroll back to.
+    private static let top = "home.top"
+
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            // Vertical rhythm from the handoff's frames, in Josefin's 1.0 em
-            // line boxes (the CSS 1.18 line height adds its half-leading to
-            // the gaps here).
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.bottom, 8)
-                dateline
-                    .padding(.bottom, 9 + theme.heroGaps.above)
-                hero
-                    .padding(.bottom, 28 + theme.heroGaps.below)
-                startButton
-                    .padding(.bottom, 27)
-                promptBar
-                    .padding(.bottom, 22)
-                grid
+        ScrollViewReader { scroller in
+            ScrollView(showsIndicators: false) {
+                // Vertical rhythm from the handoff's frames, in Josefin's 1.0 em
+                // line boxes (the CSS 1.18 line height adds its half-leading to
+                // the gaps here).
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                        .id(Self.top)
+                        .padding(.bottom, 8)
+                    dateline
+                        .padding(.bottom, 9 + theme.heroGaps.above)
+                    hero
+                        .padding(.bottom, 28 + theme.heroGaps.below)
+                    startButton
+                        .padding(.bottom, 27)
+                    promptBar
+                        .padding(.bottom, 22)
+                    grid
 
-                if !viewModel.trash.isEmpty {
-                    Button {
-                        onOpenTrash()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "tray")
-                                .font(.system(size: 12))
-                            Text("Recently deleted (\(viewModel.trash.count))")
-                                .font(Sans.font(size: 14, weight: 600))
+                    if !viewModel.trash.isEmpty {
+                        Button {
+                            onOpenTrash()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "tray")
+                                    .font(.system(size: 12))
+                                Text("Recently deleted (\(viewModel.trash.count))")
+                                    .font(Sans.font(size: 14, weight: 600))
+                            }
+                            // Not drawn by the design: textSecondary (6.1:1 on
+                            // the paper), not the 3.3:1 date color.
+                            .foregroundStyle(theme.muted(Palette.textSecondary))
+                            .frame(minHeight: 44)
                         }
-                        // Not drawn by the design: textSecondary (6.1:1 on
-                        // the paper), not the 3.3:1 date color.
-                        .foregroundStyle(theme.muted(Palette.textSecondary))
-                        .frame(minHeight: 44)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("home.trash")
+                        .padding(.top, 8)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.trash")
-                    .padding(.top, 8)
-                }
 
-                if let triggerEntry {
-                    triggerEntry
-                        .padding(.top, 28)
+                    if let triggerEntry {
+                        triggerEntry
+                            .padding(.top, 28)
+                    }
                 }
+                .padding(.horizontal, Metrics.chromeInset)
+                // The profile circle rises 6 pt into the status-bar band: the
+                // wordmark, not the circle, lines up with the editor's nav row.
+                .padding(.top, -6)
+                .padding(.bottom, 28)
+                // A tap that no button takes lowers the ask bar's keyboard; the
+                // words stay in the bar.
+                .contentShape(Rectangle())
+                .onTapGesture { promptFocused = false }
             }
-            .padding(.horizontal, Metrics.chromeInset)
-            // The profile circle rises 6 pt into the status-bar band: the
-            // wordmark, not the circle, lines up with the editor's nav row.
-            .padding(.top, -6)
-            .padding(.bottom, 28)
-            // A tap that no button takes lowers the ask bar's keyboard; the
-            // words stay in the bar.
-            .contentShape(Rectangle())
-            .onTapGesture { promptFocused = false }
+            .scrollDismissesKeyboard(.immediately)
+            .task(id: arrivingStar?.id) { await landArrivingStar(scroller) }
         }
-        .scrollDismissesKeyboard(.immediately)
         .overlayPreferenceValue(JarAnchorKey.self) { anchor in
             GeometryReader { proxy in
                 if flying, let anchor {
@@ -101,12 +108,11 @@ struct HomeView: View {
                         progress: flight,
                         start: CGPoint(x: proxy.size.width / 2, y: proxy.size.height - 60),
                         end: proxy[anchor],
-                        color: Palette.mood(arrivingStar?.starMood)
+                        memory: arrivingStar
                     )
                 }
             }
         }
-        .task(id: arrivingStar?.id) { await landArrivingStar() }
         .screenBackground()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.root")
@@ -141,7 +147,7 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
-                    .modifier(JarLanding(beat: jarBeat, color: Palette.mood(arrivingStar?.starMood), reduceMotion: reduceMotion))
+                    .modifier(JarLanding(beat: jarBeat, reduceMotion: reduceMotion))
                     .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
                     #if DEBUG
                     // UI tests count the landings.
@@ -154,9 +160,12 @@ struct HomeView: View {
     }
 
     /// The editor's cover slides away first, then the star flies (0.9 s)
-    /// and lands; under Reduce Motion the jar only glows.
-    private func landArrivingStar() async {
+    /// and lands; under Reduce Motion the jar only glows. Home scrolls to
+    /// its top under the cover first: the jar circle scrolls with the
+    /// page, and the star would fly off the screen to it.
+    private func landArrivingStar(_ scroller: ScrollViewProxy) async {
         guard arrivingStar != nil else { return }
+        scroller.scrollTo(Self.top, anchor: .top)
         do {
             try await Task.sleep(for: .milliseconds(450))
             if !reduceMotion {

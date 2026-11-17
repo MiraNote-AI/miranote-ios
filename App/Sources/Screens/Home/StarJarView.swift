@@ -3,22 +3,17 @@ import SpriteKit
 import SwiftUI
 
 /// The star jar (team decision 2026-10-24, no design screen): every saved
-/// page is a star colored by its mood, a week or a month to a jar. Drawn
-/// in the app's own language -- paper, hairlines, quiet type. Its motion:
-/// pages saved since the jar was last opened drop in, and a tap on the
-/// jar (not on a star) shakes it, tossing the stars up like popcorn.
+/// page is a star made of a strip of the page (#206), a week or a month to
+/// a jar. Drawn in the app's own language -- paper, hairlines, quiet type.
+/// Its motion: pages saved since the jar was last opened drop in, and a
+/// tap anywhere on the jar shakes it, tossing the stars up like popcorn.
+/// Holding a star opens its page.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
     var onOpenNote: (JarStar) -> Void = { _ in }
-    /// The shown pages, to ask the mood of one at a time: the judge skips
-    /// one judged from its current words, and asks again one whose words
-    /// changed after an ask at Save failed -- unless it is a draft, which
-    /// waits for its next Save (#137). `[]` when the jar closes.
-    var onShow: ([Memory.ID]) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Environment(\.displayScale) private var displayScale
     @Environment(\.theme) private var theme
     @State private var period: JarPeriod = .month
     @State private var interval = JarPeriod.month.interval(containing: .now)
@@ -77,7 +72,11 @@ struct StarJarView: View {
                         .accessibilityIdentifier("jar.summary")
                         .padding(.bottom, 14)
                 }
-                legend
+                Text("Tap to shake. Hold a star to open.")
+                    .font(.miraCaption)
+                    .foregroundStyle(theme.muted(Palette.textSecondary))
+                    .multilineTextAlignment(.center)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, Metrics.chromeInset)
             .padding(.top, 6)
@@ -93,15 +92,11 @@ struct StarJarView: View {
         .screenBackground()
         .safeAreaInset(edge: .top) { header }
         .onAppear(perform: firstVisit)
-        .task(id: interval) {
-            onShow(stars.map(\.id))
-        }
         .onChange(of: interval) {
             settled = [:]
             tossing = false
         }
         .onDisappear {
-            onShow([])
             // Opened mid-air: the stars lie where they did before the toss.
             tossing = false
         }
@@ -210,8 +205,14 @@ struct StarJarView: View {
                     ) {
                         onOpenNote(star)
                     }
+                    // VoiceOver shakes the jar from any of its stars.
+                    .accessibilityAction(named: Text("Shake")) {
+                        shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
+                    }
                     .position(spot.center)
                     .opacity(tossing ? 0 : 1)
+                    // A hold is ignored while the stars are in the air.
+                    .allowsHitTesting(!tossing)
                 }
                 SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -230,26 +231,14 @@ struct StarJarView: View {
                         .position(x: geometry.interior.midX, y: geometry.interior.midY + 20)
                 }
             }
-            // Small stars hit-test at 1.3x: a tap between them opens the
-            // nearest within 17 pt, so even a crowd keeps a 34 pt target
-            // without one star covering another. In the air, where it is.
+            // A tap anywhere, on a star too, shakes (#206): only a hold
+            // opens one, so a crowd never makes the toss unreachable.
             .contentShape(Rectangle())
-            .onTapGesture { point in
+            .onTapGesture {
                 guard visited else { return }
-                let flying = tossing ? tossScene.spots() : [:]
-                let nearest = zip(stars, spots)
-                    .map { star, spot in
-                        let center = flying[star.id]?.center ?? spot.center
-                        return (star: star, distance: hypot(center.x - point.x, center.y - point.y))
-                    }
-                    .min { $0.distance < $1.distance }
-                if let nearest, nearest.distance <= 17 {
-                    onOpenNote(nearest.star)
-                } else {
-                    shakes += 1
-                    throwStars(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
-                }
+                shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
             }
+
             .onChange(of: proxy.size) { settled = [:] }
             // A shake: pressed down, a small hop, a sway or two from the
             // foot. Under Reduce Motion only a small sway.
@@ -286,7 +275,7 @@ struct StarJarView: View {
             .accessibilityIdentifier("jar.glass")
         }
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)
-        // As wide as fits, short enough that the count and legend stay on
+        // As wide as fits, short enough that the count and hint stay on
         // screen on a small phone (the rest of the column is ~290 pt).
         .frame(maxWidth: min(320, max(220, (viewport - 290) * JarGeometry.aspect)))
     }
@@ -296,6 +285,14 @@ struct StarJarView: View {
 // MARK: - Toss and words
 
 extension StarJarView {
+    /// A shake of the jar: it sways, and the stars fly up.
+    private func shake(
+        _ resting: [(star: JarStar, spot: StarPile.Spot)], starSize: CGFloat, geometry: JarGeometry
+    ) {
+        shakes += 1
+        throwStars(resting, starSize: starSize, geometry: geometry)
+    }
+
     /// Throws the stars up from where they lie, or adds to a toss in the
     /// air. Not under Reduce Motion, nor while stars are still dropping in.
     private func throwStars(
@@ -303,12 +300,8 @@ extension StarJarView {
     ) {
         guard !reduceMotion, arriving.isEmpty, !resting.isEmpty else { return }
         if !tossing {
-            var faces: [Mood?: SKTexture] = [:]
-            tossScene.load(resting, starSize: starSize, geometry: geometry) { mood in
-                if let face = faces[mood] { return face }
-                let face = StarTossScene.face(mood, size: starSize, scale: displayScale)
-                faces[mood] = face
-                return face
+            tossScene.load(resting, starSize: starSize, geometry: geometry) { star in
+                StarTossScene.face(of: star.memory)
             }
             tossScene.onSettle = { spots in
                 settled = spots
@@ -339,25 +332,6 @@ extension StarJarView {
         }
     }
 
-    private var legend: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 10) {
-            ForEach(Mood.allCases, id: \.self) { mood in
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Palette.mood(mood))
-                        .frame(width: 10, height: 10)
-                        // The name alone is the element: framed with the
-                        // dot, the contrast audit read the grey text against
-                        // the light Calm and Low dots (6.1:1 on the paper).
-                        .accessibilityHidden(true)
-                    Text(mood.displayName)
-                        .font(.miraCaption)
-                        .foregroundStyle(theme.muted(Palette.textSecondary))
-                }
-            }
-        }
-        .frame(maxWidth: 300)
-    }
 }
 
 // MARK: - Arrivals

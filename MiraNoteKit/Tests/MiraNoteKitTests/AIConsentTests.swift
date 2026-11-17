@@ -1,8 +1,8 @@
 import XCTest
 @testable import MiraNoteKit
 
-/// #151: the stored AI consent, the mood switch, and the services that
-/// ask before anything leaves the phone.
+/// #151: the stored AI consent and the services that ask before anything
+/// leaves the phone.
 @MainActor
 final class AIConsentTests: XCTestCase {
     private var suiteName = ""
@@ -41,18 +41,23 @@ final class AIConsentTests: XCTestCase {
 
     // MARK: Stored state
 
-    func testAFreshInstallHasNotAgreedAndReadsMoodsOnceItDoes() {
+    func testAFreshInstallHasNotAgreed() {
+        XCTAssertFalse(AIConsent(defaults: defaults).isGranted)
+    }
+
+    /// #206: the retired "Mood from my words" switch leaves nothing behind.
+    func testTheRetiredMoodSwitchIsWipedAndConsentKept() {
+        defaults.set(false, forKey: "miranote.ai.moodFromWords")
+        defaults.set(true, forKey: "miranote.ai.consent")
         let consent = AIConsent(defaults: defaults)
-        XCTAssertFalse(consent.isGranted)
-        XCTAssertTrue(consent.moodFromWords, "the mood switch is on by default")
-        XCTAssertFalse(consent.allowsMood, "but nothing is read before consent")
+        XCTAssertNil(defaults.object(forKey: "miranote.ai.moodFromWords"))
+        XCTAssertTrue(consent.isGranted, "consent is not about mood: kept")
     }
 
     func testContinueIsKeptAcrossLaunches() async {
         let granted = await consent(answering: true).permit()
         XCTAssertTrue(granted)
         XCTAssertTrue(AIConsent(defaults: defaults).isGranted)
-        XCTAssertTrue(AIConsent(defaults: defaults).allowsMood)
     }
 
     func testNotNowIsNotKept() async {
@@ -80,19 +85,8 @@ final class AIConsentTests: XCTestCase {
         _ = await consent.permit()
         consent.withdraw()
         XCTAssertFalse(AIConsent(defaults: defaults).isGranted, "withdrawn across a relaunch")
-        XCTAssertFalse(consent.allowsMood)
         _ = await consent.permit()
         XCTAssertEqual(sheets, 2)
-    }
-
-    func testMoodSwitchIsKeptAndNeedsConsent() async {
-        let consent = consent(answering: true)
-        consent.moodFromWords = false
-        _ = await consent.permit()
-        XCTAssertFalse(consent.allowsMood)
-        XCTAssertFalse(AIConsent(defaults: defaults).moodFromWords)
-        consent.moodFromWords = true
-        XCTAssertTrue(AIConsent(defaults: defaults).allowsMood)
     }
 
     func testGrantedByDefaultIsOnlyADefault() {
@@ -149,26 +143,12 @@ final class AIConsentTests: XCTestCase {
         XCTAssertEqual(consent.sentRequests, 2)
     }
 
-    func testMoodAndDescribeNeverShowTheSheet() async {
+    func testDescribeNeverShowsTheSheet() async {
         var sheets = 0
         let services = ServiceContainer.mock.asking(consent(answering: true, shown: { sheets += 1 }))
-        let mood = try? await services.mood.mood(for: "a happy day")
         let summary = try? await services.imageStudio.describe(image: MockImageStudioService.tinyPNG)
-        XCTAssertNil(mood)
         XCTAssertNil(summary)
         XCTAssertEqual(sheets, 0, "background work waits for consent, it never asks")
-    }
-
-    func testMoodSwitchOffSendsNoMood() async throws {
-        let consent = consent(answering: true)
-        _ = await consent.permit()
-        consent.moodFromWords = false
-        let services = ServiceContainer.mock.asking(consent)
-        let mood = try? await services.mood.mood(for: "a happy day")
-        XCTAssertNil(mood)
-        consent.moodFromWords = true
-        let joyful = try await services.mood.mood(for: "a happy day")
-        XCTAssertEqual(joyful, .joyful)
     }
 
     func testOnPhoneCutoutAndOutlineDoNotAsk() async throws {
@@ -224,6 +204,6 @@ private extension ServiceContainer {
     func replacingText(_ text: TextTransformService) -> ServiceContainer {
         ServiceContainer(textTransform: text, voiceTranscription: voiceTranscription,
                          stickerGeneration: stickerGeneration, styleTransfer: styleTransfer,
-                         chat: chat, imageStudio: imageStudio, mood: mood)
+                         chat: chat, imageStudio: imageStudio)
     }
 }

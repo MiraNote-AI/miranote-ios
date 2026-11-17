@@ -1,8 +1,8 @@
 import XCTest
 
 /// The star jar: Home's jar circle opens it, a saved page lands in it as a
-/// star colored by its mood (the mock reads "happy" as joyful), a star
-/// opens its page, and Week / Month and the arrows move the period.
+/// star, a tap anywhere shakes the jar and a hold on a star opens its page
+/// (#206), and Week / Month and the arrows move the period.
 final class StarJarUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -44,13 +44,36 @@ final class StarJarUITests: XCTestCase {
         openJar()
         let star = app.buttons["jar.star.A happy picnic"]
         XCTAssertTrue(star.waitForExistence(timeout: 5), "the page is a star in this month's jar")
-        label(of: star, becomes: "A happy picnic, Joyful")
+        label(of: star, becomes: "A happy picnic")
 
-        star.tap()
-        XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "the star opens the page")
+        star.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "a hold opens the page")
         app.buttons["reading.back"].tap()
         XCTAssertTrue(star.waitForExistence(timeout: 5), "back in the jar")
-        XCTAssertEqual(shakes, 0, "a tap on a star does not shake the jar")
+        XCTAssertEqual(shakes, 0, "a hold does not shake the jar")
+    }
+
+    /// #206: a tap on a star shakes the jar and opens nothing -- before,
+    /// any tap within 17 pt of a star opened it, so in a crowd the toss
+    /// could not be reached. Only a hold opens.
+    func testATapOnAStarShakesAndOnlyAHoldOpensIt() {
+        relaunch(["-JAR_STARS", "30"])
+        _ = openSettledJar()
+        let star = app.buttons["jar.star.Star 1"]
+        XCTAssertTrue(star.waitForExistence(timeout: 3))
+        star.tap()
+        let shook = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.shakes == 1 }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [shook], timeout: 3), .completed, "a tap on a star shakes")
+        XCTAssertFalse(app.buttons["reading.back"].waitForExistence(timeout: 1), "and opens nothing")
+        waitUntilSettled(tosses: 1, "the toss landed")
+
+        star.press(forDuration: 0.15)
+        XCTAssertFalse(app.buttons["reading.back"].waitForExistence(timeout: 1), "a short press opens nothing")
+        // It is a tap: another toss, and holds wait for the stars to land.
+        waitUntilSettled(tosses: 2, "the second toss landed")
+        XCTAssertEqual(shakes, 2)
+        star.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "a hold opens the page")
     }
 
     private var shakes: Int { jarState["shakes"] as? Int ?? -1 }
@@ -103,7 +126,7 @@ final class StarJarUITests: XCTestCase {
         XCTAssertEqual(shakes, 1)
         let star = app.buttons["jar.star.Slow morning, good coffee"]
         XCTAssertTrue(star.waitForExistence(timeout: 3))
-        star.tap()
+        star.press(forDuration: 0.6)
         XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "the star opens the page")
     }
 
@@ -138,8 +161,7 @@ final class StarJarUITests: XCTestCase {
         XCTAssertEqual(jarState["settled"] as? Bool, true)
     }
 
-    /// A tap on the jar, away from any star, shakes it; a tap on a star
-    /// still opens the page and does not shake.
+    /// A tap on the jar, away from any star, shakes it.
     func testATapOnTheJarShakesIt() {
         openJar()
         XCTAssertEqual(shakes, 0)
@@ -184,6 +206,32 @@ final class StarJarUITests: XCTestCase {
         XCTAssertEqual(jar.label, "Star jar", "the landing leaves the jar's name alone")
         sleep(2)
         XCTAssertEqual(jar.value as? String, "1", "and only once")
+    }
+
+    /// #206: Home scrolled down has its jar circle off the screen, so it
+    /// is back at its top before the star flies in.
+    func testAScrolledHomeIsBackAtTheTopForTheLanding() {
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        let start = app.buttons["Start a memory"]
+        let from = start.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -260)))
+        sleep(1)
+        XCTAssertFalse(jar.isHittable, "Home is scrolled: the jar circle is off the screen")
+
+        XCTAssertTrue(start.isHittable)
+        start.tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("A happy picnic")
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: jar)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the star lands")
+        XCTAssertTrue(jar.isHittable, "Home is at its top: the star flew to a jar on the screen")
+        XCTAssertGreaterThan(jar.frame.minY, 0)
     }
 
     /// #160 with draft pages (#137): Home keeps a written page as a draft,

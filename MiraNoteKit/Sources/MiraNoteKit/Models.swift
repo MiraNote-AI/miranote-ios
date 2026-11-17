@@ -39,20 +39,13 @@ public struct Memory: Identifiable, Equatable, Sendable {
     /// A solid page color as a palette name or "#RRGGBB"; "" is the default
     /// gradient. A painted backdrop (`backgroundFileName`) draws over it.
     public var pageColorName: String
-    /// The page's mood, the color of its star in the star jar. Nil: not
-    /// judged yet (older pages, or the last ask failed).
-    public var mood: Mood?
-    /// `moodText` when the mood was judged, as `Memory.moodHash(of:)`: a
-    /// page whose words did not change since is not asked again.
-    public var moodTextHash: String?
     /// Left without Save (#137): Home and the background autosave keep a
     /// page as a draft; only Save makes it saved. A draft never starts what
     /// follows a Save -- but a page that is not one may not have been
     /// saved this visit (an old page, a saved page left unchanged).
     public var isDraft: Bool
     /// Save has filed the page at least once (#137); nothing clears it. A
-    /// draft of such a page keeps its star in the star jar, with the mood
-    /// its last Save got; a page never saved is no star.
+    /// draft of such a page keeps its star in the star jar; a page never saved is no star.
     public var hasBeenSaved: Bool
 
     public init(
@@ -67,8 +60,6 @@ public struct Memory: Identifiable, Equatable, Sendable {
         backgroundSummary: String = "",
         paper: PaperKind = .blank,
         pageColorName: String = "",
-        mood: Mood? = nil,
-        moodTextHash: String? = nil,
         isDraft: Bool = false,
         hasBeenSaved: Bool? = nil
     ) {
@@ -83,8 +74,6 @@ public struct Memory: Identifiable, Equatable, Sendable {
         self.backgroundSummary = backgroundSummary
         self.paper = paper
         self.pageColorName = pageColorName
-        self.mood = mood
-        self.moodTextHash = moodTextHash
         self.isDraft = isDraft
         // Not given: a page that starts as a draft was never saved; any
         // other was.
@@ -108,7 +97,7 @@ extension Memory: Hashable {
 extension Memory: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, title, body, createdAt, memoryDate, savedAt, items, backgroundFileName
-        case backgroundSummary, paper, pageColorName, mood, moodTextHash, isDraft, hasBeenSaved
+        case backgroundSummary, paper, pageColorName, isDraft, hasBeenSaved
     }
 
     public init(from decoder: Decoder) throws {
@@ -132,10 +121,6 @@ extension Memory: Codable {
             paper: (try container.decodeIfPresent(String.self, forKey: .paper))
                 .flatMap(PaperKind.init(rawValue:)) ?? .blank,
             pageColorName: try container.decodeIfPresent(String.self, forKey: .pageColorName) ?? "",
-            // Pages saved before the star jar, and a mood a later build
-            // added, read as not judged yet.
-            mood: (try container.decodeIfPresent(String.self, forKey: .mood)).flatMap(Mood.init(rawValue:)),
-            moodTextHash: try container.decodeIfPresent(String.self, forKey: .moodTextHash),
             // Saves before drafts existed: every page then was saved.
             isDraft: try container.decodeIfPresent(Bool.self, forKey: .isDraft) ?? false,
             // Missing, as init reads it: saved unless a draft.
@@ -156,8 +141,6 @@ extension Memory: Codable {
         try container.encode(backgroundSummary, forKey: .backgroundSummary)
         try container.encode(paper, forKey: .paper)
         try container.encode(pageColorName, forKey: .pageColorName)
-        try container.encodeIfPresent(mood, forKey: .mood)
-        try container.encodeIfPresent(moodTextHash, forKey: .moodTextHash)
         try container.encode(isDraft, forKey: .isDraft)
         try container.encode(hasBeenSaved, forKey: .hasBeenSaved)
     }

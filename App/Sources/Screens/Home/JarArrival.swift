@@ -1,3 +1,4 @@
+import MiraNoteKit
 import SwiftUI
 
 /// Where Home's star jar circle sits, for a saved page's star to land on.
@@ -15,7 +16,8 @@ struct FlyingStar: View, Animatable {
     var progress: CGFloat
     let start: CGPoint
     let end: CGPoint
-    let color: Color
+    /// The page whose star flies: its own face (`PageStar`).
+    let memory: Memory?
 
     var animatableData: CGFloat {
         get { progress }
@@ -26,7 +28,9 @@ struct FlyingStar: View, Animatable {
         // Fades into the circle over the last stretch.
         let fade: Double = progress < 0.85 ? 1 : Double((1 - progress) / 0.15)
         let turn: Double = Double(progress) * 144
-        StarMark(color: color)
+        Group {
+            if let memory { PageStar(memory: memory) } else { StarMark(color: StarMark.paper) }
+        }
             .frame(width: 30, height: 30)
             .scaleEffect(1 - 0.45 * progress)
             .rotationEffect(.degrees(turn))
@@ -48,11 +52,12 @@ struct FlyingStar: View, Animatable {
 }
 
 /// The jar circle taking a star in: a small bounce, or under Reduce
-/// Motion only a glow in the star's color. `beat` counts the landings.
+/// Motion only a warm glow. `beat` counts the landings.
 struct JarLanding: ViewModifier {
     let beat: Int
-    let color: Color
     let reduceMotion: Bool
+
+    private static let glow = Color(hex: 0xE8B04B)
 
     private struct Pose {
         var scale: CGFloat = 1
@@ -63,7 +68,7 @@ struct JarLanding: ViewModifier {
         content
             .keyframeAnimator(initialValue: Pose(), trigger: beat) { view, pose in
                 view
-                    .background(Circle().fill(color).blur(radius: 6).opacity(pose.glow))
+                    .background(Circle().fill(Self.glow).blur(radius: 6).opacity(pose.glow))
                     .scaleEffect(pose.scale)
             } keyframes: { _ in
                 KeyframeTrack(\.scale) {

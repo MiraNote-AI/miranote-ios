@@ -37,12 +37,12 @@ final class AIConsentShotsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 8))
 
         app.buttons["home.settings"].tap()
-        let mood = app.switches["settings.moodFromWords"]
-        XCTAssertTrue(mood.waitForExistence(timeout: 5))
+        let allow = app.buttons["settings.aiAllow"]
+        XCTAssertTrue(allow.waitForExistence(timeout: 5))
         app.swipeUp()
         shot("settings-ai-privacy-\(suffix)")
 
-        mood.tap()
+        allow.tap()
         XCTAssertTrue(app.staticTexts["aiConsent.title"].waitForExistence(timeout: 5))
         shot("consent-sheet-\(suffix)")
         app.buttons["aiConsent.details"].tap()

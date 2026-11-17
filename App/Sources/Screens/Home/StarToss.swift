@@ -57,7 +57,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         _ stars: [(star: JarStar, spot: StarPile.Spot)],
         starSize: CGFloat,
         geometry: JarGeometry,
-        face: (Mood?) -> SKTexture
+        face: (JarStar) -> SKTexture
     ) {
         removeAllChildren()
         nodes = [:]
@@ -74,7 +74,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         physicsBody?.restitution = 0.3
         inside = geometry.outline(inset: JarGeometry.stroke).cgPath.copy(using: [flip]) ?? edge
         for (star, spot) in stars {
-            let node = SKSpriteNode(texture: face(star.memory.starMood), size: CGSize(width: starSize, height: starSize))
+            let node = SKSpriteNode(texture: face(star), size: CGSize(width: starSize, height: starSize))
             node.position = flipped(spot.center)
             node.zRotation = -spot.rotation * .pi / 180
             // A circle a little inside the star's tips: neighbors nest the
@@ -214,11 +214,12 @@ struct JarPose {
 }
 
 extension StarTossScene {
-    /// A mood's star face as a texture, drawn by the same `StarMark` the
-    /// resting stars are, so the hand-over between the two never shows.
-    @MainActor static func face(_ mood: Mood?, size: CGFloat, scale: CGFloat) -> SKTexture {
-        let renderer = ImageRenderer(content: StarMark(color: Palette.mood(mood)).frame(width: size, height: size))
-        renderer.scale = scale
+    /// A page's star as a texture: the same baked face the resting star
+    /// shows, so the hand-over between the two never shows.
+    @MainActor static func face(of memory: Memory) -> SKTexture {
+        if let face = StarFace.face(for: memory) { return SKTexture(image: face) }
+        let renderer = ImageRenderer(content: StarMark(color: StarMark.paper).frame(width: 96, height: 96))
+        renderer.scale = 2
         return SKTexture(image: renderer.uiImage ?? UIImage())
     }
 }
