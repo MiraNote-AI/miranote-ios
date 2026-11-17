@@ -218,7 +218,7 @@ extension StarTossScene {
     /// shows, so the hand-over between the two never shows.
     @MainActor static func face(of memory: Memory) -> SKTexture {
         if let face = StarFace.face(for: memory) { return SKTexture(image: face) }
-        let renderer = ImageRenderer(content: StarMark(color: StarMark.paper).frame(width: 96, height: 96))
+        let renderer = ImageRenderer(content: PaperStarView(paint: .paper).frame(width: 96, height: 96))
         renderer.scale = 2
         return SKTexture(image: renderer.uiImage ?? UIImage())
     }

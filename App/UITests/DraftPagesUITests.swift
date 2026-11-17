@@ -141,7 +141,8 @@ final class DraftPagesUITests: XCTestCase {
         XCTAssertTrue(draftToast.waitForExistence(timeout: 5))
 
         openJar()
-        XCTAssertTrue(app.staticTexts["jar.summary"].waitForExistence(timeout: 5), "the seed's stars are in")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'jar.star.'")).firstMatch
+            .waitForExistence(timeout: 5), "the seed's stars are in")
         XCTAssertFalse(app.buttons["jar.star.A happy draft"].exists, "a draft never saved is no star")
         app.buttons["Home"].tap()
 

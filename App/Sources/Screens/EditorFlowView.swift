@@ -202,6 +202,9 @@ struct HomeFlow: View {
     /// still to land in the jar on Home (#160, #206). Edits of saved pages
     /// have their star already.
     @State private var arrivingStar: Memory.ID?
+    /// Its page, cut and ready to fold over Home.
+    @State private var arrivingFold: StarPaper?
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     /// Home left a page without Save (#137): a toast says it was kept,
     /// once the editor is gone.
     @State private var draftToastPending = false
@@ -225,7 +228,13 @@ struct HomeFlow: View {
     private struct NoteRef: Hashable {
         let collectionID: MemoryCollection.ID
         let noteID: Memory.ID
+        /// Opened by a hold in the star jar: the page zooms from where it
+        /// unrolled (iOS 18).
+        var zoomsFromJar = false
     }
+
+    /// The star jar's unrolled page and the reading view it opens.
+    @Namespace private var jarZoom
 
     /// UI tests keep the avatar in a folder of their own, emptied at launch
     /// like the settings' suite (`AppSettings.storeDefaults`);
@@ -325,12 +334,29 @@ struct HomeFlow: View {
     /// Navigation token for the star jar.
     struct StarJarRoute: Hashable {}
 
-    /// A Save: the page's star is baked now (#206). The first Save that
-    /// makes a page a star -- a new page, or a draft never saved -- flies
-    /// it into the jar, when Home shows the jar.
+    /// A Save: the page's star is baked from the page as it is now
+    /// (#206). The first Save that makes a page a star -- a new page, or a
+    /// draft never saved -- folds it into the jar, when Home shows the jar
+    /// (under Reduce Motion the jar glows).
     private func saved(_ memory: Memory, wasStar: Bool) {
-        StarFace.bake(memory)
-        if !wasStar && path.isEmpty { arrivingStar = memory.id }
+        let arrival = StarFold.arrival(saved: true, wasStar: wasStar, onHome: path.isEmpty,
+                                       reduceMotion: ReduceMotion.resolved(systemReduceMotion))
+        arrivingFold = arrival == .fold ? StarFace.paper(for: memory) : nil
+        // A fold keeps its star once it has landed (`onStarLanded`).
+        if arrivingFold == nil { StarFace.bake(memory) }
+        if arrival != .none { arrivingStar = memory.id }
+    }
+
+    /// The editor's cover goes: at once when the fold takes over from it
+    /// (its first frame is the editor's page), else sliding away.
+    private func closeEditor() {
+        guard arrivingFold != nil else {
+            route = nil
+            return
+        }
+        var instant = Transaction()
+        instant.disablesAnimations = true
+        withTransaction(instant) { route = nil }
     }
 
     var body: some View {
@@ -346,7 +372,18 @@ struct HomeFlow: View {
                 onOpenProfile: { path.append(AccountRoute.profile) },
                 triggerEntry: openTriggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil,
                 arrivingStar: arrivingStar.flatMap(viewModel.memory),
-                onStarLanded: { arrivingStar = nil }
+                arrivingFold: arrivingFold,
+                onStarLanded: {
+                    if let arrivingStar, let arrivingFold {
+                        // After the landing's ring: the bake is a frame or two.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(600))
+                            StarFace.keep(arrivingFold, for: arrivingStar)
+                        }
+                    }
+                    arrivingStar = nil
+                    arrivingFold = nil
+                }
             )
             .navigationBarHidden(true)
             .navigationDestination(for: MemoryCollection.self) { collection in
@@ -368,13 +405,24 @@ struct HomeFlow: View {
                         photoSaver: Self.makePhotoSaver()
                     )
                     .navigationBarHidden(true)
+                    .zoomTransition(from: ref.noteID, in: jarZoom, when: ref.zoomsFromJar)
                 }
             }
             .navigationDestination(for: StarJarRoute.self) { _ in
                 StarJarView(
                     viewModel: viewModel,
                     onBack: { path.removeLast() },
-                    onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) }
+                    zoom: jarZoom,
+                    onOpenNote: { star, style in
+                        let ref = NoteRef(collectionID: star.collectionID, noteID: star.id, zoomsFromJar: style == .zoom)
+                        guard style == .instant else {
+                            path.append(ref)
+                            return
+                        }
+                        var instant = Transaction()
+                        instant.disablesAnimations = true
+                        withTransaction(instant) { path.append(ref) }
+                    }
                 )
                 .navigationBarHidden(true)
             }
@@ -439,7 +487,7 @@ struct HomeFlow: View {
                         // earns a star: a page saved over a collection, or
                         // left as a draft, lands without the flight.
                         if saved { self.saved(memory, wasStar: false) }
-                        route = nil
+                        closeEditor()
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,
@@ -456,7 +504,7 @@ struct HomeFlow: View {
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
                         draftToastPending = edited.isDraft
                         if saved { self.saved(edited, wasStar: memory.hasBeenSaved) }
-                        route = nil
+                        closeEditor()
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
                     recorderFactory: Self.makeRecorder,

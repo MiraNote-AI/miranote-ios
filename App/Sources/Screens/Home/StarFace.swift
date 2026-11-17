@@ -2,22 +2,28 @@ import MiraNoteKit
 import SwiftUI
 import UIKit
 
-/// A page's star (#206): a strip of the page wound into a lucky star,
-/// baked once at Save from a 196 x 256 px snapshot of the page's top
-/// (`StarStrip`) and kept by page id in Caches/stars. A page with a photo,
-/// a sticker or a photo backdrop gives its most colorful band; a page of
-/// words gives a calm paper star. Pages from before are baked when the
-/// jar first shows them.
+/// A page's star (#206): a strip of the page wound into a lucky star. At
+/// Save the page's top is cut (`StarStrip`, the most colorful band) and
+/// the star is drawn once in its washed colors (`PaperStar`), kept by
+/// page id in Caches/paper-stars. A page with a photo, a sticker or a
+/// photo backdrop gives its most colorful band; a page of words gives a
+/// calm paper star. Pages from before are baked when the jar first shows
+/// them.
 @MainActor
 enum StarFace {
-    /// Pixels a side: twice the largest star in the jar.
-    static let side = 192
+    /// Points a side; baked at 2x, twice the largest star in the jar.
+    static let side: CGFloat = 96
+    /// The page's top that the strip is cut from: 196 x 256 px.
     private static let snapshot = (width: 196, height: 256)
+    private static var pageTop: CGSize {
+        CGSize(width: MiraNoteConfig.pageWidth,
+               height: MiraNoteConfig.pageWidth * CGFloat(snapshot.height) / CGFloat(snapshot.width))
+    }
     private static let faces = NSCache<NSUUID, UIImage>()
 
     private static var directory: URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return caches.appendingPathComponent("stars", isDirectory: true)
+        return caches.appendingPathComponent("paper-stars", isDirectory: true)
     }
 
     private static func file(_ id: Memory.ID) -> URL {
@@ -41,17 +47,73 @@ enum StarFace {
     /// an edited page's star follows its page.
     @discardableResult
     static func bake(_ memory: Memory) -> UIImage? {
-        guard let page = pixels(of: memory) else { return nil }
-        var strip = StarStrip.strip(StarStrip.colorfulCut(in: page), from: page)
+        guard let page = render(memory, scale: CGFloat(snapshot.width) / MiraNoteConfig.pageWidth) else { return nil }
+        return keep(StarPaint(cutting(memory, page).look), for: memory.id)
+    }
+
+    /// Keeps `paper`'s star as the page's face: a Save that folds bakes
+    /// once the star has landed, not while the fold starts.
+    static func keep(_ paper: StarPaper, for id: Memory.ID) {
+        keep(paper.paint, for: id)
+    }
+
+    /// The page ready to fold or unfold: its top at screen resolution,
+    /// the cut, the strip and the star's paint.
+    static func paper(for memory: Memory) -> StarPaper? {
+        let scale = UITraitCollection.current.displayScale
+        guard let page = render(memory, scale: scale) else { return nil }
+        let (cut, look) = cutting(memory, page)
+        let toPage = MiraNoteConfig.pageWidth / CGFloat(snapshot.width)
+        let center = CGPoint(x: cut.centerX * toPage, y: cut.centerY * toPage)
+        let length = cut.length * toPage, thickness = cut.thickness * toPage
+        let strip = UIGraphicsImageRenderer(size: CGSize(width: length, height: thickness)).image { renderer in
+            let context = renderer.cgContext
+            UIColor(Color(hex: 0xF4EEE3)).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: length, height: thickness))
+            context.translateBy(x: length / 2, y: thickness / 2)
+            context.rotate(by: -cut.angle)
+            context.translateBy(x: -center.x, y: -center.y)
+            UIImage(cgImage: page).draw(in: CGRect(origin: .zero, size: pageTop))
+        }
+        let margin = StarPaper.shadowMargin
+        // Soft enough to bake at 1x: a 50 pt blur at 3x costs the Save.
+        let flat = UIGraphicsImageRendererFormat()
+        flat.scale = 1
+        let shadow = UIGraphicsImageRenderer(
+            size: CGSize(width: pageTop.width + 2 * margin, height: pageTop.height + 2 * margin), format: flat
+        ).image { renderer in
+            let context = renderer.cgContext
+            context.setShadow(offset: CGSize(width: 0, height: 20), blur: 50,
+                              color: UIColor(red: 40 / 255, green: 28 / 255, blue: 16 / 255, alpha: 0.25).cgColor)
+            UIColor(Color(hex: 0xF4EEE3)).setFill()
+            UIBezierPath(roundedRect: CGRect(x: margin, y: margin, width: pageTop.width, height: pageTop.height),
+                         cornerRadius: 30).fill()
+        }
+        return StarPaper(
+            page: Image(decorative: page, scale: scale), pageSize: pageTop,
+            cutCenter: center, cutAngle: cut.angle, stripLength: length, stripThickness: thickness,
+            strip: Image(uiImage: strip), paint: StarPaint(look), pageShadow: Image(uiImage: shadow)
+        )
+    }
+
+    /// The most colorful band of the page's top, and the star's look from
+    /// it: calm paper for a page of words.
+    private static func cutting(_ memory: Memory, _ page: CGImage) -> (cut: StarStrip.Cut, look: StarLook) {
+        let pixels = pixels(of: page)
+        let cut = StarStrip.colorfulCut(in: pixels)
+        var strip = StarStrip.strip(cut, from: pixels)
         if isWordsOnly(memory) { strip = StarStrip.calm(strip, id: memory.id) }
-        guard let wound = image(StarStrip.wrap(strip, side: side)) else { return nil }
-        let renderer = ImageRenderer(content: StarFaceMark(wound: Image(uiImage: wound))
-            .frame(width: CGFloat(side) / 2, height: CGFloat(side) / 2))
+        return (cut, StarStrip.look(strip))
+    }
+
+    @discardableResult
+    private static func keep(_ paint: StarPaint, for id: Memory.ID) -> UIImage? {
+        let renderer = ImageRenderer(content: PaperStarView(paint: paint).frame(width: side, height: side))
         renderer.scale = 2
         guard let face = renderer.uiImage else { return nil }
-        faces.setObject(face, forKey: memory.id as NSUUID)
+        faces.setObject(face, forKey: id as NSUUID)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try? face.pngData()?.write(to: file(memory.id), options: .atomic)
+        try? face.pngData()?.write(to: file(id), options: .atomic)
         return face
     }
 
@@ -65,58 +127,32 @@ enum StarFace {
         }
     }
 
-    /// The page's top at `snapshot`'s size, on the paper where its
-    /// corners round off.
-    private static func pixels(of memory: Memory) -> StarPixels? {
+    /// The page's top, `pageTop` points, on its paper.
+    private static func render(_ memory: Memory, scale: CGFloat) -> CGImage? {
         let renderer = ImageRenderer(content: StaticPageView(
             memory: memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false
-        ))
-        renderer.scale = CGFloat(snapshot.width) / MiraNoteConfig.pageWidth
-        guard let page = renderer.cgImage else { return nil }
+        )
+        .frame(width: pageTop.width, height: pageTop.height, alignment: .top)
+        .background(Palette.paper)
+        .clipped())
+        renderer.scale = scale
+        return renderer.cgImage
+    }
+
+    /// `page` at `snapshot`'s size.
+    private static func pixels(of page: CGImage) -> StarPixels {
         let width = snapshot.width, height = snapshot.height
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn: Bool = rgba.withUnsafeMutableBytes { buffer in
+        rgba.withUnsafeMutableBytes { buffer in
             guard let context = CGContext(
                 data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
                 bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { return false }
-            context.setFillColor(UIColor(Palette.paper).cgColor)
-            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-            // Core Graphics is y up: the page's top lands at the top row.
-            context.draw(page, in: CGRect(x: 0, y: height - page.height, width: page.width, height: page.height))
-            return true
+            ) else { return }
+            context.interpolationQuality = .high
+            context.draw(page, in: CGRect(x: 0, y: 0, width: width, height: height))
         }
-        return drawn ? StarPixels(width: width, height: height, rgba: rgba) : nil
-    }
-
-    private static func image(_ pixels: StarPixels) -> UIImage? {
-        let data = Data(pixels.rgba) as CFData
-        guard let provider = CGDataProvider(data: data), let image = CGImage(
-            width: pixels.width, height: pixels.height, bitsPerComponent: 8, bitsPerPixel: 32,
-            bytesPerRow: pixels.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
-        ) else { return nil }
-        return UIImage(cgImage: image)
-    }
-}
-
-/// The wound strip in the star's outline, with `StarMark`'s soft light
-/// from above and hairline edge.
-private struct StarFaceMark: View {
-    let wound: Image
-
-    var body: some View {
-        wound
-            .resizable()
-            .clipShape(RoundedStar())
-            .overlay(
-                RoundedStar().fill(
-                    LinearGradient(colors: [Color.white.opacity(0.22), .clear], startPoint: .top, endPoint: .center)
-                )
-            )
-            .overlay(RoundedStar().stroke(Palette.ink.opacity(0.12), lineWidth: 0.6))
+        return StarPixels(width: width, height: height, rgba: rgba)
     }
 }
 
@@ -132,7 +168,7 @@ struct PageStar: View {
             if let face = face ?? StarFace.cached(memory.id) {
                 Image(uiImage: face).resizable()
             } else {
-                StarMark(color: StarMark.paper)
+                PaperStarView(paint: .paper)
             }
         }
         .task(id: memory.id) {

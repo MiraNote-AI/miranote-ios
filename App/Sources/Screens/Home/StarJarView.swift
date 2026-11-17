@@ -7,11 +7,22 @@ import SwiftUI
 /// a jar. Drawn in the app's own language -- paper, hairlines, quiet type.
 /// Its motion: pages saved since the jar was last opened drop in, and a
 /// tap anywhere on the jar shakes it, tossing the stars up like popcorn.
-/// Holding a star opens its page.
+/// Holding a star unfolds it back into its page, which then opens.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
-    var onOpenNote: (JarStar) -> Void = { _ in }
+    /// The page unrolled from its star zooms open from here (iOS 18).
+    var zoom: Namespace.ID?
+    var onOpenNote: (JarStar, OpenStyle) -> Void = { _, _ in }
+
+    enum OpenStyle {
+        /// After the unfold: zooms from the unrolled page.
+        case zoom
+        /// VoiceOver's activate: the usual push.
+        case push
+        /// Under Reduce Motion, after the page has faded in.
+        case instant
+    }
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.theme) private var theme
@@ -30,6 +41,26 @@ struct StarJarView: View {
     @State private var tossScene = StarTossScene(size: .zero)
     /// Where the last toss left each star, until the visit ends.
     @State private var settled: [Memory.ID: StarPile.Spot] = [:]
+    /// The star being held: the others dim.
+    @State private var holding: Memory.ID?
+    /// Its page, cut while the hold gathers, ready to unfold.
+    @State private var held: (id: Memory.ID, paper: StarPaper)?
+    @State private var opening: Opening?
+    /// The jar fades as a star unfolds over it.
+    @State private var jarFade = 1.0
+
+    /// A star unfolding into its page.
+    struct Opening {
+        let star: JarStar
+        let paper: StarPaper
+        /// The held star's middle on screen, its radius and turn.
+        let from: CGPoint
+        let radius: CGFloat
+        let rotation: Double
+        let start: Date
+        /// The page has unrolled: it opens from `OpenUnfold.pageFrame`.
+        var unrolled = false
+    }
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
@@ -40,13 +71,7 @@ struct StarJarView: View {
 
     private var isCurrent: Bool { interval.contains(.now) }
 
-    /// `-REDUCE_MOTION` stands in for the setting in UI tests.
-    private var reduceMotion: Bool {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-REDUCE_MOTION") { return true }
-        #endif
-        return systemReduceMotion
-    }
+    private var reduceMotion: Bool { ReduceMotion.resolved(systemReduceMotion) }
 
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
@@ -63,15 +88,6 @@ struct StarJarView: View {
                     .padding(.bottom, 14)
                 jar
                     .padding(.bottom, 18)
-                // An empty jar says so inside it.
-                if !stars.isEmpty {
-                    Text(summary)
-                        .font(Sans.font(size: 16, weight: 600))
-                        .foregroundStyle(theme.ink)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("jar.summary")
-                        .padding(.bottom, 14)
-                }
                 Text("Tap to shake. Hold a star to open.")
                     .font(.miraCaption)
                     .foregroundStyle(theme.muted(Palette.textSecondary))
@@ -89,9 +105,12 @@ struct StarJarView: View {
         })
         #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
+        .opacity(jarFade)
         .screenBackground()
-        .safeAreaInset(edge: .top) { header }
+        .safeAreaInset(edge: .top) { header.opacity(jarFade) }
+        .overlay { unfolding }
         .onAppear(perform: firstVisit)
+        .onAppear(perform: cameBack)
         .onChange(of: interval) {
             settled = [:]
             tossing = false
@@ -201,18 +220,21 @@ struct StarJarView: View {
                         rotation: spot.rotation,
                         drop: dropOffset(for: star.id, at: spot.center, geometry: geometry),
                         delay: dropDelay(for: star.id),
-                        reduceMotion: reduceMotion
+                        reduceMotion: reduceMotion,
+                        onShake: { shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry) },
+                        onTension: { tension($0, on: star) },
+                        onCommit: { open(star, from: $0, size: pile.starSize, rotation: spot.rotation) }
                     ) {
-                        onOpenNote(star)
+                        onOpenNote(star, .push)
                     }
                     // VoiceOver shakes the jar from any of its stars.
                     .accessibilityAction(named: Text("Shake")) {
                         shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
                     }
                     .position(spot.center)
-                    .opacity(tossing ? 0 : 1)
+                    .opacity(opacity(of: star))
                     // A hold is ignored while the stars are in the air.
-                    .allowsHitTesting(!tossing)
+                    .allowsHitTesting(!tossing && opening == nil)
                 }
                 SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -231,8 +253,9 @@ struct StarJarView: View {
                         .position(x: geometry.interior.midX, y: geometry.interior.midY + 20)
                 }
             }
-            // A tap anywhere, on a star too, shakes (#206): only a hold
-            // opens one, so a crowd never makes the toss unreachable.
+            // A tap anywhere shakes (#206); a star takes its own taps and
+            // shakes too: only a hold opens one, so a crowd never makes the
+            // toss unreachable.
             .contentShape(Rectangle())
             .onTapGesture {
                 guard visited else { return }
@@ -322,16 +345,6 @@ extension StarJarView {
         }
     }
 
-    private var summary: String {
-        let count = stars.count
-        switch (period, isCurrent) {
-        case (.week, true): return String(appCopy: "\(count) memories this week")
-        case (.month, true): return String(appCopy: "\(count) memories this month")
-        case (.week, false): return String(appCopy: "\(count) memories that week")
-        case (.month, false): return String(appCopy: "\(count) memories that month")
-        }
-    }
-
 }
 
 // MARK: - Arrivals
@@ -370,5 +383,110 @@ extension StarJarView {
         guard let index = arriving.firstIndex(of: id) else { return 0 }
         let stagger = min(0.08, 0.9 / Double(max(1, arriving.count - 1)))
         return Double(index) * stagger
+    }
+}
+
+// MARK: - Open
+
+extension StarJarView {
+    /// In the air, unfolding: unseen. While another star is held: dimmed.
+    private func opacity(of star: JarStar) -> Double {
+        if tossing || opening?.star.id == star.id { return 0 }
+        return holding != nil && holding != star.id ? 0.35 : 1
+    }
+
+    /// A hold gathering on `star` dims the rest, and cuts its page ready
+    /// to unfold; a hold let go springs them back.
+    private func tension(_ on: Bool, on star: JarStar) {
+        guard on else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { holding = nil }
+            return
+        }
+        withAnimation(.linear(duration: StarHold.commitAfter - StarHold.tapWindow)) { holding = star.id }
+        Task { @MainActor in
+            await Task.yield()
+            guard holding == star.id, held?.id != star.id, let paper = StarFace.paper(for: star.memory) else { return }
+            held = (star.id, paper)
+        }
+    }
+
+    /// The hold committed: the star unfolds into its page, which opens
+    /// (`StarUnfold`); under Reduce Motion the page fades in.
+    private func open(_ star: JarStar, from point: CGPoint, size: CGFloat, rotation: Double) {
+        guard opening == nil else { return }
+        let paper = held?.id == star.id ? held?.paper : StarFace.paper(for: star.memory)
+        holding = nil
+        held = nil
+        guard let paper else {
+            onOpenNote(star, .push)
+            return
+        }
+        let start = Date.now
+        opening = Opening(star: star, paper: paper, from: point,
+                          radius: size * 0.45 * (1 + StarButton.grow), rotation: rotation, start: start)
+        Task { @MainActor in
+            if reduceMotion {
+                withAnimation(.linear(duration: StarUnfold.fade / 1000)) { jarFade = 0 }
+                try? await Task.sleep(for: .milliseconds(Int(StarUnfold.fade)))
+                onOpenNote(star, .instant)
+                return
+            }
+            withAnimation(.easeOut(duration: StarUnfold.riseEnd / 1000)) { jarFade = 0.25 }
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.linear(duration: 0.16)) { jarFade = 0 }
+            try? await Task.sleep(for: .seconds(StarUnfold.haptics[1] / 1000 - Date.now.timeIntervalSince(start)))
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.4)
+            try? await Task.sleep(for: .seconds(StarUnfold.unrollEnd / 1000 - Date.now.timeIntervalSince(start)))
+            opening?.unrolled = true
+            onOpenNote(star, .zoom)
+        }
+    }
+
+    /// Back from the page: once it has zoomed home, the jar comes back.
+    /// No refold.
+    private func cameBack() {
+        guard opening != nil else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.easeOut(duration: 0.3)) {
+                jarFade = 1
+                opening = nil
+            }
+        }
+    }
+
+    /// The unfold over the jar, then the unrolled page the reading view
+    /// zooms from. It takes every touch while it plays.
+    @ViewBuilder private var unfolding: some View {
+        if let opening {
+            GeometryReader { proxy in
+                let origin = proxy.frame(in: .global).origin
+                OpenUnfold(paper: opening.paper,
+                           from: CGPoint(x: opening.from.x - origin.x, y: opening.from.y - origin.y),
+                           radius: opening.radius, rotation: opening.rotation, start: opening.start,
+                           reduceMotion: reduceMotion)
+                if opening.unrolled {
+                    let frame = OpenUnfold.pageFrame(opening.paper, size: proxy.size)
+                    unrolledPage(opening)
+                        .frame(width: frame.width, height: frame.height)
+                        .position(x: frame.midX, y: frame.midY)
+                }
+                Color.clear.contentShape(Rectangle())
+            }
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder private func unrolledPage(_ opening: Opening) -> some View {
+        let page = opening.paper.page
+            .resizable()
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .shadow(color: Color(hex: 0x281C10).opacity(0.25), radius: 15, y: 12)
+        if let zoom {
+            page.zoomSource(opening.star.id, in: zoom)
+        } else {
+            page
+        }
     }
 }
