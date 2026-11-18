@@ -54,8 +54,8 @@ extension BackendError: LocalizedError {
                 That took longer than the server allows. Try again once; \
                 if it fails a second time, tell the team rather than retrying.
                 """)
-        case .server(let status, _):
-            return Self.message(for: status)
+        case .server(let status, let detail):
+            return Self.guardMessage(status: status, detail: detail) ?? Self.message(for: status)
         case .decoding:
             return String(appCopy: "The server sent an unexpected response.")
         case .limitReached(let limit):
@@ -63,6 +63,38 @@ extension BackendError: LocalizedError {
                 ? String(appCopy: "You've reached the free limit for this. MiraNote Plus gives you more.")
                 : String(appCopy: "You've reached this limit for now. Try again later.")
         }
+    }
+
+    /// A 503 from the AI services' account guard says why in its `reason`
+    /// (miranote-api #112, #118): the accounts service did not answer, or
+    /// the feature's daily cost budget is used up until `resets_at`, shown
+    /// in the phone's time. nil for any other answer: a 503 without one is
+    /// the image provider's, as before.
+    static func guardMessage(status: Int, detail: String?, timeZone: TimeZone = .current) -> String? {
+        guard status == 503, let data = detail?.data(using: .utf8),
+              let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        switch body["reason"] as? String {
+        case "accounts_unavailable":
+            return String(appCopy: "MiraNote's sign-in service isn't answering right now. Try again shortly.")
+        case "service_paused":
+            guard let back = (body["resets_at"] as? String).flatMap(isoDate) else {
+                return String(appCopy: "Mira has paused this for now. Try again later.")
+            }
+            let style = Date.FormatStyle(date: .omitted, time: .shortened,
+                                         locale: AppSettings.shared.language.locale, timeZone: timeZone)
+            return String(appCopy: "Mira has paused this for now. Try again after \(back.formatted(style)).")
+        default:
+            return nil
+        }
+    }
+
+    /// A time as Python's `isoformat()` writes it, with or without
+    /// fractional seconds.
+    private static func isoDate(_ text: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: text) { return date }
+        formatter.formatOptions.insert(.withFractionalSeconds)
+        return formatter.date(from: text)
     }
 
     /// Statuses this deployment can actually produce, each paired with the one

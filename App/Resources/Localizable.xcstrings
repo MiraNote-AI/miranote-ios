@@ -3881,6 +3881,30 @@
         }
       }
     },
+    "Mira has paused this for now. Try again after %@." : {
+      "comment" : "Error: the AI services paused this feature until the time shown (its daily cost budget is used up).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 暂停了这项功能，请在 %@ 之后再试。"
+          }
+        }
+      }
+    },
+    "Mira has paused this for now. Try again later." : {
+      "comment" : "Error: the AI services paused this feature for now (its daily cost budget is used up).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 暂停了这项功能，请稍后再试。"
+          }
+        }
+      }
+    },
     "Mira is busy right now. Wait a moment and try again." : {
       "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
       "extractionState" : "manual",
@@ -4008,6 +4032,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MiraNote 的 AI 服务器没有运行。它在一台需要有人启动的 Mac 上，请告诉团队。"
+          }
+        }
+      }
+    },
+    "MiraNote's sign-in service isn't answering right now. Try again shortly." : {
+      "comment" : "Error: the AI services could not reach the accounts service to check this request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 的登录服务暂时没有响应，请稍后再试。"
           }
         }
       }
