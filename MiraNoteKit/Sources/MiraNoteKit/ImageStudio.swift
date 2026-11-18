@@ -48,10 +48,17 @@ public protocol ImageStudioService: Sendable {
     func describe(image: Data) async throws -> String
     /// Stickers plus per-image matte results, for callers that offer a choice.
     func generateStickers(prompt: String) async throws -> StickerGeneration
+    /// Asks the writer's OK to send content before the work starts (#151),
+    /// then for sign-in (#95): the consent wrapper (`ServiceContainer.asking`)
+    /// shows the sheets when needed and throws `AIConsentError` for a Not
+    /// now; any other service says yes.
+    func askToSend() async throws
 }
 
 public extension ImageStudioService {
     func prepare() {}
+
+    func askToSend() async throws {}
 
     /// Default for any service that mattes server-side: what comes back is
     /// already cut out, or the call threw.
@@ -109,6 +116,71 @@ public struct MockImageStudioService: ImageStudioService {
     }
 }
 
+/// A failed /stylize, by the reason the server names: it answers each
+/// failure with `{"status": "error", "reason": ..., "message": ...}`
+/// (miranote-api #96). Each known reason reads as the app's own copy, in
+/// the chosen language; the server's English `message` shows only for a
+/// reason this build does not know yet.
+public struct ImageEditError: LocalizedError, Equatable {
+    public let status: Int
+    public let reason: String
+    public let message: String
+
+    public var errorDescription: String? {
+        switch reason {
+        case "unreadable_image":
+            return String(appCopy: "Mira couldn't read that picture. Try a different one.")
+        case "image_too_large":
+            return String(appCopy: "That picture is too large to edit. Try a smaller one.")
+        case "bad_request":
+            return String(appCopy: "Mira couldn't make sense of that edit. Try different words.")
+        case "edit_refused":
+            return String(appCopy: "Mira won't make that edit. Try describing it differently.")
+        case "no_image", "provider_error":
+            return String(appCopy: "Mira couldn't make the edit. Try again.")
+        case "busy":
+            return String(appCopy: "Mira is busy right now. Wait a moment and try again.")
+        case "edit_timeout":
+            return BackendError.timedOut.errorDescription
+        default:
+            return message.isEmpty ? BackendError.server(status: status, detail: nil).errorDescription : message
+        }
+    }
+
+    /// A 504 by its status: Cloudflare puts its own page in place of the
+    /// body (as for a 502), so it reads as the timeout it is. Otherwise
+    /// the body's reason when it has one, else the status alone, as
+    /// before (an older server).
+    static func from(status: Int, detail: String?) -> Error {
+        struct Body: Decodable {
+            let status: String
+            let reason: String
+            // Shown only for a reason the app does not know, so a body
+            // without one still reads as the app's copy.
+            let message: String?
+        }
+        if status == 504 { return BackendError.timedOut }
+        if let data = detail?.data(using: .utf8),
+           let body = try? JSONDecoder().decode(Body.self, from: data),
+           body.status == "error", !body.reason.isEmpty {
+            return ImageEditError(status: status, reason: body.reason, message: body.message ?? "")
+        }
+        return BackendError.server(status: status, detail: detail)
+    }
+}
+
+/// A /generate the image service gave up on (504): the picture ran past the
+/// server's own time budget for one generation. Said here rather than in
+/// BackendError's status table, which every endpoint shares.
+public struct GenerationTimeoutError: LocalizedError, Equatable {
+    public var errorDescription: String? {
+        String(appCopy: """
+            That picture took too long to make. Try again; \
+            if it keeps happening, tell the team.
+            """)
+    }
+}
+
 /// Live client for the image-generation POC.
 ///
 /// Given a `matte`, the two pipelines that are pure background removal stop
@@ -143,6 +215,12 @@ public struct LiveImageStudioService: ImageStudioService {
         self.matte = matte
         self.localOutline = localOutline
     }
+
+    /// A cutout with no target runs on this phone (Vision), not the server.
+    public var cutsLocally: Bool { matte != nil }
+
+    /// The Outline tool's edge is drawn on this phone, not the server.
+    public var outlinesLocally: Bool { localOutline }
 
     public func prepare() {
         matte?.warmUp()
@@ -206,12 +284,17 @@ public struct LiveImageStudioService: ImageStudioService {
         // Cloudflare's 125s proxy read timeout, which cannot be raised below
         // the Enterprise plan. Measured worst case on the host Mac is 36.8s
         // for a cutout, so 110s is a ceiling rather than the normal path.
-        let response: Response = try await client.postJSON(
-            to: baseURL.appendingPathComponent("generate"),
-            body: Request(command: kind.rawValue, prompt: prompt,
-                          expand: true, matte: matte),
-            timeout: 110
-        )
+        let response: Response
+        do {
+            response = try await client.postJSON(
+                to: baseURL.appendingPathComponent("generate"),
+                body: Request(command: kind.rawValue, prompt: prompt,
+                              expand: true, matte: matte),
+                timeout: 110
+            )
+        } catch BackendError.server(status: 504, _) {
+            throw GenerationTimeoutError()
+        }
         let decoded = response.images.compactMap { Data(base64Encoded: $0) }
         guard !decoded.isEmpty else { throw BackendError.decoding }
         return decoded
@@ -246,11 +329,15 @@ public struct LiveImageStudioService: ImageStudioService {
     }
 
     public func stylize(image: Data, instruction: String) async throws -> Data {
-        try await uploadForImage(
-            path: "stylize",
-            image: image,
-            query: [URLQueryItem(name: "prompt", value: instruction)]
-        )
+        do {
+            return try await uploadForImage(
+                path: "stylize",
+                image: image,
+                query: [URLQueryItem(name: "prompt", value: instruction)]
+            )
+        } catch BackendError.server(let status, let detail) {
+            throw ImageEditError.from(status: status, detail: detail)
+        }
     }
 
     public func outline(image: Data) async throws -> Data {

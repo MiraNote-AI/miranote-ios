@@ -42,7 +42,7 @@ struct BackgroundToolSheet: View {
     private static let inset: CGFloat = 23
 
     var body: some View {
-        // The sheet fills the card less its 8 pt margin, One-tap layout at
+        // The sheet fills the card less its 8 pt margin, the Mira tidy at
         // its foot; a card shorter than the content (a small phone) scrolls
         // it. Folded, it hugs its title. One scroll view throughout:
         // swapping views would drop the hex field's focus.
@@ -341,7 +341,7 @@ extension BackgroundToolSheet {
         .frame(height: 102)
     }
 
-    // MARK: One-tap layout
+    // MARK: Mira tidy
 
     /// One tap re-lays the page out through Mira's normal turn (Stop,
     /// result sheet, Revert), as the "Tidy the layout" chip does.
@@ -357,7 +357,7 @@ extension BackgroundToolSheet {
                     .renderingMode(.template)
                     .resizable()
                     .frame(width: 18, height: 18)
-                Text("One-tap layout")
+                Text("Ask Mira to tidy")
                     .font(Sans.font(size: 14, weight: 600))
             }
             .foregroundStyle(Palette.onInk)

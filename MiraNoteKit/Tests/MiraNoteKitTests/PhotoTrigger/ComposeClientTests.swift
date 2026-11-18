@@ -315,10 +315,10 @@ final class LiveComposeClientTests: XCTestCase {
         }
     }
 
-    func testBetaAddressesAreFive() {
+    func testBetaAddressesAreSix() {
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.collections.absoluteString, "https://beta-collections.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.collectionsBaseURL.absoluteString, "http://localhost:8006")
-        XCTAssertEqual(MiraNoteConfig.Backend.Beta.all.count, 5)
+        XCTAssertEqual(MiraNoteConfig.Backend.Beta.all.count, 6)
     }
 }
 

@@ -147,6 +147,17 @@ public final class ChatViewModel {
         messages.append(ChatMessage(role: .user, text: trimmed, imageFileNames: fileNames))
         isResponding = true
         defer { isResponding = false }
+        // AI consent and sign-in before the photos are looked at (#151,
+        // api #95): describing never asks, so a photo in the first message
+        // would otherwise go out as one Mira could not see.
+        if !images.isEmpty {
+            do {
+                try await service.askToSend()
+            } catch {
+                messages.append(ChatMessage(role: .assistant, text: error.localizedDescription))
+                return
+            }
+        }
         let summaries = await describe(images)
         let outgoing = withPhotoDescriptions(trimmed, summaries: summaries)
         // Pages are searched with words the user said or a photo showed --
@@ -245,6 +256,8 @@ public final class ChatViewModel {
         voice = .recording(since: Date())
         recorderStart = Task {
             do {
+                // AI consent before the mic, not after the take (#151).
+                try await transcription.askToSend()
                 try await recorder.start()
                 return true
             } catch {

@@ -61,9 +61,11 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Scrapbook photo edges (v2.1 "Frame"): none / thin white / polaroid.
+/// Scrapbook photo edges (v2.1 "Frame"): none / thin white / polaroid, and
+/// `soft`, the small corner layout templates give grid photos (#183; no
+/// edit-panel tile). Raw values are `PageLayout.Frame`'s.
 enum PhotoFrame: String, CaseIterable, Identifiable {
-    case none, white, polaroid
+    case none, white, polaroid, soft
 
     var id: String { rawValue }
 
@@ -72,6 +74,34 @@ enum PhotoFrame: String, CaseIterable, Identifiable {
         case .none: return "None"
         case .white: return "White"
         case .polaroid: return "Polaroid"
+        case .soft: return "Soft"
+        }
+    }
+
+    /// The soft frame's corner.
+    static let softCorner: CGFloat = 6
+}
+
+extension View {
+    /// The photo (already sized to its box) in its frame, drawn the same on
+    /// the canvas, in Reading and in the export. Mats are padded outside
+    /// the box.
+    @ViewBuilder func photoFrame(_ frameName: String) -> some View {
+        switch PhotoFrame(rawValue: frameName) ?? .none {
+        case .none:
+            clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
+        case .soft:
+            clipShape(RoundedRectangle(cornerRadius: PhotoFrame.softCorner))
+        case .white:
+            clipShape(RoundedRectangle(cornerRadius: 6))
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 10).fill(.white))
+                .shadow(color: Palette.ink.opacity(0.10), radius: 5, y: 2)
+        case .polaroid:
+            clipShape(Rectangle())
+                .padding(EdgeInsets(top: 8, leading: 8, bottom: 26, trailing: 8))
+                .background(Rectangle().fill(.white))
+                .shadow(color: Palette.ink.opacity(0.14), radius: 7, y: 3)
         }
     }
 }

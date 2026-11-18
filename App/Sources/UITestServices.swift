@@ -15,8 +15,29 @@ extension ServiceContainer {
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
-        imageStudio: UITestScriptedStudio()
+        imageStudio: UITestScriptedStudio(),
+        mood: UITestScriptedMood()
     )
+}
+
+/// The mock mood ("happy" reads as joyful), except that the first
+/// `-MOOD_FAIL_FIRST <n>` asks fail as an unreachable backend does: the
+/// retry after a hiccup at Save can be driven (#159). `served` counts every
+/// ask that reaches it, failed or not: the UI tests' ground truth for "no
+/// mood was asked" (#151). `aiSent` is counted inside the consent gate, so
+/// it cannot see a request that skips the gate.
+actor UITestScriptedMood: MoodService {
+    private let mock = MockMoodService()
+    private var failuresLeft = UserDefaults.standard.integer(forKey: "MOOD_FAIL_FIRST")
+    @MainActor static var served = 0
+
+    func mood(for text: String) async throws -> Mood {
+        await MainActor.run { Self.served += 1 }
+        guard failuresLeft > 0 else { return try await mock.mood(for: text) }
+        failuresLeft -= 1
+        try? await Task.sleep(for: .milliseconds(300))
+        throw BackendError.unreachable
+    }
 }
 
 /// The mock studio, except that a sticker prompt with "slowly" holds long
@@ -78,11 +99,11 @@ struct UITestScriptedStudio: ImageStudioService {
         try await mock.cutout(image: image, target: target)
     }
 
-    /// Slower by `-AI_EDIT_DELAY <ms>`: an AI photo edit still running.
+    /// Slower by `-AI_EDIT_DELAY <ms>`; fails with `-AI_EDIT_FAIL` (UITestStylizeFailure).
     func stylize(image: Data, instruction: String) async throws -> Data {
         let delay = UserDefaults.standard.integer(forKey: "AI_EDIT_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
-        return try await mock.stylize(image: image, instruction: instruction)
+        return try await UITestStylizeFailure.stylize(image: image, instruction: instruction, otherwise: mock)
     }
 
     func outline(image: Data) async throws -> Data {
@@ -112,9 +133,14 @@ struct UITestScriptedStudio: ImageStudioService {
 /// `-NUMBER_TAKES` ends each take's words with its number, in the order
 /// the takes were let go; `-TIME_TAKES` with how long it recorded
 /// (`UITestTimedRecorder`); `-FAIL_FIRST_TAKE` fails the first take.
+/// `-HOLD_FIRST_TAKE` answers the first take only once a second is sent,
+/// and the second only after the first answered: the two cross in that
+/// order however slowly the simulator brings a mic up (#125). With no
+/// second take the first never answers.
 struct UITestScriptedTranscription: VoiceTranscriptionService {
     private let mock = MockVoiceTranscriptionService()
     @MainActor private static var takes = 0
+    @MainActor private static var firstAnswered = false
 
     func transcribe(audio: Data, filename: String) async throws -> String {
         let take = await Self.countTake()
@@ -123,12 +149,26 @@ struct UITestScriptedTranscription: VoiceTranscriptionService {
         let first = UserDefaults.standard.integer(forKey: "TRANSCRIBE_FIRST_DELAY")
         if first > 0, take == 1 { try await Task.sleep(for: .milliseconds(first)) }
         let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-HOLD_FIRST_TAKE") {
+            if take == 1 {
+                while await Self.takes < 2 { try await Task.sleep(for: .milliseconds(50)) }
+                await Self.markFirstAnswered()
+            } else if take == 2 {
+                while await !Self.firstAnswered { try await Task.sleep(for: .milliseconds(50)) }
+                // The first take's outcome reaches the strip first.
+                try await Task.sleep(for: .milliseconds(300))
+            }
+        }
         if take == 1, arguments.contains("-FAIL_FIRST_TAKE") { throw URLError(.notConnectedToInternet) }
         let words = try await mock.transcribe(audio: audio, filename: filename)
         if arguments.contains("-TIME_TAKES") {
             return "\(words) (\(String(bytes: audio, encoding: .utf8) ?? "?") s)"
         }
         return arguments.contains("-NUMBER_TAKES") ? "\(words) #\(take)" : words
+    }
+
+    @MainActor private static func markFirstAnswered() {
+        firstAnswered = true
     }
 
     @MainActor private static func countTake() -> Int {
@@ -284,6 +324,11 @@ struct DebugStateProbe: View {
         var state = state
         // Ground truth for "no microphone left on": every mock recorder on.
         state["micLive"] = MockAudioRecorder.liveCount
+        // Ground truth for "Not now sends nothing": requests past AI consent.
+        state["aiSent"] = AIConsent.shared.sentRequests
+        // Mood requests that reached the service, past the gate or not.
+        state["moodServed"] = UITestScriptedMood.served
+        state["signedIn"] = Account.shared.isSignedIn ? 1 : 0
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
         state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10

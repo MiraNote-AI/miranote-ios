@@ -48,8 +48,10 @@ public enum MiraNoteConfig {
             public static let voice = URL(string: "https://beta-voice.miranote.app")!
             /// The photo trigger's photo-collections service (handoff 7.4).
             public static let collections = URL(string: "https://beta-collections.miranote.app")!
+            /// The accounts service (api #95): sign-in and our tokens.
+            public static let accounts = URL(string: "https://beta-accounts.miranote.app")!
 
-            static let all = [text, image, chat, voice, collections]
+            static let all = [text, image, chat, voice, collections, accounts]
         }
 
         /// Simulator builds and macOS test hosts reach the dev machine's own
@@ -100,6 +102,26 @@ public enum MiraNoteConfig {
             Beta.collections
             #endif
         }()
+
+        /// The accounts service: Sign in with Apple and our tokens (api #95).
+        /// `ACCOUNTS_BASE_URL` in Config/App.xcconfig (Secrets.xcconfig
+        /// overrides it), read back out of Info.plist. nil when the build
+        /// names none -- the default until the service is deployed -- and
+        /// then the app asks no one to sign in: server AI runs on consent
+        /// alone, as before sign-in existed.
+        public static let accountsBaseURL: URL? = accountsURL(
+            infoValue: Bundle.main.object(forInfoDictionaryKey: "AccountsBaseURL") as? String
+        )
+
+        /// An Info.plist value as the accounts address: nil for a missing,
+        /// empty or unexpanded (`$(...)`) value, or one that is not an
+        /// http(s) URL.
+        static func accountsURL(infoValue value: String?) -> URL? {
+            guard let value, !value.isEmpty, !value.hasPrefix("$("),
+                  let url = URL(string: value), ["http", "https"].contains(url.scheme), url.host != nil
+            else { return nil }
+            return url
+        }
 
         /// The beta bearer token, injected at build time from an untracked
         /// xcconfig and read back out of the app's Info.plist.

@@ -122,8 +122,13 @@ final class TextEditorUITests: XCTestCase {
         app.buttons["keyboard.done"].tap()
         let expanded = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "expanded draft")).firstMatch
         XCTAssertTrue(expanded.waitForExistence(timeout: 5))
+        // The mock's expansion is a paragraph of its own, which Done splits
+        // into a block (#184): one undo joins it back, the next takes the
+        // rewrite back.
         app.buttons["editor.undo"].tap()
-        XCTAssertTrue(app.staticTexts["noodle shop"].waitForExistence(timeout: 5), "one undo takes the rewrite back")
+        app.buttons["editor.undo"].tap()
+        XCTAssertTrue(app.staticTexts["noodle shop"].waitForExistence(timeout: 5), "the undo takes the rewrite back")
+        XCTAssertFalse(expanded.exists)
     }
 
     func testCancelDropsANewBlock() {

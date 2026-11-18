@@ -169,14 +169,14 @@ struct EditorFlowView: View {
         )
     }
 
-    /// Background, Voice, Text and Image always act on the canvas; from the
-    /// Sticker panel they carry over as a pending tool the canvas consumes
-    /// on arrival.
+    /// Background, Layout, Voice, Text and Image always act on the canvas;
+    /// from the Sticker panel they carry over as a pending tool the canvas
+    /// consumes on arrival.
     private func select(mode: EditorMode) {
         switch mode {
         case .sticker:
             navigate(.sticker)
-        case .background, .voice, .text, .image:
+        case .background, .layout, .voice, .text, .image:
             pendingTool = mode
             navigate(.canvas)
         }
@@ -193,12 +193,18 @@ struct EditorFlowView: View {
 /// turn the conversation into a filed memory.
 struct HomeFlow: View {
     @Environment(\.services) private var services
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
     @State private var settings = AppSettings.shared
     @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
     @State private var moodJudge: MoodJudge?
+    @State private var consent = AIConsent.shared
+    /// A Save before AI consent asks for it once the editor is gone, once
+    /// a launch: a page's mood is the first thing most writers send (#151).
+    @State private var moodConsentPending = false
+    @State private var moodConsentAsked = false
     /// A page just saved from a new canvas, its star still to land in the
     /// jar on Home (#160). Edits of filed pages have their star already.
     @State private var arrivingStar: Memory.ID?
@@ -245,14 +251,14 @@ struct HomeFlow: View {
 
     /// UI tests drive Mira with scripted services so working, stop, and
     /// failure states are deterministic; otherwise the app's own container
-    /// is used unchanged.
+    /// is used. Either way each service asks for AI consent first (#151).
     private static func editorServices(base: ServiceContainer) -> ServiceContainer {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-UITEST") {
-            return .uiTestScripted
+            return ServiceContainer.uiTestScripted.asking(.shared)
         }
         #endif
-        return base
+        return base.asking(.shared)
     }
 
     /// UI tests record with a canned in-memory recorder (no mic permission),
@@ -331,6 +337,22 @@ struct HomeFlow: View {
     private func judgeMoods(_ noteIDs: [Memory.ID]) {
         guard !noteIDs.isEmpty else { return }
         makeMoodJudge().judge(noteIDs)
+        if !consent.isGranted, consent.moodFromWords, !moodConsentAsked { moodConsentPending = true }
+    }
+
+    /// A cover closed: a draft's toast, then the mood's consent ask.
+    private func coverDismissed() {
+        showPendingDraftToast()
+        askMoodConsentIfPending()
+    }
+
+    /// The editor is gone: a Save before consent asks for it now. Granted,
+    /// `allowsMood` turns true and the queue resumes.
+    private func askMoodConsentIfPending() {
+        guard moodConsentPending else { return }
+        moodConsentPending = false
+        moodConsentAsked = true
+        Task { _ = await consent.permit() }
     }
 
     /// The pages the star jar shows (`[]`: it closed): asked after saves.
@@ -421,6 +443,11 @@ struct HomeFlow: View {
             triggerGates = await trigger.resolveGates { await InstallSource.live() }
         }
         .triggerLifecycle(trigger, enabled: openTriggerGates.schedulesAutomatically)
+        // Moods whose asks ran out of tries while the service was down
+        // are asked again when the app comes back (#159).
+        .onChange(of: scenePhase) {
+            if scenePhase == .active { moodJudge?.resume() }
+        }
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
@@ -432,7 +459,11 @@ struct HomeFlow: View {
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
-        .fullScreenCover(item: $route, onDismiss: showPendingDraftToast) { presented in
+        // Consent given or the mood switch turned on: queued pages are read.
+        .onChange(of: consent.allowsMood) {
+            if consent.allowsMood { moodJudge?.resume() }
+        }
+        .fullScreenCover(item: $route, onDismiss: coverDismissed) { presented in
             switch presented {
             case .editor, .editorIn:
                 let journal = presented.journal
@@ -520,7 +551,8 @@ struct HomeFlow: View {
 
 extension HomeFlow {
     private func makeMoodJudge() -> MoodJudge {
-        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel)
+        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel,
+                                           allowed: { AIConsent.shared.allowsMood })
         moodJudge = judge
         return judge
     }

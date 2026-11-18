@@ -169,11 +169,18 @@ final class DictationTakeOrderUITests: XCTestCase {
     }
 
     /// A take that fails keeps its notice on the strip when a later take
-    /// lands, so the lost phrase is explained.
+    /// lands, so the lost phrase is explained. The first take fails only
+    /// once the second is sent (its mic came up), and the second lands
+    /// after: no race with how fast the simulator brings a mic up (#125).
     func testAFailedMiraTakeKeepsItsNoticeWhenTheNextLands() {
-        startAMemory(["-TRANSCRIBE_DELAY", "1500", "-FAIL_FIRST_TAKE"])
+        startAMemory(["-HOLD_FIRST_TAKE", "-FAIL_FIRST_TAKE"])
         app.openMiraChat()
         miraStrip.press(forDuration: 0.8)
+        // The first take let go (its mic came up, however slowly): the
+        // second press records a take of its own.
+        let letGo = NSPredicate(format: "value == %@", "Writing it down...")
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: letGo, object: miraStrip)],
+                                        timeout: 8), .completed, "the first take was let go")
         miraStrip.press(forDuration: 0.8)
         let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
         let landed = XCTNSPredicateExpectation(predicate: filled, object: app.miraInput)

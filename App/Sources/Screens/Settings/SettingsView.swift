@@ -2,12 +2,18 @@ import MiraNoteKit
 import SwiftUI
 
 /// Handoff screen 03: the PREFERENCES card -- Appearance and Language rows
-/// with their current values, and the text-size slider. The ACCOUNT card
-/// (email, Log Out) and PRIVACY & LEGAL (no URLs yet) are left out until
-/// there is an account and the links exist. A TestFlight install adds a
-/// TESTING card: the photo trigger's switch (InstallSource).
+/// with their current values, and the text-size slider. ACCOUNT shows
+/// whether this phone is signed in with Apple, with Sign out (api #95; no
+/// email: we never ask Apple for one), in a build that offers sign-in
+/// (`Account.isOffered`). PRIVACY & LEGAL (no URLs yet) is
+/// left out until the links exist. AI & PRIVACY says what goes
+/// to the AI providers, holds the mood switch and withdraws consent
+/// (#151). A TestFlight install adds a TESTING card: the photo trigger's
+/// switch (InstallSource).
 struct SettingsView: View {
     var settings: AppSettings
+    var consent: AIConsent = .shared
+    var account: Account = .shared
     /// The photo trigger's switch; nil hides the TESTING card.
     var photoTriggerOptIn: Binding<Bool>?
     var onBack: () -> Void = {}
@@ -32,6 +38,20 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 19)
                 .settingsCard()
+
+                if Account.isOffered {
+                    SettingsEyebrow(text: "ACCOUNT", size: 12, tracking: 1.5)
+                        .padding(.top, 21)
+                    AccountCard(account: account)
+                        .padding(.horizontal, 19)
+                        .settingsCard()
+                }
+
+                SettingsEyebrow(text: "AI & PRIVACY", size: 12, tracking: 1.5)
+                    .padding(.top, 21)
+                AIPrivacyCard(consent: consent)
+                    .padding(.horizontal, 19)
+                    .settingsCard()
 
                 if let photoTriggerOptIn {
                     SettingsEyebrow(text: "TESTING", size: 12, tracking: 1.5)
@@ -91,6 +111,114 @@ struct SettingsView: View {
         .accessibilityLabel(label)
         .accessibilityValue(value)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Signed in with Apple and Sign out, or Sign in, which shows the sign-in
+/// sheet. Signed out, everything on the phone keeps working.
+private struct AccountCard: View {
+    var account: Account
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if account.isSignedIn {
+                Text("Signed in with Apple")
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.signedIn")
+                Button("Sign out") { Task { await account.signOut() } }
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.signOut")
+                note("Your pages stay on this phone. Mira's AI asks you to sign in again.")
+            } else {
+                Button("Sign in with Apple") { Task { _ = await account.permit() } }
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.signIn")
+                note("Only Mira's AI needs an account. Everything else works without one.")
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+    }
+
+    private func note(_ text: LocalizedStringKey) -> some View {
+        Text(text)
+            .font(Sans.font(size: 13, weight: 500))
+            .lineSpacing(AIDataLines.spacing(for: 13))
+            .foregroundStyle(SettingsStyle.value)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// What is sent and to whom (the consent sheet's own lines), "Mood from my
+/// words", and withdrawing consent. Turning the mood on before consent
+/// asks first, with the sheet.
+private struct AIPrivacyCard: View {
+    var consent: AIConsent
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            AIDataSummary()
+                .padding(.top, 16)
+            AIDataDetails(idPrefix: "settings.ai")
+                .padding(.vertical, 4)
+            divider
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: Binding(get: { consent.allowsMood }, set: setMood)) {
+                    Text("Mood from my words")
+                        .font(Sans.font(size: 16, weight: 600))
+                        .foregroundStyle(Palette.ink)
+                }
+                .tint(Palette.forest)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("settings.moodFromWords")
+                note("Off: saved pages are not read for a mood, and their stars stay one neutral color.")
+            }
+            .padding(.vertical, 12)
+            divider
+            VStack(alignment: .leading, spacing: 6) {
+                if consent.isGranted {
+                    Button("Stop sending to AI") { consent.withdraw() }
+                        .font(Sans.font(size: 16, weight: 600))
+                        .foregroundStyle(Palette.ink)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("settings.aiWithdraw")
+                    note("Mira will ask again before the next AI action.")
+                } else {
+                    Button("Turn on AI features") { Task { _ = await consent.permit() } }
+                        .font(Sans.font(size: 16, weight: 600))
+                        .foregroundStyle(Palette.ink)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("settings.aiAllow")
+                    note("Mira asks before anything is sent.")
+                }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 14)
+        }
+    }
+
+    private var divider: some View {
+        Rectangle().fill(Palette.hairline).frame(height: 1)
+    }
+
+    private func note(_ text: LocalizedStringKey) -> some View {
+        Text(text)
+            .font(Sans.font(size: 13, weight: 500))
+            .lineSpacing(AIDataLines.spacing(for: 13))
+            .foregroundStyle(SettingsStyle.value)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func setMood(_ on: Bool) {
+        guard on else { return consent.moodFromWords = false }
+        guard !consent.isGranted else { return consent.moodFromWords = true }
+        Task { if await consent.permit() { consent.moodFromWords = true } }
     }
 }
 

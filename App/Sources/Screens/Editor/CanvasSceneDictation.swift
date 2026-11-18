@@ -107,6 +107,8 @@ extension CanvasScene {
         startingMic = .text
         Task {
             do {
+                // AI consent before the mic, not after the take (#151).
+                try await transcription.askToSend()
                 try await newRecorder.start()
                 guard holdsMic(newRecorder) else {
                     _ = try? await newRecorder.stop()
@@ -115,6 +117,9 @@ extension CanvasScene {
                 startingMic = nil
                 dictating = true
             } catch {
+                // The sheet cancels the press, which lets go of the mic:
+                // Not now still says why.
+                if error is AIConsentError { dictationHint = error.localizedDescription }
                 guard holdsMic(newRecorder) else { return }
                 startingMic = nil
                 recorder = nil

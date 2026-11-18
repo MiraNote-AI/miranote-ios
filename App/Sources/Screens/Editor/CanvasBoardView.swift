@@ -23,6 +23,9 @@ struct CanvasBoardView: View {
     /// Elements Mira is currently changing: they breathe and ignore touches
     /// (lock the element, never the screen).
     var workingItemIDs: Set<CanvasItem.ID> = []
+    /// A preview (layouts being tried): no element takes a touch; the
+    /// page still scrolls.
+    var locked = false
     /// Long-press "Edit photo" (images with stored pixels only).
     var onEditImage: (CanvasItem.ID) -> Void = { _ in }
     var onEditSticker: (CanvasItem.ID) -> Void = { _ in }
@@ -39,6 +42,9 @@ struct CanvasBoardView: View {
     /// Set when an edit panel closes: the edited element scrolls into view
     /// once the panel has given its room back, then this clears.
     var revealItem: Binding<CanvasItem.ID?> = .constant(nil)
+    /// Set to a page offset (page points from the top): the page scrolls
+    /// back there, then this clears.
+    var scrollBack: Binding<CGFloat?> = .constant(nil)
     /// Where an in-flight move stands against the delete zone; nil when
     /// nothing is being moved.
     @Binding var dropToDelete: DropToDelete?
@@ -83,6 +89,7 @@ struct CanvasBoardView: View {
     /// scroll is the one to keep.
     @State private var resumed = false
     @State private var toast: Toast?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toastDismiss: Task<Void, Never>?
     /// Screen points per page point: the card fills the screen less its
     /// insets (the visible frame is the card's row, insets included).
@@ -178,10 +185,24 @@ struct CanvasBoardView: View {
                 // scroll centres the element in the grown viewport.
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(350))
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                         proxy.scrollTo(Self.revealAnchorID, anchor: .center)
                     }
                     revealItem.wrappedValue = nil
+                }
+            }
+            .onChange(of: scrollBack.wrappedValue) { _, offset in
+                guard let offset else { return }
+                restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: offset)
+                Task { @MainActor in
+                    // The twin lands first, then the page scrolls to it.
+                    try? await Task.sleep(for: .milliseconds(20))
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                        proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
+                    }
+                    try? await Task.sleep(for: .milliseconds(300))
+                    restoreAnchor = nil
+                    scrollBack.wrappedValue = nil
                 }
             }
         }
@@ -211,8 +232,15 @@ struct CanvasBoardView: View {
                   !editor.items.contains(where: { clipID(of: $0) == playing }) else { return }
             player.stop()
         }
+        // Trying layouts: the toast's Undo would act under the preview, which
+        // then put the page back over it.
+        .onChange(of: locked) { _, locked in
+            guard locked else { return }
+            toastDismiss?.cancel()
+            toast = nil
+        }
         .overlay(alignment: .bottom) {
-            if let toast {
+            if let toast, !locked {
                 toastView(toast)
                     .padding(.bottom, 10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -495,6 +523,7 @@ struct CanvasBoardView: View {
         .gesture(isEditing ? nil : moveGesture(item))
         .simultaneousGesture(isSelected ? rotateGesture(item) : nil)
         .modifier(BreathingLock(active: workingItemIDs.contains(item.id)))
+        .allowsHitTesting(!locked)
     }
 
     /// The element's bounding box once tilted, with room for the selection
@@ -676,12 +705,19 @@ extension CanvasBoardView {
     /// simplification -- scrapbook tilts stay small).
     private func handles(for item: CanvasItem, size: CGSize) -> some View {
         let line = Color(hex: 0x263521)
-        var photoBorder = false
-        if case .image(let ref) = item.content { photoBorder = ref.frameName.isEmpty }
-        let outset: CGFloat = photoBorder ? 0 : 6
+        // A matless photo (plain or soft) wears the border along its edge.
+        var photoBorder: CGFloat?
+        if case .image(let ref) = item.content {
+            switch PhotoFrame(rawValue: ref.frameName) ?? .none {
+            case .none: photoBorder = Metrics.imageCorner
+            case .soft: photoBorder = PhotoFrame.softCorner
+            case .white, .polaroid: break
+            }
+        }
+        let outset: CGFloat = photoBorder == nil ? 6 : 0
         return ZStack {
-            if photoBorder {
-                RoundedRectangle(cornerRadius: Metrics.imageCorner)
+            if let photoBorder {
+                RoundedRectangle(cornerRadius: photoBorder)
                     .strokeBorder(Palette.ink, lineWidth: 3)
                     .allowsHitTesting(false)
             } else {

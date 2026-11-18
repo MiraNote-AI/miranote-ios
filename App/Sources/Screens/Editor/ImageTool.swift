@@ -10,6 +10,23 @@ struct PendingPlacement: Equatable {
     let at: CGPoint
 }
 
+/// A Recents photo long-pressed and carried out of the grid toward the
+/// page (#167): where the finger is, global points.
+struct PhotoDrag: Equatable {
+    let photo: LibraryPhoto
+    let thumb: UIImage?
+    var point: CGPoint
+}
+
+/// The photo being carried, updated on every finger move. A reference only
+/// the carried-photo layer reads: a move re-renders that layer, not the
+/// canvas scene.
+@MainActor
+@Observable
+final class PhotoDragTracker {
+    var drag: PhotoDrag?
+}
+
 /// Where the Image tool stands. It opens in place over the live canvas
 /// (handoff screens 23-29), so placed photos land on the page the user is
 /// looking at and stay editable there.
@@ -41,7 +58,7 @@ struct PhotoPlacer {
 
     /// The placed photo's id; nil when its bytes could not be stored.
     @discardableResult
-    func place(_ imageData: Data, name: String) -> CanvasItem.ID? {
+    func place(_ imageData: Data, name: String, at spot: CGPoint? = nil) -> CanvasItem.ID? {
         guard let fileName = try? imageStore.save(imageData, id: UUID()) else { return nil }
         // Deterministic on the existing photo count so tests stay stable.
         let photoCount = editor.items.filter {
@@ -54,7 +71,11 @@ struct PhotoPlacer {
         if let ui = UIImage(data: imageData) {
             box = CanvasImageCache.aspectBox(for: ui)
         }
-        let position = CGPoint(
+        // A dropped photo lands where it was let go, kept on the page.
+        let position = spot.map {
+            CGPoint(x: min(max($0.x, box.width / 2), MiraNoteConfig.pageWidth - box.width / 2),
+                    y: max($0.y, box.height / 2))
+        } ?? CGPoint(
             x: MiraNoteConfig.pageWidth / 2 + sway,
             y: min(editor.contentBottom + 60 + box.height / 2, 4000)
         )
@@ -209,6 +230,10 @@ struct RecentsSheet: View {
     var onEditing: () -> Void
     /// Photos picked through the system picker (no library access).
     var onSystemPicks: ([PhotosPickerItem]) -> Void
+    /// A photo carried out of the grid by long-press: the drag as it
+    /// moves, then nil at the let-go with where it was let go.
+    var onDrag: (PhotoDrag?) -> Void = { _ in }
+    var onDrop: (PhotoDrag) -> Void = { _ in }
 
     @State private var systemPicks: [PhotosPickerItem] = []
     @State private var gridWidth: CGFloat = 298
@@ -249,8 +274,8 @@ struct RecentsSheet: View {
         ScrollView(showsIndicators: false) {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(Array(library.photos.enumerated()), id: \.element) { index, photo in
-                    RecentCell(library: library, photo: photo, order: order(of: photo))
-                        .onTapGesture { toggle(photo) }
+                    RecentCell(library: library, photo: photo, order: order(of: photo),
+                               onTap: { toggle(photo) }, onDrag: onDrag, onDrop: onDrop)
                         .accessibilityElement()
                         .accessibilityAddTraits(.isButton)
                         .accessibilityAddTraits(order(of: photo) != nil ? .isSelected : [])
@@ -358,8 +383,14 @@ private struct RecentCell: View {
     let library: RecentPhotos
     let photo: LibraryPhoto
     let order: Int?
+    var onTap: () -> Void
+    var onDrag: (PhotoDrag?) -> Void
+    var onDrop: (PhotoDrag) -> Void
 
     @State private var image: UIImage?
+    /// Resets on a cancel too (Recents closing mid-carry), where `onEnded`
+    /// never runs.
+    @GestureState private var lifted = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.imageCorner)
@@ -387,6 +418,56 @@ private struct RecentCell: View {
                 }
             }
             .contentShape(shape)
+            .opacity(lifted ? 0.4 : 1)
+            // A tap picks the photo; a long-press lifts it out of the grid.
+            .onTapGesture(perform: onTap)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.35)
+                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+                    .updating($lifted) { value, state, _ in
+                        if case .second(true, _) = value { state = true }
+                    }
+                    .onChanged { value in
+                        guard case .second(true, let drag?) = value else { return }
+                        onDrag(PhotoDrag(photo: photo, thumb: image, point: drag.location))
+                    }
+                    .onEnded { value in
+                        guard case .second(true, let drag?) = value else { return }
+                        onDrop(PhotoDrag(photo: photo, thumb: image, point: drag.location))
+                    }
+            )
+            .onChange(of: lifted) { _, now in
+                if !now { onDrag(nil) }
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: lifted) { _, new in new }
             .task(id: photo) { image = await library.thumbnail(photo, side: 92) }
+    }
+}
+
+/// The carried photo under the finger, a little large, lifted by a
+/// shadow; it dims where letting go would place nothing. Reads the tracker
+/// in its own body, so a move re-renders only this layer.
+struct PhotoDragGhost: View {
+    let tracker: PhotoDragTracker
+    /// Where a let-go would land on the page; nil where it places nothing.
+    let pagePoint: (CGPoint) -> CGPoint?
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let drag = tracker.drag, let thumb = drag.thumb {
+                let origin = proxy.frame(in: .global).origin
+                Image(uiImage: thumb)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 96, height: 92)
+                    .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
+                    .opacity(pagePoint(drag.point) == nil ? 0.6 : 1)
+                    .position(x: drag.point.x - origin.x, y: drag.point.y - origin.y)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

@@ -4,13 +4,14 @@ import SwiftUI
 /// The bottom tool bar's five tools (2026-10-07 handoff). Sticker is a tool
 /// of its own -- AI stickers and saved favorites live there, not in Image.
 enum EditorMode: String, CaseIterable, Identifiable {
-    case background, voice, text, image, sticker
+    case background, layout, voice, text, image, sticker
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .background: return String(appCopy: "Background")
+        case .layout: return String(appCopy: "Layout")
         case .voice: return String(appCopy: "Voice")
         case .text: return String(appCopy: "Text")
         case .image: return String(appCopy: "Image")

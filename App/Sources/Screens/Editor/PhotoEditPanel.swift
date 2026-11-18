@@ -2,7 +2,7 @@ import MiraNoteKit
 import SwiftUI
 
 /// The photo editor's working state while a photo is lifted above the
-/// scrimmed canvas (handoff screens 27-28): which tile the composer speaks
+/// inert canvas (handoff screens 27-28): which tile the composer speaks
 /// for, the words typed, a running edit, and the compare. Owned by the
 /// canvas scene: the stage, the Photo Editing sheet and the composer are
 /// three views in three places reading one state.
@@ -340,6 +340,10 @@ struct PhotoEditors {
 
     subscript(id: CanvasItem.ID) -> PhotoEditController? { byPhoto[id] }
 
+    /// A photo's edit is still on its way (kept running with Done): it
+    /// lands on whatever the page shows then.
+    var anyWorking: Bool { byPhoto.values.contains { $0.working } }
+
     /// The editor for a photo being opened: its running one, now reporting
     /// `onEdited` / `onClose` to the opener, or a new visit (`make`, built
     /// with the same two).
@@ -519,6 +523,10 @@ private struct PhotoEditStage: View {
             pixels
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: radius))
+        case .soft:
+            pixels
+                .frame(width: size.width, height: size.height)
+                .clipShape(RoundedRectangle(cornerRadius: PhotoFrame.softCorner))
         case .white:
             pixels
                 .frame(width: size.width - 20, height: size.height - 20)

@@ -67,7 +67,8 @@ struct ToolsOnboarding: View {
     /// five 40 pt tiles at a 56 pt pitch, Background lit.
     private var strip: some View {
         HStack(spacing: 16) {
-            ForEach(EditorMode.allCases) { mode in
+            // The five creative tools; Layout (#183) arranges what they made.
+            ForEach(EditorMode.allCases.filter { $0 != .layout }) { mode in
                 Button {
                     onPick(mode)
                 } label: {

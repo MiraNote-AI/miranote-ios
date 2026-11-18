@@ -111,6 +111,61 @@ final class ChatComposerTests: XCTestCase {
         XCTAssertEqual(viewModel.messages.last?.role, .assistant, "Mira still answered")
     }
 
+    // MARK: - Photos before AI consent (#151)
+
+    /// The chat on the consent wrappers, the sheet answering `answer`.
+    private func askingViewModel(answering answer: Bool, chat: MessageCapturingChat) -> (ChatViewModel, () -> Void) {
+        let suite = "chat-consent-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let consent = AIConsent(defaults: defaults)
+        consent.present = { [unowned consent] in Task { @MainActor in consent.answer(answer) } }
+        let services = ServiceContainer(
+            textTransform: MockTextTransformService(),
+            voiceTranscription: MockVoiceTranscriptionService(),
+            stickerGeneration: MockStickerGenerationService(),
+            styleTransfer: MockStyleTransferService(),
+            chat: chat,
+            imageStudio: DescribingStudio(result: .success("a sunset"))
+        ).asking(consent)
+        let viewModel = ChatViewModel(
+            service: services.chat, studio: services.imageStudio, transcription: services.voiceTranscription,
+            makeRecorder: { MockAudioRecorder() }, imageStore: ImageFileStore(directory: imageDirectory)
+        )
+        return (viewModel, { defaults.removePersistentDomain(forName: suite) })
+    }
+
+    /// A photo in the first message, before consent: Continue comes before
+    /// the photo is looked at, so Mira gets its description, not "a photo
+    /// Mira could not look at".
+    func testAFirstPhotoBeforeConsentIsDescribedAfterContinue() async {
+        let chat = MessageCapturingChat()
+        let (viewModel, cleanUp) = askingViewModel(answering: true, chat: chat)
+        defer { cleanUp() }
+        viewModel.stageImage(MockImageStudioService.tinyPNG)
+        viewModel.draft = "look"
+
+        await viewModel.sendDraft()
+
+        let sent = await chat.messages.all
+        XCTAssertEqual(sent, ["(photo) a sunset\nlook"])
+        XCTAssertNil(viewModel.hint, "the photo was seen")
+    }
+
+    func testAFirstPhotoAndNotNowSendNothingAndSayWhy() async {
+        let chat = MessageCapturingChat()
+        let (viewModel, cleanUp) = askingViewModel(answering: false, chat: chat)
+        defer { cleanUp() }
+        viewModel.stageImage(MockImageStudioService.tinyPNG)
+        viewModel.draft = "look"
+
+        await viewModel.sendDraft()
+
+        let sent = await chat.messages.all
+        XCTAssertEqual(sent, [])
+        XCTAssertNil(viewModel.hint, "not a photo Mira could not see: nothing was asked")
+        XCTAssertEqual(viewModel.messages.last?.text, AIConsentError.notNow.errorDescription)
+    }
+
     // MARK: - Voice
 
     func testTranscriptFillsAnEmptyDraft() {

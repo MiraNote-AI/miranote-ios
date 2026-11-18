@@ -19,6 +19,21 @@ extension MiraNoteConfigTests {
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.chat.absoluteString, "https://beta-chat.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.voice.absoluteString, "https://beta-voice.miranote.app")
         XCTAssertEqual(MiraNoteConfig.Backend.Beta.collections.absoluteString, "https://beta-collections.miranote.app")
+        XCTAssertEqual(MiraNoteConfig.Backend.Beta.accounts.absoluteString, "https://beta-accounts.miranote.app")
+    }
+
+    /// No accounts service named, no sign-in: a test host has no
+    /// Info.plist key, and an empty or unexpanded build setting is none.
+    func testNoAccountsServiceUnlessTheBuildNamesOne() {
+        XCTAssertNil(MiraNoteConfig.Backend.accountsBaseURL)
+        XCTAssertNil(MiraNoteConfig.Backend.accountsURL(infoValue: nil))
+        XCTAssertNil(MiraNoteConfig.Backend.accountsURL(infoValue: ""))
+        XCTAssertNil(MiraNoteConfig.Backend.accountsURL(infoValue: "$(ACCOUNTS_BASE_URL)"))
+        XCTAssertNil(MiraNoteConfig.Backend.accountsURL(infoValue: "beta-accounts.miranote.app"))
+        XCTAssertEqual(MiraNoteConfig.Backend.accountsURL(infoValue: "https://beta-accounts.miranote.app"),
+                       MiraNoteConfig.Backend.Beta.accounts)
+        XCTAssertEqual(MiraNoteConfig.Backend.accountsURL(infoValue: "http://localhost:8007")?.absoluteString,
+                       "http://localhost:8007")
     }
 
     func testBetaHostsAreHTTPS() {
@@ -42,6 +57,6 @@ extension MiraNoteConfigTests {
     }
 
     func testBetaHostsAreDistinct() {
-        XCTAssertEqual(Set(MiraNoteConfig.Backend.Beta.all).count, 5)
+        XCTAssertEqual(Set(MiraNoteConfig.Backend.Beta.all).count, 6)
     }
 }

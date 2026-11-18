@@ -224,76 +224,9 @@ final class MoodJudgeTests: XCTestCase {
         XCTAssertNil(viewModel.memory(page.id)?.mood)
     }
 
-    /// Offline, no access, no endpoint, rate-limited, tunnel down: the
-    /// first failure pauses the queue, not one request per page.
+    /// Also used by the queue tests (MoodJudgeQueueTests.swift).
     @MainActor
-    func testAnErrorAboutTheServicePausesTheWholeQueue() async {
-        for error in [BackendError.unreachable, .timedOut, .server(status: 401, detail: nil),
-                      .server(status: 404, detail: nil), .server(status: 429, detail: nil),
-                      .server(status: 530, detail: nil)] {
-            let service = CountingMoodService(answer: nil, error: error)
-            let pages = (0..<3).map { Memory(title: "Page \($0)") }
-            let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-            let judge = MoodJudge(service: service, library: viewModel, gap: .zero)
-            judge.show(pages.map(\.id))
-            judge.judge([pages[2].id])
-            await waitUntil { await service.counts().calls == 1 }
-            try? await Task.sleep(for: .milliseconds(100))
-            judge.show(pages.map(\.id))
-            try? await Task.sleep(for: .milliseconds(50))
-
-            let calls = await service.counts().calls
-            XCTAssertEqual(calls, 1, "\(error): paused after the first failure")
-        }
-    }
-
-    @MainActor
-    func testAPausedQueueAsksAgainOnceTheRetryTimeHasPassed() async {
-        let service = CountingMoodService(answer: nil, error: .server(status: 530, detail: nil))
-        let pages = (0..<2).map { Memory(title: "Page \($0)") }
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-        let judge = MoodJudge(service: service, library: viewModel, retryAfter: 0.2, gap: .zero)
-        judge.show(pages.map(\.id))
-        await waitUntil { await service.counts().calls == 1 }
-        try? await Task.sleep(for: .milliseconds(300))
-        judge.show(pages.map(\.id))
-        await waitUntil { await service.counts().calls == 2 }
-    }
-
-    /// The server's 502 (it could not read the model's reply) is about the
-    /// page: the others are still asked, and the page is not stored as
-    /// neutral but asked again after `retryAfter`.
-    @MainActor
-    func testAnUnreadableReplyFailsOnlyThatPage() async {
-        let service = CountingMoodService(answer: nil, error: .server(status: 502, detail: nil))
-        let pages = (0..<3).map { Memory(title: "Page \($0)") }
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-        let judge = MoodJudge(service: service, library: viewModel, gap: .zero)
-        judge.show(pages.map(\.id))
-        await waitUntil { await service.counts().calls == 3 }
-        judge.show(pages.map(\.id))
-        try? await Task.sleep(for: .milliseconds(100))
-
-        let calls = await service.counts().calls
-        XCTAssertEqual(calls, 3, "each page waits out its own retry time")
-        XCTAssertTrue(pages.allSatisfy { viewModel.memory($0.id)?.mood == nil }, "not stored as neutral")
-    }
-
-    @MainActor
-    func testConsecutiveAsksAreSpacedByTheGap() async {
-        let service = CountingMoodService(answer: .calm)
-        let pages = (0..<3).map { Memory(title: "Page \($0)") }
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: pages)])
-        let judge = MoodJudge(service: service, library: viewModel, gap: .milliseconds(250))
-        let start = ContinuousClock.now
-        judge.judge(pages.map(\.id))
-        await waitUntil { pages.allSatisfy { viewModel.memory($0.id)?.mood == .calm } }
-
-        XCTAssertGreaterThanOrEqual(ContinuousClock.now - start, .milliseconds(500), "two gaps between three asks")
-    }
-
-    @MainActor
-    private func waitUntil(_ condition: @MainActor () async -> Bool) async {
+    func waitUntil(_ condition: @MainActor () async -> Bool) async {
         for _ in 0..<200 {
             if await condition() { return }
             try? await Task.sleep(for: .milliseconds(10))
@@ -303,20 +236,24 @@ final class MoodJudgeTests: XCTestCase {
 }
 
 /// Answers every ask with the mood of the first word in `byWord` the text
-/// contains, else `answer` (nil: fails with `error`), after a beat,
+/// contains, else `answer` (nil: fails with `error`), after a beat and
+/// after `failFirst` failures,
 /// counting the asks and how many were in flight at once.
-private actor CountingMoodService: MoodService {
+actor CountingMoodService: MoodService {
     let answer: Mood?
     let byWord: [String: Mood]
     let error: BackendError
+    /// Asks that fail with `error` before any is answered.
+    private var failFirst: Int
     private var texts: [String] = []
     private var inFlight = 0
     private var mostAtOnce = 0
 
-    init(answer: Mood?, byWord: [String: Mood] = [:], error: BackendError = .unreachable) {
+    init(answer: Mood?, byWord: [String: Mood] = [:], error: BackendError = .unreachable, failFirst: Int = 0) {
         self.answer = answer
         self.byWord = byWord
         self.error = error
+        self.failFirst = failFirst
     }
 
     func counts() -> (calls: Int, mostAtOnce: Int) { (texts.count, mostAtOnce) }
@@ -329,6 +266,10 @@ private actor CountingMoodService: MoodService {
         mostAtOnce = max(mostAtOnce, inFlight)
         try? await Task.sleep(for: .milliseconds(20))
         inFlight -= 1
+        if failFirst > 0 {
+            failFirst -= 1
+            throw error
+        }
         let lowered = text.lowercased()
         if let match = byWord.first(where: { lowered.contains($0.key) }) { return match.value }
         guard let answer else { throw error }
