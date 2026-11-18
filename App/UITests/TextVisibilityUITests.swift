@@ -185,10 +185,11 @@ final class TextVisibilityUITests: XCTestCase {
     /// keyboard, a beat still, then the rest. It slides back in one move,
     /// begun at once, for a new block below the fold and for one opened
     /// again in view.
-    func testDonePutsThePageBackInOneSlide() {
+    func testDonePutsThePageBackInOneSlide() throws {
         fillThePage()
         app.buttons["mode.text"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
+        try XCTSkipUnless(softwareKeyboardRose(), "hardware keyboard connected: no keyboard to slide back from")
         field.typeText("lunch by the river")
         assertClearOfTheTools("a new block")
         app.buttons["keyboard.done"].tap()
@@ -202,13 +203,29 @@ final class TextVisibilityUITests: XCTestCase {
         assertOneSlideBack("the block opened again")
     }
 
-    private func assertOneSlideBack(_ when: String) {
-        Thread.sleep(forTimeInterval: 1.6)
+    /// The -UITEST probe's `textOpen` entry.
+    private func textOpen() -> [String: Any] {
         let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
             .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
         XCTAssertTrue(probe.waitForExistence(timeout: 5))
         let state = (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8)) as? [String: Any]) ?? [:]
-        let exit = state["textOpen"] as? [String: Any] ?? [:]
+        return state["textOpen"] as? [String: Any] ?? [:]
+    }
+
+    /// The app heard a software keyboard rise for this open (a hardware
+    /// keyboard raises none).
+    private func softwareKeyboardRose() -> Bool {
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            if textOpen()["keyboardShows"] as? Int ?? 0 >= 1 { return true }
+            usleep(100_000)
+        }
+        return false
+    }
+
+    private func assertOneSlideBack(_ when: String) {
+        Thread.sleep(forTimeInterval: 1.6)
+        let exit = textOpen()
         let trace = exit["exitTrace"] as? String ?? ""
         XCTAssertEqual(exit["exitMoves"] as? Int, 1, "\(when): the page goes back in one move (ms:offset \(trace))")
         XCTAssertLessThanOrEqual(exit["exitLandMs"] as? Int ?? .max, 600,

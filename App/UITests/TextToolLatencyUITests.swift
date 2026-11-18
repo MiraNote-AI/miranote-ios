@@ -47,13 +47,17 @@ final class TextToolLatencyUITests: XCTestCase {
         return last
     }
 
-    /// Taps Text and waits for the software keyboard; skips the test when
-    /// the simulator has a hardware keyboard (no keyboard ever rises).
+    /// Taps Text and waits for the app to hear the software keyboard rise;
+    /// skips the test when none does (a hardware keyboard is connected;
+    /// XCUITest still finds a keyboard then, parked below the screen).
     private func openText() throws {
         app.buttons["mode.text"].tap()
-        guard app.keyboards.firstMatch.waitForExistence(timeout: 5) else {
-            throw XCTSkip("hardware keyboard connected: no software keyboard to time")
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            if (canvasState()["textOpen"] as? [String: Any])?["keyboardShows"] as? Int ?? 0 >= 1 { return }
+            usleep(100_000)
         }
+        throw XCTSkip("hardware keyboard connected: no software keyboard to time")
     }
 
     private func cancelText() {
