@@ -272,12 +272,12 @@ final class TextToolLatencyUITests: XCTestCase {
 
     /// The keyboard rises dark: never light first and swapped on the way
     /// up (a swap mid-rise stalls or skips the rise -- up to 365 ms with no
-    /// frame on the iPhone 17 sim). No reload once it has started to rise.
+    /// frame on the iPhone 17 sim). The field asks for it dark as it starts.
     func testKeyboardRisesDarkWithoutASwap() throws {
         for open in 1...3 {
             try openText()
             let row = textOpen(after: open)
-            XCTAssertEqual(row["lateReloads"] as? Int, 0, "open \(open): swapped mid-rise: \(row)")
+            XCTAssertEqual(row["lightRises"] as? Int, 0, "open \(open): rose light: \(row)")
             sleep(1)
             let caps = keyCapLuminance()
             XCTAssertGreaterThan(caps, 0, "open \(open): no Q key")

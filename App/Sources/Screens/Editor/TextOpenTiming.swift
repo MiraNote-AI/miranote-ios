@@ -21,11 +21,10 @@ enum TextOpenTiming {
     private static var willShowMs = -1
     private static var riseMs = -1
     private static var riseCurve = -1
-    private static var lateReloads = 0
+    private static var lightRises = 0
     private static var keyboardShows = 0
     private static var clearScrolls = 0
     private static var opens = 0
-    private static var darkReloads = 0
     private static var observing = false
 
     /// The Text tool was tapped.
@@ -41,7 +40,7 @@ enum TextOpenTiming {
         willShowMs = -1
         riseMs = -1
         riseCurve = -1
-        lateReloads = 0
+        lightRises = 0
         keyboardShows = 0
         clearScrolls = 0
     }
@@ -63,14 +62,6 @@ enum TextOpenTiming {
         guard focusMs < 0, let ms = elapsed() else { return }
         focusMs = ms
         signposter.emitEvent("focused")
-    }
-
-    /// The keyboard was reloaded to swap its appearance.
-    static func noteDarkReload() {
-        darkReloads += 1
-        // After the rise began: the keyboard is swapped in plain sight.
-        if willShowMs >= 0 { lateReloads += 1 }
-        signposter.emitEvent("darkReload")
     }
 
     /// The board scrolled the block being written clear of the tools.
@@ -138,9 +129,8 @@ enum TextOpenTiming {
         ["opens": opens, "ms": keyboardMs, "accessoryMs": accessoryMs, "toolsVisibleMs": toolsVisibleMs,
          "focusMs": focusMs,
          "keyboardMs": keyboardMs, "willShowMs": willShowMs, "riseMs": riseMs, "riseCurve": riseCurve,
-         "lateReloads": lateReloads,
+         "lightRises": lightRises,
          "keyboardShows": keyboardShows, "clearScrolls": clearScrolls,
-         "darkReloads": darkReloads,
          "exitShrink": Int(exitShrink.rounded()),
          "exitMoves": exitMoves, "exitLandMs": exitLandMs, "exitTrace": exitTrace.joined(separator: " ")]
     }
@@ -161,6 +151,7 @@ enum TextOpenTiming {
             MainActor.assumeIsolated {
                 guard start != nil else { return }
                 keyboardShows += 1
+                if risesLight() { lightRises += 1 }
                 if willShowMs < 0, let ms = elapsed() {
                     willShowMs = ms
                     riseMs = Int(((duration ?? -0.001) * 1000).rounded())
@@ -177,6 +168,26 @@ enum TextOpenTiming {
         }
     }
 
+    /// The keyboard now rising is the light one: the field with focus asks
+    /// for no dark keyboard and sits in a light trait. It must rise dark,
+    /// not be swapped to dark once on its way (#162).
+    private static func risesLight() -> Bool {
+        let field = UIResponder.currentFirstResponder
+        let appearance: UIKeyboardAppearance
+        if let view = field as? UITextView {
+            appearance = view.keyboardAppearance
+        } else if let view = field as? UITextField {
+            appearance = view.keyboardAppearance
+        } else {
+            return false
+        }
+        switch appearance {
+        case .dark: return false
+        case .light: return true
+        default: return (field as? UIView)?.traitCollection.userInterfaceStyle != .dark
+        }
+    }
+
     private static func keyboardLanded() {
         guard keyboardMs < 0, let ms = elapsed() else { return }
         keyboardMs = ms
@@ -186,7 +197,7 @@ enum TextOpenTiming {
         log.info("""
             text open ms=\(ms) accessory=\(accessoryMs) focus=\(focusMs) willShow=\(willShowMs) \
             rise=\(riseMs) curve=\(riseCurve) \
-            shows=\(keyboardShows) reloads=\(darkReloads) open=\(opens)
+            shows=\(keyboardShows) light=\(lightRises) open=\(opens)
             """)
     }
 }

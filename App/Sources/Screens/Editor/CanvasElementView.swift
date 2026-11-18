@@ -193,7 +193,7 @@ enum WrittenCaret {
     }
 }
 
-private extension UIResponder {
+extension UIResponder {
     private static weak var found: UIResponder?
 
     static var currentFirstResponder: UIResponder? {
