@@ -34,7 +34,8 @@ final class UserTokenTests: XCTestCase {
         return request
     }
 
-    nonisolated private static func answer(_ request: URLRequest, _ status: Int, _ body: String = "{}") -> (HTTPURLResponse, Data) {
+    nonisolated private static func answer(_ request: URLRequest, _ status: Int,
+                                           _ body: String = "{}") -> (HTTPURLResponse, Data) {
         (HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
     }
 
