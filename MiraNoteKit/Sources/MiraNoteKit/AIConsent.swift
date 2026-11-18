@@ -153,6 +153,18 @@ public enum AIConsentError: Error, LocalizedError, Equatable {
             return String(appCopy: "Sign in to use Mira's AI. You can sign in from Settings.")
         }
     }
+
+    /// The words for an AI action that stopped on the writer's side rather
+    /// than the server's: no consent or sign-in yet, a sign-in that ended,
+    /// or a used-up allowance (api #95). Retrying or rephrasing cannot get
+    /// past these, so screens that word other failures their own way say
+    /// these as they are. nil for any other failure.
+    public static func message(for error: Error) -> String? {
+        if let consent = error as? AIConsentError { return consent.errorDescription }
+        if let account = error as? AccountError { return account.errorDescription }
+        if let backend = error as? BackendError, case .limitReached = backend { return backend.errorDescription }
+        return nil
+    }
 }
 
 // MARK: - Services that ask first

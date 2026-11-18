@@ -53,6 +53,14 @@ final class PaywallUITests: XCTestCase {
         }.max() ?? -1
     }
 
+    /// The text strip's line after a used-up free allowance.
+    private var limitLine: XCUIElement {
+        let words = "You've reached the free limit for this."
+        return app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ OR value CONTAINS %@", words, words
+        )).firstMatch
+    }
+
     private func fieldValueContains(_ words: String, timeout: TimeInterval = 5) -> Bool {
         let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", words), object: field)
         return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
@@ -106,6 +114,9 @@ final class PaywallUITests: XCTestCase {
         XCTAssertTrue(paywall.waitForNonExistence(timeout: 5))
         XCTAssertEqual(probeMax("plus"), 0)
         XCTAssertTrue(field.exists, "the page is still there to write on")
+        let strip = app.buttons["style.mic"]
+        XCTAssertTrue(limitLine.waitForExistence(timeout: 3),
+                      "the strip says the free limit, not a retry: \(String(describing: strip.value))")
     }
 
     func testSettingsShowsTheFreePlanAndOpensThePaywall() {
