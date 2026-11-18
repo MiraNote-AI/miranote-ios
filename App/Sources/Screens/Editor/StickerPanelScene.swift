@@ -568,7 +568,9 @@ struct StickerPanelScene: View {
             }
             .padding(.top, 12)
         }
-        .padding(.leading, -4)
+        // As the set grids: the same three columns, so the cells stay put
+        // when the tab changes.
+        .padding(.leading, 1)
     }
 
     /// Why favorites and presets are dimmed while a made sticker waits.

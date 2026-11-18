@@ -90,4 +90,17 @@ final class StickerGridUITests: XCTestCase {
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "the sticker landed")
         XCTAssertEqual(photos.count, photosBefore, "not the photo under it")
     }
+
+    /// The Favorites cells stand where the set's do, so a tab change keeps
+    /// them in place.
+    func testFavoritesLineUpWithTheSetCells() {
+        favoriteAMadeSticker()
+        app.buttons["sticker.tab.favorites"].tap()
+        XCTAssertTrue(favorites.firstMatch.waitForExistence(timeout: 5))
+        let favorite = favorites.firstMatch.frame
+        app.buttons["sticker.tab.food"].tap()
+        let preset = app.buttons["sticker.preset.focaccia"]
+        XCTAssertTrue(preset.waitForExistence(timeout: 5))
+        XCTAssertEqual(favorite.midX, preset.frame.midX, accuracy: 1, "the first column stays put across the tabs")
+    }
 }
