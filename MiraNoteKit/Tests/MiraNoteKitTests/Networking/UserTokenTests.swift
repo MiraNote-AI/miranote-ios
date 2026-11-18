@@ -113,6 +113,30 @@ final class UserTokenTests: XCTestCase {
         XCTAssertFalse(account.isSignedIn)
     }
 
+    /// A build that offers no sign-in installs no token source
+    /// (`SignInPresenter.install`), and every client built with the default
+    /// sends what it sent before this change: the beta token, no request id,
+    /// the body untouched.
+    func testABuildWithoutSignInSendsTheBetaTokenAsBefore() async throws {
+        XCTAssertNil(UserTokens.installed)
+        var seen: [URLRequest] = []
+        StubURLProtocol.handler = { request in
+            seen.append(request)
+            return Self.answer(request, 200)
+        }
+        let body = Data(#"{"text": "tea"}"#.utf8)
+        var sent = request()
+        sent.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        sent.httpBody = body
+        _ = try await HTTPClient(session: StubURLProtocol.makeSession(), betaToken: "beta").send(sent)
+
+        XCTAssertEqual(seen.count, 1)
+        XCTAssertEqual(seen.first?.value(forHTTPHeaderField: "Authorization"), "Bearer beta")
+        XCTAssertNil(seen.first?.value(forHTTPHeaderField: "X-Request-ID"))
+        XCTAssertEqual(seen.first?.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(seen.first?.capturedBody, body)
+    }
+
     func testTheAccountsServiceNeverGetsOurAccessToken() async throws {
         UserTokens.installed = account(tokens(2))
         defer { UserTokens.installed = nil }
