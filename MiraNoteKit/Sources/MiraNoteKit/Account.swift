@@ -118,6 +118,9 @@ public final class Account {
                 return fresh
             } catch BackendError.server(status: 401, _) {
                 throw AccountError.signedOut
+            } catch {
+                if !isSignedIn { throw AccountError.signedOut }
+                throw error
             }
         }
         let task = Task { [api] in try await api.refresh(refreshToken: tokens.refreshToken) }
@@ -133,6 +136,11 @@ public final class Account {
             store.save(nil)
             isSignedIn = false
             throw AccountError.signedOut
+        } catch {
+            // Sign-out cancels the refresh, so it ends in the cancellation
+            // (from the live client, `.unreachable`), not in the guard above.
+            if !isSignedIn { throw AccountError.signedOut }
+            throw error
         }
     }
 

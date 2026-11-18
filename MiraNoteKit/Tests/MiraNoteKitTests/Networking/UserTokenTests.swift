@@ -154,6 +154,35 @@ final class UserTokenTests: XCTestCase {
         XCTAssertEqual(auth, [nil, "Bearer access-2"])
     }
 
+    /// Signing out cancels a refresh that is out. Every request waiting on
+    /// it ends as signed out, not as the cancellation, which the live
+    /// accounts client reads as `.unreachable` ("Couldn't reach MiraNote's
+    /// AI server ... the team needs to know").
+    func testSigningOutDuringARefreshEndsItsRequestsAsSignedOut() async throws {
+        StubURLProtocol.handler = {
+            Self.answer($0, $0.value(forHTTPHeaderField: "Authorization") == "Bearer access-1" ? 401 : 200)
+        }
+        for cancelled in [nil, BackendError.unreachable] as [BackendError?] {
+            let api = FakeAccountsAPI(refreshResults: [.success(tokens(2))])
+            api.refreshDelay = 5_000_000_000
+            api.cancelledRefreshError = cancelled
+            let account = account(tokens(1), api: api)
+            let requests = (0..<2).map { _ in Task { try await client(account).send(request()) } }
+            for _ in 0..<500 where api.refreshes.isEmpty { try await Task.sleep(nanoseconds: 2_000_000) }
+            XCTAssertEqual(api.refreshes, ["refresh-1"])
+            await account.signOut()
+            for request in requests {
+                do {
+                    _ = try await request.value
+                    XCTFail("sent after sign-out")
+                } catch {
+                    XCTAssertEqual(error as? AccountError, .signedOut, "\(error), cancelled as \(cancelled as Any)")
+                }
+            }
+            XCTAssertNil(account.userID, "the renewed pair was not kept")
+        }
+    }
+
     // MARK: Limits
 
     private func failure(status: Int, body: String) async -> Error? {
