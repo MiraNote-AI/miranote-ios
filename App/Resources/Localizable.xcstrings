@@ -2194,6 +2194,18 @@
         }
       }
     },
+    "Deleting your account" : {
+      "comment" : "Settings > Delete account (api #95 step 6): VoiceOver label of the delete button while the request is out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在删除你的账户"
+          }
+        }
+      }
+    },
     "Deleting your account does not cancel MiraNote Plus. If you subscribe, Apple keeps billing you until you cancel in your Apple Account settings." : {
       "comment" : "Settings > Delete account (api #95 step 6): deletion does not cancel a subscription (Guideline 5.1.1(v)).",
       "extractionState" : "manual",

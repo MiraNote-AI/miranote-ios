@@ -44,6 +44,18 @@ struct DeleteAccountSheet: View {
         } message: {
             Text("This cannot be undone. Sign in with Apple asks you to confirm next.")
         }
+        // The outcome replaces the explanation or adds a line under it,
+        // and nothing moves VoiceOver there: say it, as SaveToast does.
+        .onChange(of: deletion.state) { _, state in
+            switch state {
+            case .deleted:
+                AccessibilityNotification.Announcement(String(appCopy: "Your account is deleted")).post()
+            case .failed(let failure):
+                AccessibilityNotification.Announcement(failure.localizedDescription).post()
+            case .ready, .deleting:
+                break
+            }
+        }
     }
 
     @ViewBuilder private var explanation: some View {
@@ -101,6 +113,7 @@ struct DeleteAccountSheet: View {
                         Group {
                             if deletion.state == .deleting {
                                 ProgressView()
+                                    .accessibilityLabel("Deleting your account")
                             } else {
                                 Text(isFailed ? "Try again" : "Delete account")
                             }
