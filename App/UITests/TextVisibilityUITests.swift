@@ -149,7 +149,7 @@ final class TextVisibilityUITests: XCTestCase {
     /// clear of the text tools, the page scrolls back to where it was before
     /// the writing began (the block may stay selected). A new block placed
     /// below the fold scrolls back only as far as keeps it in the card.
-    func testDoneScrollsThePageBackToWhereItWas() {
+    func testDoneScrollsThePageBackToWhereItWas() throws {
         fillThePage()
         let photo = app.images.matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
@@ -158,6 +158,7 @@ final class TextVisibilityUITests: XCTestCase {
         // A new block below the fold.
         app.buttons["mode.text"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
+        try XCTSkipUnless(softwareKeyboardRose(), "hardware keyboard connected: no keyboard to scroll clear of")
         field.typeText("lunch by the river")
         assertClearOfTheTools("a new block")
         let whileWriting = photo.frame.minY
