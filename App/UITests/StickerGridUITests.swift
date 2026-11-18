@@ -103,4 +103,30 @@ final class StickerGridUITests: XCTestCase {
         XCTAssertTrue(preset.waitForExistence(timeout: 5))
         XCTAssertEqual(favorite.midX, preset.frame.midX, accuracy: 1, "the first column stays put across the tabs")
     }
+
+    func testASetShowsThreeAcrossAndScrollsToItsLastRow() {
+        let food = app.buttons["sticker.tab.food"]
+        XCTAssertTrue(food.waitForExistence(timeout: 5))
+        food.tap()
+        let first = ["focaccia", "burrito", "hotpot", "martini"].map { app.buttons["sticker.preset.\($0)"] }
+        XCTAssertTrue(first[0].waitForExistence(timeout: 5))
+        let row = first[0...2].map(\.frame)
+        for frame in row {
+            XCTAssertEqual(frame.midY, row[0].midY, accuracy: 1, "the first three share a row")
+        }
+        XCTAssertGreaterThan(first[3].frame.minY, row[0].maxY, "the fourth starts the next row")
+        XCTAssertEqual(first[3].frame.midX, row[0].midX, accuracy: 1, "under the first")
+        XCTAssertLessThanOrEqual(row[2].maxX, app.frame.maxX - 16, "the third stays inside the sheet")
+
+        // The last row (pancake, ice cream, bao): drag the grid up from
+        // inside the sheet.
+        let bao = app.buttons["sticker.preset.bao"]
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let from = origin.withOffset(CGVector(dx: app.frame.midX, dy: food.frame.maxY + 230))
+        let to = origin.withOffset(CGVector(dx: app.frame.midX, dy: food.frame.maxY + 40))
+        for _ in 0..<8 where !(bao.exists && bao.isHittable) {
+            from.press(forDuration: 0.05, thenDragTo: to)
+        }
+        XCTAssertTrue(bao.exists && bao.isHittable, "the set scrolls down to its last row")
+    }
 }
