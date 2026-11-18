@@ -62,7 +62,8 @@ struct DeleteAccountSheet: View {
         title("Delete your account")
         point("What is deleted",
               "Your MiraNote account, your AI usage, and your Sign in with Apple link to MiraNote.")
-        point("What stays", "Your pages, photos and voice stay on this phone. Deleting your account removes none of them.")
+        point("What stays",
+              "Your pages, photos and voice stay on this phone. Deleting your account removes none of them.")
         VStack(alignment: .leading, spacing: 4) {
             point("Your subscription", """
             Deleting your account does not cancel MiraNote Plus. If you subscribe, Apple keeps billing you \
@@ -77,6 +78,7 @@ struct DeleteAccountSheet: View {
         if case .failed(let failure) = deletion.state {
             Text(failure.localizedDescription)
                 .font(Sans.font(size: 14, weight: 600))
+                .lineSpacing(AIDataLines.spacing(for: 14))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("deleteAccount.error")
