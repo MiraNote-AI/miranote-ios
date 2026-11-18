@@ -172,7 +172,9 @@ public struct LiveComposeClient: ComposeClient {
         switch error {
         case .unreachable, .timedOut: return .unreachable
         case .decoding: return .server(200)
-        case .limitReached: return .rateLimited
+        // A used-up photo push allowance (api #95) frees up in hours or
+        // days, not in the 10 s a rate limit waits: stop at once.
+        case .limitReached: return .server(429)
         case .server(let status, let detail):
             switch status {
             case 400: return .badRequest(message(in: detail) ?? "")
