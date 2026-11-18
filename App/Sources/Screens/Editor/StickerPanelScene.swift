@@ -76,7 +76,7 @@ struct StickerPanelScene: View {
             // header Undo has nothing here, never a change on the inert page.
             onUndo: {},
             undoEnabled: false,
-            // The hopping sticker shows the page it lands on.
+            // While a sticker hops in, its own layer takes every touch.
             pageInert: flight == nil,
             onPageTap: {
                 // While the prompt has the keyboard and words in it, a tap
