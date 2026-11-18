@@ -278,7 +278,8 @@ private struct UITestApple: AppleCredentialProvider {
 
 /// -UITEST: the accounts service, answering every call. Deleting the
 /// account fails as offline under `-DELETE-ACCOUNT-OFFLINE`, and with the
-/// 401 of an ended sign-in under `-DELETE-ACCOUNT-ENDED`.
+/// 401 of an ended sign-in under `-DELETE-ACCOUNT-ENDED`; it is deleted
+/// without Apple told (a 502/503) under `-DELETE-ACCOUNT-APPLE-NOT-TOLD`.
 private struct UITestAccounts: AccountsAPI {
     static func tokens() -> AccountTokens {
         // A UUID, as the server's ids are: a purchase's appAccountToken.
@@ -296,7 +297,7 @@ private struct UITestAccounts: AccountsAPI {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-DELETE-ACCOUNT-OFFLINE") { throw BackendError.unreachable }
         if arguments.contains("-DELETE-ACCOUNT-ENDED") { throw BackendError.server(status: 401, detail: nil) }
-        return true
+        return !arguments.contains("-DELETE-ACCOUNT-APPLE-NOT-TOLD")
     }
 }
 #endif

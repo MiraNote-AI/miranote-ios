@@ -84,6 +84,19 @@ final class DeleteAccountUITests: XCTestCase {
         XCTAssertTrue(app.buttons["note.lantern festival"].waitForExistence(timeout: 5), "the page is still here")
     }
 
+    /// Deleted, but Apple was not told (api #116's 502/503 with
+    /// `deleted: true`): done, plus how to remove MiraNote from Sign in
+    /// with Apple by hand.
+    func testDeletedWithoutAppleToldSaysHowToRemoveTheLink() {
+        launch(["-DELETE-ACCOUNT-APPLE-NOT-TOLD"])
+        openSettings()
+        deleteAccount()
+        XCTAssertTrue(app.staticTexts["deleteAccount.done"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["deleteAccount.appleNotRevoked"].exists)
+        app.buttons["deleteAccount.close"].tap()
+        XCTAssertTrue(app.buttons["settings.signIn"].waitForExistence(timeout: 5), "Settings shows signed out")
+    }
+
     func testCancelOnTheAlertDeletesNothing() {
         launch()
         openSettings()
@@ -96,6 +109,17 @@ final class DeleteAccountUITests: XCTestCase {
         alert.buttons["Cancel"].tap()
         app.buttons["deleteAccount.cancel"].tap()
         XCTAssertTrue(app.staticTexts["settings.signedIn"].waitForExistence(timeout: 5), "still signed in")
+    }
+
+    /// A build that names no accounts service (every shipped build until
+    /// api #95 step 7): even with our tokens on the phone, Settings has no
+    /// ACCOUNT card, so nothing offers to delete an account.
+    func testABuildWithoutAnAccountsServiceOffersNoDelete() {
+        launch(["-NO-ACCOUNTS"])
+        openSettings()
+        XCTAssertTrue(app.buttons["settings.language"].exists, "Settings is up")
+        XCTAssertFalse(app.staticTexts["settings.signedIn"].exists, "no ACCOUNT card")
+        XCTAssertFalse(app.buttons["settings.deleteAccount"].exists)
     }
 
     /// A 401 is also what the server answers once the account is deleted
