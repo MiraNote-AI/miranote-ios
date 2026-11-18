@@ -92,6 +92,8 @@ struct PaywallSheet: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Palette.forest)
+                // Decoration: VoiceOver reads the benefit, not "checkmark".
+                .accessibilityHidden(true)
             Text(text)
                 .font(Sans.font(size: 15, weight: 500))
                 .foregroundStyle(Palette.ink)

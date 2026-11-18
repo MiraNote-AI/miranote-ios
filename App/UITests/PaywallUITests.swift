@@ -76,6 +76,10 @@ final class PaywallUITests: XCTestCase {
         XCTAssertTrue(app.buttons["paywall.privacy"].exists)
         XCTAssertTrue(app.buttons["paywall.restore"].exists)
         XCTAssertEqual(probeMax("plus"), 0)
+        // VoiceOver reads each benefit once: the tick before it is
+        // decoration (iOS reads the bare symbol as "Selected").
+        let ticks = app.images.matching(identifier: "checkmark")
+        XCTAssertEqual(ticks.count, 0, "the ticks are decoration: \(ticks.allElementsBoundByIndex.map(\.label))")
     }
 
     func testBuyingPlusInThePaywallLiftsTheLimit() throws {
