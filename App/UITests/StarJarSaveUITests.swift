@@ -1,7 +1,7 @@
 import XCTest
 
 /// What a Save does to the star jar (#206): an edited page's star shows
-/// its new face at once.
+/// its new face at once, and a never-saved draft's first Save flies in.
 final class StarJarSaveUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -77,5 +77,28 @@ final class StarJarSaveUITests: XCTestCase {
         let afresh = averageColor(of: star)
         XCTAssertGreaterThan(difference(before, afresh), 15, "lilac paper makes a new star: \(before) -> \(afresh)")
         XCTAssertLessThan(difference(back, afresh), 3, "the jar it was edited from shows it too: \(back) vs \(afresh)")
+    }
+
+    /// A Mira chat draft has never been saved: its first Save makes it a
+    /// star, which flies into the jar circle like a new page's.
+    func testAChatDraftsFirstSaveFliesIntoTheJar() {
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        XCTAssertEqual(jar.value as? String, "0")
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("draft me a noodle page")
+        app.buttons["quick.send"].tap()
+        let card = app.buttons["chat.draft.open"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.staticTexts["Drafted by Mira"].waitForExistence(timeout: 5))
+
+        app.buttons["Save"].tap()
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: jar)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the star lands once")
+        sleep(2)
+        XCTAssertEqual(jar.value as? String, "1", "and only once")
     }
 }
