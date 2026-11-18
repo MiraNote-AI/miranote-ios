@@ -405,7 +405,7 @@ struct CanvasScene: View {
             if phase != .active {
                 leftForeground += 1
                 stopDictationForBackground()
-                cancelMiraDictation()
+                stopMiraDictationForBackground()
             }
         }
         .onChange(of: pendingTool) { consumePendingTool() }
