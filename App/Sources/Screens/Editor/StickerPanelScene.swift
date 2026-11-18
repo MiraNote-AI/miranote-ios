@@ -636,6 +636,10 @@ struct StickerPanelScene: View {
             .clipShape(RoundedRectangle(cornerRadius: 36))
             .overlay(RoundedRectangle(cornerRadius: 36).strokeBorder(Palette.ink, lineWidth: 3))
             .frame(width: Self.cell, height: Self.cell)
+            // Taps stop at the cell: the filled picture runs past 76 x 72
+            // (a tall photo by about 40 pt up and down), and the clip hides
+            // that but still takes taps there, on the cell above or below.
+            .contentShape(Rectangle())
         case .sticker:
             Group {
                 if let image {
