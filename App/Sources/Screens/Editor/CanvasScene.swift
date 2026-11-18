@@ -318,6 +318,8 @@ struct CanvasScene: View {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
                     if textToolsRiding && !TextKeyboard.holdsRiding { textToolsRiding = false }
+                    // After this redraw, which would put the default back.
+                    if editor.editingTextItemID != nil { DispatchQueue.main.async { WritingKeyboard.keepDark() } }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
                     TextKeyboard.up = false

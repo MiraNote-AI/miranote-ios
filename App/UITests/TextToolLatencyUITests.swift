@@ -293,6 +293,20 @@ final class TextToolLatencyUITests: XCTestCase {
         }
     }
 
+    /// And stays dark as words are typed on it: real key taps, not
+    /// typeText (the first keystrokes used to turn it light).
+    func testKeyboardStaysDarkWhileTyping() throws {
+        try openText()
+        _ = textOpen(after: 1)
+        for letter in ["l", "u", "n", "c", "h"] {
+            app.keyboards.keys.matching(NSPredicate(format: "label ==[c] %@", letter)).firstMatch.tap()
+        }
+        sleep(1)
+        let caps = keyCapLuminance()
+        XCTAssertGreaterThan(caps, 0, "no Q key")
+        XCTAssertLessThan(caps, 0.6, "the keyboard turned light while typing (caps \(caps))")
+    }
+
     // MARK: Leaving with nothing written
 
     /// Text, nothing written, a tap on the bare page: the page holds still

@@ -193,6 +193,22 @@ enum WrittenCaret {
     }
 }
 
+/// The writing keyboard stays dark while words are typed (screens 11-20).
+/// The field's dark color scheme raises it dark, but with the field asking
+/// for the default appearance, its first keystrokes turned it light. Once
+/// it has landed, the field asks for the dark one outright and reloads it:
+/// dark to dark, so nothing on screen changes, and later keystrokes keep
+/// it dark (setting it without the reload did not).
+enum WritingKeyboard {
+    @MainActor
+    static func keepDark() {
+        guard let field = UIResponder.currentFirstResponder as? UITextView,
+              field.keyboardAppearance != .dark else { return }
+        field.keyboardAppearance = .dark
+        field.reloadInputViews()
+    }
+}
+
 extension UIResponder {
     private static weak var found: UIResponder?
 
