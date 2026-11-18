@@ -32,9 +32,22 @@ enum StarFace {
         return face
     }
 
-    /// The page's star, baked now if it never was.
-    static func face(for memory: Memory) -> UIImage? {
-        cached(memory.id) ?? bake(memory)
+    /// When the last missing star was baked (`bakeInTurn`).
+    private static var lastTurn: ContinuousClock.Instant?
+    private static let turnGap = Duration.milliseconds(17)
+
+    /// Bakes a star the jar finds missing (a page not saved since #206, or
+    /// one whose star iOS cleared from Caches) in its turn: at least a
+    /// frame after the last such bake, so a jar of old pages fills in a
+    /// star at a time instead of in one stall. Nil if the waiting star
+    /// went away first.
+    static func bakeInTurn(_ memory: Memory) async -> UIImage? {
+        while let last = lastTurn, ContinuousClock.now < last + turnGap {
+            do { try await Task.sleep(until: last + turnGap, clock: .continuous) } catch { return nil }
+        }
+        if let face = cached(memory.id) { return face }
+        defer { lastTurn = .now }
+        return bake(memory)
     }
 
     /// Bakes the page's star as it is now and keeps it. Save calls this:
@@ -139,10 +152,9 @@ struct PageStar: View {
         }
         .task(id: memory.id) {
             guard StarFace.cached(memory.id) == nil else { return }
-            // One page at a time, between frames: a jar of old pages
-            // bakes without a stall.
-            await Task.yield()
-            face = StarFace.bake(memory)
+            // One page at a time, a frame apart: a jar of old pages bakes
+            // without a stall.
+            face = await StarFace.bakeInTurn(memory)
         }
     }
 }
