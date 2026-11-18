@@ -211,27 +211,39 @@ final class UserTokenTests: XCTestCase {
 /// What the phone counts as Plus (api #95 step 4).
 final class PlusEntitlementTests: XCTestCase {
     private typealias Facts = PlusEntitlement.Facts
+    private let monthly = PlusStore.ProductID.monthly
+    private let yearly = PlusStore.ProductID.yearly
     private let soon = Date(timeIntervalSince1970: 1_800_000_000)
+
+    /// The ids App Store Connect will hold for good: the design's, which
+    /// follow the bundle id (accounts-and-subscriptions design 4.1 and
+    /// build step 9, decided 2026-11-13). The server's rows and tests use
+    /// them too (miranote-api #113).
+    func testThePlansAreTheDesignsProductIDs() {
+        XCTAssertEqual(PlusStore.ProductID.monthly, "ai.miranote.app.plus.monthly")
+        XCTAssertEqual(PlusStore.ProductID.yearly, "ai.miranote.app.plus.yearly")
+        XCTAssertEqual(PlusStore.ProductID.all, [PlusStore.ProductID.yearly, PlusStore.ProductID.monthly])
+    }
 
     func testNoTransactionsIsTheFreePlan() {
         XCTAssertNil(PlusEntitlement.current(from: []))
     }
 
     func testAPlusPlanIsPlus() {
-        let facts = [Facts(productID: "plus.monthly", expiresAt: soon)]
+        let facts = [Facts(productID: monthly, expiresAt: soon)]
         XCTAssertEqual(PlusEntitlement.current(from: facts),
-                       PlusEntitlement(productID: "plus.monthly", expiresAt: soon))
+                       PlusEntitlement(productID: monthly, expiresAt: soon))
     }
 
     func testARefundedPlanIsNotPlus() {
-        let facts = [Facts(productID: "plus.yearly", expiresAt: soon, revokedAt: soon.addingTimeInterval(-60))]
+        let facts = [Facts(productID: yearly, expiresAt: soon, revokedAt: soon.addingTimeInterval(-60))]
         XCTAssertNil(PlusEntitlement.current(from: facts))
     }
 
     func testAnUpgradedPlanGivesWayToTheNewOne() {
-        let facts = [Facts(productID: "plus.monthly", expiresAt: soon.addingTimeInterval(86_400), isUpgraded: true),
-                     Facts(productID: "plus.yearly", expiresAt: soon.addingTimeInterval(365 * 86_400))]
-        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, "plus.yearly")
+        let facts = [Facts(productID: monthly, expiresAt: soon.addingTimeInterval(86_400), isUpgraded: true),
+                     Facts(productID: yearly, expiresAt: soon.addingTimeInterval(365 * 86_400))]
+        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, yearly)
         XCTAssertEqual(PlusEntitlement.current(from: facts)?.isYearly, true)
     }
 
@@ -240,9 +252,9 @@ final class PlusEntitlementTests: XCTestCase {
     }
 
     func testTheLatestExpiryWins() {
-        let facts = [Facts(productID: "plus.monthly", expiresAt: soon),
-                     Facts(productID: "plus.yearly", expiresAt: soon.addingTimeInterval(100))]
-        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, "plus.yearly")
+        let facts = [Facts(productID: monthly, expiresAt: soon),
+                     Facts(productID: yearly, expiresAt: soon.addingTimeInterval(100))]
+        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, yearly)
     }
 }
 

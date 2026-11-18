@@ -79,7 +79,7 @@ final class PaywallUITests: XCTestCase {
         startWriting("noodle shop")
         expand()
         XCTAssertTrue(paywall.waitForExistence(timeout: 5))
-        let monthly = app.buttons["paywall.plan.plus.monthly"]
+        let monthly = app.buttons["paywall.plan.ai.miranote.app.plus.monthly"]
         XCTAssertTrue(monthly.waitForExistence(timeout: 10), "the plans load from the StoreKit session")
         XCTAssertTrue(app.staticTexts["$5.99 a month"].exists, "price and period")
         XCTAssertTrue(app.staticTexts["Introductory offer: $2.99 a month for 2 months, then $5.99 a month."].exists,
