@@ -68,6 +68,20 @@ enum StarFace {
         return face
     }
 
+    /// Drops the stars of pages gone for good (their 30 days in the bin
+    /// are up): a page on the shelf or in the bin keeps its star.
+    static func forget(allBut library: MemoryLibrary) {
+        let pages = library.collections.flatMap(\.memories) + library.trash.map(\.memory)
+        let kept = Set(pages.map(\.id))
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.pathExtension == "png" {
+            guard let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
+                  !kept.contains(id) else { continue }
+            faces.removeObject(forKey: id as NSUUID)
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     /// No photo, sticker or photo backdrop: nothing colorful to find.
     private static func isWordsOnly(_ memory: Memory) -> Bool {
         memory.backgroundFileName.isEmpty && !memory.items.contains { item in
