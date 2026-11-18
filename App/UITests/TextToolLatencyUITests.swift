@@ -123,8 +123,8 @@ final class TextToolLatencyUITests: XCTestCase {
         }
     }
 
-    /// No keyboard rise heard (as with some hardware keyboards): the tools
-    /// still show, after the wait for one, and can be used.
+    /// No keyboard rise heard (as with a hardware keyboard): the tools still
+    /// show, a moment after the field takes focus, and can be used.
     func testToolsShowWhenNoKeyboardRises() {
         app.terminate()
         app.launchArguments = ["-UITEST", "-NO_KEYBOARD_SIGNAL"]
@@ -140,7 +140,10 @@ final class TextToolLatencyUITests: XCTestCase {
             if (row["toolsVisibleMs"] as? Int ?? -1) >= 0 { break }
             usleep(100_000)
         }
-        XCTAssertGreaterThanOrEqual(row["toolsVisibleMs"] as? Int ?? -1, 0, "tools never showed: \(row)")
+        let shown = row["toolsVisibleMs"] as? Int ?? -1, focus = row["focusMs"] as? Int ?? -1
+        XCTAssertGreaterThanOrEqual(shown, 0, "tools never showed: \(row)")
+        // Not after the whole 1.5 s wait for a keyboard (the stall of #162).
+        XCTAssertLessThan(shown - focus, 600, "the tools showed \(shown - focus) ms after focus: \(row)")
         // And they work: a tap on a font sets it.
         let futura = app.buttons["style.font.Futura"]
         futura.tap()

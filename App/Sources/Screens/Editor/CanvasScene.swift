@@ -278,6 +278,16 @@ struct CanvasScene: View {
         TextOpenTiming.markToolsVisible()
     }
 
+    /// The tools show in place if no keyboard rise is heard within `wait`.
+    /// A newer wait replaces this one.
+    private func waitForTheKeyboard(_ wait: Duration) {
+        textToolsWait?.cancel()
+        textToolsWait = Task {
+            try? await Task.sleep(for: wait)
+            if !Task.isCancelled { showTextTools(rising: false) }
+        }
+    }
+
     /// The canvas with the text chrome floating over it.
     private var canvas: some View {
         ZStack(alignment: .bottom) {
@@ -296,6 +306,14 @@ struct CanvasScene: View {
                         // to ride, the tools just show.
                         let rise = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0
                         showTextTools(rising: rise > 0)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { _ in
+                    // The field has focus: a software keyboard says it is
+                    // rising a few frames later, a hardware one never does
+                    // (iOS 26), so the tools wait only a moment more.
+                    if editor.editingTextItemID != nil, !textToolsShown, !TextKeyboard.up {
+                        waitForTheKeyboard(TextKeyboard.focusWait)
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
@@ -529,11 +547,8 @@ struct CanvasScene: View {
                 if TextKeyboard.up {
                     showTextTools(rising: false)
                 } else {
-                    textToolsWait = Task {
-                        // Never left without tools if no keyboard comes.
-                        try? await Task.sleep(for: TextKeyboard.toolsWait)
-                        if !Task.isCancelled { showTextTools(rising: false) }
-                    }
+                    // Never left without tools if no keyboard comes.
+                    waitForTheKeyboard(TextKeyboard.toolsWait)
                 }
             }
             // Writing that ended any way but Cancel splits on its blank
@@ -1628,6 +1643,16 @@ enum TextKeyboard {
         if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
         #endif
         return .milliseconds(1500)
+    }
+
+    /// How long the tools wait once the field has focus. A software
+    /// keyboard says it is rising about 70 ms later (130 on a first open,
+    /// iPhone 17 Pro sim); a hardware one never says so on iOS 26.
+    static var focusWait: Duration {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        #endif
+        return .milliseconds(300)
     }
 
     /// Tests only: the tools stay riding once the keyboard has landed, so a
