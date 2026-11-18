@@ -129,7 +129,9 @@ struct PageStar: View {
 
     var body: some View {
         Group {
-            if let face = face ?? StarFace.cached(memory.id) {
+            // The cache first: a Save bakes the page again, and a face
+            // baked here earlier would be the page as it was.
+            if let face = StarFace.cached(memory.id) ?? face {
                 Image(uiImage: face).resizable()
             } else {
                 StarMark(color: StarMark.paper)
