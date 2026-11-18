@@ -65,10 +65,13 @@ struct JarLanding: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content
+        // Read here: the animator's closure is Sendable and may not read a
+        // main-actor static.
+        let glow = Self.glow
+        return content
             .keyframeAnimator(initialValue: Pose(), trigger: beat) { view, pose in
                 view
-                    .background(Circle().fill(Self.glow).blur(radius: 6).opacity(pose.glow))
+                    .background(Circle().fill(glow).blur(radius: 6).opacity(pose.glow))
                     .scaleEffect(pose.scale)
             } keyframes: { _ in
                 KeyframeTrack(\.scale) {
