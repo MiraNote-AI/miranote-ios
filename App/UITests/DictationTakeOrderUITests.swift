@@ -190,9 +190,10 @@ final class DictationTakeOrderUITests: XCTestCase {
 
     /// The Mira strip's take live when the app leaves ends as if let go,
     /// as the canvas strip's does (#150): back in the app its words are in
-    /// the question, timed from the home press, not the return. The take
-    /// is the tap toggle's (a test cannot hold across the home press).
-    func testAMiraTakeLiveWhenTheAppLeavesLandsInTheQuestion() {
+    /// the question, timed from the home press, not the return, and the
+    /// question is still being written, keyboard up. The take is the tap
+    /// toggle's (a test cannot hold across the home press).
+    func testAMiraTakeLiveWhenTheAppLeavesLandsAndTheKeyboardComesBack() {
         startAMemory(["-TIME_TAKES"])
         app.openMiraChat()
         miraStrip.tap()
@@ -200,10 +201,17 @@ final class DictationTakeOrderUITests: XCTestCase {
         XCUIDevice.shared.press(.home)
         Thread.sleep(forTimeInterval: 4)
         app.activate()
-        let whole = NSPredicate(format: "value MATCHES %@", #"Transcribed voice note \(mock\) \([1-3] s\)"#)
-        let landed = XCTNSPredicateExpectation(predicate: whole, object: app.miraInput)
+        let whole = #"Transcribed voice note \(mock\) \([1-3] s\)"#
+        let typed = NSPredicate(format: "value MATCHES %@", whole)
+        let landed = XCTNSPredicateExpectation(predicate: typed, object: app.miraInput)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed,
                        "the take was dropped or stopped late: \(app.miraInput.value ?? "")")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "the keyboard did not come back")
+        app.typeText("!")
+        let more = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value MATCHES %@", whole + "!"),
+                                             object: app.miraInput)
+        XCTAssertEqual(XCTWaiter().wait(for: [more], timeout: 3), .completed,
+                       "typing went elsewhere: \(app.miraInput.value ?? "")")
     }
 
     /// The Mira take's request cut off by the trip away (here the first
