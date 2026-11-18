@@ -8614,14 +8614,14 @@
         }
       }
     },
-    "Your sign-in has ended, so nothing was deleted. Sign in again, then delete your account." : {
-      "comment" : "Settings > Delete account (api #95 step 6): error: our session had already ended (401).",
+    "Your sign-in has ended, so MiraNote cannot tell whether your account is already deleted. Sign in again, then delete your account." : {
+      "comment" : "Settings > Delete account (api #95 step 6): error: our sign-in had ended (401), which the server also answers once the account is deleted, so it may already be gone.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的登录已失效，因此没有删除任何内容。请重新登录，然后再删除账户。"
+            "value" : "你的登录已失效，因此 MiraNote 无法确认你的账户是否已删除。请重新登录，然后再删除账户。"
           }
         }
       }

@@ -97,8 +97,11 @@ public final class Account {
     /// server needs to revoke the Sign in with Apple link. Once the server
     /// says deleted, our tokens are forgotten; pages are never touched.
     /// Returns whether Apple was told too. A 401 means the sign-in had
-    /// already ended: nothing was deleted, and the dead tokens go.
+    /// ended, which is also the server's answer once the account is marked
+    /// deleted, so it may already be gone; the dead tokens go. Signed out,
+    /// Apple is not asked: there is nothing to send its code with.
     public func deleteAccount() async throws -> Bool {
+        guard store.load() != nil else { throw AccountError.signedOut }
         // Apple first: the writer may take a while there, and the access
         // token is checked for expiry after.
         let code = try await apple.authorizationCode()

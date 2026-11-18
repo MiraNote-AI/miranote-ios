@@ -94,19 +94,23 @@ struct DeleteAccountSheet: View {
                 .buttonStyle(PrimaryPill())
                 .accessibilityIdentifier("deleteAccount.close")
             } else {
-                Button { confirming = true } label: {
-                    Group {
-                        if deletion.state == .deleting {
-                            ProgressView()
-                        } else {
-                            Text(isFailed ? "Try again" : "Delete account")
+                // Signed out, a try cannot reach the server: the copy says
+                // to sign in again first.
+                if deletion.state != .failed(.signedOut) {
+                    Button { confirming = true } label: {
+                        Group {
+                            if deletion.state == .deleting {
+                                ProgressView()
+                            } else {
+                                Text(isFailed ? "Try again" : "Delete account")
+                            }
                         }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(PrimaryPill())
+                    .disabled(deletion.state == .deleting)
+                    .accessibilityIdentifier("deleteAccount.delete")
                 }
-                .buttonStyle(PrimaryPill())
-                .disabled(deletion.state == .deleting)
-                .accessibilityIdentifier("deleteAccount.delete")
                 Button(action: onClose) {
                     Text("Cancel").frame(maxWidth: .infinity)
                 }

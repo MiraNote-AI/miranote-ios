@@ -25,7 +25,10 @@ public final class AccountDeletion {
         case offline
         /// The request went out but no answer came back.
         case timedOut
-        /// Our sign-in had already ended: sign in, then delete.
+        /// Our sign-in had ended (a 401). The server also answers 401 once
+        /// the account is marked deleted, so it may already be gone: an
+        /// earlier try whose answer was lost, or another device. Sign in,
+        /// then delete.
         case signedOut
         /// Apple's sheet failed: nothing was sent.
         case apple
@@ -46,11 +49,18 @@ public final class AccountDeletion {
             case .offline:
                 return String(appCopy: "You're offline, so nothing was deleted. Connect to the internet and try again.")
             case .timedOut:
-                return String(appCopy: "MiraNote did not answer in time, so your account may not be deleted. Try again.")
+                return String(appCopy: """
+                    MiraNote did not answer in time, so your account may not be deleted. Try again.
+                    """)
             case .signedOut:
-                return String(appCopy: "Your sign-in has ended, so nothing was deleted. Sign in again, then delete your account.")
+                return String(appCopy: """
+                    Your sign-in has ended, so MiraNote cannot tell whether your account is already deleted. \
+                    Sign in again, then delete your account.
+                    """)
             case .apple:
-                return String(appCopy: "Sign in with Apple did not confirm it's you, so nothing was deleted. Try again.")
+                return String(appCopy: """
+                    Sign in with Apple did not confirm it's you, so nothing was deleted. Try again.
+                    """)
             case .server:
                 return String(appCopy: "Your account could not be deleted. Try again later.")
             }

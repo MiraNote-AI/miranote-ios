@@ -131,6 +131,59 @@ final class AccountDeletionTests: XCTestCase {
         XCTAssertFalse(account.isSignedIn)
     }
 
+    /// api #116 marks the account and ends every session before it asks
+    /// Apple, and from then on refuses our tokens with 401 (`current_user`,
+    /// `/auth/refresh`). So a try whose answer was lost may have deleted
+    /// the account, and Try again then gets 401, from `DELETE /me` or from
+    /// the refresh before it. That must not say nothing was deleted.
+    func testAnEndedSignInAfterALostAnswerDoesNotSayNothingWasDeleted() async {
+        let lostAnswers: [Error] = [BackendError.timedOut, BackendError.unreachable,
+                                    BackendError.server(status: 504, detail: nil)]
+        for lost in lostAnswers {
+            let api = FakeAccountsAPI()
+            api.deleteResult = .failure(lost)
+            let (deletion, account) = deletion(store: InMemoryTokenStore(tokens(1)), api: api)
+            await deletion.delete()
+            guard case .failed = deletion.state else { return XCTFail("\(lost): \(deletion.state)") }
+
+            api.deleteResult = .failure(BackendError.server(status: 401, detail: #"{"detail":"invalid access token"}"#))
+            await deletion.delete()
+            XCTAssertEqual(deletion.state, .failed(.signedOut), "\(lost)")
+            XCTAssertFalse(account.isSignedIn)
+            let message = AccountDeletion.Failure.signedOut.localizedDescription
+            XCTAssertFalse(message.contains("nothing was deleted"), message)
+        }
+    }
+
+    func testARefusedRefreshAfterALostAnswerDoesNotSayNothingWasDeleted() async {
+        let api = FakeAccountsAPI(refreshResults: [.failure(BackendError.server(status: 401, detail: nil))])
+        api.deleteResult = .failure(BackendError.timedOut)
+        let (deletion, account) = deletion(store: InMemoryTokenStore(tokens(1, expiresIn: 120)), api: api)
+        await deletion.delete()
+        XCTAssertEqual(deletion.state, .failed(.timedOut))
+
+        clock.addTimeInterval(90)
+        await deletion.delete()
+        XCTAssertEqual(api.refreshes, ["refresh-1"])
+        XCTAssertEqual(api.deletes.count, 1, "the refresh was refused, so no second DELETE")
+        XCTAssertEqual(deletion.state, .failed(.signedOut))
+        XCTAssertFalse(account.isSignedIn)
+        XCTAssertFalse(AccountDeletion.Failure.signedOut.localizedDescription.contains("nothing was deleted"))
+    }
+
+    /// Signed out, nothing can be sent: Apple's sheet would be for nothing.
+    func testTryAgainAfterAnEndedSignInDoesNotAskAppleAgain() async {
+        let api = FakeAccountsAPI()
+        api.deleteResult = .failure(BackendError.server(status: 401, detail: nil))
+        let apple = FakeApple()
+        let (deletion, _) = deletion(store: InMemoryTokenStore(tokens(1)), api: api, apple: apple)
+        await deletion.delete()
+        await deletion.delete()
+        XCTAssertEqual(apple.codesGiven, 1)
+        XCTAssertEqual(api.deletes.count, 1)
+        XCTAssertEqual(deletion.state, .failed(.signedOut))
+    }
+
     func testAServerErrorKeepsTheTokens() async {
         let store = InMemoryTokenStore(tokens(1))
         let api = FakeAccountsAPI()

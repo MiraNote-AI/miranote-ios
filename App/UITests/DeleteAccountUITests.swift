@@ -98,6 +98,24 @@ final class DeleteAccountUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["settings.signedIn"].waitForExistence(timeout: 5), "still signed in")
     }
 
+    /// A 401 is also what the server answers once the account is deleted
+    /// (an earlier try whose answer was lost, another device): the sheet
+    /// does not say nothing was deleted, offers no Try again, and Settings
+    /// shows signed out.
+    func testAnEndedSignInSaysToSignInAgainAndOffersNoRetry() {
+        launch(["-DELETE-ACCOUNT-ENDED"])
+        openSettings()
+        deleteAccount()
+
+        let error = app.staticTexts["deleteAccount.error"]
+        XCTAssertTrue(error.waitForExistence(timeout: 8))
+        XCTAssertTrue(error.label.contains("Sign in again"), error.label)
+        XCTAssertFalse(error.label.contains("nothing was deleted"), error.label)
+        XCTAssertFalse(app.buttons["deleteAccount.delete"].exists, "signed out, a try cannot reach the server")
+        app.buttons["deleteAccount.cancel"].tap()
+        XCTAssertTrue(app.buttons["settings.signIn"].waitForExistence(timeout: 5), "the dead tokens are gone")
+    }
+
     func testOfflineSaysNothingWasDeletedAndKeepsTheSignIn() {
         launch(["-DELETE-ACCOUNT-OFFLINE"])
         openSettings()
