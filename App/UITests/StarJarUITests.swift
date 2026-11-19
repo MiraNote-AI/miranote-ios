@@ -126,6 +126,34 @@ final class StarJarUITests: XCTestCase {
         }
     }
 
+    /// Every star's center, to the point.
+    private var starCenters: [String: CGPoint] {
+        let stars = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'jar.star.'"))
+            .allElementsBoundByIndex
+        return Dictionary(stars.map { star in
+            (star.identifier, CGPoint(x: star.frame.midX.rounded(), y: star.frame.midY.rounded()))
+        }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// #196 review: a period picked while the stars are in the air shows
+    /// its own stars in their own layout, and the toss it left never lands
+    /// on them. This month's week holds the same stars as the month.
+    func testAPeriodPickedMidTossKeepsItsOwnLayout() {
+        relaunch(["-JAR_STARS", "30"])
+        let glass = openSettledJar()
+        let laidOut = starCenters
+        XCTAssertGreaterThanOrEqual(laidOut.count, 30)
+        tapNeck(of: glass)
+        tapNeck(of: glass)
+        app.buttons["jar.period.week"].tap()
+        sleep(4)
+        let moved = starCenters.filter { id, center in
+            guard let before = laidOut[id] else { return true }
+            return hypot(center.x - before.x, center.y - before.y) > 2
+        }
+        XCTAssertEqual(moved.count, 0, "the month's toss landed on the week's stars: \(moved.keys.sorted())")
+    }
+
     /// #179: under Reduce Motion a tap only sways the jar: no stars fly.
     func testReduceMotionSkipsTheToss() {
         relaunch(["-REDUCE_MOTION"])

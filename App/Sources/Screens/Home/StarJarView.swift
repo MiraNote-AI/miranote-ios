@@ -97,13 +97,13 @@ struct StarJarView: View {
             onShow(stars.map(\.id))
         }
         .onChange(of: interval) {
+            tossScene.stop()
             settled = [:]
-            tossing = false
         }
         .onDisappear {
             onShow([])
             // Opened mid-air: the stars lie where they did before the toss.
-            tossing = false
+            tossScene.stop()
         }
     }
 

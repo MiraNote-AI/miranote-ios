@@ -9,8 +9,9 @@ import UIKit
 /// glass and each other. Only the toss is drawn here: at rest the stars
 /// are the jar's own buttons again, at the spots `onSettle` hands back.
 final class StarTossScene: SKScene, SKPhysicsContactDelegate {
-    /// Every star's spot once all of them lie still, in the jar's
-    /// (SwiftUI, y-down) coordinates.
+    /// Every star's spot when a toss ends, in the jar's (SwiftUI, y-down)
+    /// coordinates: where it landed, or for a toss `stop` dropped, where it
+    /// lay before.
     var onSettle: ([Memory.ID: StarPile.Spot]) -> Void = { _ in }
 
     private(set) var isTossing = false
@@ -19,6 +20,8 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
     /// through the edge) goes back to where it last was inside.
     private var inside = CGPath(rect: .zero, transform: nil)
     private var lastInside: [Memory.ID: CGPoint] = [:]
+    /// Where the stars lay when loaded, for a toss dropped mid-air.
+    private var start: [Memory.ID: StarPile.Spot] = [:]
     /// When the last tap threw the stars: set on the first frame after it,
     /// since a paused scene's clock stands still.
     private var lastThrow: TimeInterval?
@@ -62,6 +65,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         removeAllChildren()
         nodes = [:]
         lastInside = [:]
+        start = [:]
         size = geometry.size
         // Inside the hairline by what a turned star's tips reach past its
         // circle (its face sits a little low in its frame): no tip ever
@@ -91,6 +95,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
             addChild(node)
             nodes[star.id] = node
             lastInside[star.id] = node.position
+            start[star.id] = spot
         }
     }
 
@@ -171,6 +176,18 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         if (elapsed > 0.6 && stillFrames >= 6) || elapsed > 3 {
             settle()
         }
+    }
+
+    /// Drops a toss still in the air: the jar moved on (another period, or
+    /// off screen), so its landing would move stars no longer shown. The
+    /// stars go back to where they lay before it.
+    func stop() {
+        guard isTossing else { return }
+        isTossing = false
+        for node in nodes.values { node.removeAllActions() }
+        isPaused = true
+        view?.isPaused = true
+        onSettle(start)
     }
 
     private func settle() {
