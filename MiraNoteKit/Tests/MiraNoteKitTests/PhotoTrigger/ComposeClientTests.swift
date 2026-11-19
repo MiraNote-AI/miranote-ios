@@ -288,6 +288,47 @@ final class LiveComposeClientTests: XCTestCase {
         }
     }
 
+    /// A used-up photo push allowance (the AI services' 429 quota body,
+    /// miranote-api #112) is not the beta's rate limit: no 10 s wait clears
+    /// a cap counted over 24 hours or 7 days, so the submit stops at its
+    /// first answer instead of asking again for the whole six minutes.
+    func testAQuota429StopsTheSubmitAtOnce() async {
+        let tries = Tries()
+        StubURLProtocol.handler = { request in
+            tries.add()
+            let body = #"{"reason": "quota", "feature": "photo_push", "plan": "free", "limit": 1,"#
+                + #" "resets_at": "2026-11-25T00:00:00+00:00"}"#
+            return (HTTPURLResponse(url: request.url!, statusCode: 429, httpVersion: nil, headerFields: nil)!,
+                    Data(body.utf8))
+        }
+        let session = ComposeSession(library: FakeLibrary(now: .now, groups: []), client: client, sleep: { _ in })
+        var waited: TimeInterval = 0
+        let result = await session.submit(meta, photos: [], waited: &waited)
+
+        XCTAssertEqual(tries.count, 1, "asked once")
+        guard case .failure(let box) = result, case .stop(let failure) = box.attempt else {
+            return XCTFail("expected the submit to stop, got \(result)")
+        }
+        XCTAssertNotEqual(failure, .aiTimeout, "not read as a slow AI")
+    }
+
+    private final class Tries: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+
+        var count: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+
+        func add() {
+            lock.lock()
+            value += 1
+            lock.unlock()
+        }
+    }
+
     func testBadRequestCarriesTheMessage() async {
         respond(400, #"{"status": "error", "reason": "bad_request", "message": "no photos"}"#)
         do {

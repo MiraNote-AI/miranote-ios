@@ -24,6 +24,10 @@ targets:
       # Holds the string catalogs (Localizable, InfoPlist): their zh-Hans
       # entries make Simplified Chinese a known region of the project.
       - App/Resources
+      # The local StoreKit configuration (api #95 step 4): the Plus group's
+      # plans for Run from Xcode and for the StoreKit tests. Not shipped.
+      - path: App/StoreKit
+        buildPhase: none
     dependencies:
       - package: MiraNoteKit
     info:
@@ -98,6 +102,8 @@ targets:
         - MiraNoteTests
         - MiraNoteUITests
       gatherCoverageData: false
+      # Run from Xcode buys from this file, never the App Store.
+      storeKitConfiguration: App/StoreKit/MiraNote.storekit
     configFiles:
       Debug: Config/App.xcconfig
       Release: Config/App.xcconfig
@@ -140,6 +146,9 @@ targets:
       # The Kit's gate mocks (public API only): the app's ordering tests hold
       # and release service results the same way.
       - MiraNoteKit/Tests/MiraNoteKitTests/Harness/GateMocks.swift
+      # SKTestSession(configurationFileNamed:) reads it from the test bundle.
+      - path: App/StoreKit/MiraNote.storekit
+        buildPhase: resources
     dependencies:
       - target: MiraNote
   MiraNoteUITests:
@@ -147,5 +156,7 @@ targets:
     platform: iOS
     sources:
       - App/UITests
+      - path: App/StoreKit/MiraNote.storekit
+        buildPhase: resources
     dependencies:
       - target: MiraNote

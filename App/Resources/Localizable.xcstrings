@@ -13,6 +13,54 @@
         }
       }
     },
+    "%@ a day" : {
+      "comment" : "Paywall: a price per day.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天 %@"
+          }
+        }
+      }
+    },
+    "%@ a month" : {
+      "comment" : "Paywall: a price per month.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月 %@"
+          }
+        }
+      }
+    },
+    "%@ a week" : {
+      "comment" : "Paywall: a price per week.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每周 %@"
+          }
+        }
+      }
+    },
+    "%@ a year" : {
+      "comment" : "Paywall: a price per year.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每年 %@"
+          }
+        }
+      }
+    },
     "%@ and %@" : {
       "comment" : "VoiceOver: a display font and a body font.",
       "extractionState" : "manual",
@@ -85,6 +133,42 @@
         }
       }
     },
+    "%lld days" : {
+      "comment" : "Paywall: an offer's length in days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 天"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld days left" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -113,6 +197,42 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "还剩 %lld 天"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld months" : {
+      "comment" : "Paywall: an offer's length in months.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld month"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld months"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 个月"
                 }
               }
             }
@@ -191,6 +311,78 @@
         }
       }
     },
+    "%lld weeks" : {
+      "comment" : "Paywall: an offer's length in weeks.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld week"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld weeks"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 周"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld years" : {
+      "comment" : "Paywall: an offer's length in years.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld year"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld years"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 年"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "+ New memory" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -234,6 +426,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "两张照片隔 %@ 分钟以上就分成新的一组"
+          }
+        }
+      }
+    },
+    "A photo memory every day" : {
+      "comment" : "Paywall: a Plus benefit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天一条照片回忆"
           }
         }
       }
@@ -2342,6 +2546,18 @@
         }
       }
     },
+    "Free plan" : {
+      "comment" : "Settings: no Plus subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免费版"
+          }
+        }
+      }
+    },
     "Friday" : {
       "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
       "extractionState" : "manual",
@@ -2784,6 +3000,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "墨色"
+          }
+        }
+      }
+    },
+    "Introductory offer: %@ for %@, then %@." : {
+      "comment" : "Paywall: the offer price, its length, then the regular price per period, e.g. '$2.99 a month for 2 months, then $5.99 a month'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次优惠：前 %2$@ %1$@，之后 %3$@。"
+          }
+        }
+      }
+    },
+    "Introductory offer: free for %@, then %@." : {
+      "comment" : "Paywall: a free trial's length, then the regular price per period.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次优惠：前 %1$@ 免费，之后 %2$@。"
           }
         }
       }
@@ -3256,6 +3496,18 @@
         }
       }
     },
+    "Many more chats and rewrites with Mira every day" : {
+      "comment" : "Paywall: a Plus benefit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天和 Mira 更多次聊天与改写"
+          }
+        }
+      }
+    },
     "Masonry" : {
       "comment" : "Layout template: two columns of photos at staggered heights.",
       "extractionState" : "manual",
@@ -3441,6 +3693,30 @@
         }
       }
     },
+    "Mira has paused this for now. Try again after %@." : {
+      "comment" : "Error: the AI services paused this feature until the time shown (its daily cost budget is used up).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 暂停了这项功能，请在 %@ 之后再试。"
+          }
+        }
+      }
+    },
+    "Mira has paused this for now. Try again later." : {
+      "comment" : "Error: the AI services paused this feature for now (its daily cost budget is used up).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 暂停了这项功能，请稍后再试。"
+          }
+        }
+      }
+    },
     "Mira is busy right now. Wait a moment and try again." : {
       "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
       "extractionState" : "manual",
@@ -3501,6 +3777,30 @@
         }
       }
     },
+    "MiraNote Plus" : {
+      "comment" : "Paywall title; the subscription's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote Plus"
+          }
+        }
+      }
+    },
+    "MiraNote Plus gives you more of Mira's AI." : {
+      "comment" : "Paywall subtitle when a free allowance ran out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote Plus 让你更多地使用 Mira 的 AI。"
+          }
+        }
+      }
+    },
     "MiraNote can't see your photos. Allow access in Settings, or pick a few here." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3548,6 +3848,18 @@
         }
       }
     },
+    "MiraNote's sign-in service isn't answering right now. Try again shortly." : {
+      "comment" : "Error: the AI services could not reach the accounts service to check this request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 的登录服务暂时没有响应，请稍后再试。"
+          }
+        }
+      }
+    },
     "Monday" : {
       "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
       "extractionState" : "manual",
@@ -3571,6 +3883,18 @@
         }
       }
     },
+    "Monthly" : {
+      "comment" : "Paywall: the monthly plan's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按月"
+          }
+        }
+      }
+    },
     "More" : {
       "comment" : "VoiceOver: the photo trigger's more-options button.",
       "extractionState" : "manual",
@@ -3579,6 +3903,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更多"
+          }
+        }
+      }
+    },
+    "More AI pictures and backgrounds every month" : {
+      "comment" : "Paywall: a Plus benefit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月更多 AI 图片和背景"
+          }
+        }
+      }
+    },
+    "More of Mira's AI, every day." : {
+      "comment" : "Paywall subtitle from Settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天更多 Mira 的 AI。"
           }
         }
       }
@@ -3800,6 +4148,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "九宫格"
+          }
+        }
+      }
+    },
+    "No Plus subscription was found for this Apple Account." : {
+      "comment" : "Restore found nothing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个 Apple 账户下没有找到 Plus 订阅。"
           }
         }
       }
@@ -4359,6 +4719,18 @@
         }
       }
     },
+    "PLUS" : {
+      "comment" : "Settings section: the subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus 会员"
+          }
+        }
+      }
+    },
     "PREFERENCES" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4480,6 +4852,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "纸张、配色与字体搭配"
+          }
+        }
+      }
+    },
+    "Payment is charged to your Apple Account when you confirm. Plus renews automatically at the regular price shown above unless you cancel at least 24 hours before the current period ends. Manage or cancel it in your Apple Account settings." : {
+      "comment" : "Paywall: the auto-renewal disclosure (Guideline 3.1.2).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认购买后，费用将从你的 Apple 账户扣除。除非在当前周期结束前至少 24 小时取消，Plus 会按上方所示的常规价格自动续订。你可以在 Apple 账户设置中管理或取消订阅。"
           }
         }
       }
@@ -4800,6 +5184,42 @@
         }
       }
     },
+    "Plus is restored." : {
+      "comment" : "Settings: Restore found Plus.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已恢复 Plus。"
+          }
+        }
+      }
+    },
+    "Plus, monthly" : {
+      "comment" : "Settings: the current plan.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus（按月）"
+          }
+        }
+      }
+    },
+    "Plus, yearly" : {
+      "comment" : "Settings: the current plan.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus（按年）"
+          }
+        }
+      }
+    },
     "Polaroid" : {
       "comment" : "Photo frame.",
       "extractionState" : "manual",
@@ -4901,6 +5321,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打印"
+          }
+        }
+      }
+    },
+    "Privacy Policy" : {
+      "comment" : "Paywall link: the privacy policy.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐私政策"
           }
         }
       }
@@ -5285,6 +5717,18 @@
         }
       }
     },
+    "Restore Purchases" : {
+      "comment" : "Paywall and Settings: restore App Store purchases.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复购买"
+          }
+        }
+      }
+    },
     "Restyled the photo." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5641,6 +6085,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "胶带剪贴"
+          }
+        }
+      }
+    },
+    "See Plus plans" : {
+      "comment" : "Settings: open the paywall.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看 Plus 方案"
           }
         }
       }
@@ -6108,6 +6564,18 @@
         }
       }
     },
+    "Subscribe" : {
+      "comment" : "Paywall: buy the selected plan.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅"
+          }
+        }
+      }
+    },
     "Sunday" : {
       "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
       "extractionState" : "manual",
@@ -6254,6 +6722,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "告诉 Mira 要改什么"
+          }
+        }
+      }
+    },
+    "Terms of Use" : {
+      "comment" : "Paywall link: the license agreement.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用条款"
           }
         }
       }
@@ -6440,6 +6920,18 @@
         }
       }
     },
+    "The App Store could not confirm this purchase." : {
+      "comment" : "Paywall error: StoreKit could not verify the transaction.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store 无法确认这笔购买。"
+          }
+        }
+      }
+    },
     "The app was left before the AI answered" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -6541,6 +7033,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "照片和你的指令，发送给 Google（Gemini）。抠出你指定的物体时，照片会发送给 Gemini 来找到它；物体名称会留在我们的服务器日志里。"
+          }
+        }
+      }
+    },
+    "The plans could not load. Check your connection and try again." : {
+      "comment" : "Paywall: StoreKit products failed to load.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅方案加载失败。请检查网络后重试。"
           }
         }
       }
@@ -6779,6 +7283,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这张图片没有可处理的像素，换一张照片试试？"
+          }
+        }
+      }
+    },
+    "This purchase belongs to another MiraNote account. Contact us to move it." : {
+      "comment" : "Restore error: the subscription is linked to another account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这笔购买属于另一个 MiraNote 账号。如需转移，请联系我们。"
           }
         }
       }
@@ -7507,6 +8023,18 @@
         }
       }
     },
+    "Yearly" : {
+      "comment" : "Paywall: the yearly plan's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按年"
+          }
+        }
+      }
+    },
     "Yes, clear everything" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -7549,6 +8077,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可以从一种心情、一张照片、一段语音，或一个零散的想法开始。"
+          }
+        }
+      }
+    },
+    "You've reached the free limit" : {
+      "comment" : "Paywall title when a free allowance ran out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免费额度已用完"
+          }
+        }
+      }
+    },
+    "You've reached the free limit for this. MiraNote Plus gives you more." : {
+      "comment" : "Error: a free AI allowance is used up (api #95).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这项功能的免费额度已用完。升级 MiraNote Plus 可以用得更多。"
+          }
+        }
+      }
+    },
+    "You've reached this limit for now. Try again later." : {
+      "comment" : "Error: a Plus AI allowance is used up for now.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这项功能暂时达到上限了，请稍后再试。"
           }
         }
       }
@@ -7634,6 +8198,18 @@
         }
       }
     },
+    "Your purchase is waiting for approval." : {
+      "comment" : "Paywall: Ask to Buy is pending.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的购买正在等待批准。"
+          }
+        }
+      }
+    },
     "Your recording is written down by Whisper on our server. The words then go to Alibaba Cloud (Qwen, China) to fix mistakes." : {
       "comment" : "AI consent Details list (#151): what is sent and to whom.",
       "extractionState" : "manual",
@@ -7642,6 +8218,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的录音由我们服务器上的 Whisper 转成文字，文字再发送给阿里云（通义千问，中国）纠正错误。"
+          }
+        }
+      }
+    },
+    "Your sign-in has ended. Sign in again to use Mira's AI." : {
+      "comment" : "Error: the server no longer accepts this phone's sign-in.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录已失效。请重新登录以使用 Mira 的 AI。"
           }
         }
       }

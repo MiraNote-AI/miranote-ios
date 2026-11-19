@@ -106,6 +106,9 @@ public final class Account {
         return try await refreshed(tokens).accessToken
     }
 
+    /// Our user id: the purchase's `appAccountToken` (api #95 step 4).
+    public var userID: String? { store.load()?.userID }
+
     private func refreshed(_ tokens: AccountTokens) async throws -> AccountTokens {
         if let refreshing {
             // Another caller's refresh: its outcome, read the same way.
@@ -115,6 +118,9 @@ public final class Account {
                 return fresh
             } catch BackendError.server(status: 401, _) {
                 throw AccountError.signedOut
+            } catch {
+                if !isSignedIn { throw AccountError.signedOut }
+                throw error
             }
         }
         let task = Task { [api] in try await api.refresh(refreshToken: tokens.refreshToken) }
@@ -130,6 +136,11 @@ public final class Account {
             store.save(nil)
             isSignedIn = false
             throw AccountError.signedOut
+        } catch {
+            // Sign-out cancels the refresh, so it ends in the cancellation
+            // (from the live client, `.unreachable`), not in the guard above.
+            if !isSignedIn { throw AccountError.signedOut }
+            throw error
         }
     }
 
@@ -152,11 +163,67 @@ public final class Account {
     }
 }
 
-public enum AccountError: Error, Equatable {
+public enum AccountError: Error, Equatable, LocalizedError {
     /// No tokens, or the server no longer accepts them: sign in again.
     case signedOut
     /// Signed in with the server, but the Keychain did not keep the tokens.
     case notSaved
+
+    public var errorDescription: String? {
+        switch self {
+        case .signedOut:
+            return String(appCopy: "Your sign-in has ended. Sign in again to use Mira's AI.")
+        case .notSaved:
+            return String(appCopy: "Could not sign in. Check your connection and try again.")
+        }
+    }
+}
+
+// MARK: - Our token on AI requests
+
+/// Where `HTTPClient` gets our access token (api #95 step 3).
+public protocol UserTokenSource: Sendable {
+    /// Our access token while signed in, refreshed first when it is about
+    /// to expire; nil signed out, and the beta token goes instead.
+    @MainActor func accessTokenIfSignedIn() async throws -> String?
+    /// A token the server refused with 401: a fresh one. Every request
+    /// refused with the same token shares one refresh.
+    @MainActor func renewAccessToken(after rejected: String) async throws -> String
+}
+
+extension Account: UserTokenSource {
+    public func accessTokenIfSignedIn() async throws -> String? {
+        guard isSignedIn else { return nil }
+        return try await accessToken()
+    }
+
+    public func renewAccessToken(after rejected: String) async throws -> String {
+        guard let tokens = store.load() else { throw AccountError.signedOut }
+        // Another request already renewed it.
+        if tokens.accessToken != rejected { return tokens.accessToken }
+        return try await refreshed(tokens).accessToken
+    }
+}
+
+/// The token source `HTTPClient` uses by default: the one the app installs
+/// at launch when it offers sign-in, read at send time, so services built
+/// before launch use it too. None installed, every request sends the beta
+/// token.
+public enum UserTokens {
+    @MainActor public static var installed: UserTokenSource?
+
+    public static let current: UserTokenSource = Installed()
+
+    private struct Installed: UserTokenSource {
+        func accessTokenIfSignedIn() async throws -> String? {
+            try await UserTokens.installed?.accessTokenIfSignedIn()
+        }
+
+        func renewAccessToken(after rejected: String) async throws -> String {
+            guard let installed = UserTokens.installed else { throw AccountError.signedOut }
+            return try await installed.renewAccessToken(after: rejected)
+        }
+    }
 }
 
 public enum AppleSignInError: Error, Equatable {
@@ -273,7 +340,7 @@ public struct LiveAccountsAPI: AccountsAPI {
         // Not configured, nobody is asked to sign in, so this is never
         // called; the beta address is only a placeholder.
         baseURL: URL = MiraNoteConfig.Backend.accountsBaseURL ?? MiraNoteConfig.Backend.Beta.accounts,
-        client: HTTPClient = HTTPClient(betaToken: nil),
+        client: HTTPClient = HTTPClient(betaToken: nil, userTokens: nil),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.baseURL = baseURL

@@ -10,13 +10,61 @@ extension ServiceContainer {
     /// working states, Stop, and the failure card can each be driven on
     /// purpose.
     static let uiTestScripted = ServiceContainer(
-        textTransform: MockTextTransformService(),
+        textTransform: UITestLimitedText(),
         voiceTranscription: UITestScriptedTranscription(),
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
         imageStudio: UITestScriptedStudio()
     )
+}
+
+/// The mock text transforms, except that under `-AI-LIMIT-REACHED` a
+/// writer without Plus gets the text service's 429 for a used-up free
+/// allowance (api #95), read by the live client as a tester's phone would.
+struct UITestLimitedText: TextTransformService {
+    private let mock = MockTextTransformService()
+
+    func transform(_ text: String, mode: TextTransformMode) async throws -> String {
+        let limited = ProcessInfo.processInfo.arguments.contains("-AI-LIMIT-REACHED")
+        guard limited, !(await PlusStore.shared.isPlus) else { return try await mock.transform(text, mode: mode) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [QuotaAnswer.self]
+        let live = LiveTextTransformService(
+            baseURL: URL(string: "http://uitest.invalid")!,
+            client: HTTPClient(session: URLSession(configuration: configuration), betaToken: nil)
+        )
+        return try await live.transform(text, mode: mode)
+    }
+
+    private final class QuotaAnswer: URLProtocol {
+        override static func canInit(with request: URLRequest) -> Bool { true }
+        override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+        override func startLoading() {
+            let body = #"{"reason": "quota", "feature": "expand", "plan": "free", "limit": 10, "#
+                + #""resets_at": "2026-12-01T00:00:00+00:00"}"#
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 429, httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data(body.utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        }
+
+        override func stopLoading() {}
+    }
+}
+
+/// -UITEST: the accounts service's `/subscriptions/sync`, counting the
+/// chains sent.
+struct UITestSubscriptions: SubscriptionsAPI {
+    @MainActor static var synced = 0
+
+    func sync(signedTransaction: String, signedRenewalInfo: String) async throws {
+        await MainActor.run { Self.synced += 1 }
+    }
 }
 
 /// The mock studio, except that a sticker prompt with "slowly" holds long
@@ -306,6 +354,8 @@ struct DebugStateProbe: View {
         // Ground truth for "Not now sends nothing": requests past AI consent.
         state["aiSent"] = AIConsent.shared.sentRequests
         state["signedIn"] = Account.shared.isSignedIn ? 1 : 0
+        state["plus"] = PlusStore.shared.isPlus ? 1 : 0
+        state["plusSyncs"] = UITestSubscriptions.synced
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
         state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10

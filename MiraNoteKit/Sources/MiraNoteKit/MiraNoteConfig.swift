@@ -139,4 +139,12 @@ public enum MiraNoteConfig {
             return value
         }()
     }
+
+    /// The paywall's links (Guideline 3.1.2).
+    public enum Legal {
+        /// Apple's standard license agreement, until MiraNote has its own.
+        public static let terms = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+        /// Must be live before the app is submitted (api #95 step 6).
+        public static let privacy = URL(string: "https://miranote.app/privacy")!
+    }
 }

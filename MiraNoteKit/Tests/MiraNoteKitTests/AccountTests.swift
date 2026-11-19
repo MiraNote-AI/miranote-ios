@@ -337,7 +337,7 @@ private struct SeenRequest {
     let auth: String?
 }
 
-private final class FakeApple: AppleCredentialProvider, @unchecked Sendable {
+final class FakeApple: AppleCredentialProvider, @unchecked Sendable {
     private let error: Error?
     var nonceHashes: [String] = []
 
@@ -358,10 +358,13 @@ private struct DroppingTokenStore: TokenStore {
     func save(_ tokens: AccountTokens?) {}
 }
 
-private final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
+final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
     var signInResult: AccountTokens?
     var refreshResults: [Result<AccountTokens, Error>]
     var refreshDelay: UInt64 = 0
+    /// What a refresh cancelled during its delay throws; nil is the
+    /// `CancellationError` itself.
+    var cancelledRefreshError: Error?
     var signOutError: Error?
     var signIns: [(identityToken: String, nonce: String)] = []
     var refreshes: [String] = []
@@ -380,7 +383,9 @@ private final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
 
     func refresh(refreshToken: String) async throws -> AccountTokens {
         refreshes.append(refreshToken)
-        if refreshDelay > 0 { try await Task.sleep(nanoseconds: refreshDelay) }
+        if refreshDelay > 0 {
+            do { try await Task.sleep(nanoseconds: refreshDelay) } catch { throw cancelledRefreshError ?? error }
+        }
         return try refreshResults.removeFirst().get()
     }
 
