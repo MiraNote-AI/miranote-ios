@@ -183,11 +183,8 @@ struct StickerPanelScene: View {
     /// the tabs; 500 while making or showing a sticker (32-33, with the
     /// "Add to page" row); 420 for a full grid (34-35).
     private static let folded: CGFloat = 170
-    /// A Favorites or set cell, three across the sheet (#205).
-    private static let cell: CGFloat = 84
-    /// The bundled presets are 50 px PNGs: drawn larger than this they turn
-    /// blocky, so they sit centered in the cell.
-    private static let presetSide: CGFloat = 60
+    /// Five across, Favorites and sets alike: cells stay put across tabs (#205).
+    private static let columns = Array(repeating: GridItem(.flexible(), spacing: 13), count: 5)
     /// The notice's line under the empty Favorites words (a dimmed
     /// Layout's hint), so the words keep both their lines.
     private static let noticeRoom: CGFloat = 26
@@ -351,8 +348,8 @@ struct StickerPanelScene: View {
         return ref
     }
 
-    /// Screens 32-33: Undo / Redo, 34 ink circles, pitch 43.5 (Favorite
-    /// sits beside "Add to page").
+    /// Screens 32-33: Undo / Redo, 34 ink circles, pitch 43.5, then Discard
+    /// 14 pt either side of a hairline (#205); Favorite sits by "Add to page".
     private var cluster: some View {
         let draft = drafts.indices.contains(page) ? drafts[page] : nil
         return HStack(spacing: 9.5) {
@@ -373,6 +370,14 @@ struct StickerPanelScene: View {
             .disabled(busy || !(draft?.canRedo ?? false))
             .accessibilityLabel("Redo style")
             .accessibilityIdentifier("sticker.redo")
+            Rectangle().fill(Palette.ink.opacity(0.18)).frame(width: Metrics.hairline, height: 20)
+                .padding(.horizontal, 4.5).accessibilityHidden(true)
+            Button(action: discard) {
+                FloatingCircle { Image(systemName: "trash").font(.system(size: 15, weight: .semibold)) }
+            }
+            .disabled(busy || draft == nil)
+            .accessibilityLabel("Discard this sticker")
+            .accessibilityIdentifier("sticker.draft.discard")
         }
         .buttonStyle(.plain)
     }
@@ -544,9 +549,8 @@ struct StickerPanelScene: View {
 
     private var favoritesGrid: some View {
         ScrollView(showsIndicators: false) {
-            // Three cells across the sheet (#205, was five, screen 34).
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
-                      spacing: 12) {
+            // Five 60 pt cells across the sheet (screen 34).
+            LazyVGrid(columns: Self.columns, spacing: 9) {
                 ForEach(favorites) { favorite in
                     Button {
                         place(favorite)
@@ -568,8 +572,7 @@ struct StickerPanelScene: View {
             }
             .padding(.top, 12)
         }
-        // As the set grids: the same three columns, so the cells stay put
-        // when the tab changes.
+        // As the set grids: same columns, same inset, so cells stay put across tabs.
         .padding(.leading, 1)
     }
 
@@ -594,10 +597,9 @@ struct StickerPanelScene: View {
 
     private func setGrid(_ set: StickerSet) -> some View {
         ScrollView(showsIndicators: false) {
-            // Three stickers across the sheet (#205, was five, screen 35);
+            // Five 50 pt stickers across the sheet, rows 60 apart (screen 35);
             // the set scrolls up and down.
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
-                      spacing: 12) {
+            LazyVGrid(columns: Self.columns, spacing: 10) {
                 ForEach(set.names, id: \.self) { name in
                     Button {
                         place(name, from: set)
@@ -605,8 +607,7 @@ struct StickerPanelScene: View {
                         Image(set.imageName(name))
                             .resizable()
                             .scaledToFit()
-                            .frame(width: Self.presetSide, height: Self.presetSide)
-                            .frame(width: Self.cell, height: Self.cell)
+                            .frame(width: 50, height: 50)
                     }
                     .buttonStyle(.plain)
                     .disabled(placingWouldDropWork)
@@ -625,8 +626,7 @@ struct StickerPanelScene: View {
         let image = CanvasImageCache.image(fileName: favorite.fileName, filterName: "", store: imageStore)
         switch favorite.kind {
         case .image:
-            // Photos as the handoff draws them, doubled for three across:
-            // 76 x 72 r36, ink border.
+            // Photos as the handoff draws them: 38 x 36 r18, ink border.
             Group {
                 if let image {
                     Image(uiImage: image).resizable().scaledToFill()
@@ -634,13 +634,12 @@ struct StickerPanelScene: View {
                     GradientPlaceholder()
                 }
             }
-            .frame(width: 76, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 36))
-            .overlay(RoundedRectangle(cornerRadius: 36).strokeBorder(Palette.ink, lineWidth: 3))
-            .frame(width: Self.cell, height: Self.cell)
-            // Taps stop at the cell: the filled picture runs past 76 x 72
-            // (a tall photo by about 40 pt up and down), and the clip hides
-            // that but still takes taps there, on the cell above or below.
+            .frame(width: 38, height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Palette.ink, lineWidth: 3))
+            .frame(width: 60, height: 60)
+            // Taps stop at the cell: a tall photo spills past 38 x 36, and the
+            // clip hides that but would still take taps there.
             .contentShape(Rectangle())
         case .sticker:
             Group {
@@ -651,7 +650,7 @@ struct StickerPanelScene: View {
                         .foregroundStyle(Palette.taupe)
                 }
             }
-            .frame(width: Self.cell, height: Self.cell)
+            .frame(width: 60, height: 60)
         }
     }
 
@@ -830,6 +829,14 @@ struct StickerPanelScene: View {
             return
         }
         hop(PendingPlacement(prompt: drafts[page].prompt, fileName: fileName, at: landingSpot))
+    }
+
+    /// Drops only the made sticker on screen, for good; none left is Make's start.
+    private func discard() {
+        guard !busy, drafts.indices.contains(page) else { return }
+        drafts.remove(at: page)
+        page = min(page, max(drafts.count - 1, 0))
+        notice = nil
     }
 
     // MARK: The hop onto the page
