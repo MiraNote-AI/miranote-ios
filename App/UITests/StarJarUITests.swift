@@ -1,5 +1,9 @@
 import XCTest
 
+// The jar's tests share private helpers (its debug state, the settled
+// toss, the relaunches), so they stay in one file.
+// swiftlint:disable file_length
+
 /// The star jar: Home's jar circle opens it, a saved page lands in it as a
 /// star, a tap anywhere shakes the jar and a hold on a star opens its page
 /// (#206), and Week / Month and the arrows move the period.

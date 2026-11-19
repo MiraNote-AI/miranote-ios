@@ -2,17 +2,13 @@ import MiraNoteKit
 import SpriteKit
 import SwiftUI
 
-// The jar, its toss and its open share the view's state, so they stay
-// in one file.
-// swiftlint:disable file_length
-
 /// The star jar (team decision 2026-10-24, no design screen): every saved
 /// page is a star made of a strip of the page (#206), a week or a month to
 /// a jar. Drawn in the app's own language -- paper, hairlines, quiet type.
 /// Its motion: pages saved since the jar was last opened drop in, and a
 /// tap anywhere on the jar shakes it, tossing the stars up like popcorn.
 /// Holding a star unfolds it back into its page, which then opens.
-struct StarJarView: View { // swiftlint:disable:this type_body_length
+struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
     /// The page unrolled from its star zooms open from here (iOS 18).
@@ -41,34 +37,21 @@ struct StarJarView: View { // swiftlint:disable:this type_body_length
     /// The shakes that threw the stars (none under Reduce Motion).
     @State private var tosses = 0
     /// Stars in the air: drawn by `tossScene`, their buttons hidden.
-    @State private var tossing = false
+    @State var tossing = false
     @State private var tossScene = StarTossScene(size: .zero)
     /// Where the last toss left each star, until the visit ends.
     @State private var settled: [Memory.ID: StarPile.Spot] = [:]
     /// The star being held: the others dim.
-    @State private var holding: Memory.ID?
+    @State var holding: Memory.ID?
     /// Its page, cut while the hold gathers, ready to unfold.
-    @State private var held: (id: Memory.ID, paper: StarPaper)?
-    @State private var opening: Opening?
-    @State private var openTask: Task<Void, Never>?
+    @State var held: (id: Memory.ID, paper: StarPaper)?
+    @State var opening: Opening?
+    @State var openTask: Task<Void, Never>?
     /// A hold has opened a page: the hint has done its job. Kept with
     /// the settings, so a UI test starts with the hint showing.
-    @AppStorage(StarJarView.openedKey, store: AppSettings.storeDefaults) private var hasOpened = false
+    @AppStorage(StarJarView.openedKey, store: AppSettings.storeDefaults) var hasOpened = false
     /// The jar fades as a star unfolds over it.
-    @State private var jarFade = 1.0
-
-    /// A star unfolding into its page.
-    struct Opening {
-        let star: JarStar
-        let paper: StarPaper
-        /// The held star's middle on screen, its radius and turn.
-        let from: CGPoint
-        let radius: CGFloat
-        let rotation: Double
-        let start: Date
-        /// The page has unrolled: it opens from `OpenUnfold.pageFrame`.
-        var unrolled = false
-    }
+    @State var jarFade = 1.0
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
@@ -80,7 +63,7 @@ struct StarJarView: View { // swiftlint:disable:this type_body_length
 
     private var isCurrent: Bool { interval.contains(.now) }
 
-    private var reduceMotion: Bool { ReduceMotion.resolved(systemReduceMotion) }
+    var reduceMotion: Bool { ReduceMotion.resolved(systemReduceMotion) }
 
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
@@ -402,130 +385,5 @@ extension StarJarView {
         guard let index = arriving.firstIndex(of: id) else { return 0 }
         let stagger = min(0.08, 0.9 / Double(max(1, arriving.count - 1)))
         return Double(index) * stagger
-    }
-}
-
-// MARK: - Open
-
-extension StarJarView {
-    /// In the air, unfolding: unseen. While another star is held: dimmed.
-    private func opacity(of star: JarStar) -> Double {
-        if tossing || opening?.star.id == star.id { return 0 }
-        return holding != nil && holding != star.id ? 0.35 : 1
-    }
-
-    /// A hold gathering on `star` dims the rest, and cuts its page ready
-    /// to unfold; a hold let go springs them back.
-    private func tension(_ on: Bool, on star: JarStar) {
-        guard on else {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { holding = nil }
-            held = nil
-            return
-        }
-        withAnimation(.linear(duration: StarHold.commitAfter - StarHold.tapWindow)) { holding = star.id }
-        guard held?.id != star.id else { return }
-        Task { @MainActor in
-            guard let paper = await StarFace.paper(for: star.memory) else { return }
-            if holding == star.id { held = (star.id, paper) }
-        }
-    }
-
-    /// The hold committed: the star unfolds into its page, which opens
-    /// (`StarUnfold`); under Reduce Motion the page fades in.
-    private func open(_ star: JarStar, from point: CGPoint, size: CGFloat, rotation: Double) {
-        guard opening == nil, openTask == nil else { return }
-        let ready = held?.id == star.id ? held?.paper : nil
-        holding = nil
-        held = nil
-        openTask = Task { @MainActor in
-            // Usually cut while the hold gathered; else cut now.
-            let paper: StarPaper? = if let ready { ready } else { await StarFace.paper(for: star.memory) }
-            guard !Task.isCancelled else { return }
-            guard let paper else {
-                opened(star, .push)
-                return
-            }
-            let start = Date.now
-            opening = Opening(star: star, paper: paper, from: point,
-                              radius: size * 0.45 * (1 + StarButton.grow), rotation: rotation, start: start)
-            // A cancel (the jar left meanwhile) stops it before the page opens.
-            do {
-                if reduceMotion {
-                    withAnimation(.linear(duration: StarUnfold.fade / 1000)) { jarFade = 0 }
-                    try await Task.sleep(for: .milliseconds(Int(StarUnfold.fade)))
-                    opened(star, .instant)
-                    return
-                }
-                withAnimation(.easeOut(duration: StarUnfold.riseEnd / 1000)) { jarFade = 0.25 }
-                try await Task.sleep(for: .milliseconds(450))
-                withAnimation(.linear(duration: 0.16)) { jarFade = 0 }
-                try await sleep(until: StarUnfold.haptics[1], from: start)
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.4)
-                try await sleep(until: StarUnfold.unrollEnd, from: start)
-                opening?.unrolled = true
-                opened(star, .zoom)
-            } catch {
-                return
-            }
-        }
-    }
-
-    private func sleep(until ms: Double, from start: Date) async throws {
-        let left = ms / 1000 - Date.now.timeIntervalSince(start)
-        if left > 0 { try await Task.sleep(for: .seconds(left)) }
-    }
-
-    private func opened(_ star: JarStar, _ style: OpenStyle) {
-        openTask = nil
-        hasOpened = true
-        onOpenNote(star, style)
-    }
-
-    /// Back from the page: once it has zoomed home, the jar comes back.
-    /// No refold.
-    private func cameBack() {
-        guard opening != nil else { return }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(250))
-            withAnimation(.easeOut(duration: 0.3)) {
-                jarFade = 1
-                opening = nil
-            }
-        }
-    }
-
-    /// The unfold over the jar, then the unrolled page the reading view
-    /// zooms from. It takes every touch while it plays.
-    @ViewBuilder private var unfolding: some View {
-        if let opening {
-            GeometryReader { proxy in
-                let origin = proxy.frame(in: .global).origin
-                OpenUnfold(paper: opening.paper,
-                           from: CGPoint(x: opening.from.x - origin.x, y: opening.from.y - origin.y),
-                           radius: opening.radius, rotation: opening.rotation, start: opening.start,
-                           reduceMotion: reduceMotion)
-                if opening.unrolled {
-                    let frame = OpenUnfold.pageFrame(opening.paper, size: proxy.size)
-                    unrolledPage(opening)
-                        .frame(width: frame.width, height: frame.height)
-                        .position(x: frame.midX, y: frame.midY)
-                }
-                Color.clear.contentShape(Rectangle())
-            }
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
-        }
-    }
-
-    @ViewBuilder private func unrolledPage(_ opening: Opening) -> some View {
-        let page = opening.paper.page
-            .resizable()
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .shadow(color: Color(hex: 0x281C10).opacity(0.25), radius: 15, y: 12)
-        if let zoom {
-            page.zoomSource(opening.star.id, in: zoom)
-        } else {
-            page
-        }
     }
 }
