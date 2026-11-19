@@ -1,6 +1,10 @@
 import MiraNoteKit
 import SwiftUI
 
+// The fold demo's timeline maths: t (ms), p/u/f/a/e/m (progress), k
+// (arm) and E (its easings) read as the formulas they are.
+// swiftlint:disable identifier_name
+
 /// The SAVE fold (#206, fold demo v4), drawn over Home: the page shrinks
 /// off the editor, its strip is cut and lifts, winds into a pentagon knot,
 /// is pinched and puffed into a star and thrown into the header jar. Home
@@ -25,7 +29,9 @@ struct SaveFold: View {
         .accessibilityHidden(true)
     }
 
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     private func draw(in context: GraphicsContext, size: CGSize, at t: CGFloat) {
+        // swiftlint:disable:next type_name
         typealias E = Ease
         let fold = FoldDrawing(paper: paper, unit: CanvasCard.pageScale(rowWidth: size.width))
         let stage = FoldDrawing.stage
@@ -128,3 +134,4 @@ struct SaveFold: View {
     /// the status bar and the editor's nav row.
     static let editorPageTop: CGFloat = 120
 }
+// swiftlint:enable identifier_name

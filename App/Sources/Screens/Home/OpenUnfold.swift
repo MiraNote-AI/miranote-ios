@@ -1,6 +1,10 @@
 import MiraNoteKit
 import SwiftUI
 
+// The fold demo's timeline maths: t (ms), p/u/f/a/e/m (progress), k
+// (arm) and E (its easings) read as the formulas they are.
+// swiftlint:disable identifier_name
+
 /// The OPEN unfold (#206, fold demo v4), drawn over the fading jar after
 /// a hold commits: the star pops and rises to the middle, turns back into
 /// its knot, the knot unwinds the strip, tilting it to its cut, the strip
@@ -55,7 +59,9 @@ struct OpenUnfold: View {
         return (window?.safeAreaInsets.top ?? 59) + 56
     }
 
+    // swiftlint:disable:next function_body_length
     private func draw(in context: GraphicsContext, size: CGSize, at t: CGFloat) {
+        // swiftlint:disable:next type_name
         typealias E = Ease
         let fold = FoldDrawing(paper: paper, unit: CanvasCard.pageScale(rowWidth: size.width))
         let stage = FoldDrawing.stage
@@ -73,7 +79,9 @@ struct OpenUnfold: View {
             let rise = E.bezier(0.3, 0, 0.1, 1, E.seg(t, 0, 210))
             let step = 72.0
             let resting = CGFloat((rotation - (rotation / step).rounded() * step) * .pi / 180)
-            let inner = (0..<5).map { k in E.lerp(0.66, 0.809, E.inOut(E.seg(t, 130 + 15 * CGFloat(k), 170 + 15 * CGFloat(k)))) }
+            let inner = (0..<5).map { k in
+                E.lerp(0.66, 0.809, E.inOut(E.seg(t, 130 + 15 * CGFloat(k), 170 + 15 * CGFloat(k))))
+            }
             ring(in: context, at: from, radius: radius * 1.5 * pop, opacity: 1 - E.seg(t, 0, 70))
             PaperStar.draw(
                 in: context, at: CGPoint(x: E.lerp(from.x, middle.x, rise), y: E.lerp(from.y, middle.y, rise)),
@@ -111,7 +119,8 @@ struct OpenUnfold: View {
         }
         let lay = E.inOut(E.seg(t, 470, 630))
         let dock = fold.band(pageCenter: pageCenter, scale: stage)
-        fold.strip(in: context, at: CGPoint(x: E.lerp(middle.x, dock.center.x, lay), y: E.lerp(middle.y, dock.center.y, lay)),
+        fold.strip(in: context,
+                   at: CGPoint(x: E.lerp(middle.x, dock.center.x, lay), y: E.lerp(middle.y, dock.center.y, lay)),
                    angle: paper.cutAngle, scale: E.lerp(stage * fold.unit, dock.scale, lay),
                    lift: 1 - E.seg(t, 550, 650), opacity: 1 - E.seg(t, 630, 680))
     }
@@ -121,8 +130,10 @@ struct OpenUnfold: View {
         guard opacity > 0 else { return }
         var ctx = context
         ctx.opacity *= opacity
-        let circle = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius))
+        let circle = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius,
+                                            width: 2 * radius, height: 2 * radius))
         ctx.stroke(circle, with: .color(.white.opacity(0.7)), lineWidth: 5)
         ctx.stroke(circle, with: .color(Color(hex: 0xA8682A).opacity(0.95)), lineWidth: 3)
     }
 }
+// swiftlint:enable identifier_name

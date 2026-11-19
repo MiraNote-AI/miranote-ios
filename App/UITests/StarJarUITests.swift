@@ -3,7 +3,7 @@ import XCTest
 /// The star jar: Home's jar circle opens it, a saved page lands in it as a
 /// star, a tap anywhere shakes the jar and a hold on a star opens its page
 /// (#206), and Week / Month and the arrows move the period.
-final class StarJarUITests: XCTestCase {
+final class StarJarUITests: XCTestCase { // swiftlint:disable:this type_body_length
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {

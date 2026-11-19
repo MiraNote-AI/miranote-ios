@@ -158,7 +158,8 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
-                    .modifier(JarLanding(beat: jarBeat, swell: jarSwell, reduceMotion: ReduceMotion.resolved(reduceMotion)))
+                    .modifier(JarLanding(beat: jarBeat, swell: jarSwell,
+                                         reduceMotion: ReduceMotion.resolved(reduceMotion)))
                     .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
                     #if DEBUG
                     // UI tests count the landings.

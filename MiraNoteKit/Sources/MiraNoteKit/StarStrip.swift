@@ -155,7 +155,8 @@ public enum StarStrip {
         let tints = (0..<5).map { arm in
             saturate(average(washed, columns: arm * fifth..<(arm == 4 ? washed.width : (arm + 1) * fifth)), 1.9)
         }
-        return StarLook(texture: washed, tints: tints, average: saturate(average(washed, columns: 0..<washed.width), 1.8))
+        let whole = saturate(average(washed, columns: 0..<washed.width), 1.8)
+        return StarLook(texture: washed, tints: tints, average: whole)
     }
 
     /// The paper a star's colors are washed toward (#F1E9DB).
@@ -167,6 +168,8 @@ public enum StarStrip {
 
     /// CSS `saturate()`: the luminance-preserving matrix, clamped.
     static func saturate(_ color: StarColor, _ amount: Double) -> StarColor {
+        // CSS's own names for the matrix.
+        // swiftlint:disable:next identifier_name
         let r = color.red, g = color.green, b = color.blue, s = amount
         func clamp(_ value: Double) -> Double { min(255, max(0, value)) }
         return StarColor(
@@ -194,9 +197,9 @@ public enum StarStrip {
             for column in 0..<image.width {
                 var sum = StarColor(0, 0, 0)
                 for step in -radius...radius {
-                    let x = horizontal ? min(max(column + step, 0), image.width - 1) : column
-                    let y = horizontal ? row : min(max(row + step, 0), image.height - 1)
-                    let color = image.color(x, y)
+                    let across = horizontal ? min(max(column + step, 0), image.width - 1) : column
+                    let down = horizontal ? row : min(max(row + step, 0), image.height - 1)
+                    let color = image.color(across, down)
                     sum = StarColor(sum.red + color.red, sum.green + color.green, sum.blue + color.blue)
                 }
                 out.set(column, row, sum.scaled(1 / span))

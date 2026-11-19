@@ -2,13 +2,17 @@ import MiraNoteKit
 import SpriteKit
 import SwiftUI
 
+// The jar, its toss and its open share the view's state, so they stay
+// in one file.
+// swiftlint:disable file_length
+
 /// The star jar (team decision 2026-10-24, no design screen): every saved
 /// page is a star made of a strip of the page (#206), a week or a month to
 /// a jar. Drawn in the app's own language -- paper, hairlines, quiet type.
 /// Its motion: pages saved since the jar was last opened drop in, and a
 /// tap anywhere on the jar shakes it, tossing the stars up like popcorn.
 /// Holding a star unfolds it back into its page, which then opens.
-struct StarJarView: View {
+struct StarJarView: View { // swiftlint:disable:this type_body_length
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
     /// The page unrolled from its star zooms open from here (iOS 18).
@@ -239,10 +243,9 @@ struct StarJarView: View {
                         reduceMotion: reduceMotion,
                         onShake: { shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry) },
                         onTension: { tension($0, on: star) },
-                        onCommit: { open(star, from: $0, size: pile.starSize, rotation: spot.rotation) }
-                    ) {
-                        onOpenNote(star, .push)
-                    }
+                        onCommit: { open(star, from: $0, size: pile.starSize, rotation: spot.rotation) },
+                        action: { onOpenNote(star, .push) }
+                    )
                     // VoiceOver shakes the jar from any of its stars.
                     .accessibilityAction(named: Text("Shake")) {
                         shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)

@@ -2,6 +2,10 @@ import MiraNoteKit
 import SwiftUI
 import UIKit
 
+// A port of the fold demo's drawStar: p (points), a/b (ends), k (arm), R
+// (radius), s (shadow) and t read as the formulas they are.
+// swiftlint:disable identifier_name
+
 /// A star's dress for drawing: its washed strip, five arm tints and its
 /// average (`StarStrip.look`).
 struct StarPaint {
@@ -100,6 +104,7 @@ enum PaperStar {
         }
     }
 
+    // swiftlint:disable:next function_parameter_count
     static func draw(
         in context: GraphicsContext, at center: CGPoint, radius: CGFloat, inner: [CGFloat],
         rotation: CGFloat, paint: StarPaint, style: Style = Style()
@@ -109,7 +114,7 @@ enum PaperStar {
     }
 
     /// Draws the star centered at `center`.
-    static func draw(
+    static func draw( // swiftlint:disable:this function_parameter_count function_body_length
         in context: GraphicsContext, at center: CGPoint, radius: CGFloat, inner: [CGFloat],
         rotation: CGFloat, dress: StarDress, style: Style = Style()
     ) {
@@ -140,7 +145,8 @@ enum PaperStar {
         turned.rotate(by: .radians(rotation))
         switch dress {
         case .paint(let paint): dressing(in: turned, radius: R, paint: paint)
-        case .baked(let image): turned.draw(image, in: CGRect(x: -R * 1.05, y: -R * 1.05, width: R * 2.1, height: R * 2.1))
+        case .baked(let image):
+            turned.draw(image, in: CGRect(x: -R * 1.05, y: -R * 1.05, width: R * 2.1, height: R * 2.1))
         }
 
         if puff > 0 {
@@ -192,7 +198,8 @@ enum PaperStar {
             half.closeSubpath()
             rim.clip(to: half)
             rim.stroke(outline, with: .color(PaperArt.rim.opacity(0.35 + 0.25 * puff)), lineWidth: max(0.6, R * 0.035))
-            ctx.stroke(outline, with: .color(Color(.sRGB, red: 90 / 255, green: 64 / 255, blue: 40 / 255, opacity: 0.14)),
+            ctx.stroke(outline,
+                       with: .color(Color(.sRGB, red: 90 / 255, green: 64 / 255, blue: 40 / 255, opacity: 0.14)),
                        lineWidth: max(0.4, R * 0.02))
         }
     }
@@ -287,3 +294,4 @@ struct SeededRandom {
         return CGFloat(t ^ (t >> 14)) / 4_294_967_296
     }
 }
+// swiftlint:enable identifier_name

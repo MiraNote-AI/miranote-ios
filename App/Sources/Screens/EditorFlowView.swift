@@ -433,7 +433,8 @@ struct HomeFlow: View {
                     onBack: { path.removeLast() },
                     zoom: jarZoom,
                     onOpenNote: { star, style in
-                        let ref = NoteRef(collectionID: star.collectionID, noteID: star.id, zoomsFromJar: style == .zoom)
+                        let ref = NoteRef(collectionID: star.collectionID, noteID: star.id,
+                                          zoomsFromJar: style == .zoom)
                         guard style == .instant else {
                             path.append(ref)
                             return
