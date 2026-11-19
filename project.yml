@@ -71,6 +71,9 @@ targets:
         # talks HTTPS. Declaring it here stops the question being asked on
         # every upload.
         ITSAppUsesNonExemptEncryption: false
+        # ProMotion: the star fold and unfold draw every frame at up to
+        # 120 Hz, not the 60 Hz an app gets without this.
+        CADisableMinimumFrameDurationOnPhone: true
         # The beta bearer token, injected from an untracked xcconfig so it
         # never reaches the repository. Absent in a build without one, which
         # the app reports as a 401 it can explain rather than refusing to run.

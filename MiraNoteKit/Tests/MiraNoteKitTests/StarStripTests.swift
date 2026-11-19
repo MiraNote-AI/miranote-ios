@@ -100,19 +100,43 @@ final class StarStripTests: XCTestCase {
         XCTAssertEqual(StarStrip.calm(textStrip, id: id), StarStrip.calm(textStrip, id: id), "the same every time")
     }
 
-    // MARK: The wrap
+    // MARK: The look
 
-    /// The strip's start winds clockwise from the top tip: its first half
-    /// is the star's right side, its second half the left.
-    func testTheStripWindsClockwiseFromTheTopTip() {
+    /// The star wears its strip's colors, washed toward paper and with no
+    /// photo detail: the texture is blurred, the arms are its fifths.
+    func testTheLookCarriesTheStripsColorsWithoutDetail() {
         var strip = StarPixels(width: 192, height: 32, fill: red)
         for column in 96..<192 {
             for row in 0..<32 { strip.set(column, row, blue) }
         }
-        let face = StarStrip.wrap(strip, side: 96)
-        XCTAssertEqual(face.width, 96)
-        let right = face.color(70, 52), left = face.color(25, 52)
-        XCTAssertGreaterThan(right.red, right.blue, "right side: the strip's first half")
-        XCTAssertGreaterThan(left.blue, left.red, "left side: the strip's second half")
+        let look = StarStrip.look(strip)
+        XCTAssertEqual(look.tints.count, 5)
+        XCTAssertGreaterThan(look.tints[0].red, look.tints[0].blue, "the first arm is the strip's start")
+        XCTAssertGreaterThan(look.tints[4].blue, look.tints[4].red, "the last arm its end")
+        let edge = look.texture.color(95, 16), next = look.texture.color(96, 16)
+        XCTAssertLessThan(abs(edge.red - next.red), (red.red - blue.red) / 2, "the cut between colors is blurred soft")
+        XCTAssertGreaterThan(look.texture.color(10, 16).green, red.green, "washed toward paper")
+    }
+
+    /// A calm paper strip gives a light, warm cream star, the same on
+    /// every arm.
+    func testAPaperStripGivesAPaperStar() {
+        let look = StarStrip.look(StarPixels(width: 192, height: 32, fill: paper))
+        for tint in look.tints + [look.average] {
+            XCTAssertGreaterThan(tint.luma, 220)
+            XCTAssertGreaterThan(tint.red, tint.blue)
+            XCTAssertEqual(tint.blue, look.tints[0].blue, accuracy: 4)
+        }
+    }
+
+    /// CSS saturate: grey stays grey, 1 changes nothing, more pushes away
+    /// from grey.
+    func testSaturateMatchesCSS() {
+        let grey = StarColor(128, 128, 128)
+        XCTAssertEqual(StarStrip.saturate(grey, 1.8).red, 128, accuracy: 0.5)
+        let orange = StarColor(200, 120, 60)
+        XCTAssertEqual(StarStrip.saturate(orange, 1).green, 120, accuracy: 0.5)
+        XCTAssertGreaterThan(StarStrip.saturate(orange, 1.8).red, orange.red)
+        XCTAssertLessThan(StarStrip.saturate(orange, 1.8).blue, orange.blue)
     }
 }

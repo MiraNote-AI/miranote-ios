@@ -24,6 +24,16 @@ public struct StarColor: Equatable, Sendable {
     var luma: Double { 0.299 * red + 0.587 * green + 0.114 * blue }
 }
 
+/// A star's dress, from its strip (`StarStrip.look`).
+public struct StarLook: Equatable, Sendable {
+    /// The strip blurred and washed toward paper.
+    public let texture: StarPixels
+    /// One flat tint per arm, from the strip's fifths in order.
+    public let tints: [StarColor]
+    /// The whole strip's color, for a star drawn flat.
+    public let average: StarColor
+}
+
 /// Opaque RGBA8 pixels, row by row from the top.
 public struct StarPixels: Equatable, Sendable {
     public let width: Int
@@ -61,8 +71,8 @@ public struct StarPixels: Equatable, Sendable {
 /// "colorful-D" method of the strip experiment): of every band as long as
 /// the page is wide and a sixth as thick, turned 30 degrees either way,
 /// the one whose colors vary most. One contiguous cut, so the star is
-/// literally a strip of its page. Wound around the star's ten facets, it
-/// is the star's face.
+/// literally a strip of its page: the fold winds it into the star, and
+/// its washed colors (`look`) dress the star.
 public enum StarStrip {
     /// A band on the page: its middle, its turn in radians (y down, so a
     /// positive turn runs down to the right), and its size in pixels.
@@ -134,40 +144,87 @@ public enum StarStrip {
         return calm
     }
 
-    /// The strip wound around a five-point star `side` pixels square: its
-    /// length runs clockwise from the top tip around the ten facets, its
-    /// thickness from the middle out to the edge. Facets alternate a
-    /// little darker and lighter, and darken toward the edge, as folded
-    /// paper does. The square is filled; the star's outline clips it. The
-    /// star's middle sits 4% low, as `RoundedStar` draws it.
-    public static func wrap(_ strip: StarPixels, side: Int) -> StarPixels {
-        var face = StarPixels(width: side, height: side, fill: StarColor(0, 0, 0))
-        let outer = Double(side) / 2
-        let inner = outer * 0.5
-        let middleX = Double(side) / 2, middleY = Double(side) * 0.54
-        let facet = Double.pi / 5
-        for row in 0..<side {
-            for column in 0..<side {
-                let dx = Double(column) + 0.5 - middleX, dy = Double(row) + 0.5 - middleY
-                let turn = (atan2(dx, -dy) + 2 * .pi).truncatingRemainder(dividingBy: 2 * .pi)
-                let index = Int(turn / facet) % 10
-                let within = turn / facet - floor(turn / facet)
-                // Where this ray meets the star's edge: on the segment
-                // from this facet's first vertex to its second.
-                let first = index.isMultiple(of: 2) ? outer : inner
-                let second = index.isMultiple(of: 2) ? inner : outer
-                let start = CGPoint(x: first * sin(Double(index) * facet), y: -first * cos(Double(index) * facet))
-                let edgeX = second * sin(Double(index + 1) * facet) - start.x
-                let edgeY = -second * cos(Double(index + 1) * facet) - start.y
-                let edge = (start.x * edgeY - start.y * edgeX) / (sin(turn) * edgeY + cos(turn) * edgeX)
-                let reach = min(1, hypot(dx, dy) / edge)
-                let along = (Double(index) + within) / 10 * Double(strip.width - 1)
-                let color = bilinear(strip, along, reach * Double(strip.height - 1))
-                let shade = (index.isMultiple(of: 2) ? 0.92 : 1.06) * (1 - 0.1 * reach * reach)
-                face.set(column, row, color.scaled(shade))
+    /// How the strip dresses its star (fold demo v4, `makeStarTex`): the
+    /// strip blurred, saturated 1.8x and washed 16% toward paper, so the
+    /// star carries its page's colors without photo detail; five flat arm
+    /// tints from the strip's fifths, saturated again (1.9x); and the
+    /// average, saturated, for stars too small for any of that.
+    public static func look(_ strip: StarPixels) -> StarLook {
+        let washed = recolor(blur(strip, radius: max(1, strip.width / 76))) { wash(saturate($0, 1.8)) }
+        let fifth = washed.width / 5
+        let tints = (0..<5).map { arm in
+            saturate(average(washed, columns: arm * fifth..<(arm == 4 ? washed.width : (arm + 1) * fifth)), 1.9)
+        }
+        let whole = saturate(average(washed, columns: 0..<washed.width), 1.8)
+        return StarLook(texture: washed, tints: tints, average: whole)
+    }
+
+    /// The paper a star's colors are washed toward (#F1E9DB).
+    public static let paper = StarColor(241, 233, 219)
+
+    static func wash(_ color: StarColor) -> StarColor {
+        color.mixed(with: paper, 0.16)
+    }
+
+    /// CSS `saturate()`: the luminance-preserving matrix, clamped.
+    static func saturate(_ color: StarColor, _ amount: Double) -> StarColor {
+        // CSS's own names for the matrix.
+        // swiftlint:disable:next identifier_name
+        let r = color.red, g = color.green, b = color.blue, s = amount
+        func clamp(_ value: Double) -> Double { min(255, max(0, value)) }
+        return StarColor(
+            clamp((0.213 + 0.787 * s) * r + (0.715 - 0.715 * s) * g + (0.072 - 0.072 * s) * b),
+            clamp((0.213 - 0.213 * s) * r + (0.715 + 0.285 * s) * g + (0.072 - 0.072 * s) * b),
+            clamp((0.213 - 0.213 * s) * r + (0.715 - 0.715 * s) * g + (0.072 + 0.928 * s) * b)
+        )
+    }
+
+    /// Two passes of a box blur `radius` pixels each way: close to a
+    /// Gaussian, edges clamped.
+    static func blur(_ image: StarPixels, radius: Int) -> StarPixels {
+        var out = image
+        for _ in 0..<2 {
+            out = boxBlur(out, radius: radius, horizontal: true)
+            out = boxBlur(out, radius: radius, horizontal: false)
+        }
+        return out
+    }
+
+    private static func boxBlur(_ image: StarPixels, radius: Int, horizontal: Bool) -> StarPixels {
+        var out = image
+        let span = Double(2 * radius + 1)
+        for row in 0..<image.height {
+            for column in 0..<image.width {
+                var sum = StarColor(0, 0, 0)
+                for step in -radius...radius {
+                    let across = horizontal ? min(max(column + step, 0), image.width - 1) : column
+                    let down = horizontal ? row : min(max(row + step, 0), image.height - 1)
+                    let color = image.color(across, down)
+                    sum = StarColor(sum.red + color.red, sum.green + color.green, sum.blue + color.blue)
+                }
+                out.set(column, row, sum.scaled(1 / span))
             }
         }
-        return face
+        return out
+    }
+
+    private static func recolor(_ image: StarPixels, _ change: (StarColor) -> StarColor) -> StarPixels {
+        var out = image
+        for row in 0..<image.height {
+            for column in 0..<image.width { out.set(column, row, change(image.color(column, row))) }
+        }
+        return out
+    }
+
+    private static func average(_ image: StarPixels, columns: Range<Int>) -> StarColor {
+        var sum = StarColor(0, 0, 0)
+        for row in 0..<image.height {
+            for column in columns {
+                let color = image.color(column, row)
+                sum = StarColor(sum.red + color.red, sum.green + color.green, sum.blue + color.blue)
+            }
+        }
+        return sum.scaled(1 / Double(max(1, image.height * columns.count)))
     }
 
     /// A number in 0..<1 from the id's bytes: the same every launch.

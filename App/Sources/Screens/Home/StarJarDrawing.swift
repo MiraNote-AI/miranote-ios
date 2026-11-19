@@ -120,58 +120,6 @@ struct JarLid: View {
     }
 }
 
-// MARK: - Star
-
-/// A plain star: a fill, a soft light from above, and a hairline edge so
-/// neighbors in a pile stay apart. A page's star wears its own face
-/// (`StarFace`); this one stands in while it bakes.
-struct StarMark: View {
-    /// The warm paper of a star whose face is not baked yet.
-    static let paper = Color(hex: 0xCFC6B6)
-
-    let color: Color
-
-    var body: some View {
-        RoundedStar()
-            .fill(color)
-            .overlay(
-                RoundedStar().fill(
-                    LinearGradient(colors: [Color.white.opacity(0.3), .clear], startPoint: .top, endPoint: .center)
-                )
-            )
-            .overlay(RoundedStar().stroke(Palette.ink.opacity(0.1), lineWidth: 0.6))
-    }
-}
-
-/// A five-point star with softened tips.
-struct RoundedStar: Shape {
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY + rect.height * 0.04)
-        let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.5
-        let points: [CGPoint] = (0..<10).map { index in
-            let radius = index.isMultiple(of: 2) ? outer : inner
-            let angle = -Double.pi / 2 + Double(index) * Double.pi / 5
-            return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-        }
-        func toward(_ from: CGPoint, _ to: CGPoint, _ share: CGFloat) -> CGPoint {
-            CGPoint(x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share)
-        }
-        var path = Path()
-        for index in 0..<10 {
-            let point = points[index]
-            let previous = points[(index + 9) % 10]
-            let next = points[(index + 1) % 10]
-            let share: CGFloat = index.isMultiple(of: 2) ? 0.24 : 0.12
-            let start = toward(point, previous, share)
-            if index == 0 { path.move(to: start) } else { path.addLine(to: start) }
-            path.addQuadCurve(to: toward(point, next, share), control: point)
-        }
-        path.closeSubpath()
-        return path
-    }
-}
-
 // MARK: - Pile
 
 /// The body's inside: a rectangle with rounded bottom corners.

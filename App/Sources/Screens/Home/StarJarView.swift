@@ -7,11 +7,22 @@ import SwiftUI
 /// a jar. Drawn in the app's own language -- paper, hairlines, quiet type.
 /// Its motion: pages saved since the jar was last opened drop in, and a
 /// tap anywhere on the jar shakes it, tossing the stars up like popcorn.
-/// Holding a star opens its page.
+/// Holding a star unfolds it back into its page, which then opens.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
-    var onOpenNote: (JarStar) -> Void = { _ in }
+    /// The page unrolled from its star zooms open from here (iOS 18).
+    var zoom: Namespace.ID?
+    var onOpenNote: (JarStar, OpenStyle) -> Void = { _, _ in }
+
+    enum OpenStyle {
+        /// After the unfold: zooms from the unrolled page.
+        case zoom
+        /// VoiceOver's activate: the usual push.
+        case push
+        /// Under Reduce Motion, after the page has faded in.
+        case instant
+    }
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.theme) private var theme
@@ -26,13 +37,25 @@ struct StarJarView: View {
     /// The shakes that threw the stars (none under Reduce Motion).
     @State private var tosses = 0
     /// Stars in the air: drawn by `tossScene`, their buttons hidden.
-    @State private var tossing = false
+    @State var tossing = false
     @State private var tossScene = StarTossScene(size: .zero)
     /// Where the last toss left each star, until the visit ends.
     @State private var settled: [Memory.ID: StarPile.Spot] = [:]
+    /// The star being held: the others dim.
+    @State var holding: Memory.ID?
+    /// Its page, cut while the hold gathers, ready to unfold.
+    @State var held: (id: Memory.ID, paper: StarPaper)?
+    @State var opening: Opening?
+    @State var openTask: Task<Void, Never>?
+    /// A hold has opened a page: the hint has done its job. Kept with
+    /// the settings, so a UI test starts with the hint showing.
+    @AppStorage(StarJarView.openedKey, store: AppSettings.storeDefaults) var hasOpened = false
+    /// The jar fades as a star unfolds over it.
+    @State var jarFade = 1.0
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
+    static let openedKey = "starJar.heldOpen"
 
     private var stars: [JarStar] {
         StarJar.stars(in: viewModel.library, during: interval)
@@ -40,13 +63,7 @@ struct StarJarView: View {
 
     private var isCurrent: Bool { interval.contains(.now) }
 
-    /// `-REDUCE_MOTION` stands in for the setting in UI tests.
-    private var reduceMotion: Bool {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-REDUCE_MOTION") { return true }
-        #endif
-        return systemReduceMotion
-    }
+    var reduceMotion: Bool { ReduceMotion.resolved(systemReduceMotion) }
 
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
@@ -63,19 +80,12 @@ struct StarJarView: View {
                     .padding(.bottom, 14)
                 jar
                     .padding(.bottom, 18)
-                // An empty jar says so inside it.
-                if !stars.isEmpty {
-                    Text(summary)
-                        .font(Sans.font(size: 16, weight: 600))
-                        .foregroundStyle(theme.ink)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("jar.summary")
-                        .padding(.bottom, 14)
-                }
+                // Until a hold has opened a page once.
                 Text("Tap to shake. Hold a star to open.")
                     .font(.miraCaption)
                     .foregroundStyle(theme.muted(Palette.textSecondary))
                     .multilineTextAlignment(.center)
+                    .opacity(hasOpened ? 0 : 1)
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, Metrics.chromeInset)
@@ -85,13 +95,16 @@ struct StarJarView: View {
         #if DEBUG
         .background(DebugStateProbe {
             ["scene": "jar", "shakes": shakes, "tosses": tosses, "settled": !tossing,
-             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs]
+             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs, "hint": !hasOpened]
         })
         #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
+        .opacity(jarFade)
         .screenBackground()
-        .safeAreaInset(edge: .top) { header }
+        .safeAreaInset(edge: .top) { header.opacity(jarFade) }
+        .overlay { unfolding }
         .onAppear(perform: firstVisit)
+        .onAppear(perform: cameBack)
         .onChange(of: interval) {
             tossScene.stop()
             settled = [:]
@@ -99,6 +112,15 @@ struct StarJarView: View {
         .onDisappear {
             // Opened mid-air: the stars lie where they did before the toss.
             tossScene.stop()
+            // Left (an edge swipe back) before the page opened: it never
+            // opens on top of where the jar was.
+            if opening?.unrolled != true {
+                openTask?.cancel()
+                opening = nil
+                holding = nil
+                held = nil
+                jarFade = 1
+            }
         }
     }
 
@@ -201,18 +223,20 @@ struct StarJarView: View {
                         rotation: spot.rotation,
                         drop: dropOffset(for: star.id, at: spot.center, geometry: geometry),
                         delay: dropDelay(for: star.id),
-                        reduceMotion: reduceMotion
-                    ) {
-                        onOpenNote(star)
-                    }
+                        reduceMotion: reduceMotion,
+                        onShake: { shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry) },
+                        onTension: { tension($0, on: star) },
+                        onCommit: { open(star, from: $0, size: pile.starSize, rotation: spot.rotation) },
+                        action: { onOpenNote(star, .push) }
+                    )
                     // VoiceOver shakes the jar from any of its stars.
                     .accessibilityAction(named: Text("Shake")) {
                         shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
                     }
                     .position(spot.center)
-                    .opacity(tossing ? 0 : 1)
+                    .opacity(opacity(of: star))
                     // A hold is ignored while the stars are in the air.
-                    .allowsHitTesting(!tossing)
+                    .allowsHitTesting(!tossing && opening == nil)
                 }
                 SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -231,8 +255,9 @@ struct StarJarView: View {
                         .position(x: geometry.interior.midX, y: geometry.interior.midY + 20)
                 }
             }
-            // A tap anywhere, on a star too, shakes (#206): only a hold
-            // opens one, so a crowd never makes the toss unreachable.
+            // A tap anywhere shakes (#206); a star takes its own taps and
+            // shakes too: only a hold opens one, so a crowd never makes the
+            // toss unreachable.
             .contentShape(Rectangle())
             .onTapGesture {
                 guard visited else { return }
@@ -319,16 +344,6 @@ extension StarJarView {
         case (.month, true): return String(appCopy: "No memories yet this month.")
         case (.week, false): return String(appCopy: "No memories that week.")
         case (.month, false): return String(appCopy: "No memories that month.")
-        }
-    }
-
-    private var summary: String {
-        let count = stars.count
-        switch (period, isCurrent) {
-        case (.week, true): return String(appCopy: "\(count) memories this week")
-        case (.month, true): return String(appCopy: "\(count) memories this month")
-        case (.week, false): return String(appCopy: "\(count) memories that week")
-        case (.month, false): return String(appCopy: "\(count) memories that month")
         }
     }
 

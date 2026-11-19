@@ -9,84 +9,103 @@ struct JarAnchorKey: PreferenceKey {
     }
 }
 
-/// A just-saved page's star on its way into the jar (#160): it rises from
-/// the foot of Home and arcs into the jar circle, shrinking as it goes.
-/// Only drawn, never read by VoiceOver: the jar's own landing says it.
-struct FlyingStar: View, Animatable {
-    var progress: CGFloat
-    let start: CGPoint
-    let end: CGPoint
-    /// The page whose star flies: its own face (`PageStar`).
-    let memory: Memory?
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    var body: some View {
-        // Fades into the circle over the last stretch.
-        let fade: Double = progress < 0.85 ? 1 : Double((1 - progress) / 0.15)
-        let turn: Double = Double(progress) * 144
-        Group {
-            if let memory { PageStar(memory: memory) } else { StarMark(color: StarMark.paper) }
-        }
-            .frame(width: 30, height: 30)
-            .scaleEffect(1 - 0.45 * progress)
-            .rotationEffect(.degrees(turn))
-            .opacity(fade)
-            .position(point(at: progress))
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-
-    /// A quadratic arc: straight up first, then over to the jar.
-    private func point(at t: CGFloat) -> CGPoint {
-        let control = CGPoint(x: start.x, y: end.y)
-        let u = 1 - t
-        return CGPoint(
-            x: u * u * start.x + 2 * u * t * control.x + t * t * end.x,
-            y: u * u * start.y + 2 * u * t * control.y + t * t * end.y
-        )
+/// Reduce Motion, or `-REDUCE_MOTION` standing in for it in UI tests.
+enum ReduceMotion {
+    static func resolved(_ system: Bool) -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-REDUCE_MOTION") { return true }
+        #endif
+        return system
     }
 }
 
-/// The jar circle taking a star in: a small bounce, or under Reduce
-/// Motion only a warm glow. `beat` counts the landings.
+/// The jar circle taking a star in (fold demo v4): a squash and settle,
+/// a warm glow and one ring going out, or under Reduce Motion only the
+/// glow. `beat` counts the landings.
 struct JarLanding: ViewModifier {
     let beat: Int
+    /// The star is about to drop in: the circle swells a little for it.
+    var swell = false
     let reduceMotion: Bool
 
     private static let glow = Color(hex: 0xE8B04B)
+    private static let ring = Color(hex: 0xC88C3C)
 
     private struct Pose {
         var scale: CGFloat = 1
         var glow: Double = 0
+        /// The ring's spread, 0...1; it fades as it goes.
+        var ring: CGFloat = 1
     }
 
     func body(content: Content) -> some View {
         // Read here: the animator's closure is Sendable and may not read a
         // main-actor static.
-        let glow = Self.glow
+        let glow = Self.glow, ring = Self.ring, swelled: CGFloat = swell ? 1.06 : 1
         return content
             .keyframeAnimator(initialValue: Pose(), trigger: beat) { view, pose in
                 view
-                    .background(Circle().fill(glow).blur(radius: 6).opacity(pose.glow))
-                    .scaleEffect(pose.scale)
+                    .background(Circle().fill(glow).blur(radius: 10).opacity(pose.glow))
+                    .scaleEffect(pose.scale * swelled)
+                    .overlay {
+                        // 22 to 40 pt out from a 44 pt circle.
+                        Circle()
+                            .stroke(ring.opacity(0.7 * (1 - pose.ring)), lineWidth: 2.4)
+                            .frame(width: 44 + 36 * pose.ring, height: 44 + 36 * pose.ring)
+                            .allowsHitTesting(false)
+                    }
             } keyframes: { _ in
                 KeyframeTrack(\.scale) {
                     if reduceMotion {
                         LinearKeyframe(1, duration: 0.01)
                     } else {
-                        SpringKeyframe(1.15, duration: 0.16)
-                        SpringKeyframe(1, duration: 0.4, spring: .bouncy)
+                        CubicKeyframe(0.84, duration: 0.07)
+                        CubicKeyframe(1.08, duration: 0.09)
+                        CubicKeyframe(0.97, duration: 0.07)
+                        SpringKeyframe(1, duration: 0.2, spring: .bouncy)
                     }
                 }
                 KeyframeTrack(\.glow) {
-                    LinearKeyframe(reduceMotion ? 0.8 : 0.5, duration: 0.15)
-                    LinearKeyframe(0, duration: 0.6)
+                    if reduceMotion {
+                        LinearKeyframe(0.8, duration: 0.15)
+                        LinearKeyframe(0, duration: 0.6)
+                    } else {
+                        LinearKeyframe(1, duration: 0.02)
+                        CubicKeyframe(0, duration: 0.35)
+                    }
+                }
+                KeyframeTrack(\.ring) {
+                    if reduceMotion {
+                        LinearKeyframe(1, duration: 0.01)
+                    } else {
+                        LinearKeyframe(0, duration: 0.01)
+                        CubicKeyframe(1, duration: 0.26)
+                    }
                 }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: beat)
+    }
+}
+
+extension View {
+    /// The page opened from the star jar zooms out of `id`'s source on
+    /// iOS 18; iOS 17 pushes as always.
+    @ViewBuilder
+    func zoomTransition(from id: some Hashable, in namespace: Namespace.ID, when enabled: Bool) -> some View {
+        if #available(iOS 18.0, *), enabled {
+            navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            self
+        }
+    }
+
+    /// The zoom's source: the page where the star unrolled it.
+    @ViewBuilder
+    func zoomSource(_ id: some Hashable, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) {
+            matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
     }
 }

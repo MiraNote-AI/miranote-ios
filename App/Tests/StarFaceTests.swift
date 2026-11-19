@@ -36,9 +36,26 @@ final class StarFaceTests: XCTestCase {
         XCTAssertEqual(Set(bakedIn).count, pages.count, "each in a turn of its own: \(bakedIn)")
     }
 
-    func testAPageGoneForGoodTakesItsStarAlong() {
+    /// Both folders a star has lived in: the dresses (#206 part B) and
+    /// part A's lit stars, which nothing reads any more.
+    private func file(_ folder: String, _ page: Memory) -> URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(folder, isDirectory: true)
+            .appendingPathComponent("\(page.id.uuidString).png")
+    }
+
+    func testAPageGoneForGoodTakesItsStarAlong() async throws {
         let shelved = Memory(title: "Shelved"), binned = Memory(title: "Binned"), gone = Memory(title: "Gone")
-        for page in [shelved, binned, gone] { XCTAssertNotNil(StarFace.bake(page)) }
+        for page in [shelved, binned, gone] {
+            let dress = await StarFace.bake(page)
+            XCTAssertNotNil(dress)
+        }
+        // Part A's lit stars, left from a build before the dresses.
+        let lit = try XCTUnwrap(StarFace.cached(shelved.id)?.pngData())
+        try FileManager.default.createDirectory(
+            at: file("stars", gone).deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        for page in [shelved, gone] { try lit.write(to: file("stars", page)) }
         let library = MemoryLibrary(
             collections: [MemoryCollection(title: "Daily Log", memories: [shelved])],
             trash: [TrashedMemory(memory: binned, collectionTitle: "Daily Log")]
@@ -47,5 +64,10 @@ final class StarFaceTests: XCTestCase {
         XCTAssertNotNil(StarFace.cached(shelved.id))
         XCTAssertNotNil(StarFace.cached(binned.id), "a binned page can come back, with its star")
         XCTAssertNil(StarFace.cached(gone.id), "the star of a page gone for good is gone too")
+        let exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+        XCTAssertTrue(exists(file("star-dress", shelved)) && exists(file("star-dress", binned)))
+        XCTAssertFalse(exists(file("star-dress", gone)), "its dress is off the disk")
+        XCTAssertTrue(exists(file("stars", shelved)))
+        XCTAssertFalse(exists(file("stars", gone)), "and so is its lit star from part A")
     }
 }

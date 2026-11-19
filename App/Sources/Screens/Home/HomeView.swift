@@ -19,9 +19,13 @@ struct HomeView: View {
     var onOpenProfile: () -> Void = {}
     /// The photo trigger's debug entry, at the foot of the page; nil hides it.
     var triggerEntry: TriggerDebugEntry?
-    /// A page just saved from a new canvas: its star flies into the jar.
+    /// A page Save just made a star: it lands in the jar.
     var arrivingStar: Memory?
-    var onStarLanded: () -> Void = {}
+    /// Its page ready to fold (#206); nil under Reduce Motion, where the
+    /// jar only glows.
+    var arrivingFold: StarPaper?
+    /// The star is in; `skipped` when a tap or leaving cut the fold short.
+    var onStarLanded: (_ skipped: Bool) -> Void = { _ in }
 
     @Environment(\.theme) private var theme
     @State private var prompt = ""
@@ -30,9 +34,12 @@ struct HomeView: View {
     @State private var addingCollection = false
     @State private var newCollectionName = ""
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The arriving star's way from the foot of Home (0) to the jar (1).
-    @State private var flight: CGFloat = 0
-    @State private var flying = false
+    @Environment(\.scenePhase) private var scenePhase
+    /// When the fold started; nil when none is playing.
+    @State private var foldStart: Date?
+    @State private var homeScale: CGFloat = 1
+    /// The jar circle swells just before the folded star drops in.
+    @State private var jarSwell = false
     /// Landings so far: each one bounces (or glows) the jar circle.
     @State private var jarBeat = 0
 
@@ -101,17 +108,21 @@ struct HomeView: View {
             .scrollDismissesKeyboard(.immediately)
             .task(id: arrivingStar?.id) { await landArrivingStar(scroller) }
         }
+        .scaleEffect(homeScale)
+        // A tap during the fold skips to the landing, and still does what
+        // it tapped (the jar opens, a page starts).
+        .simultaneousGesture(TapGesture().onEnded { finishFold() })
         .overlayPreferenceValue(JarAnchorKey.self) { anchor in
             GeometryReader { proxy in
-                if flying, let anchor {
-                    FlyingStar(
-                        progress: flight,
-                        start: CGPoint(x: proxy.size.width / 2, y: proxy.size.height - 60),
-                        end: proxy[anchor],
-                        memory: arrivingStar
-                    )
+                if let foldStart, let arrivingFold, let anchor {
+                    SaveFold(paper: arrivingFold, jar: proxy[anchor], start: foldStart,
+                             editorBackground: Theme(appearance: .system).background)
                 }
             }
+            .ignoresSafeArea()
+        }
+        .onChange(of: scenePhase) {
+            if scenePhase != .active, foldStart != nil { finishFold() }
         }
         .screenBackground()
         .accessibilityElement(children: .contain)
@@ -147,7 +158,8 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerCircle("home.starJar", label: "Star jar", action: onOpenStarJar)
-                    .modifier(JarLanding(beat: jarBeat, reduceMotion: reduceMotion))
+                    .modifier(JarLanding(beat: jarBeat, swell: jarSwell,
+                                         reduceMotion: ReduceMotion.resolved(reduceMotion)))
                     .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
                     #if DEBUG
                     // UI tests count the landings.
@@ -159,30 +171,68 @@ struct HomeView: View {
         }
     }
 
-    /// The editor's cover slides away first, then the star flies (0.9 s)
-    /// and lands; under Reduce Motion the jar only glows. Home scrolls to
-    /// its top under the cover first: the jar circle scrolls with the
-    /// page, and the star would fly off the screen to it.
+    /// The page folds into its star over Home and lands in the jar
+    /// (`SaveFold`, 1.6 s); under Reduce Motion the editor's cover slides
+    /// away and the jar only glows. Home scrolls to its top at once, under
+    /// the fold or the cover: the jar circle scrolls with the page.
     private func landArrivingStar(_ scroller: ScrollViewProxy) async {
         guard arrivingStar != nil else { return }
         scroller.scrollTo(Self.top, anchor: .top)
         do {
-            try await Task.sleep(for: .milliseconds(450))
-            if !reduceMotion {
-                flight = 0
-                flying = true
-                withAnimation(.easeInOut(duration: 0.9)) { flight = 1 }
-                try await Task.sleep(for: .milliseconds(900))
-                flying = false
+            if arrivingFold != nil {
+                let start = Date.now
+                foldStart = start
+                homeScale = 0.96
+                withAnimation(.easeOut(duration: 0.3)) { homeScale = 1 }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.5)
+                try await sleep(until: StarFold.haptics[1], from: start)
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
+                try await sleep(until: StarFold.land - StarFold.swell, from: start)
+                withAnimation(.easeOut(duration: StarFold.swell / 1000)) { jarSwell = true }
+                try await sleep(until: StarFold.land, from: start)
+                jarSwell = false
+                landed()
+                try await sleep(until: StarFold.end, from: start)
+                foldStart = nil
+            } else {
+                try await Task.sleep(for: .milliseconds(450))
+                landed()
+                // The glow fades before the arrival clears.
+                try await Task.sleep(for: .milliseconds(800))
             }
-            jarBeat += 1
-            // The glow fades in the star's color before the arrival clears.
-            try await Task.sleep(for: .milliseconds(800))
         } catch {
-            flying = false
+            // Cut short: by a tap or the app leaving (`finishFold` has
+            // run), or by Home leaving with no tap on it mid-fold (a
+            // VoiceOver activation opens the jar), which cancels this
+            // task. Then the star is in at once, as when the app leaves,
+            // and the fold does not play again when Home is back.
+            finishFold()
             return
         }
-        onStarLanded()
+        onStarLanded(false)
+    }
+
+    /// The jar circle takes the star in; VoiceOver, which sees none of
+    /// the fold, hears it.
+    private func landed() {
+        jarBeat += 1
+        AccessibilityNotification.Announcement(String(appCopy: "Saved to your star jar")).post()
+    }
+
+    private func sleep(until ms: Double, from start: Date) async throws {
+        let left = ms / 1000 - Date.now.timeIntervalSince(start)
+        if left > 0 { try await Task.sleep(for: .seconds(left)) }
+    }
+
+    /// A tap, or the app leaving the front, during the fold: the star is
+    /// in the jar at once.
+    private func finishFold() {
+        guard let start = foldStart else { return }
+        if Date.now.timeIntervalSince(start) * 1000 < StarFold.land { landed() }
+        foldStart = nil
+        homeScale = 1
+        jarSwell = false
+        onStarLanded(true)
     }
 
     private func headerCircle(_ icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
