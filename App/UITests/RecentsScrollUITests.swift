@@ -45,6 +45,14 @@ final class RecentsScrollUITests: XCTestCase {
         return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
+    /// Over the page, midway down the strip of it in view above the sheet
+    /// ("Recents" heads the sheet), so the drop lands on a short screen too.
+    private func overThePage(across: CGFloat) -> XCUICoordinate {
+        let top = app.buttons["nav.leading"].frame.maxY
+        let bottom = app.staticTexts["Recents"].frame.minY - 30
+        return app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: across, dy: (top + bottom) / 2))
+    }
+
     /// Drags the grid up about a row at a time, slow and held so no fling
     /// overshoots, until `index`'s middle is inside it; at most 60 drags.
     private func scroll(to index: Int) {
@@ -82,8 +90,7 @@ final class RecentsScrollUITests: XCTestCase {
 
     func testAFarPhotoDragsOntoThePage() {
         scroll(to: 40)
-        let target = app.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: app.frame.width * 0.3, dy: grid.frame.minY - 160))
+        let target = overThePage(across: app.frame.width * 0.3)
         cell(40).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.6, thenDragTo: target)
         let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 1"), object: photos)
