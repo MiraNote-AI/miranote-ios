@@ -210,7 +210,7 @@ struct FoldDrawing { // swiftlint:disable:this type_body_length
     /// The knot: plain paper with one washed band per wrap, a dome light,
     /// at most two seams.
     func knotFace(in context: GraphicsContext, radius R: CGFloat, rotation: CGFloat, wraps: CGFloat, shadow: CGFloat) {
-        var ctx = context
+        let ctx = context
         let outline = Self.pentagon(R, rotation)
         var lifted = ctx
         lifted.addFilter(.shadow(color: Color(.sRGB, red: 40 / 255, green: 28 / 255, blue: 16 / 255,
