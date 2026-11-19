@@ -48,9 +48,10 @@ struct StarButton: View {
                 let frame = $0.frame(in: .global)
                 return CGPoint(x: frame.midX, y: frame.midY)
             } action: { center = $0 }
-            .scaleEffect(1 + Self.grow * tension)
+            // Under Reduce Motion the ring alone shows the hold.
+            .scaleEffect(1 + grow * tension)
             .overlay { ring }
-            .offset(y: -Self.lift * tension)
+            .offset(y: reduceMotion ? 0 : -Self.lift * tension)
             .frame(width: size * 1.3, height: size * 1.3)
             .contentShape(Circle())
             .gesture(press)
@@ -84,7 +85,7 @@ struct StarButton: View {
     /// The hold's progress: a white under-stroke, a faint track, and the
     /// filled arc from the top.
     private var ring: some View {
-        let diameter = size * 0.45 * 3 * (1 + Self.grow * tension)
+        let diameter = size * 0.45 * 3 * (1 + grow * tension)
         let amber = Color(hex: 0xA8682A)
         return ZStack {
             Circle().stroke(Color.white.opacity(0.7), lineWidth: 5)
@@ -97,6 +98,9 @@ struct StarButton: View {
         .opacity(tension > 0 ? 1 : 0)
         .allowsHitTesting(false)
     }
+
+    /// How much the hold grows the star: not at all under Reduce Motion.
+    private var grow: CGFloat { reduceMotion ? 0 : Self.grow }
 
     private var press: some Gesture {
         DragGesture(minimumDistance: 0)
