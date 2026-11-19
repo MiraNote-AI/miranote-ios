@@ -40,7 +40,10 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         app.buttons["mode.text"].tap()
-        XCTAssertTrue(app.buttons["keyboard.done"].waitForExistence(timeout: 2), "the text row")
+        // The beat: Home greys as the writing header comes (#205).
+        let writingHeader = NSPredicate(format: "isEnabled == false")
+        expectation(for: writingHeader, evaluatedWith: app.buttons["nav.leading"])
+        waitForExpectations(timeout: 2)
         shot("10")
 
         let field = app.descendants(matching: .any)["canvas.textEditor"]
