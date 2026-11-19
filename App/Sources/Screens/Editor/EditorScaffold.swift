@@ -33,12 +33,13 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
     /// page; the header and the bottom cluster stay above it. The page
     /// draws its own scrim around the block being written.
     var dimmed = false
-    /// The handoff's dim glass scrim (screens 27-35): the canvas blurs under
-    /// rgba(41, 51, 34, 0.34) while the chrome and the sheet stay clear.
-    var scrimmed = false
-    /// A tap on the scrimmed canvas card -- the tool's way back. The side
+    /// While a panel (photo editing, Sticker) is open the page shows as it
+    /// is -- no blur, no tint (#205: the page stays visible as context) --
+    /// but takes no touches of its own.
+    var pageInert = false
+    /// A tap on the inert canvas card -- the tool's way back. The side
     /// margins are not the card and do nothing.
-    var onScrimTap: () -> Void = {}
+    var onPageTap: () -> Void = {}
     @ViewBuilder var page: () -> Page
     @ViewBuilder var sheet: () -> Sheet
     @ViewBuilder var bottom: () -> Bottom
@@ -62,13 +63,11 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
                 trailingFill: trailingFill
             )
             page()
-                .blur(radius: scrimmed ? 4 : 0)
                 .overlay {
-                    if scrimmed {
-                        RoundedRectangle(cornerRadius: Metrics.canvasCorner)
-                            .fill(Palette.scrim)
+                    if pageInert {
+                        Color.clear
                             .contentShape(Rectangle())
-                            .onTapGesture(perform: onScrimTap)
+                            .onTapGesture(perform: onPageTap)
                             .padding(.horizontal, Metrics.canvasInset)
                             .accessibilityHidden(true)
                     }
@@ -91,10 +90,10 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
             .padding(.bottom, Metrics.bottomGap(safeAreaBottom: bottomInset))
         }
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { bottomInset = $0 }
-        // Beside and around the card the scrim tints the paper; the card
-        // carries its own (blurred) layer above.
+        // Beside and around the card the text scrim tints the paper; the
+        // page draws its own around the block being written.
         .background {
-            if dimmed || scrimmed {
+            if dimmed {
                 Palette.scrim
                     .ignoresSafeArea()
                     .transition(.opacity)

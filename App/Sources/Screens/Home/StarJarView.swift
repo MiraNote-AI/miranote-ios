@@ -93,12 +93,12 @@ struct StarJarView: View {
         .safeAreaInset(edge: .top) { header }
         .onAppear(perform: firstVisit)
         .onChange(of: interval) {
+            tossScene.stop()
             settled = [:]
-            tossing = false
         }
         .onDisappear {
             // Opened mid-air: the stars lie where they did before the toss.
-            tossing = false
+            tossScene.stop()
         }
     }
 
@@ -303,9 +303,9 @@ extension StarJarView {
             tossScene.load(resting, starSize: starSize, geometry: geometry) { star in
                 StarTossScene.face(of: star.memory)
             }
-            tossScene.onSettle = { spots in
-                settled = spots
-                tossing = false
+            tossScene.onSettle = { [landed = $settled, inAir = $tossing] spots in
+                landed.wrappedValue = spots
+                inAir.wrappedValue = false
             }
             tossing = true
         }

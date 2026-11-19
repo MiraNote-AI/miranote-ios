@@ -3,8 +3,9 @@ import MiraNoteKit
 import SwiftUI
 
 /// The Sticker panel, the bar's fifth tool (handoff screens 30-35): a glass
-/// sheet over the scrimmed page with a scrolling tab row -- Make, Favorites,
-/// then the preset sets -- and the generate prompt in the bottom composer.
+/// sheet over the page (inert, unblurred) with a scrolling tab row -- Make,
+/// Favorites, then the preset sets -- and the generate prompt in the bottom
+/// composer.
 /// A made sticker shows large, restyles (Outline / Cutout / B&W) with its
 /// own undo and redo; "Add to page" under it (or a tap on it) hops it onto a
 /// free spot of the page in view. Favorites and presets place on a tap.
@@ -72,12 +73,12 @@ struct StickerPanelScene: View {
             onTrailing: actions.leading,
             // The panel records no step of its own (presets and favorites
             // leave it as they place; a made sticker has its own undo): the
-            // header Undo has nothing here, never a change under the scrim.
+            // header Undo has nothing here, never a change on the inert page.
             onUndo: {},
             undoEnabled: false,
-            // The hopping sticker shows the page it lands on.
-            scrimmed: flight == nil,
-            onScrimTap: {
+            // While a sticker hops in, its own layer takes every touch.
+            pageInert: flight == nil,
+            onPageTap: {
                 // While the prompt has the keyboard and words in it, a tap
                 // on the page only lowers it: leaving would drop the words.
                 if promptFocused && !prompt.isEmpty {
@@ -95,7 +96,7 @@ struct StickerPanelScene: View {
                 actions.leading()
             }
         ) {
-            // The page the sticker will land on, read-only under the scrim.
+            // The page the sticker will land on, read-only while the panel is open.
             PagePreview(memory: editor.memory, scroll: scrollMemory) {}
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { pageRow = $0 }
         } sheet: {
@@ -182,6 +183,11 @@ struct StickerPanelScene: View {
     /// the tabs; 500 while making or showing a sticker (32-33, with the
     /// "Add to page" row); 420 for a full grid (34-35).
     private static let folded: CGFloat = 170
+    /// A Favorites or set cell, three across the sheet (#205).
+    private static let cell: CGFloat = 84
+    /// The bundled presets are 50 px PNGs: drawn larger than this they turn
+    /// blocky, so they sit centered in the cell.
+    private static let presetSide: CGFloat = 60
     /// The notice's line under the empty Favorites words (a dimmed
     /// Layout's hint), so the words keep both their lines.
     private static let noticeRoom: CGFloat = 26
@@ -538,9 +544,9 @@ struct StickerPanelScene: View {
 
     private var favoritesGrid: some View {
         ScrollView(showsIndicators: false) {
-            // Five 60 pt cells across the sheet (screen 34).
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 50, maximum: 60), spacing: 4), count: 5),
-                      spacing: 9) {
+            // Three cells across the sheet (#205, was five, screen 34).
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
+                      spacing: 12) {
                 ForEach(favorites) { favorite in
                     Button {
                         place(favorite)
@@ -562,7 +568,9 @@ struct StickerPanelScene: View {
             }
             .padding(.top, 12)
         }
-        .padding(.leading, -4)
+        // As the set grids: the same three columns, so the cells stay put
+        // when the tab changes.
+        .padding(.leading, 1)
     }
 
     /// Why favorites and presets are dimmed while a made sticker waits.
@@ -586,9 +594,10 @@ struct StickerPanelScene: View {
 
     private func setGrid(_ set: StickerSet) -> some View {
         ScrollView(showsIndicators: false) {
-            // Five 50 pt stickers across the sheet, rows 60 apart (screen 35).
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 13), count: 5),
-                      spacing: 10) {
+            // Three stickers across the sheet (#205, was five, screen 35);
+            // the set scrolls up and down.
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
+                      spacing: 12) {
                 ForEach(set.names, id: \.self) { name in
                     Button {
                         place(name, from: set)
@@ -596,7 +605,8 @@ struct StickerPanelScene: View {
                         Image(set.imageName(name))
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 50, height: 50)
+                            .frame(width: Self.presetSide, height: Self.presetSide)
+                            .frame(width: Self.cell, height: Self.cell)
                     }
                     .buttonStyle(.plain)
                     .disabled(placingWouldDropWork)
@@ -615,7 +625,8 @@ struct StickerPanelScene: View {
         let image = CanvasImageCache.image(fileName: favorite.fileName, filterName: "", store: imageStore)
         switch favorite.kind {
         case .image:
-            // Photos as the handoff draws them: 38 x 36 r18, ink border.
+            // Photos as the handoff draws them, doubled for three across:
+            // 76 x 72 r36, ink border.
             Group {
                 if let image {
                     Image(uiImage: image).resizable().scaledToFill()
@@ -623,10 +634,14 @@ struct StickerPanelScene: View {
                     GradientPlaceholder()
                 }
             }
-            .frame(width: 38, height: 36)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Palette.ink, lineWidth: 3))
-            .frame(width: 60, height: 60)
+            .frame(width: 76, height: 72)
+            .clipShape(RoundedRectangle(cornerRadius: 36))
+            .overlay(RoundedRectangle(cornerRadius: 36).strokeBorder(Palette.ink, lineWidth: 3))
+            .frame(width: Self.cell, height: Self.cell)
+            // Taps stop at the cell: the filled picture runs past 76 x 72
+            // (a tall photo by about 40 pt up and down), and the clip hides
+            // that but still takes taps there, on the cell above or below.
+            .contentShape(Rectangle())
         case .sticker:
             Group {
                 if let image {
@@ -636,7 +651,7 @@ struct StickerPanelScene: View {
                         .foregroundStyle(Palette.taupe)
                 }
             }
-            .frame(width: 60, height: 60)
+            .frame(width: Self.cell, height: Self.cell)
         }
     }
 
