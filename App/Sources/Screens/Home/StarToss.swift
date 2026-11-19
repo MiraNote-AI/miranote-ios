@@ -22,9 +22,10 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
     private var lastInside: [Memory.ID: CGPoint] = [:]
     /// Where the stars lay when loaded, for a toss dropped mid-air.
     private var start: [Memory.ID: StarPile.Spot] = [:]
-    /// When the last tap threw the stars: set on the first frame after it,
-    /// since a paused scene's clock stands still.
-    private var lastThrow: TimeInterval?
+    /// Time in the air since the last tap threw the stars, counted in
+    /// frames the scene ran (nil until the first): seconds the scene stood
+    /// still, the app in the background, are not time in the air.
+    private var airTime: TimeInterval?
     private var now: TimeInterval = 0
     private var stillFrames = 0
     private var ticks = 0
@@ -111,7 +112,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         isPaused = false
         stillFrames = 0
         ticks = 0
-        lastThrow = nil
+        airTime = nil
         #if DEBUG
         frameTimes = []
         #endif
@@ -150,12 +151,14 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
 
     override func update(_ currentTime: TimeInterval) {
         #if DEBUG
-        if isTossing, lastThrow != nil { frameTimes.append(currentTime - now) }
+        if isTossing, airTime != nil { frameTimes.append(currentTime - now) }
         #endif
+        // This frame's share of the toss, at most a slow frame's.
+        let step = min(max(currentTime - now, 0), 0.1)
         now = currentTime
         guard isTossing else { return }
-        let thrown = lastThrow ?? currentTime
-        lastThrow = thrown
+        let elapsed = airTime.map { $0 + step } ?? 0
+        airTime = elapsed
         for (id, node) in nodes {
             if inside.contains(node.position) {
                 lastInside[id] = node.position
@@ -170,7 +173,6 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
                 || (hypot(body.velocity.dx, body.velocity.dy) < 8 && abs(body.angularVelocity) < 0.4)
         }
         stillFrames = still ? stillFrames + 1 : 0
-        let elapsed = currentTime - thrown
         // Calm for a few frames after the throw has landed, or at most 3 s
         // after the last tap: a heap that keeps creeping still hands back.
         if (elapsed > 0.6 && stillFrames >= 6) || elapsed > 3 {
@@ -210,7 +212,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
 
     /// Soft ticks as the first stars land: at most three a toss.
     func didBegin(_ contact: SKPhysicsContact) {
-        guard isTossing, let lastThrow, now - lastThrow > 0.25, ticks < 3, now - lastTick > 0.12,
+        guard isTossing, let airTime, airTime > 0.25, ticks < 3, now - lastTick > 0.12,
               contact.collisionImpulse > 4 else { return }
         ticks += 1
         lastTick = now

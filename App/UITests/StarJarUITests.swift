@@ -154,6 +154,21 @@ final class StarJarUITests: XCTestCase {
         XCTAssertEqual(moved.count, 0, "the month's toss landed on the week's stars: \(moved.keys.sorted())")
     }
 
+    /// #196 review: stars in the air when the app leaves fall on its
+    /// return, rather than staying where they hung.
+    func testStarsInTheAirWhenTheAppLeavesLandOnItsReturn() {
+        relaunch(["-JAR_STARS", "30"])
+        let glass = openSettledJar()
+        let pileTop = starCenters.values.map(\.y).min() ?? 0
+        tapNeck(of: glass)
+        XCUIDevice.shared.press(.home)
+        sleep(4)
+        app.activate()
+        waitUntilSettled(tosses: 1, "back in the app, the toss landed")
+        let top = starCenters.values.map(\.y).min() ?? 0
+        XCTAssertGreaterThan(top, pileTop - 30, "a star hangs \(Int(pileTop - top)) pt above the pile")
+    }
+
     /// #179: under Reduce Motion a tap only sways the jar: no stars fly.
     func testReduceMotionSkipsTheToss() {
         relaunch(["-REDUCE_MOTION"])
