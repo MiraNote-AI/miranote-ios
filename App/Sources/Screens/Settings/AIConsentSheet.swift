@@ -68,8 +68,7 @@ struct AIDataSummary: View {
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             point("What is sent", """
-                The words on your page, photos you choose, and your voice when you dictate. Saved pages' words \
-                are also read for a mood that colors their star.
+                The words on your page, photos you choose, and your voice when you dictate.
                 """)
             point("What we keep", """
                 Our server keeps no words, photos or voice after the result is made, except: Mira chats and \
@@ -124,7 +123,7 @@ struct AIDataDetails: View {
             .accessibilityIdentifier("\(idPrefix).details")
             if open {
                 VStack(alignment: .leading, spacing: 10) {
-                    row("Clean, Expand, Polish, Shorten and moods", "Your words, to DeepSeek.")
+                    row("Clean, Expand, Polish and Shorten", "Your words, to DeepSeek.")
                     row("Mira chat", """
                         Your message, the page you are on and pages that match it, to DeepSeek. When Mira looks \
                         at your page, a picture of it goes to Google (Gemini). Pictures Mira makes or edits go \

@@ -79,6 +79,40 @@ final class MiraImageEditFailureTests: XCTestCase {
         XCTAssertEqual(failure?.kind, .retry)
     }
 
+    /// A refusal from the writer's own account (api #95) says what it is,
+    /// as the chat and the Image panel do: rephrasing cannot get past a
+    /// used-up allowance or an ended sign-in.
+    private func stickerEditFailure(_ error: Error) async throws -> MiraFailure? {
+        let dir = tempDir()
+        let store = ImageFileStore(directory: dir)
+        let board = CanvasViewModel(memory: Memory())
+        board.addSticker(
+            GeneratedSticker(prompt: "the cat", symbolName: "cup",
+                             fileName: try store.save(MockImageStudioService.tinyPNG, id: UUID())),
+            at: CGPoint(x: 150, y: 100)
+        )
+        let mira = coordinator(error, store: store, dir: dir)
+        mira.ask("make the sticker blue", editor: board)
+        return await failure(of: mira)
+    }
+
+    func testAPlusWriterAtTheCapIsToldToTryLater() async throws {
+        let limit = AILimit(feature: "image_edit", plan: "plus")
+        let failure = try await stickerEditFailure(BackendError.limitReached(limit))
+        XCTAssertEqual(failure?.message, "You've reached this limit for now. Try again later.")
+    }
+
+    func testAFreeLimitSaysPlusGivesMore() async throws {
+        let limit = AILimit(feature: "image_edit", plan: "free")
+        let failure = try await stickerEditFailure(BackendError.limitReached(limit))
+        XCTAssertEqual(failure?.message, "You've reached the free limit for this. MiraNote Plus gives you more.")
+    }
+
+    func testAnEndedSignInSaysSo() async throws {
+        let failure = try await stickerEditFailure(AccountError.signedOut)
+        XCTAssertEqual(failure?.message, "Your sign-in has ended. Sign in again to use Mira's AI.")
+    }
+
     /// Any other failure keeps the card's own words.
     func testAnotherFailureKeepsTheGeneralWords() async throws {
         let dir = tempDir()

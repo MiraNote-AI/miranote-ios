@@ -34,7 +34,8 @@ final class UserTokenTests: XCTestCase {
         return request
     }
 
-    nonisolated private static func answer(_ request: URLRequest, _ status: Int, _ body: String = "{}") -> (HTTPURLResponse, Data) {
+    nonisolated private static func answer(_ request: URLRequest, _ status: Int,
+                                           _ body: String = "{}") -> (HTTPURLResponse, Data) {
         (HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
     }
 
@@ -113,6 +114,30 @@ final class UserTokenTests: XCTestCase {
         XCTAssertFalse(account.isSignedIn)
     }
 
+    /// A build that offers no sign-in installs no token source
+    /// (`SignInPresenter.install`), and every client built with the default
+    /// sends what it sent before this change: the beta token, no request id,
+    /// the body untouched.
+    func testABuildWithoutSignInSendsTheBetaTokenAsBefore() async throws {
+        XCTAssertNil(UserTokens.installed)
+        var seen: [URLRequest] = []
+        StubURLProtocol.handler = { request in
+            seen.append(request)
+            return Self.answer(request, 200)
+        }
+        let body = Data(#"{"text": "tea"}"#.utf8)
+        var sent = request()
+        sent.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        sent.httpBody = body
+        _ = try await HTTPClient(session: StubURLProtocol.makeSession(), betaToken: "beta").send(sent)
+
+        XCTAssertEqual(seen.count, 1)
+        XCTAssertEqual(seen.first?.value(forHTTPHeaderField: "Authorization"), "Bearer beta")
+        XCTAssertNil(seen.first?.value(forHTTPHeaderField: "X-Request-ID"))
+        XCTAssertEqual(seen.first?.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(seen.first?.capturedBody, body)
+    }
+
     func testTheAccountsServiceNeverGetsOurAccessToken() async throws {
         UserTokens.installed = account(tokens(2))
         defer { UserTokens.installed = nil }
@@ -128,6 +153,35 @@ final class UserTokenTests: XCTestCase {
         // The default client reads the installed source.
         _ = try await HTTPClient(session: StubURLProtocol.makeSession(), betaToken: "beta").send(request())
         XCTAssertEqual(auth, [nil, "Bearer access-2"])
+    }
+
+    /// Signing out cancels a refresh that is out. Every request waiting on
+    /// it ends as signed out, not as the cancellation, which the live
+    /// accounts client reads as `.unreachable` ("Couldn't reach MiraNote's
+    /// AI server ... the team needs to know").
+    func testSigningOutDuringARefreshEndsItsRequestsAsSignedOut() async throws {
+        StubURLProtocol.handler = {
+            Self.answer($0, $0.value(forHTTPHeaderField: "Authorization") == "Bearer access-1" ? 401 : 200)
+        }
+        for cancelled in [nil, BackendError.unreachable] as [BackendError?] {
+            let api = FakeAccountsAPI(refreshResults: [.success(tokens(2))])
+            api.refreshDelay = 5_000_000_000
+            api.cancelledRefreshError = cancelled
+            let account = account(tokens(1), api: api)
+            let requests = (0..<2).map { _ in Task { try await client(account).send(request()) } }
+            for _ in 0..<500 where api.refreshes.isEmpty { try await Task.sleep(nanoseconds: 2_000_000) }
+            XCTAssertEqual(api.refreshes, ["refresh-1"])
+            await account.signOut()
+            for request in requests {
+                do {
+                    _ = try await request.value
+                    XCTFail("sent after sign-out")
+                } catch {
+                    XCTAssertEqual(error as? AccountError, .signedOut, "\(error), cancelled as \(cancelled as Any)")
+                }
+            }
+            XCTAssertNil(account.userID, "the renewed pair was not kept")
+        }
     }
 
     // MARK: Limits
@@ -211,27 +265,39 @@ final class UserTokenTests: XCTestCase {
 /// What the phone counts as Plus (api #95 step 4).
 final class PlusEntitlementTests: XCTestCase {
     private typealias Facts = PlusEntitlement.Facts
+    private let monthly = PlusStore.ProductID.monthly
+    private let yearly = PlusStore.ProductID.yearly
     private let soon = Date(timeIntervalSince1970: 1_800_000_000)
+
+    /// The ids App Store Connect will hold for good: the design's, which
+    /// follow the bundle id (accounts-and-subscriptions design 4.1 and
+    /// build step 9, decided 2026-11-13). The server's rows and tests use
+    /// them too (miranote-api #113).
+    func testThePlansAreTheDesignsProductIDs() {
+        XCTAssertEqual(PlusStore.ProductID.monthly, "ai.miranote.app.plus.monthly")
+        XCTAssertEqual(PlusStore.ProductID.yearly, "ai.miranote.app.plus.yearly")
+        XCTAssertEqual(PlusStore.ProductID.all, [PlusStore.ProductID.yearly, PlusStore.ProductID.monthly])
+    }
 
     func testNoTransactionsIsTheFreePlan() {
         XCTAssertNil(PlusEntitlement.current(from: []))
     }
 
     func testAPlusPlanIsPlus() {
-        let facts = [Facts(productID: "plus.monthly", expiresAt: soon)]
+        let facts = [Facts(productID: monthly, expiresAt: soon)]
         XCTAssertEqual(PlusEntitlement.current(from: facts),
-                       PlusEntitlement(productID: "plus.monthly", expiresAt: soon))
+                       PlusEntitlement(productID: monthly, expiresAt: soon))
     }
 
     func testARefundedPlanIsNotPlus() {
-        let facts = [Facts(productID: "plus.yearly", expiresAt: soon, revokedAt: soon.addingTimeInterval(-60))]
+        let facts = [Facts(productID: yearly, expiresAt: soon, revokedAt: soon.addingTimeInterval(-60))]
         XCTAssertNil(PlusEntitlement.current(from: facts))
     }
 
     func testAnUpgradedPlanGivesWayToTheNewOne() {
-        let facts = [Facts(productID: "plus.monthly", expiresAt: soon.addingTimeInterval(86_400), isUpgraded: true),
-                     Facts(productID: "plus.yearly", expiresAt: soon.addingTimeInterval(365 * 86_400))]
-        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, "plus.yearly")
+        let facts = [Facts(productID: monthly, expiresAt: soon.addingTimeInterval(86_400), isUpgraded: true),
+                     Facts(productID: yearly, expiresAt: soon.addingTimeInterval(365 * 86_400))]
+        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, yearly)
         XCTAssertEqual(PlusEntitlement.current(from: facts)?.isYearly, true)
     }
 
@@ -240,9 +306,9 @@ final class PlusEntitlementTests: XCTestCase {
     }
 
     func testTheLatestExpiryWins() {
-        let facts = [Facts(productID: "plus.monthly", expiresAt: soon),
-                     Facts(productID: "plus.yearly", expiresAt: soon.addingTimeInterval(100))]
-        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, "plus.yearly")
+        let facts = [Facts(productID: monthly, expiresAt: soon),
+                     Facts(productID: yearly, expiresAt: soon.addingTimeInterval(100))]
+        XCTAssertEqual(PlusEntitlement.current(from: facts)?.productID, yearly)
     }
 }
 

@@ -14,9 +14,11 @@ import StoreKit
 @MainActor
 @Observable
 public final class PlusStore {
+    /// The design's ids (4.1, build step 9): the bundle id, then the plan.
+    /// App Store Connect keeps a product id for good.
     public enum ProductID {
-        public static let monthly = "plus.monthly"
-        public static let yearly = "plus.yearly"
+        public static let monthly = "ai.miranote.app.plus.monthly"
+        public static let yearly = "ai.miranote.app.plus.yearly"
         public static let all = [yearly, monthly]
     }
 

@@ -15,8 +15,7 @@ extension ServiceContainer {
         stickerGeneration: MockStickerGenerationService(),
         styleTransfer: MockStyleTransferService(),
         chat: UITestScriptedChat(),
-        imageStudio: UITestScriptedStudio(),
-        mood: UITestScriptedMood()
+        imageStudio: UITestScriptedStudio()
     )
 }
 
@@ -65,26 +64,6 @@ struct UITestSubscriptions: SubscriptionsAPI {
 
     func sync(signedTransaction: String, signedRenewalInfo: String) async throws {
         await MainActor.run { Self.synced += 1 }
-    }
-}
-
-/// The mock mood ("happy" reads as joyful), except that the first
-/// `-MOOD_FAIL_FIRST <n>` asks fail as an unreachable backend does: the
-/// retry after a hiccup at Save can be driven (#159). `served` counts every
-/// ask that reaches it, failed or not: the UI tests' ground truth for "no
-/// mood was asked" (#151). `aiSent` is counted inside the consent gate, so
-/// it cannot see a request that skips the gate.
-actor UITestScriptedMood: MoodService {
-    private let mock = MockMoodService()
-    private var failuresLeft = UserDefaults.standard.integer(forKey: "MOOD_FAIL_FIRST")
-    @MainActor static var served = 0
-
-    func mood(for text: String) async throws -> Mood {
-        await MainActor.run { Self.served += 1 }
-        guard failuresLeft > 0 else { return try await mock.mood(for: text) }
-        failuresLeft -= 1
-        try? await Task.sleep(for: .milliseconds(300))
-        throw BackendError.unreachable
     }
 }
 
@@ -374,8 +353,6 @@ struct DebugStateProbe: View {
         state["micLive"] = MockAudioRecorder.liveCount
         // Ground truth for "Not now sends nothing": requests past AI consent.
         state["aiSent"] = AIConsent.shared.sentRequests
-        // Mood requests that reached the service, past the gate or not.
-        state["moodServed"] = UITestScriptedMood.served
         state["signedIn"] = Account.shared.isSignedIn ? 1 : 0
         state["plus"] = PlusStore.shared.isPlus ? 1 : 0
         state["plusSyncs"] = UITestSubscriptions.synced

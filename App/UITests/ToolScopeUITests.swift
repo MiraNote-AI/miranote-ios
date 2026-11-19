@@ -2,7 +2,7 @@ import XCTest
 
 /// A tool open over the canvas acts on its own work only: with a photo
 /// lifted, the header Undo -- like the floating one -- takes back this
-/// visit's steps and never reaches under the scrim.
+/// visit's steps and never reaches the page under the panel.
 final class ToolScopeUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -21,7 +21,7 @@ final class ToolScopeUITests: XCTestCase {
 
     /// Meng's #107 scenario through the header Undo: with the photo lifted
     /// and nothing edited in this visit, it must not take back the text
-    /// block written before (hidden under the scrim, with no Redo).
+    /// block written before (under the panel, with no Redo).
     func testTheHeaderUndoWhileAPhotoIsLiftedLeavesANewerTextBlock() {
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
         app.buttons["mode.image"].tap()
@@ -61,7 +61,7 @@ final class ToolScopeUITests: XCTestCase {
         app.buttons["editor.undo"].tap()
         app.buttons["nav.trailing"].tap()
         XCTAssertTrue(app.staticTexts["Dinner with Mom"].waitForExistence(timeout: 3),
-                      "the header Undo in the photo editor kept the text block under the scrim")
+                      "the header Undo in the photo editor kept the text block under the panel")
     }
 
     /// The header Undo takes back this visit's own edit, like the floating one.

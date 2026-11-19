@@ -363,7 +363,7 @@ extension CanvasScene {
                 guard var now = rewrite, now.original.id == id else { return }
                 now.session.fail(choice, of: source)
                 rewrite = now
-                dictationHint = (error as? AIConsentError)?.errorDescription
+                dictationHint = AIConsentError.message(for: error)
                     ?? String(appCopy: "Couldn't rewrite -- try again?")
             }
         }

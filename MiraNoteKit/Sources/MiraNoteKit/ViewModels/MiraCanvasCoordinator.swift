@@ -487,8 +487,10 @@ public final class MiraCanvasCoordinator {
         if let clarify = error as? MiraClarifyError {
             return MiraFailure(kind: .clarify, message: clarify.question, chips: clarify.chips)
         }
-        if let consent = error as? AIConsentError {
-            return MiraFailure(kind: .retry, message: consent.errorDescription ?? "", chips: ["Try again"])
+        // No consent or sign-in, a sign-in that ended, or a used-up
+        // allowance (api #95): said as it is, since rephrasing cannot help.
+        if let message = AIConsentError.message(for: error) {
+            return MiraFailure(kind: .retry, message: message, chips: ["Try again"])
         }
         // A failed photo or sticker edit says why (api #103), in the same
         // app copy the Photo and Sticker editors show.

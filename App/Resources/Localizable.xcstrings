@@ -121,18 +121,6 @@
         }
       }
     },
-    "%@, mood off" : {
-      "comment" : "VoiceOver: a star's page title while moods are not read (#151).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@，心情已关闭"
-          }
-        }
-      }
-    },
     "%@: every question type was taken nearby; the first was asked" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -209,146 +197,6 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "还剩 %lld 天"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld memories that month" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memory that month"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memories that month"
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "那个月有 %lld 段回忆"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld memories that week" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memory that week"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memories that week"
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "那一周有 %lld 段回忆"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld memories this month" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memory this month"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memories this month"
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "这个月有 %lld 段回忆"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld memories this week" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memory this week"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld memories this week"
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "这周有 %lld 段回忆"
                 }
               }
             }
@@ -1415,18 +1263,6 @@
         }
       }
     },
-    "Calm" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "平静"
-          }
-        }
-      }
-    },
     "Camera" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1692,14 +1528,14 @@
         }
       }
     },
-    "Clean, Expand, Polish, Shorten and moods" : {
-      "comment" : "AI consent Details list (#151): feature.",
+    "Clean, Expand, Polish and Shorten" : {
+      "comment" : "AI details: the text tools' row.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "整理、扩写、润色、精简和心情"
+            "value" : "整理、扩写、润色和精简"
           }
         }
       }
@@ -3276,18 +3112,6 @@
         }
       }
     },
-    "Joyful" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "喜悦"
-          }
-        }
-      }
-    },
     "Keep" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3579,18 +3403,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在看这一页…"
-          }
-        }
-      }
-    },
-    "Low" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "低落"
           }
         }
       }
@@ -3965,6 +3777,30 @@
         }
       }
     },
+    "Mira has paused this for now. Try again after %@." : {
+      "comment" : "Error: the AI services paused this feature until the time shown (its daily cost budget is used up).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 暂停了这项功能，请在 %@ 之后再试。"
+          }
+        }
+      }
+    },
+    "Mira has paused this for now. Try again later." : {
+      "comment" : "Error: the AI services paused this feature for now (its daily cost budget is used up).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 暂停了这项功能，请稍后再试。"
+          }
+        }
+      }
+    },
     "Mira is busy right now. Wait a moment and try again." : {
       "comment" : "Image edit (/stylize) failed: the server's reason, in the app's words.",
       "extractionState" : "manual",
@@ -4108,6 +3944,18 @@
         }
       }
     },
+    "MiraNote's sign-in service isn't answering right now. Try again shortly." : {
+      "comment" : "Error: the AI services could not reach the accounts service to check this request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiraNote 的登录服务暂时没有响应，请稍后再试。"
+          }
+        }
+      }
+    },
     "Monday" : {
       "comment" : "Photo trigger CONTENT (always Chinese): weekday, in the push body.",
       "extractionState" : "manual",
@@ -4139,18 +3987,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按月"
-          }
-        }
-      }
-    },
-    "Mood from my words" : {
-      "comment" : "Settings, AI & privacy (#151): switch: read saved pages' moods.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "根据文字判断心情"
           }
         }
       }
@@ -4303,18 +4139,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自然风光"
-          }
-        }
-      }
-    },
-    "Neutral" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "平常"
           }
         }
       }
@@ -4735,18 +4559,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知没开"
-          }
-        }
-      }
-    },
-    "Off: saved pages are not read for a mood, and their stars stay one neutral color." : {
-      "comment" : "Settings, AI & privacy (#151): what the mood switch's off does.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭后：不会读取保存页面的心情，星星都保持同一种中性颜色。"
           }
         }
       }
@@ -6241,6 +6053,18 @@
         }
       }
     },
+    "Saved to your star jar" : {
+      "comment" : "Star jar: VoiceOver hears this when a saved page's star lands in the jar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已放进星星罐"
+          }
+        }
+      }
+    },
     "Say something..." : {
       "comment" : "Placeholder of an empty text block on the page.",
       "extractionState" : "manual",
@@ -6459,6 +6283,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "色调"
+          }
+        }
+      }
+    },
+    "Shake" : {
+      "comment" : "Star jar: VoiceOver action that shakes the jar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摇一摇"
           }
         }
       }
@@ -6941,6 +6777,18 @@
         }
       }
     },
+    "Tap to shake. Hold a star to open." : {
+      "comment" : "Star jar: the hint under the jar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点摇一摇，按住星星打开。"
+          }
+        }
+      }
+    },
     "Tap your avatar or name to edit" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6982,30 +6830,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "告诉 Mira 要改什么"
-          }
-        }
-      }
-    },
-    "Tender" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "温柔"
-          }
-        }
-      }
-    },
-    "Tense" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "紧张"
           }
         }
       }
@@ -7401,14 +7225,14 @@
         }
       }
     },
-    "The words on your page, photos you choose, and your voice when you dictate. Saved pages' words are also read for a mood that colors their star." : {
-      "comment" : "AI consent sheet (#151): what is sent.",
+    "The words on your page, photos you choose, and your voice when you dictate." : {
+      "comment" : "AI consent: what is sent.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "页面上的文字、你选择的照片，以及你口述时的语音。保存的页面文字也会用来判断心情，为它的星星上色。"
+            "value" : "页面上的文字、你选择的照片，以及你口述时的语音。"
           }
         }
       }
@@ -9041,18 +8865,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "马天尼"
-          }
-        }
-      }
-    },
-    "mood not read yet" : {
-      "comment" : "VoiceOver: a star whose page's mood is not known yet.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "心情尚未识别"
           }
         }
       }

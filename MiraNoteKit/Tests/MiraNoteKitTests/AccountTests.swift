@@ -248,7 +248,7 @@ final class AccountTests: XCTestCase {
                        "Sign in to use Mira's AI. You can sign in from Settings.")
     }
 
-    func testMoodNeverAsksToSignIn() async throws {
+    func testBackgroundDescribeNeverAsksToSignIn() async throws {
         let defaults = UserDefaults(suiteName: "account-test-\(UUID().uuidString)")!
         let consent = AIConsent(defaults: defaults, grantedByDefault: true)
         consent.signIn = {
@@ -256,7 +256,7 @@ final class AccountTests: XCTestCase {
             return false
         }
         let services = ServiceContainer.mock.asking(consent)
-        _ = try await services.mood.mood(for: "a calm day")
+        _ = try await services.imageStudio.describe(image: MockImageStudioService.tinyPNG)
     }
 
     // MARK: The live API
@@ -369,6 +369,9 @@ final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
     var signInResult: AccountTokens?
     var refreshResults: [Result<AccountTokens, Error>]
     var refreshDelay: UInt64 = 0
+    /// What a refresh cancelled during its delay throws; nil is the
+    /// `CancellationError` itself.
+    var cancelledRefreshError: Error?
     var signOutError: Error?
     var deleteResult: Result<Bool, Error> = .success(true)
     var deletes: [(accessToken: String, authorizationCode: String)] = []
@@ -389,7 +392,9 @@ final class FakeAccountsAPI: AccountsAPI, @unchecked Sendable {
 
     func refresh(refreshToken: String) async throws -> AccountTokens {
         refreshes.append(refreshToken)
-        if refreshDelay > 0 { try await Task.sleep(nanoseconds: refreshDelay) }
+        if refreshDelay > 0 {
+            do { try await Task.sleep(nanoseconds: refreshDelay) } catch { throw cancelledRefreshError ?? error }
+        }
         return try refreshResults.removeFirst().get()
     }
 

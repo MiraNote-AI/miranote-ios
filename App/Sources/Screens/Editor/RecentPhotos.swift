@@ -9,9 +9,9 @@ struct LibraryPhoto: Identifiable, Hashable {
 
 /// The Recents grid's photos (handoff screen 24): the newest library photos
 /// through PhotoKit -- the system picker cannot draw the design's r18 cells,
-/// ink selection ring and order badges. -UITEST runs read nine painted
-/// samples instead, so selection flows are deterministic and need no
-/// permission.
+/// ink selection ring and order badges. -UITEST runs read 120 painted
+/// samples instead (more than a page), so selection and scroll flows are
+/// deterministic and need no permission.
 @MainActor
 @Observable
 final class RecentPhotos {
@@ -21,12 +21,23 @@ final class RecentPhotos {
     }
 
     private(set) var access: Access = .unknown
+    /// The pages shown so far; `loadMore` adds the next.
     private(set) var photos: [LibraryPhoto] = []
 
     private let usesSamples: Bool
     private let imageManager = PHCachingImageManager()
+    /// The shown photos' assets, by identifier.
     private var assets: [String: PHAsset] = [:]
-    private var thumbnails: [String: UIImage] = [:]
+    /// Enough for a few screens of the grid; visible cells hold their own.
+    private let thumbnails: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 120
+        return cache
+    }()
+    /// How many photos there are to page through, and the identifiers in
+    /// a range of them (filling `assets` for those).
+    private var total = 0
+    private var page: (Range<Int>) -> [String] = { _ in [] }
     /// Refetches when the library changes -- photos shared through the
     /// limited picker show without reopening the tool.
     /// Set once on the main actor; read again only by deinit.
@@ -45,10 +56,10 @@ final class RecentPhotos {
         if let observer { PHPhotoLibrary.shared().unregisterChangeObserver(observer) }
     }
 
-    /// Asks once and fetches the newest 60, then follows library changes.
+    /// Asks once and shows the newest page, then follows library changes.
     func load() async {
         if usesSamples {
-            photos = Self.sampleColors.indices.map { LibraryPhoto(id: "sample-\($0)") }
+            show(total: Self.sampleCount) { range in range.map { "sample-\($0)" } }
             access = .granted
             #if DEBUG
             // -UITEST: the limited-access sheet, on the same samples.
@@ -84,42 +95,62 @@ final class RecentPhotos {
         PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: top)
     }
 
+    /// The next page, when one is left.
+    func loadMore() {
+        guard photos.count < total else { return }
+        let end = min(photos.count + Self.pageSize, total)
+        photos += page(photos.count..<end).map(LibraryPhoto.init(id:))
+    }
+
+    /// The photos published a page at a time, so a big library opens as
+    /// fast as a small one.
+    nonisolated static let pageSize = 90
+
+    /// A fresh source: as many photos as showed before (a library change
+    /// keeps the user's place), at least a page.
+    private func show(total: Int, page: @escaping (Range<Int>) -> [String]) {
+        self.total = total
+        self.page = page
+        photos = page(0..<min(max(photos.count, Self.pageSize), total)).map(LibraryPhoto.init(id:))
+    }
+
     private func fetch() {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        // Limited: every shared photo, however old, so a fresh share is
-        // never cut off by the 60 newest taken.
-        if access != .limited { options.fetchLimit = Self.shown }
+        // A lazy result: only the pages shown are read.
         let result = PHAsset.fetchAssets(with: .image, options: options)
+        assets = [:]
+        guard access == .limited else {
+            show(total: result.count) { [weak self] range in
+                let found = result.objects(at: IndexSet(integersIn: range))
+                for asset in found { self?.assets[asset.localIdentifier] = asset }
+                return found.map(\.localIdentifier)
+            }
+            return
+        }
+        // Limited: every shared photo, however old, sorted by when it was
+        // shared -- the user picked them, so there are few.
         var ids: [String] = []
         result.enumerateObjects { asset, _, _ in
             self.assets[asset.localIdentifier] = asset
             ids.append(asset.localIdentifier)
         }
-        if access == .limited {
-            let defaults = UserDefaults.standard
-            let stored = defaults.dictionary(forKey: Self.sharedAtKey) as? [String: Date]
-            let shared = Self.sharedOrder(ids, sharedAt: stored, now: Date())
-            defaults.set(shared.sharedAt, forKey: Self.sharedAtKey)
-            ids = shared.ids
-        }
-        photos = ids.map(LibraryPhoto.init(id:))
+        let defaults = UserDefaults.standard
+        let stored = defaults.dictionary(forKey: Self.sharedAtKey) as? [String: Date]
+        let shared = Self.sharedOrder(ids, sharedAt: stored, now: Date())
+        defaults.set(shared.sharedAt, forKey: Self.sharedAtKey)
+        show(total: shared.ids.count) { range in Array(shared.ids[range]) }
     }
 
     /// When each photo was first seen shared, by library identifier.
     private static let sharedAtKey = "photos.limited.sharedAt"
-
-    /// The most photos the grid holds.
-    nonisolated static let shown = 60
 
     /// Limited access: PhotoKit does not say when a photo was shared, so a
     /// photo first seen now counts as shared now, and the grid shows the
     /// latest shares first (#167). `ids` come newest taken first; the
     /// photos already shared before anything was recorded (`sharedAt` nil)
     /// keep that order, below any later share. A photo no longer shared
-    /// is forgotten, so sharing it again brings it back to the top. The
-    /// first `shown` come back, cut after the sort so an old photo shared
-    /// last is among them; `sharedAt` keeps every share.
+    /// is forgotten, so sharing it again brings it back to the top.
     nonisolated static func sharedOrder(
         _ ids: [String], sharedAt: [String: Date]?, now: Date
     ) -> (ids: [String], sharedAt: [String: Date]) {
@@ -131,30 +162,30 @@ final class RecentPhotos {
                 return left != right ? left > right : lhs.offset < rhs.offset
             }
             .map(\.element)
-        return (Array(ordered.prefix(shown)), seen)
+        return (ordered, seen)
     }
 
+    /// The cell's thumbnail; a cell scrolled away (its task cancelled)
+    /// drops the PhotoKit request, so a fling queues no iCloud downloads.
     func thumbnail(_ photo: LibraryPhoto, side: CGFloat) async -> UIImage? {
-        if let cached = thumbnails[photo.id] { return cached }
+        if let cached = thumbnails.object(forKey: photo.id as NSString) { return cached }
         let image: UIImage?
         if usesSamples {
             image = Self.sample(photo).flatMap(UIImage.init(data:))
         } else if let asset = assets[photo.id] {
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .highQualityFormat
-            options.resizeMode = .fast
-            options.isNetworkAccessAllowed = true
+            let request = ThumbnailRequest(manager: imageManager)
             let pixels = side * 3
-            image = await withCheckedContinuation { continuation in
-                imageManager.requestImage(
-                    for: asset, targetSize: CGSize(width: pixels, height: pixels),
-                    contentMode: .aspectFill, options: options
-                ) { image, _ in continuation.resume(returning: image) }
+            image = await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    request.start(continuation, asset: asset, size: CGSize(width: pixels, height: pixels))
+                }
+            } onCancel: {
+                request.cancel()
             }
         } else {
             image = nil
         }
-        thumbnails[photo.id] = image
+        if let image { thumbnails.setObject(image, forKey: photo.id as NSString) }
         return image
     }
 
@@ -170,7 +201,7 @@ final class RecentPhotos {
             let raw: Data?
             if usesSamples {
                 raw = Self.sample(pick)
-            } else if let asset = assets[pick.id] {
+            } else if let asset = assets[pick.id] ?? Self.asset(pick.id) {
                 let options = PHImageRequestOptions()
                 options.isNetworkAccessAllowed = true
                 options.version = .current
@@ -185,6 +216,68 @@ final class RecentPhotos {
             if let raw, let scaled = UIImage(data: raw)?.downscaled() { result.append(scaled) }
         }
         return result
+    }
+
+    /// A pick the shown pages no longer hold is still in the library: a
+    /// library change refills `assets` for the shown count only, so new
+    /// photos on top push the last shown ones (and a pick there) out.
+    private static func asset(_ id: String) -> PHAsset? {
+        PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
+    }
+
+    /// One thumbnail request PhotoKit can be told to drop. The continuation
+    /// resumes exactly once: with the image, or with nil when the cell's
+    /// task is cancelled first (PhotoKit may still answer after a cancel).
+    /// Not private: ThumbnailRequestTests holds PhotoKit's answers.
+    final class ThumbnailRequest: @unchecked Sendable {
+        private let manager: PHImageManager
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<UIImage?, Never>?
+        private var id: PHImageRequestID?
+        private var cancelled = false
+
+        init(manager: PHImageManager) {
+            self.manager = manager
+        }
+
+        func start(_ continuation: CheckedContinuation<UIImage?, Never>, asset: PHAsset, size: CGSize) {
+            lock.lock()
+            guard !cancelled else {
+                lock.unlock()
+                continuation.resume(returning: nil)
+                return
+            }
+            self.continuation = continuation
+            lock.unlock()
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.resizeMode = .fast
+            options.isNetworkAccessAllowed = true
+            let id = manager.requestImage(for: asset, targetSize: size, contentMode: .aspectFill,
+                                          options: options) { [weak self] image, _ in self?.finish(image) }
+            lock.lock()
+            self.id = id
+            let lateCancel = cancelled
+            lock.unlock()
+            if lateCancel { manager.cancelImageRequest(id) }
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            let id = self.id
+            lock.unlock()
+            if let id { manager.cancelImageRequest(id) }
+            finish(nil)
+        }
+
+        private func finish(_ image: UIImage?) {
+            lock.lock()
+            let continuation = self.continuation
+            self.continuation = nil
+            lock.unlock()
+            continuation?.resume(returning: image)
+        }
     }
 
     /// PhotoKit calls back on its own queue; the owner hops to the main actor.
@@ -202,6 +295,9 @@ final class RecentPhotos {
 
     // MARK: -UITEST samples
 
+    private static let sampleCount = 120
+
+    /// Painted in turn, so neighbours differ.
     private static let sampleColors: [UIColor] = [
         UIColor(red: 0.62, green: 0.20, blue: 0.20, alpha: 1),
         UIColor(red: 0.84, green: 0.80, blue: 0.74, alpha: 1),
@@ -215,7 +311,7 @@ final class RecentPhotos {
     ]
 
     private static func sample(_ photo: LibraryPhoto) -> Data? {
-        guard let index = Int(photo.id.dropFirst("sample-".count)), sampleColors.indices.contains(index) else {
+        guard let index = Int(photo.id.dropFirst("sample-".count)), (0..<sampleCount).contains(index) else {
             return nil
         }
         let format = UIGraphicsImageRendererFormat.default()
@@ -226,7 +322,7 @@ final class RecentPhotos {
         let size = !shapes ? CGSize(width: 120, height: 120)
             : index % 2 == 0 ? CGSize(width: 300, height: 400) : CGSize(width: 400, height: 260)
         return UIGraphicsImageRenderer(size: size, format: format).pngData { context in
-            sampleColors[index].setFill()
+            sampleColors[index % sampleColors.count].setFill()
             context.fill(CGRect(origin: .zero, size: size))
             if shapes {
                 UIColor.white.withAlphaComponent(0.6).setFill()

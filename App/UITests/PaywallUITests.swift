@@ -53,6 +53,14 @@ final class PaywallUITests: XCTestCase {
         }.max() ?? -1
     }
 
+    /// The text strip's line after a used-up free allowance.
+    private var limitLine: XCUIElement {
+        let words = "You've reached the free limit for this."
+        return app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ OR value CONTAINS %@", words, words
+        )).firstMatch
+    }
+
     private func fieldValueContains(_ words: String, timeout: TimeInterval = 5) -> Bool {
         let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", words), object: field)
         return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
@@ -68,6 +76,10 @@ final class PaywallUITests: XCTestCase {
         XCTAssertTrue(app.buttons["paywall.privacy"].exists)
         XCTAssertTrue(app.buttons["paywall.restore"].exists)
         XCTAssertEqual(probeMax("plus"), 0)
+        // VoiceOver reads each benefit once: the tick before it is
+        // decoration (iOS reads the bare symbol as "Selected").
+        let ticks = app.images.matching(identifier: "checkmark")
+        XCTAssertEqual(ticks.count, 0, "the ticks are decoration: \(ticks.allElementsBoundByIndex.map(\.label))")
     }
 
     func testBuyingPlusInThePaywallLiftsTheLimit() throws {
@@ -79,7 +91,7 @@ final class PaywallUITests: XCTestCase {
         startWriting("noodle shop")
         expand()
         XCTAssertTrue(paywall.waitForExistence(timeout: 5))
-        let monthly = app.buttons["paywall.plan.plus.monthly"]
+        let monthly = app.buttons["paywall.plan.ai.miranote.app.plus.monthly"]
         XCTAssertTrue(monthly.waitForExistence(timeout: 10), "the plans load from the StoreKit session")
         XCTAssertTrue(app.staticTexts["$5.99 a month"].exists, "price and period")
         XCTAssertTrue(app.staticTexts["Introductory offer: $2.99 a month for 2 months, then $5.99 a month."].exists,
@@ -106,6 +118,36 @@ final class PaywallUITests: XCTestCase {
         XCTAssertTrue(paywall.waitForNonExistence(timeout: 5))
         XCTAssertEqual(probeMax("plus"), 0)
         XCTAssertTrue(field.exists, "the page is still there to write on")
+        let strip = app.buttons["style.mic"]
+        XCTAssertTrue(limitLine.waitForExistence(timeout: 3),
+                      "the strip says the free limit, not a retry: \(String(describing: strip.value))")
+    }
+
+    /// A build that names no accounts service (Config/App.xcconfig as
+    /// shipped): the same answer opens no paywall, and Settings has no PLUS
+    /// card.
+    func testABuildWithoutSignInOpensNoPaywallAndHasNoPlusCard() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-AI-LIMIT-REACHED", "-NO-ACCOUNTS"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        startWriting("noodle shop")
+        expand()
+        // The strip's words for a failed rewrite, whichever they are.
+        let failed = app.descendants(matching: .any).matching(NSPredicate(
+            format: "value CONTAINS %@ OR value CONTAINS %@", "free limit", "Couldn't rewrite"
+        )).firstMatch
+        XCTAssertTrue(failed.waitForExistence(timeout: 5), "the 429 came back and the action failed")
+        XCTAssertFalse(paywall.waitForExistence(timeout: 2), "no paywall")
+
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 5))
+        app.buttons["home.settings"].tap()
+        XCTAssertTrue(app.buttons["settings.appearance"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["settings.plan"].exists, "no PLUS card")
+        XCTAssertFalse(app.buttons["settings.seePlans"].exists)
+        XCTAssertFalse(paywall.exists)
     }
 
     func testSettingsShowsTheFreePlanAndOpensThePaywall() {

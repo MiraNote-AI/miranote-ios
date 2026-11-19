@@ -3,29 +3,35 @@ import XCTest
 @testable import MiraNoteKit
 
 final class StarJarTests: XCTestCase {
-    // MARK: Mood on disk
+    // MARK: Moods wiped (#206)
 
-    func testPagesSavedBeforeMoodsLoadAsNotJudged() throws {
-        let legacy = Data(#"""
-        {"id":"7B1C3A55-1A2B-4C3D-8E9F-001122334455","title":"Old page",
-         "createdAt":700000000,"items":[]}
-        """#.utf8)
-        let memory = try JSONDecoder().decode(Memory.self, from: legacy)
-        XCTAssertEqual(memory.title, "Old page")
-        XCTAssertNil(memory.mood)
-        XCTAssertNil(memory.moodTextHash)
+    private func libraryFile(_ json: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("moods-\(UUID().uuidString).json")
+        try Data(json.utf8).write(to: url)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return url
     }
 
-    func testMoodRoundTripsAndAnUnknownOneReadsAsNotJudged() throws {
-        let judged = Memory(title: "Picnic", mood: .joyful, moodTextHash: "abc")
-        let decoded = try JSONDecoder().decode(Memory.self, from: JSONEncoder().encode(judged))
-        XCTAssertEqual(decoded.mood, .joyful)
-        XCTAssertEqual(decoded.moodTextHash, "abc")
+    func testALibraryWithMoodsLoadsAndIsWrittenAgainWithout() throws {
+        let page = #"{"id":"7B1C3A55-1A2B-4C3D-8E9F-001122334455","title":"Picnic","createdAt":700000000,"#
+            + #""items":[],"hasBeenSaved":true,"mood":"joyful","moodTextHash":"abc"}"#
+        let url = try libraryFile(#"{"collections":[{"id":"0A1C3A55-1A2B-4C3D-8E9F-001122334455","#
+            + #""title":"Daily Log","memories":[\#(page)]}],"#
+            + #""trash":[{"memory":\#(page),"collectionTitle":"Daily Log","deletedAt":700000001}]}"#)
 
-        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(judged)) as? [String: Any])
-        object["mood"] = "ecstatic"
-        let later = try JSONDecoder().decode(Memory.self, from: JSONSerialization.data(withJSONObject: object))
-        XCTAssertNil(later.mood, "a mood a later build added must not fail the library")
+        let library = FileCollectionStore(url: url).load()
+        XCTAssertEqual(library.collections.first?.memories.first?.title, "Picnic")
+        XCTAssertEqual(library.trash.first?.memory.title, "Picnic")
+        let written = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertFalse(written.contains("mood"), "moods are wiped from the file, the bin's too")
+        XCTAssertTrue(written.contains("Picnic"), "the pages are kept")
+    }
+
+    func testALibraryWithoutMoodsIsNotWrittenAgain() throws {
+        let json = #"{"collections":[],"trash":[]}"#
+        let url = try libraryFile(json)
+        _ = FileCollectionStore(url: url).load()
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), json)
     }
 
     // MARK: Periods
@@ -133,76 +139,8 @@ final class StarJarTests: XCTestCase {
                        "10\u{6708}19\u{65E5} \u{2013} 25\u{65E5}")
     }
 
-    // MARK: Text to judge
-
     private func text(_ words: String, y top: CGFloat) -> CanvasItem {
         CanvasItem(content: .text(TextBlock(text: words)), position: CGPoint(x: 180, y: top))
-    }
-
-    func testMoodTextReadsWordsTopToBottomThenPhotosAndBackdrop() {
-        let memory = Memory(
-            items: [
-                text("second line", y: 300),
-                CanvasItem(content: .image(ImageRef(displayName: "p", summary: "Two friends at a picnic.")),
-                           position: CGPoint(x: 180, y: 500)),
-                CanvasItem(content: .sticker(GeneratedSticker(prompt: "cat", symbolName: "sparkles")),
-                           position: CGPoint(x: 180, y: 50)),
-                text("  A sunny day  ", y: 100),
-                text("   ", y: 200)
-            ],
-            backgroundSummary: "a dusk sky"
-        )
-        XCTAssertEqual(memory.moodText, "A sunny day\nsecond line\nTwo friends at a picnic.\na dusk sky")
-    }
-
-    func testMoodTextIsEmptyForStickersAloneAndCapped() {
-        let stickers = Memory(items: [
-            CanvasItem(content: .sticker(GeneratedSticker(prompt: "cat", symbolName: "sparkles")),
-                       position: .zero)
-        ])
-        XCTAssertEqual(stickers.moodText, "")
-
-        let long = Memory(items: [text(String(repeating: "a", count: 5000), y: 10)])
-        XCTAssertEqual(long.moodText.count, 2000)
-    }
-
-    func testMoodTextOfATitleAndBodyOnlyPage() {
-        let legacy = Memory(title: "Slow morning", body: "good coffee")
-        XCTAssertEqual(legacy.moodText, "Slow morning\ngood coffee")
-    }
-
-    // MARK: Writing the mood
-
-    @MainActor
-    func testSetMoodTouchesOnlyTheMoodOfTheLatestCopy() {
-        let store = RecordingStore()
-        let page = Memory(title: "Before", items: [text("first words", y: 100)])
-        let viewModel = HomeViewModel(store: store)
-        viewModel.file(page, underCollectionTitled: "Daily Log")
-
-        // An edit filed while the mood was on its way.
-        var edited = page
-        edited.title = "After"
-        edited.items = [text("newer words", y: 100)]
-        viewModel.file(edited, underCollectionTitled: "Daily Log")
-
-        viewModel.setMood(.calm, judgedFrom: "h", for: page.id)
-        let stored = viewModel.memory(page.id)
-        XCTAssertEqual(stored?.mood, .calm)
-        XCTAssertEqual(stored?.title, "After", "the newer edit is kept")
-        XCTAssertEqual(stored?.items, edited.items)
-        XCTAssertEqual(store.saved.last?.collections.flatMap(\.memories).first?.mood, .calm, "persisted")
-    }
-
-    @MainActor
-    func testSetMoodLeavesABinnedPageAlone() {
-        let page = Memory(title: "Gone")
-        let viewModel = HomeViewModel(collections: [MemoryCollection(title: "Daily Log", memories: [page])])
-        let journal = viewModel.collections[0].id
-        viewModel.deleteNote(page.id, from: journal)
-        viewModel.setMood(.low, judgedFrom: "h", for: page.id)
-        XCTAssertNil(viewModel.trash.first?.memory.mood)
-        XCTAssertTrue(viewModel.collections[0].memories.isEmpty, "nothing comes back from the bin")
     }
 
     /// A page opened and left without a change keeps when it was saved:

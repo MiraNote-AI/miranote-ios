@@ -43,7 +43,7 @@ final class StickerPanelUITests: XCTestCase {
 
     /// The panel records no steps of its own (presets and favorites leave
     /// it as they place): its header Undo is off, never the canvas-wide
-    /// undo reaching under the scrim.
+    /// undo reaching the page under the panel.
     func testThePanelsHeaderUndoLeavesTheCanvasAlone() {
         app.buttons["nav.leading"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))

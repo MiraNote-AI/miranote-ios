@@ -57,7 +57,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "plus.monthly",
+          "productID" : "ai.miranote.app.plus.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Plus Monthly",
           "subscriptionGroupID" : "21581000",
@@ -91,7 +91,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "plus.yearly",
+          "productID" : "ai.miranote.app.plus.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Plus Yearly",
           "subscriptionGroupID" : "21581000",

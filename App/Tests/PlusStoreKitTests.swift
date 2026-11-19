@@ -62,9 +62,9 @@ final class PlusStoreKitTests: XCTestCase {
     func testThePlansLoadByIDWithTheirIntroductoryOffers() async throws {
         let (store, _) = store()
         try await store.loadProducts()
-        XCTAssertEqual(store.products.map(\.id), ["plus.yearly", "plus.monthly"])
+        XCTAssertEqual(store.products.map(\.id), [PlusStore.ProductID.yearly, PlusStore.ProductID.monthly])
 
-        let monthly = try await product("plus.monthly", in: store)
+        let monthly = try await product(PlusStore.ProductID.monthly, in: store)
         XCTAssertEqual(monthly.price, Decimal(string: "5.99"))
         XCTAssertEqual(monthly.subscription?.subscriptionPeriod.unit, .month)
         let monthlyIntro = try XCTUnwrap(monthly.subscription?.introductoryOffer)
@@ -72,7 +72,7 @@ final class PlusStoreKitTests: XCTestCase {
         XCTAssertEqual(monthlyIntro.price, Decimal(string: "2.99"))
         XCTAssertEqual(monthlyIntro.periodCount, 2)
 
-        let yearly = try await product("plus.yearly", in: store)
+        let yearly = try await product(PlusStore.ProductID.yearly, in: store)
         XCTAssertEqual(yearly.price, Decimal(string: "39.99"))
         XCTAssertEqual(yearly.subscription?.introductoryOffer?.paymentMode, .payUpFront)
         XCTAssertEqual(yearly.subscription?.subscriptionGroupID, monthly.subscription?.subscriptionGroupID)
@@ -82,7 +82,7 @@ final class PlusStoreKitTests: XCTestCase {
 
     func testThePaywallStatesThePriceAfterTheOffer() async throws {
         let (store, _) = store()
-        let monthly = try await product("plus.monthly", in: store)
+        let monthly = try await product(PlusStore.ProductID.monthly, in: store)
         let period = try XCTUnwrap(monthly.subscription?.subscriptionPeriod)
         let intro = try XCTUnwrap(monthly.subscription?.introductoryOffer)
         XCTAssertEqual(PaywallSheet.price(monthly.displayPrice, per: period), "\(monthly.displayPrice) a month")
@@ -91,11 +91,11 @@ final class PlusStoreKitTests: XCTestCase {
 
     func testAPurchaseGivesPlusForOurUserIDAndTellsTheServer() async throws {
         let (store, subscriptions) = store()
-        let outcome = try await store.purchase(try await product("plus.monthly", in: store))
+        let outcome = try await store.purchase(try await product(PlusStore.ProductID.monthly, in: store))
 
         XCTAssertEqual(outcome, .purchased)
-        XCTAssertEqual(store.entitlement?.productID, "plus.monthly")
-        let transaction = try await latest("plus.monthly")
+        XCTAssertEqual(store.entitlement?.productID, PlusStore.ProductID.monthly)
+        let transaction = try await latest(PlusStore.ProductID.monthly)
         XCTAssertEqual(transaction.appAccountToken, userID)
         XCTAssertEqual(subscriptions.synced.count, 1)
         XCTAssertFalse(subscriptions.synced[0].transaction.isEmpty)
@@ -104,10 +104,10 @@ final class PlusStoreKitTests: XCTestCase {
 
     func testTheIntroductoryOfferIsTakenOnce() async throws {
         let (store, _) = store()
-        let monthly = try await product("plus.monthly", in: store)
+        let monthly = try await product(PlusStore.ProductID.monthly, in: store)
         _ = try await store.purchase(monthly)
 
-        let transaction = try await latest("plus.monthly")
+        let transaction = try await latest(PlusStore.ProductID.monthly)
         if #available(iOS 17.2, *) {
             XCTAssertEqual(transaction.offer?.type, .introductory)
         } else {
@@ -124,7 +124,7 @@ final class PlusStoreKitTests: XCTestCase {
         let restored = try await store.restore()
 
         XCTAssertTrue(restored)
-        XCTAssertEqual(store.entitlement?.productID, "plus.yearly")
+        XCTAssertEqual(store.entitlement?.productID, PlusStore.ProductID.yearly)
         XCTAssertEqual(subscriptions.synced.count, 1)
     }
 
@@ -149,17 +149,17 @@ final class PlusStoreKitTests: XCTestCase {
 
     func testARefundTakesPlusAway() async throws {
         let (store, _) = store()
-        _ = try await store.purchase(try await product("plus.monthly", in: store))
+        _ = try await store.purchase(try await product(PlusStore.ProductID.monthly, in: store))
         XCTAssertTrue(store.isPlus)
 
-        try session.refundTransaction(identifier: UInt(try await latest("plus.monthly").id))
+        try session.refundTransaction(identifier: UInt(try await latest(PlusStore.ProductID.monthly).id))
 
         try await waitForFree(store)
     }
 
     func testAnExpiredSubscriptionIsTheFreePlan() async throws {
         let (store, _) = store()
-        _ = try await store.purchase(try await product("plus.yearly", in: store))
+        _ = try await store.purchase(try await product(PlusStore.ProductID.yearly, in: store))
         XCTAssertTrue(store.isPlus)
 
         try session.expireSubscription(productIdentifier: PlusStore.ProductID.yearly)
@@ -169,10 +169,24 @@ final class PlusStoreKitTests: XCTestCase {
 
     func testSignedOutAndNotNowBuysNothing() async throws {
         let (store, subscriptions) = store(signedIn: false)
-        let outcome = try await store.purchase(try await product("plus.monthly", in: store))
+        let outcome = try await store.purchase(try await product(PlusStore.ProductID.monthly, in: store))
         XCTAssertEqual(outcome, .cancelled)
         XCTAssertFalse(store.isPlus)
         XCTAssertEqual(subscriptions.synced.count, 0)
+    }
+}
+
+/// The local StoreKit configuration sells the ids the app asks for, so Run
+/// and the StoreKit tests cannot drift from `PlusStore.ProductID`. Reads
+/// the file itself: no StoreKit session, so it runs on every simulator.
+final class StoreKitConfigurationTests: XCTestCase {
+    func testTheConfigurationSellsThePlusPlans() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "MiraNote", withExtension: "storekit"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let groups = try XCTUnwrap(object["subscriptionGroups"] as? [[String: Any]])
+        XCTAssertEqual(groups.compactMap { $0["name"] as? String }, ["Plus"])
+        let plans = groups.flatMap { $0["subscriptions"] as? [[String: Any]] ?? [] }
+        XCTAssertEqual(Set(plans.compactMap { $0["productID"] as? String }), Set(PlusStore.ProductID.all))
     }
 }
 

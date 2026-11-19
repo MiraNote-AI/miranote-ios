@@ -1,8 +1,8 @@
 import XCTest
 
 /// #151: "How Mira uses AI" shows right before the first action that would
-/// send page content, Not now sends nothing, Continue is kept, the mood
-/// switch stops mood requests and withdrawing asks again. Other suites
+/// send page content, Not now sends nothing, Continue is kept, a Save sends
+/// nothing (no page mood since #206) and withdrawing asks again. Other suites
 /// launch consented; these launch with `-AI-CONSENT-ASK`. `aiSent` in the
 /// debug probe counts the requests let past consent.
 final class AIConsentUITests: XCTestCase {
@@ -77,17 +77,6 @@ final class AIConsentUITests: XCTestCase {
         )).firstMatch
     }
 
-    private func waitForLabel(_ element: XCUIElement, _ expected: String, timeout: TimeInterval = 8) {
-        let match = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", expected), object: element)
-        XCTAssertEqual(XCTWaiter().wait(for: [match], timeout: timeout), .completed,
-                       "label is \(element.label), expected \(expected)")
-    }
-
-    private func waitForValue(_ element: XCUIElement, _ value: String, timeout: TimeInterval = 5) -> Bool {
-        let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
-        return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
-    }
-
     private func fieldValueContains(_ words: String, timeout: TimeInterval = 5) -> Bool {
         let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", words), object: field)
         return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
@@ -136,69 +125,15 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertFalse(sheet.exists)
     }
 
-    func testAFirstSaveAsksOnceAndNotNowLeavesTheStarNeutral() {
+    /// #206: a page's star is made on the phone, so a Save before consent
+    /// neither asks nor sends.
+    func testASaveNeitherAsksNorSends() {
         launch(asking: true)
         savePage("A happy picnic")
-        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "a Save asks once the editor is gone")
-        app.buttons["aiConsent.notNow"].tap()
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
-
-        savePage("A sunny walk")
-        XCTAssertFalse(sheet.waitForExistence(timeout: 3), "a Save asks once a launch")
-
+        XCTAssertFalse(sheet.waitForExistence(timeout: 3), "a Save does not ask")
         openJar()
-        let star = app.buttons["jar.star.A happy picnic"]
-        XCTAssertTrue(star.waitForExistence(timeout: 5))
-        waitForLabel(star, "A happy picnic, mood off")
-        XCTAssertEqual(aiSent, 0, "no mood was asked")
-        // The star's label is neutral whatever came back, and aiSent counts
-        // inside the gate: only the service's own count shows nothing went.
-        XCTAssertEqual(probeMax("moodServed"), 0, "no mood request reached the service")
-    }
-
-    func testContinueAfterASaveReadsTheMood() {
-        launch(asking: true)
-        savePage("A happy picnic")
-        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-        app.buttons["aiConsent.continue"].tap()
-        openJar()
-        let star = app.buttons["jar.star.A happy picnic"]
-        XCTAssertTrue(star.waitForExistence(timeout: 5))
-        waitForLabel(star, "A happy picnic, Joyful")
-        // The jar also reads the seeded pages it shows.
-        XCTAssertGreaterThanOrEqual(aiSent, 1)
-    }
-
-    func testMoodSwitchOffSendsNoMoodAndOnReadsIt() {
-        launch(asking: false)
-        openSettings()
-        let mood = app.switches["settings.moodFromWords"]
-        XCTAssertTrue(mood.waitForExistence(timeout: 5))
-        XCTAssertEqual(mood.value as? String, "1", "on by default after consent")
-        mood.tap()
-        XCTAssertTrue(waitForValue(mood, "0"))
-        backHome()
-
-        savePage("A happy picnic")
-        openJar()
-        let star = app.buttons["jar.star.A happy picnic"]
-        XCTAssertTrue(star.waitForExistence(timeout: 5))
-        // Room for a mood request, if one were going out.
-        _ = XCTWaiter().wait(for: [XCTestExpectation(description: "no mood")], timeout: 2)
-        waitForLabel(star, "A happy picnic, mood off")
-        XCTAssertEqual(aiSent, 0, "mood off: no mood request after the Save")
-        XCTAssertEqual(probeMax("moodServed"), 0, "mood off: no mood request reached the service")
-
-        // On again: the saved page is read.
-        app.buttons["Home"].tap()
-        openSettings()
-        mood.tap()
-        XCTAssertTrue(waitForValue(mood, "1"))
-        backHome()
-        openJar()
-        waitForLabel(star, "A happy picnic, Joyful")
-        XCTAssertGreaterThanOrEqual(aiSent, 1)
-        XCTAssertGreaterThanOrEqual(probeMax("moodServed"), 1)
+        XCTAssertTrue(app.buttons["jar.star.A happy picnic"].waitForExistence(timeout: 5))
+        XCTAssertEqual(aiSent, 0, "nothing was sent")
     }
 
     func testDictationAsksBeforeTheMicStarts() {
@@ -248,7 +183,6 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertTrue(withdraw.waitForExistence(timeout: 5))
         withdraw.tap()
         XCTAssertTrue(app.buttons["settings.aiAllow"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.switches["settings.moodFromWords"].value as? String, "0", "no moods without consent")
         backHome()
 
         startWriting("noodle shop")

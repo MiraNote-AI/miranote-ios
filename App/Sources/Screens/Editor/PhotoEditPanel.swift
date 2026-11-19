@@ -2,7 +2,7 @@ import MiraNoteKit
 import SwiftUI
 
 /// The photo editor's working state while a photo is lifted above the
-/// scrimmed canvas (handoff screens 27-28): which tile the composer speaks
+/// inert canvas (handoff screens 27-28): which tile the composer speaks
 /// for, the words typed, a running edit, and the compare. Owned by the
 /// canvas scene: the stage, the Photo Editing sheet and the composer are
 /// three views in three places reading one state.

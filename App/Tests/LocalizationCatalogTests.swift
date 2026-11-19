@@ -178,7 +178,7 @@ final class LocalizationCatalogTests: XCTestCase {
                        pages.replacingOccurrences(of: "%lld", with: "1"))
     }
 
-    /// Copy the Kit builds (a mood's name) comes from the app's catalog in
+    /// Copy the Kit builds (a cancelled AI action's line) comes from the app's catalog in
     /// the language picked in Settings. Restores the simulator's choice.
     func testKitCopyFollowsTheChosenLanguage() throws {
         let settings = AppSettings.shared
@@ -190,10 +190,11 @@ final class LocalizationCatalogTests: XCTestCase {
             UserDefaults.standard.set(storedLanguages, forKey: "AppleLanguages")
         }
 
-        let joyful = try XCTUnwrap(value(try XCTUnwrap(catalog("Localizable")["Joyful"]), "zh-Hans"))
+        let line = "Mira needs your OK to use AI. You can turn it on in Settings."
+        let chinese = try XCTUnwrap(value(try XCTUnwrap(catalog("Localizable")[line]), "zh-Hans"))
         settings.language = .simplifiedChinese
-        XCTAssertEqual(Mood.joyful.displayName, joyful)
+        XCTAssertEqual(AIConsentError.notNow.errorDescription, chinese)
         settings.language = .english
-        XCTAssertEqual(Mood.joyful.displayName, "Joyful")
+        XCTAssertEqual(AIConsentError.notNow.errorDescription, line)
     }
 }

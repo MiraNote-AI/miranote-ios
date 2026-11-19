@@ -1,22 +1,30 @@
 import MiraNoteKit
+import SpriteKit
 import SwiftUI
 
 /// The star jar (team decision 2026-10-24, no design screen): every saved
-/// page is a star colored by its mood, a week or a month to a jar. Drawn
-/// in the app's own language -- paper, hairlines, quiet type. Its motion:
-/// pages saved since the jar was last opened drop in, and a tap on the
-/// jar (not on a star) shakes it, the stars jostling inside.
+/// page is a star made of a strip of the page (#206), a week or a month to
+/// a jar. Drawn in the app's own language -- paper, hairlines, quiet type.
+/// Its motion: pages saved since the jar was last opened drop in, and a
+/// tap anywhere on the jar shakes it, tossing the stars up like popcorn.
+/// Holding a star unfolds it back into its page, which then opens.
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
-    var onOpenNote: (JarStar) -> Void = { _ in }
-    /// The shown pages, to ask the mood of one at a time: the judge skips
-    /// one judged from its current words, and asks again one whose words
-    /// changed after an ask at Save failed -- unless it is a draft, which
-    /// waits for its next Save (#137). `[]` when the jar closes.
-    var onShow: ([Memory.ID]) -> Void = { _ in }
+    /// The page unrolled from its star zooms open from here (iOS 18).
+    var zoom: Namespace.ID?
+    var onOpenNote: (JarStar, OpenStyle) -> Void = { _, _ in }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    enum OpenStyle {
+        /// After the unfold: zooms from the unrolled page.
+        case zoom
+        /// VoiceOver's activate: the usual push.
+        case push
+        /// Under Reduce Motion, after the page has faded in.
+        case instant
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.theme) private var theme
     @State private var period: JarPeriod = .month
     @State private var interval = JarPeriod.month.interval(containing: .now)
@@ -26,15 +34,36 @@ struct StarJarView: View {
     @State private var viewport: CGFloat = 0
     /// Taps on the jar so far: each one shakes it.
     @State private var shakes = 0
+    /// The shakes that threw the stars (none under Reduce Motion).
+    @State private var tosses = 0
+    /// Stars in the air: drawn by `tossScene`, their buttons hidden.
+    @State var tossing = false
+    @State private var tossScene = StarTossScene(size: .zero)
+    /// Where the last toss left each star, until the visit ends.
+    @State private var settled: [Memory.ID: StarPile.Spot] = [:]
+    /// The star being held: the others dim.
+    @State var holding: Memory.ID?
+    /// Its page, cut while the hold gathers, ready to unfold.
+    @State var held: (id: Memory.ID, paper: StarPaper)?
+    @State var opening: Opening?
+    @State var openTask: Task<Void, Never>?
+    /// A hold has opened a page: the hint has done its job. Kept with
+    /// the settings, so a UI test starts with the hint showing.
+    @AppStorage(StarJarView.openedKey, store: AppSettings.storeDefaults) var hasOpened = false
+    /// The jar fades as a star unfolds over it.
+    @State var jarFade = 1.0
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
+    static let openedKey = "starJar.heldOpen"
 
     private var stars: [JarStar] {
         StarJar.stars(in: viewModel.library, during: interval)
     }
 
     private var isCurrent: Bool { interval.contains(.now) }
+
+    var reduceMotion: Bool { ReduceMotion.resolved(systemReduceMotion) }
 
     /// Past the current period only while a later one holds stars: a page
     /// can be dated ahead, and must stay reachable.
@@ -51,32 +80,48 @@ struct StarJarView: View {
                     .padding(.bottom, 14)
                 jar
                     .padding(.bottom, 18)
-                // An empty jar says so inside it.
-                if !stars.isEmpty {
-                    Text(summary)
-                        .font(Sans.font(size: 16, weight: 600))
-                        .foregroundStyle(theme.ink)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("jar.summary")
-                        .padding(.bottom, 14)
-                }
-                legend
+                // Until a hold has opened a page once.
+                Text("Tap to shake. Hold a star to open.")
+                    .font(.miraCaption)
+                    .foregroundStyle(theme.muted(Palette.textSecondary))
+                    .multilineTextAlignment(.center)
+                    .opacity(hasOpened ? 0 : 1)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, Metrics.chromeInset)
             .padding(.top, 6)
             .padding(.bottom, 24)
         }
         #if DEBUG
-        .background(DebugStateProbe { ["scene": "jar", "shakes": shakes] })
+        .background(DebugStateProbe {
+            ["scene": "jar", "shakes": shakes, "tosses": tosses, "settled": !tossing,
+             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs, "hint": !hasOpened]
+        })
         #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
+        .opacity(jarFade)
         .screenBackground()
-        .safeAreaInset(edge: .top) { header }
+        .safeAreaInset(edge: .top) { header.opacity(jarFade) }
+        .overlay { unfolding }
         .onAppear(perform: firstVisit)
-        .task(id: interval) {
-            onShow(stars.map(\.id))
+        .onAppear(perform: cameBack)
+        .onChange(of: interval) {
+            tossScene.stop()
+            settled = [:]
         }
-        .onDisappear { onShow([]) }
+        .onDisappear {
+            // Opened mid-air: the stars lie where they did before the toss.
+            tossScene.stop()
+            // Left (an edge swipe back) before the page opened: it never
+            // opens on top of where the jar was.
+            if opening?.unrolled != true {
+                openTask?.cancel()
+                opening = nil
+                holding = nil
+                held = nil
+                jarFade = 1
+            }
+        }
     }
 
     private var header: some View {
@@ -166,11 +211,12 @@ struct StarJarView: View {
         GeometryReader { proxy in
             let geometry = JarGeometry(size: proxy.size)
             let pile = StarPile.layout(stars.map(\.id), in: geometry.interior)
+            let spots = zip(stars, pile.spots).map { settled[$0.id] ?? $1 }
             ZStack(alignment: .topLeading) {
                 JarGlass(geometry: geometry)
                 // After the visit has decided what drops in.
                 ForEach(Array((visited ? stars : []).enumerated()), id: \.element.id) { index, star in
-                    let spot = pile.spots[index]
+                    let spot = spots[index]
                     StarButton(
                         star: star,
                         size: pile.starSize,
@@ -178,12 +224,25 @@ struct StarJarView: View {
                         drop: dropOffset(for: star.id, at: spot.center, geometry: geometry),
                         delay: dropDelay(for: star.id),
                         reduceMotion: reduceMotion,
-                        shakes: shakes
-                    ) {
-                        onOpenNote(star)
+                        onShake: { shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry) },
+                        onTension: { tension($0, on: star) },
+                        onCommit: { open(star, from: $0, size: pile.starSize, rotation: spot.rotation) },
+                        action: { onOpenNote(star, .push) }
+                    )
+                    // VoiceOver shakes the jar from any of its stars.
+                    .accessibilityAction(named: Text("Shake")) {
+                        shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
                     }
                     .position(spot.center)
+                    .opacity(opacity(of: star))
+                    // A hold is ignored while the stars are in the air.
+                    .allowsHitTesting(!tossing && opening == nil)
                 }
+                SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .opacity(tossing ? 1 : 0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 JarShine(geometry: geometry)
                 JarLid(geometry: geometry)
                 if stars.isEmpty {
@@ -196,44 +255,87 @@ struct StarJarView: View {
                         .position(x: geometry.interior.midX, y: geometry.interior.midY + 20)
                 }
             }
-            // Small stars hit-test at 1.3x: a tap between them opens the
-            // nearest within 17 pt, so even a crowd keeps a 34 pt target
-            // without one star covering another.
+            // A tap anywhere shakes (#206); a star takes its own taps and
+            // shakes too: only a hold opens one, so a crowd never makes the
+            // toss unreachable.
             .contentShape(Rectangle())
-            .onTapGesture { point in
+            .onTapGesture {
                 guard visited else { return }
-                let nearest = zip(stars, pile.spots)
-                    .map { (star: $0, distance: hypot($1.center.x - point.x, $1.center.y - point.y)) }
-                    .min { $0.distance < $1.distance }
-                if let nearest, nearest.distance <= 17 {
-                    onOpenNote(nearest.star)
-                } else {
-                    shakes += 1
-                }
+                shake(Array(zip(stars, spots)), starSize: pile.starSize, geometry: geometry)
             }
-            // A shake: a few damped swings from the jar's foot (none under
-            // Reduce Motion, where the stars only twinkle).
-            .keyframeAnimator(initialValue: 0.0, trigger: shakes) { content, angle in
-                content.rotationEffect(.degrees(angle), anchor: .bottom)
+
+            .onChange(of: proxy.size) { settled = [:] }
+            // A shake: pressed down, a small hop, a sway or two from the
+            // foot. Under Reduce Motion only a small sway.
+            .keyframeAnimator(initialValue: JarPose(), trigger: shakes) { content, pose in
+                content
+                    .rotationEffect(.degrees(pose.angle), anchor: .bottom)
+                    .offset(y: pose.lift)
             } keyframes: { _ in
-                KeyframeTrack {
+                KeyframeTrack(\.lift) {
                     if reduceMotion {
                         LinearKeyframe(0, duration: 0.01)
                     } else {
-                        SpringKeyframe(-5, duration: 0.09)
-                        SpringKeyframe(4, duration: 0.12)
-                        SpringKeyframe(-2.5, duration: 0.12)
-                        SpringKeyframe(1, duration: 0.12)
-                        SpringKeyframe(0, duration: 0.25)
+                        SpringKeyframe(5, duration: 0.08)
+                        SpringKeyframe(-7, duration: 0.14)
+                        SpringKeyframe(0, duration: 0.4, spring: .bouncy)
+                    }
+                }
+                KeyframeTrack(\.angle) {
+                    if reduceMotion {
+                        SpringKeyframe(-1.5, duration: 0.15)
+                        SpringKeyframe(1, duration: 0.2)
+                        SpringKeyframe(0, duration: 0.3)
+                    } else {
+                        LinearKeyframe(0, duration: 0.08)
+                        SpringKeyframe(-3.5, duration: 0.14)
+                        SpringKeyframe(2.5, duration: 0.18)
+                        SpringKeyframe(-1, duration: 0.18)
+                        SpringKeyframe(0, duration: 0.3)
                     }
                 }
             }
             .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: shakes)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("jar.glass")
         }
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)
-        // As wide as fits, short enough that the count and legend stay on
+        // As wide as fits, short enough that the count and hint stay on
         // screen on a small phone (the rest of the column is ~290 pt).
         .frame(maxWidth: min(320, max(220, (viewport - 290) * JarGeometry.aspect)))
+    }
+
+}
+
+// MARK: - Toss and words
+
+extension StarJarView {
+    /// A shake of the jar: it sways, and the stars fly up.
+    private func shake(
+        _ resting: [(star: JarStar, spot: StarPile.Spot)], starSize: CGFloat, geometry: JarGeometry
+    ) {
+        shakes += 1
+        throwStars(resting, starSize: starSize, geometry: geometry)
+    }
+
+    /// Throws the stars up from where they lie, or adds to a toss in the
+    /// air. Not under Reduce Motion, nor while stars are still dropping in.
+    private func throwStars(
+        _ resting: [(star: JarStar, spot: StarPile.Spot)], starSize: CGFloat, geometry: JarGeometry
+    ) {
+        guard !reduceMotion, arriving.isEmpty, !resting.isEmpty else { return }
+        if !tossing {
+            tossScene.load(resting, starSize: starSize, geometry: geometry) { star in
+                StarTossScene.face(of: star.memory)
+            }
+            tossScene.onSettle = { [landed = $settled, inAir = $tossing] spots in
+                landed.wrappedValue = spots
+                inAir.wrappedValue = false
+            }
+            tossing = true
+        }
+        tosses += 1
+        tossScene.toss()
     }
 
     private var emptyLine: String {
@@ -243,36 +345,6 @@ struct StarJarView: View {
         case (.week, false): return String(appCopy: "No memories that week.")
         case (.month, false): return String(appCopy: "No memories that month.")
         }
-    }
-
-    private var summary: String {
-        let count = stars.count
-        switch (period, isCurrent) {
-        case (.week, true): return String(appCopy: "\(count) memories this week")
-        case (.month, true): return String(appCopy: "\(count) memories this month")
-        case (.week, false): return String(appCopy: "\(count) memories that week")
-        case (.month, false): return String(appCopy: "\(count) memories that month")
-        }
-    }
-
-    private var legend: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 10) {
-            ForEach(Mood.allCases, id: \.self) { mood in
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Palette.mood(mood))
-                        .frame(width: 10, height: 10)
-                        // The name alone is the element: framed with the
-                        // dot, the contrast audit read the grey text against
-                        // the light Calm and Low dots (6.1:1 on the paper).
-                        .accessibilityHidden(true)
-                    Text(mood.displayName)
-                        .font(.miraCaption)
-                        .foregroundStyle(theme.muted(Palette.textSecondary))
-                }
-            }
-        }
-        .frame(maxWidth: 300)
     }
 
 }
@@ -313,51 +385,5 @@ extension StarJarView {
         guard let index = arriving.firstIndex(of: id) else { return 0 }
         let stagger = min(0.08, 0.9 / Double(max(1, arriving.count - 1)))
         return Double(index) * stagger
-    }
-}
-
-/// The star's face: the mood's fill, a soft light from above, and a
-/// hairline edge so neighbors in a pile stay apart.
-struct StarMark: View {
-    let color: Color
-
-    var body: some View {
-        RoundedStar()
-            .fill(color)
-            .overlay(
-                RoundedStar().fill(
-                    LinearGradient(colors: [Color.white.opacity(0.3), .clear], startPoint: .top, endPoint: .center)
-                )
-            )
-            .overlay(RoundedStar().stroke(Palette.ink.opacity(0.1), lineWidth: 0.6))
-    }
-}
-
-/// A five-point star with softened tips.
-struct RoundedStar: Shape {
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY + rect.height * 0.04)
-        let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.5
-        let points: [CGPoint] = (0..<10).map { index in
-            let radius = index.isMultiple(of: 2) ? outer : inner
-            let angle = -Double.pi / 2 + Double(index) * Double.pi / 5
-            return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-        }
-        func toward(_ from: CGPoint, _ to: CGPoint, _ share: CGFloat) -> CGPoint {
-            CGPoint(x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share)
-        }
-        var path = Path()
-        for index in 0..<10 {
-            let point = points[index]
-            let previous = points[(index + 9) % 10]
-            let next = points[(index + 1) % 10]
-            let share: CGFloat = index.isMultiple(of: 2) ? 0.24 : 0.12
-            let start = toward(point, previous, share)
-            if index == 0 { path.move(to: start) } else { path.addLine(to: start) }
-            path.addQuadCurve(to: toward(point, next, share), control: point)
-        }
-        path.closeSubpath()
-        return path
     }
 }
