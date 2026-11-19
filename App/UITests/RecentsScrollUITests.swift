@@ -81,6 +81,26 @@ final class RecentsScrollUITests: XCTestCase {
         XCTAssertEqual(canvasState()["photoDragging"] as? Bool, false, "a swipe carries nothing")
     }
 
+    /// The grid holds still only while a photo is carried: a photo let go
+    /// on the sheet, or off the page (the margin beside the card), places
+    /// nothing, leaves nothing carried, and the grid scrolls again.
+    func testAPhotoLetGoOffThePageLeavesTheGridScrolling() {
+        cell(1).press(forDuration: 0.6, thenDragTo: cell(6))
+        cell(2).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.6, thenDragTo: overThePage(across: 4))
+        sleep(1)
+        XCTAssertEqual(photos.count, 0, "a let-go off the page places nothing")
+        XCTAssertEqual(canvasState()["photoDragging"] as? Bool, false, "nothing is left carried")
+
+        let top = cell(0).frame.minY
+        let row = cell(0).frame.height
+        let start = cell(5).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -250)),
+                    withVelocity: 1500, thenHoldForDuration: 0.1)
+        sleep(1)
+        XCTAssertTrue(!cell(0).exists || cell(0).frame.minY < top - row, "the grid scrolls again")
+    }
+
     func testAPhotoPastTheFirstPageCanBePicked() {
         scroll(to: 100)
         cell(100).tap()
