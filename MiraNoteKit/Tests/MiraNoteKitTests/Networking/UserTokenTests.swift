@@ -224,6 +224,9 @@ final class UserTokenTests: XCTestCase {
         func transform(_ text: String, mode: TextTransformMode) async throws -> String {
             throw BackendError.limitReached(limit)
         }
+        func rewrite(_ text: String, instruction: String) async throws -> String {
+            throw BackendError.limitReached(limit)
+        }
     }
 
     private func consent() -> AIConsent {
