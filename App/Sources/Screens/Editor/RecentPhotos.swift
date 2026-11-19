@@ -221,7 +221,8 @@ final class RecentPhotos {
     /// One thumbnail request PhotoKit can be told to drop. The continuation
     /// resumes exactly once: with the image, or with nil when the cell's
     /// task is cancelled first (PhotoKit may still answer after a cancel).
-    private final class ThumbnailRequest: @unchecked Sendable {
+    /// Not private: ThumbnailRequestTests holds PhotoKit's answers.
+    final class ThumbnailRequest: @unchecked Sendable {
         private let manager: PHImageManager
         private let lock = NSLock()
         private var continuation: CheckedContinuation<UIImage?, Never>?
