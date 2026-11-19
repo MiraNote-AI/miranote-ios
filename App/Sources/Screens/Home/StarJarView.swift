@@ -47,8 +47,9 @@ struct StarJarView: View {
     @State private var held: (id: Memory.ID, paper: StarPaper)?
     @State private var opening: Opening?
     @State private var openTask: Task<Void, Never>?
-    /// A hold has opened a page: the hint has done its job.
-    @AppStorage(StarJarView.openedKey) private var hasOpened = false
+    /// A hold has opened a page: the hint has done its job. Kept with
+    /// the settings, so a UI test starts with the hint showing.
+    @AppStorage(StarJarView.openedKey, store: AppSettings.storeDefaults) private var hasOpened = false
     /// The jar fades as a star unfolds over it.
     @State private var jarFade = 1.0
 
@@ -107,7 +108,7 @@ struct StarJarView: View {
         #if DEBUG
         .background(DebugStateProbe {
             ["scene": "jar", "shakes": shakes, "tosses": tosses, "settled": !tossing,
-             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs]
+             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs, "hint": !hasOpened]
         })
         #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }

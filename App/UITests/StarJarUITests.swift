@@ -66,6 +66,28 @@ final class StarJarUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Slow morning, good coffee"].exists)
     }
 
+    /// #206: "Tap to shake. Hold a star to open." stays until a hold has
+    /// opened a page once, and stays gone after that, a relaunch too. A
+    /// shake does not count.
+    func testTheHintStaysUntilAHoldHasOpenedAPage() {
+        let glass = openSettledJar()
+        XCTAssertEqual(jarState["hint"] as? Bool, true, "a first visit shows the hint: \(jarState)")
+        tapNeck(of: glass)
+        waitUntilSettled(tosses: 1, "a shake")
+        XCTAssertEqual(jarState["hint"] as? Bool, true, "a shake keeps it")
+        let star = app.buttons["jar.star.Slow morning, good coffee"]
+        XCTAssertTrue(star.waitForExistence(timeout: 3))
+        star.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "a hold opens the page")
+        app.buttons["reading.back"].tap()
+        XCTAssertTrue(star.waitForExistence(timeout: 5), "back in the jar")
+        XCTAssertEqual(jarState["hint"] as? Bool, false, "a hold has opened a page: the hint is gone")
+
+        relaunch(["-KEEP_SETTINGS"])
+        _ = openSettledJar()
+        XCTAssertEqual(jarState["hint"] as? Bool, false, "and stays gone after a relaunch")
+    }
+
     /// #206: a tap on a star shakes the jar and opens nothing -- before,
     /// any tap within 17 pt of a star opened it, so in a crowd the toss
     /// could not be reached. Only a hold opens.
