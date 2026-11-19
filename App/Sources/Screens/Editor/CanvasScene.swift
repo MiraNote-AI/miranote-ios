@@ -300,8 +300,8 @@ struct CanvasScene: View {
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
             dimmed: editor.editingTextItemID != nil,
-            scrimmed: editingImageItem != nil,
-            onScrimTap: photoPageTapped
+            pageInert: editingImageItem != nil,
+            onPageTap: photoPageTapped
         ) {
             board
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { boardRow = $0 }
@@ -405,7 +405,7 @@ struct CanvasScene: View {
             if phase != .active {
                 leftForeground += 1
                 stopDictationForBackground()
-                cancelMiraDictation()
+                stopMiraDictationForBackground()
             }
         }
         .onChange(of: pendingTool) { consumePendingTool() }
@@ -957,7 +957,7 @@ struct CanvasScene: View {
     }
 
     /// The header's undo: while a photo is lifted, only that visit's own
-    /// steps, like the floating Undo -- never a change under the scrim. The
+    /// steps, like the floating Undo -- never a change on the inert page. The
     /// sticker panel's visit records no step while it is open (its edit
     /// lands as it closes), so there it has none to take back.
     private var headerUndo: () -> Void {
