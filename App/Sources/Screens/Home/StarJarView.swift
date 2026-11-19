@@ -310,9 +310,9 @@ extension StarJarView {
                 faces[mood] = face
                 return face
             }
-            tossScene.onSettle = { spots in
-                settled = spots
-                tossing = false
+            tossScene.onSettle = { [landed = $settled, inAir = $tossing] spots in
+                landed.wrappedValue = spots
+                inAir.wrappedValue = false
             }
             tossing = true
         }

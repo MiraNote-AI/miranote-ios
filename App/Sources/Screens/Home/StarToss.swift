@@ -11,7 +11,8 @@ import UIKit
 final class StarTossScene: SKScene, SKPhysicsContactDelegate {
     /// Every star's spot when a toss ends, in the jar's (SwiftUI, y-down)
     /// coordinates: where it landed, or for a toss `stop` dropped, where it
-    /// lay before.
+    /// lay before. Give it the view's bindings, not the view: the view
+    /// holds this scene, and the two would keep each other alive.
     var onSettle: ([Memory.ID: StarPile.Spot]) -> Void = { _ in }
 
     private(set) var isTossing = false
