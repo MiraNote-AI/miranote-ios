@@ -162,13 +162,28 @@ enum SignInPresenter {
 }
 
 /// Apple's sign-in sheet through AuthenticationServices. Asks for no
-/// scopes: we keep no email or name (design 3.1).
+/// scopes: we keep no email or name (design 3.1). Account deletion runs
+/// the same sheet for a fresh authorization code.
 @MainActor
 final class LiveAppleCredentialProvider: NSObject, AppleCredentialProvider {
-    private var pending: CheckedContinuation<String, Error>?
+    private var pending: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
     private var controller: ASAuthorizationController?
 
     func identityToken(nonceHash: String) async throws -> String {
+        guard let data = try await credential(nonceHash: nonceHash).identityToken,
+              let token = String(data: data, encoding: .utf8)
+        else { throw AppleSignInError.noIdentityToken }
+        return token
+    }
+
+    func authorizationCode() async throws -> String {
+        guard let data = try await credential(nonceHash: nil).authorizationCode,
+              let code = String(data: data, encoding: .utf8)
+        else { throw AppleSignInError.noAuthorizationCode }
+        return code
+    }
+
+    private func credential(nonceHash: String?) async throws -> ASAuthorizationAppleIDCredential {
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = []
         request.nonce = nonceHash
@@ -183,7 +198,7 @@ final class LiveAppleCredentialProvider: NSObject, AppleCredentialProvider {
         }
     }
 
-    private func finish(_ result: Result<String, Error>) {
+    private func finish(_ result: Result<ASAuthorizationAppleIDCredential, Error>) {
         pending?.resume(with: result)
         pending = nil
         controller = nil
@@ -194,11 +209,9 @@ extension LiveAppleCredentialProvider: ASAuthorizationControllerDelegate,
     ASAuthorizationControllerPresentationContextProviding {
     func authorizationController(controller: ASAuthorizationController,
                                  didCompleteWithAuthorization authorization: ASAuthorization) {
-        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-              let data = credential.identityToken,
-              let token = String(data: data, encoding: .utf8)
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential
         else { return finish(.failure(AppleSignInError.noIdentityToken)) }
-        finish(.success(token))
+        finish(.success(credential))
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
@@ -260,9 +273,13 @@ extension Account {
 /// -UITEST: Apple says yes at once.
 private struct UITestApple: AppleCredentialProvider {
     func identityToken(nonceHash: String) async throws -> String { "uitest-identity-token" }
+    func authorizationCode() async throws -> String { "uitest-authorization-code" }
 }
 
-/// -UITEST: the accounts service, answering every call.
+/// -UITEST: the accounts service, answering every call. Deleting the
+/// account fails as offline under `-DELETE-ACCOUNT-OFFLINE`, and with the
+/// 401 of an ended sign-in under `-DELETE-ACCOUNT-ENDED`; it is deleted
+/// without Apple told (a 502/503) under `-DELETE-ACCOUNT-APPLE-NOT-TOLD`.
 private struct UITestAccounts: AccountsAPI {
     static func tokens() -> AccountTokens {
         // A UUID, as the server's ids are: a purchase's appAccountToken.
@@ -274,5 +291,13 @@ private struct UITestAccounts: AccountsAPI {
     func signIn(identityToken: String, nonce: String) async throws -> AccountTokens { Self.tokens() }
     func refresh(refreshToken: String) async throws -> AccountTokens { Self.tokens() }
     func signOut(refreshToken: String) async throws {}
+
+    func deleteAccount(accessToken: String, authorizationCode: String) async throws -> Bool {
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-DELETE-ACCOUNT-OFFLINE") { throw BackendError.unreachable }
+        if arguments.contains("-DELETE-ACCOUNT-ENDED") { throw BackendError.server(status: 401, detail: nil) }
+        return !arguments.contains("-DELETE-ACCOUNT-APPLE-NOT-TOLD")
+    }
 }
 #endif

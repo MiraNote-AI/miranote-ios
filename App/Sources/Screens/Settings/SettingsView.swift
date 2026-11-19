@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Handoff screen 03: the PREFERENCES card -- Appearance and Language rows
 /// with their current values, and the text-size slider. ACCOUNT shows
-/// whether this phone is signed in with Apple, with Sign out (api #95; no
-/// email: we never ask Apple for one), and PLUS the current plan with the
+/// whether this phone is signed in with Apple, with Sign out and Delete
+/// account (api #95; no email: we never ask Apple for one), and PLUS the current plan with the
 /// paywall and Restore, in a build that offers sign-in
 /// (`Account.isOffered`). PRIVACY & LEGAL (no URLs yet) is
 /// left out until the links exist. AI & PRIVACY says what goes
@@ -120,10 +120,13 @@ struct SettingsView: View {
     }
 }
 
-/// Signed in with Apple and Sign out, or Sign in, which shows the sign-in
-/// sheet. Signed out, everything on the phone keeps working.
+/// Signed in with Apple, Sign out and Delete account, or Sign in, which
+/// shows the sign-in sheet. Signed out, everything on the phone keeps
+/// working.
 private struct AccountCard: View {
     var account: Account
+
+    @State private var deleting = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -139,6 +142,11 @@ private struct AccountCard: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("settings.signOut")
                 note("Your pages stay on this phone. Mira's AI asks you to sign in again.")
+                Button("Delete account") { deleting = true }
+                    .font(Sans.font(size: 16, weight: 600))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("settings.deleteAccount")
             } else {
                 Button("Sign in with Apple") { Task { _ = await account.permit() } }
                     .font(Sans.font(size: 16, weight: 600))
@@ -150,6 +158,11 @@ private struct AccountCard: View {
         }
         .padding(.top, 8)
         .padding(.bottom, 14)
+        // On the card, not the signed-in branch: the sheet stays up to say
+        // done after deletion signs the phone out.
+        .sheet(isPresented: $deleting) {
+            DeleteAccountSheet(account: account) { deleting = false }
+        }
     }
 
     private func note(_ text: LocalizedStringKey) -> some View {

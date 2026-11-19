@@ -146,5 +146,8 @@ public enum MiraNoteConfig {
         public static let terms = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
         /// Must be live before the app is submitted (api #95 step 6).
         public static let privacy = URL(string: "https://miranote.app/privacy")!
+        /// Apple's page for the writer's subscriptions: deleting the account
+        /// does not cancel Plus (Guideline 5.1.1(v)).
+        public static let manageSubscriptions = URL(string: "https://apps.apple.com/account/subscriptions")!
     }
 }
