@@ -76,7 +76,7 @@ final class MonkeyUITests: XCTestCase {
         case 1: longPressRandom()
         case 2: dragRandom()
         case 3: tapNamed(["mode.text", "mode.voice", "mode.image", "mode.sticker", "mode.background"])
-        case 4: tapNamed(["keyboard.done", "text.cancel", "editor.undo", "image.add", "photo.done"])
+        case 4: tapNamed(["keyboard.done", "editor.undo", "image.add", "photo.done"])
         case 5: typeWords()
         case 6: holdStrip()
         case 7: tapNamed(["recorder.record", "recorder.stop", "recorder.keep", "recorder.discard", "mira.keep"])

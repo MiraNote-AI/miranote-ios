@@ -111,7 +111,11 @@ Delay hooks (launch arguments, `-UITEST` only): `-TRANSCRIBE_DELAY <ms>`,
 `-TRANSCRIBE_FIRST_DELAY <ms>`, `-MIC_START_DELAY <ms>`, `-AI_EDIT_DELAY
 <ms>`, `-CHAT_DELAY <ms>`, `-IMPORT_DELAY <ms>`, `-EXPORT_DELAY <ms>`,
 `-GENERATE_DELAY <ms>`, `-TEXT_MODE_BEAT <ms>`, `-HOLD_INTERRUPT_AFTER
-<ms>`. Transcript hooks: `-NUMBER_TAKES` (each take's words end with its
+<ms>`. System-interruption hooks (#218): `-STRIP_TOUCH_CANCEL_AFTER
+<ms>` (the chat-box mic's or the Mira strip's press loses its touch, as
+when the system takes it) and `-AUDIO_INTERRUPT_AFTER <ms>` (the audio
+session is interrupted that long after a mic goes live, as by a call).
+Transcript hooks: `-NUMBER_TAKES` (each take's words end with its
 number, in the order the takes were let go), `-TIME_TAKES` (each take's
 words end with how long it recorded, in whole seconds) and
 `-FAIL_FIRST_TAKE` (the first take fails); `-HOLD_FIRST_TAKE` (the

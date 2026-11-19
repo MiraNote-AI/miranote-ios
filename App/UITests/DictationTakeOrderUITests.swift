@@ -231,4 +231,93 @@ final class DictationTakeOrderUITests: XCTestCase {
                        "the take was lost: \(app.miraInput.value ?? "")")
         XCTAssertNotEqual(miraStrip.value as? String, "Couldn't reach the transcriber -- try again?")
     }
+
+    // MARK: The system ends a live take (#218)
+
+    private func waitFor(_ element: XCUIElement, value: String, timeout: TimeInterval) -> Bool {
+        let match = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
+        return XCTWaiter().wait(for: [match], timeout: timeout) == .completed
+    }
+
+    /// The text mic is at rest: neither listening nor writing words down.
+    private func micAtRest(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let value = strip.value as? String ?? ""
+            if !["Listening...", "Writing it down..."].contains(value) { return true }
+            usleep(100_000)
+        } while Date() < deadline
+        return false
+    }
+
+    /// The system takes the hold's touch (Control Center, a call): the take
+    /// ends as if let go -- its words land in the block, once, and the mic
+    /// is off. The finger's later lift reports nothing.
+    func testATakeWhoseTouchTheSystemTakesLandsInTheBlock() {
+        startAMemory(["-STRIP_TOUCH_CANCEL_AFTER", "1500"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.press(forDuration: 3)
+        XCTAssertTrue(waitFor(field, value: "Lunch Transcribed voice note (mock)", timeout: 8),
+                      "the take was dropped: \(field.value ?? "")")
+        XCTAssertTrue(micAtRest(timeout: 5), "the mic stayed on: \(strip.value ?? "")")
+        sleep(2)
+        XCTAssertEqual(field.value as? String, "Lunch Transcribed voice note (mock)", "the words landed twice")
+    }
+
+    /// The same on the Mira strip: the words land in the question.
+    func testAMiraTakeWhoseTouchTheSystemTakesLandsInTheQuestion() {
+        startAMemory(["-STRIP_TOUCH_CANCEL_AFTER", "1500"])
+        app.openMiraChat()
+        miraStrip.press(forDuration: 3)
+        XCTAssertTrue(waitFor(app.miraInput, value: "Transcribed voice note (mock)", timeout: 8),
+                      "the take was dropped: \(app.miraInput.value ?? "")")
+        XCTAssertNotEqual(miraStrip.value as? String, "Listening...", "the mic stayed on")
+    }
+
+    /// On a phone the touch is taken first, then the app leaves (a swipe
+    /// home): the words land exactly once.
+    func testASystemTakenTouchThenLeavingLandsTheWordsOnce() {
+        startAMemory(["-STRIP_TOUCH_CANCEL_AFTER", "1000"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.press(forDuration: 1.5)
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 3)
+        app.activate()
+        XCTAssertTrue(waitFor(field, value: "Lunch Transcribed voice note (mock)", timeout: 8),
+                      "the take was dropped: \(field.value ?? "")")
+        sleep(2)
+        XCTAssertEqual(field.value as? String, "Lunch Transcribed voice note (mock)", "the words landed twice")
+    }
+
+    /// A call or Siri interrupts the audio while a tapped take listens: the
+    /// take ends as if let go, and the mic does not come back on.
+    func testAnAudioInterruptionEndsATappedTake() {
+        startAMemory(["-AUDIO_INTERRUPT_AFTER", "1500"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.tap()
+        XCTAssertTrue(waitFor(strip, value: "Listening...", timeout: 5), "the tap started a take")
+        XCTAssertTrue(waitFor(field, value: "Lunch Transcribed voice note (mock)", timeout: 8),
+                      "the take was not ended: \(field.value ?? "")")
+        XCTAssertTrue(micAtRest(timeout: 5), "the mic stayed on: \(strip.value ?? "")")
+    }
+
+    /// The system takes the touch while the mic is still coming up (the
+    /// first mic-permission alert): nothing was recorded, nothing lands, and
+    /// no mic is left on.
+    func testASystemTakenTouchWhileTheMicComesUpKeepsNothing() {
+        startAMemory(["-MIC_START_DELAY", "1500", "-STRIP_TOUCH_CANCEL_AFTER", "50"])
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lunch")
+        strip.press(forDuration: 0.8)
+        sleep(3)
+        XCTAssertEqual(field.value as? String, "Lunch", "a take with nothing recorded landed")
+        XCTAssertTrue(micAtRest(timeout: 1), "the mic came on after all: \(strip.value ?? "")")
+    }
 }

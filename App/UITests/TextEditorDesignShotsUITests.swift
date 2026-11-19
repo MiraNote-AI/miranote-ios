@@ -40,7 +40,7 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         app.buttons["mode.text"].tap()
-        XCTAssertTrue(app.buttons["text.cancel"].waitForExistence(timeout: 2), "the editing header")
+        XCTAssertTrue(app.buttons["keyboard.done"].waitForExistence(timeout: 2), "the text row")
         shot("10")
 
         let field = app.descendants(matching: .any)["canvas.textEditor"]

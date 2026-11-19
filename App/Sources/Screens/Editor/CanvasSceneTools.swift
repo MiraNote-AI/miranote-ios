@@ -18,7 +18,7 @@ extension CanvasScene {
         }
         Task {
             if beat > 0 { try? await Task.sleep(for: .milliseconds(beat)) }
-            // Cancel (or Done, or another tool) before it landed called it off.
+            // Back (or another tool) before it landed called it off.
             guard textModeArming else { return }
             textModeArming = false
             addTextBlock()
@@ -60,9 +60,11 @@ extension CanvasScene {
         return block
     }
 
-    /// The three-layer accessory above the keyboard (screens 11-20): the
-    /// active tool's row, the tool bar, the dictation strip. The tool bar
-    /// never moves; rows crossfade under the finger.
+    /// The accessory above the keyboard (screens 11-20, #205), bottom to
+    /// top: the Mira chat box with its mic (T1, T2), Back and the tool bar,
+    /// the active tool's row, and a caption line when the mic has news.
+    /// The tool bar never moves; rows crossfade under the finger. One
+    /// layer, so all of it rides up on the keyboard together (#162).
     @ViewBuilder var textAccessory: some View {
         VStack(spacing: 0) {
             if textTool.hasRow {
@@ -71,37 +73,62 @@ extension CanvasScene {
                     .transition(.opacity)
                     .padding(.bottom, textTool.rowGap)
             }
-            TextToolBar(active: textTool, alignment: editingBlock?.alignment ?? .leading, onSelect: selectTextTool)
-                .padding(.horizontal, Metrics.chromeInset)
-            DictationStrip(
-                surface: .page,
+            HStack(spacing: 8) {
+                TextBackKey(onBack: endTextEditing)
+                TextToolBar(active: textTool, alignment: editingBlock?.alignment ?? .leading,
+                            onSelect: selectTextTool)
+            }
+            .padding(.horizontal, Metrics.chromeInset)
+            WritingChatBox(
                 listening: dictating,
-                detail: stripDetail ?? String(appCopy: "accurate voice-to-text"),
+                recorder: dictating ? recorder : nil,
+                status: micStatus ?? "",
                 onPress: { if dictationPress == nil { pressDictation() } },
                 onRelease: releaseDictation,
-                onCancel: cancelDictationIfNeeded
+                // The system took the touch: the take ends as if let go (#218).
+                onCancel: stopDictationForBackground,
+                onToggle: { dictating ? stopDictation() : startDictation() }
             )
             .padding(.horizontal, Metrics.chromeInset)
-            .padding(.top, 4)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Mira Dictation")
-            .accessibilityValue(stripDetail ?? "")
-            .accessibilityHint(dictating ? Text("Ends the dictation.") : Text("Hold to talk, or tap to start."))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { dictating ? stopDictation() : startDictation() }
-            .accessibilityIdentifier("style.mic")
+            .padding(.top, 8)
+        }
+        // Over the rows, not among them: the block being written is kept
+        // clear of the rows' top, which a caption coming and going with
+        // every take would move -- and the page with it.
+        .overlay(alignment: .top) {
+            if let caption = dictationCaption {
+                Text(caption)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.textSecondary)
+                    .lineLimit(2)
+                    .padding(.horizontal, Metrics.chromeInset)
+                    .padding(.bottom, 6)
+                    // Rises from the rows' top edge, taking no room.
+                    .frame(height: 0, alignment: .bottom)
+                    .transition(.opacity)
+            }
         }
         // 4 above the keyboard.
         .padding(.bottom, 4)
         .animation(.easeOut(duration: 0.15), value: textTool)
+        .animation(.easeOut(duration: 0.15), value: dictationCaption)
+        // VoiceOver's two-finger scrub ends the writing, as Back does.
+        .accessibilityAction(.escape) { endTextEditing() }
         .onAppear { TextOpenTiming.markAccessoryShown() }
     }
 
-    /// The strip's line when it is not at rest: a new take listening while
+    /// The mic's state as VoiceOver reads it: a new take listening while
     /// an earlier one is written down reads as listening.
-    private var stripDetail: String? {
+    private var micStatus: String? {
         if dictating { return String(appCopy: "Listening...") }
-        return writingDown ? String(appCopy: "Writing it down...") : dictationHint
+        return dictationCaption
+    }
+
+    /// The caption over the rows: the words on their way, or why nothing
+    /// landed or a rewrite failed (the free limit among them, #213). The
+    /// chat box itself says "Listening...".
+    private var dictationCaption: String? {
+        writingDown ? String(appCopy: "Writing it down...") : dictationHint
     }
 
     @ViewBuilder private var textToolRow: some View {
@@ -177,9 +204,10 @@ extension CanvasScene {
 
     // MARK: Ending a session
 
-    /// The header's Done: the session's previews are kept. Dictated words
-    /// on their way are waited for, so they land inside the session -- a
-    /// take still listening (the tap toggle) stops and is waited for too.
+    /// The text row's Back (a page tap, Esc): the session's previews are
+    /// kept. Dictated words on their way are waited for (at most
+    /// `doneWaitCap`), so they land inside the session -- a take still
+    /// listening (the tap toggle) stops and is waited for too.
     func endTextEditing() {
         if dictating, editor.editingTextItemID != nil { stopDictation() }
         if writingDown {
@@ -193,27 +221,6 @@ extension CanvasScene {
         }
         textModeArming = false
         editor.endEditingText()
-        textFocus = nil
-        resetTextTools()
-    }
-
-    /// The header's Cancel: the block goes back to how it was when the
-    /// session began (a new block disappears). Open previews go first, so
-    /// nothing live survives a session the Kit can no longer take back.
-    func cancelTextEditing() {
-        textModeArming = false
-        // Words still being written down belonged to this session: dropped.
-        dictationTarget = nil
-        if let state = rewrite {
-            editor.discardPreview(of: state.original)
-            rewrite = nil
-        }
-        if let request = colorRequest {
-            dropColorPreview(request)
-            colorRequest = nil
-        }
-        textCancelled = editor.editingTextItemID != nil
-        editor.cancelEditingText()
         textFocus = nil
         resetTextTools()
     }

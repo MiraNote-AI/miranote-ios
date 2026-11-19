@@ -43,7 +43,7 @@ final class TextMotionRecordingUITests: XCTestCase {
     }
 
     /// Three opens (REC_ROUNDS to change; the first after launch is the
-    /// cold keyboard), each held 2 s, then Cancel.
+    /// cold keyboard), each held 2 s, then Back.
     private func filmOpens(_ name: String) {
         let rounds = Int(ProcessInfo.processInfo.environment["REC_ROUNDS"] ?? "") ?? 3
         for round in 1...rounds {
@@ -54,7 +54,7 @@ final class TextMotionRecordingUITests: XCTestCase {
             if let range = state.range(of: "\"textOpen\":\\{[^}]*\\}", options: .regularExpression) {
                 print("REC-PROBE \(name)-\(round) \(state[range])")
             }
-            app.buttons["text.cancel"].tap()
+            app.buttons["keyboard.done"].tap()
             sleep(2)
         }
     }

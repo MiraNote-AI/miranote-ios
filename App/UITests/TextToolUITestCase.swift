@@ -58,8 +58,9 @@ class TextToolUITestCase: XCTestCase {
         throw XCTSkip("hardware keyboard connected: no software keyboard to time")
     }
 
-    func cancelText() {
-        app.buttons["text.cancel"].tap()
+    /// Back on an empty block: the block goes, the canvas comes back.
+    func leaveText() {
+        app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
     }
 

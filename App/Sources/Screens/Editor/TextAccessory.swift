@@ -1,10 +1,10 @@
 import MiraNoteKit
 import SwiftUI
 
-// The text editor's accessory (handoff screens 11-20), bottom to top above
-// the keyboard: the "Mira Dictation" strip, the persistent five-icon tool
-// bar, and the active tool's secondary row. Pure views: CanvasScene owns
-// the state and passes it in.
+// The text editor's accessory (handoff screens 11-20, #205), bottom to top
+// above the keyboard: the Mira chat box with its mic, Back and the
+// persistent five-icon tool bar, and the active tool's secondary row. Pure
+// views: CanvasScene owns the state and passes it in.
 
 /// The five text tools, in the tool bar's order.
 enum TextTool: CaseIterable {
@@ -100,16 +100,9 @@ struct TextToolBar: View {
                 .position(x: geo.size.width * (Self.centers[tool] ?? 0), y: geo.size.height / 2)
             }
         }
-        // 36 tall, as the dictation strip under it.
         .frame(height: 36)
-        .background(
-            // The page under it is already blurred by the scrim, so the
-            // glass is the drawn 23% warm white alone.
-            Capsule()
-                .fill(Tokens.warmWhite.opacity(0.23))
-                .overlay(Capsule().strokeBorder(Tokens.barRim, lineWidth: 0.661))
-                .shadow(color: Palette.ink.opacity(0.08), radius: 3, y: 5.3)
-        )
+        // The page under it is sharp now (#205): the glass blurs it itself.
+        .background(TextGlass(shape: Capsule()))
     }
 
     @ViewBuilder private func glyph(_ tool: TextTool, active: Bool) -> some View {
@@ -161,6 +154,114 @@ struct TextToolBar: View {
         case .align: return "style.align"
         case .background: return "style.highlight"
         }
+    }
+}
+
+/// The drawn 23% warm white glass of the text chrome, over its own blur.
+private struct TextGlass<S: InsettableShape>: View {
+    let shape: S
+
+    var body: some View {
+        GlassSurface(shape: shape, tint: Tokens.warmWhite.opacity(0.23), rim: Tokens.barRim,
+                     highlight: false, shadowOpacity: 0.08, shadowRadius: 3, shadowY: 5.3)
+    }
+}
+
+/// The leading Back key of the text row (R1A): ends the writing, as a tap
+/// on the page or Esc on a hardware keyboard (`WritingEscape`) does. A glass circle as tall as
+/// the tool bar beside it.
+struct TextBackKey: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        Button(action: onBack) {
+            Image("nav.back")
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(Tokens.forest)
+                .frame(width: 36, height: 36)
+                .background(TextGlass(shape: Circle()))
+                // 36 drawn, 44 to the finger.
+                .padding(4)
+                .contentShape(Rectangle())
+                .padding(-4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Back")
+        .accessibilityIdentifier("keyboard.done")
+    }
+}
+
+/// The Mira chat box while words are written (T1, T2): the composer's glass
+/// reading "Ask Mira to refine...", and the mic that dictates into the block
+/// (D2A, F8A) -- hold to talk, or tap to start and tap again to end. While
+/// the mic is live the box shows a waveform and "Listening...".
+struct WritingChatBox: View {
+    let listening: Bool
+    /// The live take's recorder, for the waveform.
+    let recorder: AudioRecording?
+    /// What the mic is doing or why nothing landed, for VoiceOver and tests.
+    let status: String
+    var onPress: () -> Void
+    var onRelease: () -> Void
+    var onCancel: () -> Void
+    /// Starts or ends the take in one activation (assistive technologies).
+    var onToggle: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if listening, let recorder {
+                LiveWaveform(recorder: recorder, tint: Tokens.forest, scale: 0.5)
+                Text(copy: "Listening...")
+                    .font(.miraComposer)
+                    .foregroundStyle(Tokens.forest)
+                    .lineLimit(1)
+                    // The mic's value says so.
+                    .accessibilityHidden(true)
+            } else {
+                // Typing here comes with Go (#205 PR 3); until then the
+                // words are only the box's look.
+                Text(copy: "Ask Mira to refine...")
+                    .font(.miraComposer)
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+                    .accessibilityHidden(true)
+            }
+            Spacer(minLength: 0)
+            mic
+        }
+        .padding(.leading, 17)
+        .padding(.trailing, 10)
+        .frame(height: 54)
+        .background(GlassCapsule())
+    }
+
+    private var mic: some View {
+        Image("mira.dictation.mic")
+            .renderingMode(.template)
+            .resizable()
+            .frame(width: 16, height: 16)
+            .foregroundStyle(Palette.onInk)
+            .frame(width: 34, height: 34)
+            .background(Circle().fill(listening ? Tokens.forest : Palette.ink))
+            // Only the pulse repeats, never the fill; under Reduce Motion
+            // the forest fill alone says it is live.
+            .animation(listening ? .easeInOut(duration: 0.6).repeatForever() : .default) {
+                $0.scaleEffect(listening && !reduceMotion ? 1.1 : 1)
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .holdToTalk(onPress: onPress, onRelease: onRelease, onCancel: onCancel)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mira Dictation")
+            .accessibilityValue(status)
+            .accessibilityHint(listening ? Text("Ends the dictation.") : Text("Hold to talk, or tap to start."))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onToggle() }
+            .accessibilityIdentifier("style.mic")
     }
 }
 

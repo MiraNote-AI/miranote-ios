@@ -1,3 +1,4 @@
+import AVFoundation
 import MiraNoteKit
 import PhotosUI
 import SwiftUI
@@ -11,8 +12,8 @@ import SwiftUI
 /// the result sheet (07); a dragged element floats above the dock over the
 /// composer's delete zone (22). Header is Home (Canvas while a tool is open
 /// in place) / undo / Save; Save still files the page and leaves. Writing
-/// reads Cancel / Done, picking photos Cancel / Add, a lifted photo
-/// Cancel / Done.
+/// greys Home and Save (#205), picking photos reads Cancel / Add, a lifted
+/// photo Cancel / Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -55,7 +56,7 @@ struct CanvasScene: View {
     @State var textToolsRiding = false
     /// This open's wait for a keyboard that may never come.
     @State private var textToolsWait: Task<Void, Never>?
-    /// The dictation strip's press in progress.
+    /// The chat-box mic's press in progress.
     @State var dictationPress: (start: Date, wasLive: Bool)?
     @State var miraPrompt = ""
     /// The Mira canvas chat (screen 06) is up over the canvas.
@@ -145,7 +146,7 @@ struct CanvasScene: View {
     /// cannot look mid-drag, so the trail is left for it to read.
     @State var dropZoneTrail: [String] = []
     #endif
-    /// The text strip's take is live: its recorder is up and not yet let
+    /// The chat-box mic's take is live: its recorder is up and not yet let
     /// go of (its words on their way are `writingDown`).
     @State var dictating = false
     /// A strip's mic on its way up; cancelling it stops it once it is.
@@ -168,11 +169,9 @@ struct CanvasScene: View {
     @State var afterWritingDown: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    /// The dictation strip's subtitle when the mic is not live: why nothing
+    /// The text rows' caption when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
-    /// The writing that just ended was Cancelled: its words are not split.
-    @State var textCancelled = false
     @FocusState var textFocus: CanvasItem.ID?
     @FocusState var miraFocus: Bool
 
@@ -181,7 +180,7 @@ struct CanvasScene: View {
     private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     /// Words are being written (or the Text tool is on its way in): the
-    /// header reads Cancel / undo / Done, and Done ends the writing.
+    /// header greys Home and Save; the text row's Back ends the writing.
     private var writing: Bool { editor.editingTextItemID != nil || textModeArming }
 
     var body: some View {
@@ -292,6 +291,11 @@ struct CanvasScene: View {
     private var canvas: some View {
         ZStack(alignment: .bottom) {
             scaffold
+                // Writing's start and end move the page as one eased change
+                // (it rode on the old writing scrim's fade): without it, the
+                // keyboard's inset leaving clamps a page scrolled clear of
+                // the tools a frame before it jumps back (#217).
+                .animation(.easeOut(duration: 0.2), value: editor.editingTextItemID != nil)
                 // While words are written the page keeps its size and the
                 // keyboard rides over the dock, as drawn (screens 11-20).
                 .ignoresSafeArea(.keyboard, edges: holdsPageUnderKeyboard ? .bottom : [])
@@ -315,6 +319,14 @@ struct CanvasScene: View {
                     if editor.editingTextItemID != nil, !textToolsShown, !TextKeyboard.up {
                         waitForTheKeyboard(TextKeyboard.focusWait)
                     }
+                    if editor.editingTextItemID != nil { WritingEscape.follow() }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidChangeNotification)) { _ in
+                    // An input method composing takes Esc back for itself.
+                    if editor.editingTextItemID != nil { WritingEscape.follow() }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: WritingEscape.pressed)) { _ in
+                    if editor.editingTextItemID != nil, colorRequest == nil { endTextEditing() }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
                     if textToolsRiding && !TextKeyboard.holdsRiding { textToolsRiding = false }
@@ -383,14 +395,12 @@ struct CanvasScene: View {
             onTrailing: header.onTrailing,
             onUndo: headerUndo,
             undoEnabled: headerUndoEnabled,
-            leadingMuted: !writing,
-            leadingID: writing ? "text.cancel" : nil,
-            trailingID: writing ? "keyboard.done" : nil,
+            // Writing ends first (Q3B, R2B): Home and Save wait for it.
+            leadingEnabled: !writing,
             // The picks importing are Add's: a second tap waits it out.
-            trailingEnabled: !(imagePhase == .library && importingPicks),
+            trailingEnabled: !writing && !(imagePhase == .library && importingPicks),
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
-            dimmed: editor.editingTextItemID != nil,
             pageInert: editingImageItem != nil,
             onPageTap: photoPageTapped
         ) {
@@ -489,6 +499,7 @@ struct CanvasScene: View {
             cancelDictationIfNeeded()
             cancelMiraDictation()
             textModeArming = false
+            WritingEscape.stop()
         }
         .onChange(of: scenePhase) { _, phase in
             // A hold the system interrupted never ends: the mic stops when
@@ -499,6 +510,27 @@ struct CanvasScene: View {
                 stopMiraDictationForBackground()
             }
         }
+        .onReceive(
+            NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
+                .receive(on: RunLoop.main)
+        ) { note in
+            // A call, Siri or an alarm takes the audio: the recorder stops
+            // capturing, so a live take ends as if let go (#218). The mic
+            // stays off when the interruption ends. A late notice of the
+            // suspension the trip away already handled would end a new take.
+            let info = note.userInfo
+            let type = info?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let reason = info?[AVAudioSessionInterruptionReasonKey] as? UInt
+            guard type == AVAudioSession.InterruptionType.began.rawValue,
+                  reason != AVAudioSession.InterruptionReason.appWasSuspended.rawValue else { return }
+            stopDictationForBackground()
+            stopMiraDictationForBackground()
+        }
+        #if DEBUG
+        .onChange(of: dictating || miraListening) { _, live in
+            if live { interruptAudioIfAsked() }
+        }
+        #endif
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.selectedItemID) { _, selected in
             // Layer-1 onboarding: the gesture hint appears on the first
@@ -553,24 +585,19 @@ struct CanvasScene: View {
                     waitForTheKeyboard(TextKeyboard.toolsWait)
                 }
             }
-            // Writing that ended any way but Cancel splits on its blank
-            // lines, one block per paragraph (#184) -- after its open
-            // previews are kept, like Done keeps them, each its own step.
+            // Writing that ended splits on its blank lines, one block per
+            // paragraph (#184) -- after its open previews are kept, like
+            // Back keeps them, each its own step.
             if let ended, ended != editing {
                 finishRewrite()
                 if let request = colorRequest {
                     editor.commitPreview(of: request.original)
                     colorRequest = nil
                 }
-                if textCancelled {
-                    textCancelled = false
-                } else {
-                    splitWrittenParagraphs(ended)
-                }
+                splitWrittenParagraphs(ended)
             }
             // Words on their way belong to the session that asked for them:
-            // never landed after it ends or moves on -- the page says so
-            // (Cancel, which drops them on purpose, let go of them first).
+            // never landed after it ends or moves on -- the page says so.
             if dictationTarget != nil {
                 if editing == nil {
                     flashHint(String(appCopy: "Couldn't catch those words."))
@@ -586,6 +613,7 @@ struct CanvasScene: View {
             doneWaiting = nil
             afterWritingDown = nil
             if editing == nil {
+                WritingEscape.stop()
                 resetTextTools()
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
@@ -740,7 +768,7 @@ struct CanvasScene: View {
                     coordinator: mira,
                     editor: editor,
                     prompt: $miraPrompt,
-                    placeholder: "Type or polish your memory",
+                    placeholder: "Ask Mira to refine...",
                     onOpenChat: {}
                 )
                 .allowsHitTesting(false)
@@ -755,7 +783,7 @@ struct CanvasScene: View {
                 coordinator: mira,
                 editor: editor,
                 prompt: $miraPrompt,
-                placeholder: "Type or polish your memory",
+                placeholder: "Ask Mira to refine...",
                 onOpenChat: openMiraChat
             )
         } else {
@@ -1014,17 +1042,16 @@ struct CanvasScene: View {
         let onTrailing: () -> Void
     }
 
-    /// The handoff's labels per state: writing reads Cancel / Done (screens
-    /// 10-20), a lifted photo Cancel / Done (27), picking and placed photos
-    /// Cancel / Add (24-29), any other open tool Canvas / Save (05, 23), the
-    /// bare canvas Home / Save.
+    /// The handoff's labels per state: a lifted photo Cancel / Done (27),
+    /// picking and placed photos Cancel / Add (24-29), any other open tool
+    /// Canvas / Save (05, 23), the bare canvas and writing Home / Save (the
+    /// two greyed while writing, #205).
     private var header: Header {
         if layoutOriginal != nil {
             return Header(leading: "Cancel", trailing: "Done", onLeading: cancelLayout, onTrailing: keepLayout)
         }
         if writing {
-            return Header(leading: "Cancel", trailing: "Done",
-                          onLeading: cancelTextEditing, onTrailing: endTextEditing)
+            return Header(leading: "Home", trailing: "Save", onLeading: actions.leading, onTrailing: actions.done)
         }
         if editingImageItem != nil {
             return Header(leading: "Cancel", trailing: "Done",
@@ -1602,8 +1629,26 @@ extension CanvasScene {
             "paper": editor.memory.paper.rawValue,
             "elements": editor.items.map(Self.debugElement),
             "textOpen": TextOpenTiming.snapshot,
-            "textToolsShown": textToolsShown
+            "textToolsShown": textToolsShown,
+            "escapeArmed": WritingEscape.armed
         ]
+    }
+
+    /// -UITEST only: `-AUDIO_INTERRUPT_AFTER <ms>` interrupts the audio
+    /// session that long after a mic goes live, as a call would (#218).
+    func interruptAudioIfAsked() {
+        guard ProcessInfo.processInfo.arguments.contains("-UITEST") else { return }
+        let delay = UserDefaults.standard.integer(forKey: "AUDIO_INTERRUPT_AFTER")
+        guard delay > 0 else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(delay))
+            guard dictating || miraListening else { return }
+            NotificationCenter.default.post(
+                name: AVAudioSession.interruptionNotification,
+                object: AVAudioSession.sharedInstance(),
+                userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue]
+            )
+        }
     }
 
     private static func debugElement(_ item: CanvasItem) -> [String: Any] {

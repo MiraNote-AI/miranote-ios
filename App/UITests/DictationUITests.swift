@@ -16,7 +16,7 @@ final class DictationUITests: XCTestCase {
         app = nil
     }
 
-    // Hold to talk (the Mira Dictation strip, screens 11-18): pressing
+    // Hold to talk (the chat box's mic while writing, #205): pressing
     // starts the mic, letting go ends the take and the words land.
     func testHoldingTheStripDictates() {
         app.buttons["Start a memory"].tap()

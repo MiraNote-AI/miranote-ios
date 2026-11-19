@@ -2,7 +2,7 @@ import XCTest
 
 /// #162: what the screen shows through a Text open -- the keyboard's
 /// color, the page as the tools rise and on an empty exit, and the settled
-/// frames, which must match dev before the fix.
+/// frames (re-recorded for #205's clear page).
 final class TextToolLayoutUITests: TextToolUITestCase {
     // MARK: The keyboard's color
 
@@ -36,7 +36,7 @@ final class TextToolLayoutUITests: TextToolUITestCase {
             let caps = keyCapLuminance()
             XCTAssertGreaterThan(caps, 0, "open \(open): no Q key")
             XCTAssertLessThan(caps, 0.6, "open \(open): the keyboard is light (caps \(caps))")
-            cancelText()
+            leaveText()
         }
     }
 
@@ -90,27 +90,29 @@ final class TextToolLayoutUITests: TextToolUITestCase {
 
     // MARK: Settled layout
 
-    /// Frames recorded on dev 8adad30, iPhone 17, iOS 26.5, before any
-    /// change for #162: the fix must not move what the user sees.
+    /// Frames recorded for #205 PR 2 (text on a clear page), iPhone 17 Pro
+    /// sim, iOS 26.3: the layout changed on purpose -- Back joins the tool
+    /// bar, the chat box with its mic replaces the dictation strip, and the
+    /// header keeps Home / Save (greyed). #162's fix must not move these.
     private static let settledEmptyPage: [String: CGRect] = [
         "canvas.textEditor": CGRect(x: 90.6, y: 237.0, width: 220.9, height: 22.5),
         "keyboard": CGRect(x: 0, y: 583, width: 402, height: 233),
-        "keyboard.done": CGRect(x: 326, y: 59, width: 60, height: 44),
-        "style.font.Josefin": CGRect(x: 88, y: 415.3, width: 65, height: 35),
-        "style.mic": CGRect(x: 16, y: 499, width: 370, height: 36),
-        "text.cancel": CGRect(x: 16, y: 59, width: 70, height: 44)
+        "keyboard.done": CGRect(x: 12, y: 433, width: 44, height: 44),
+        "nav.leading": CGRect(x: 16, y: 59, width: 70, height: 44),
+        "style.font.Josefin": CGRect(x: 88, y: 393.3, width: 65, height: 35),
+        "style.mic": CGRect(x: 332, y: 486, width: 44, height: 44)
     ]
     private static let settledLowBlock: [String: CGRect] = [
         "canvas.textEditor": CGRect(x: 90.6, y: 136.0, width: 220.9, height: 22.5),
         "keyboard": CGRect(x: 0, y: 583, width: 402, height: 233),
-        "keyboard.done": CGRect(x: 326, y: 59, width: 60, height: 44),
-        "style.font.Josefin": CGRect(x: 88, y: 415.3, width: 65, height: 35),
-        "style.mic": CGRect(x: 16, y: 499, width: 370, height: 36),
-        "text.cancel": CGRect(x: 16, y: 59, width: 70, height: 44)
+        "keyboard.done": CGRect(x: 12, y: 433, width: 44, height: 44),
+        "nav.leading": CGRect(x: 16, y: 59, width: 70, height: 44),
+        "style.font.Josefin": CGRect(x: 88, y: 393.3, width: 65, height: 35),
+        "style.mic": CGRect(x: 332, y: 486, width: 44, height: 44)
     ]
 
     private static let settledIDs = ["canvas.textEditor", "style.mic", "style.font.Josefin",
-                                     "keyboard.done", "text.cancel"]
+                                     "keyboard.done", "nav.leading"]
 
     private func settledFrames() throws -> [String: CGRect] {
         try openText()
@@ -126,8 +128,8 @@ final class TextToolLayoutUITests: TextToolUITestCase {
 
     /// The block's settled top on a full page varies on dev itself: 136
     /// when the board scrolls it clear of the tools, 253.4 in about one run
-    /// in ten where it is placed already clear. Both were recorded before
-    /// the fix; any other top is a change.
+    /// in ten where it is placed already clear (still clear of #205's taller
+    /// tools). Any other top is a change.
     private static let lowBlockTops: [CGFloat] = [136.0, 253.4]
 
     private func assertFrames(_ frames: [String: CGRect], equal expected: [String: CGRect], _ name: String,
@@ -159,7 +161,7 @@ final class TextToolLayoutUITests: TextToolUITestCase {
             throw XCTSkip("settled frames are recorded on iPhone 17 only")
         }
         assertFrames(try settledFrames(), equal: Self.settledEmptyPage, "empty page")
-        cancelText()
+        leaveText()
         write("first line of the day")
         write("second, a little longer than the first one")
         write("third")

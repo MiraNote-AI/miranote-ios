@@ -99,7 +99,7 @@ extension CanvasScene {
             onClose: closeMiraChat,
             onHoldStart: pressMiraDictation,
             onHoldEnd: releaseMiraDictation,
-            onHoldCancel: cancelMiraDictation,
+            onHoldCancel: stopMiraDictationForBackground,
             onToggle: { miraListening ? finishMiraDictation() : startMiraDictation() }
         )
     }
@@ -233,9 +233,10 @@ extension CanvasScene {
         return words
     }
 
-    /// The app leaves the foreground: a live take ends as if let go, so
-    /// its words land in the question (or the strip says why not); a mic
-    /// still coming up has recorded nothing and is cancelled (#150).
+    /// The system ends the take -- the app leaves the foreground (#150),
+    /// takes the touch, or interrupts the audio (#218): a live take ends as
+    /// if let go, so its words land in the question (or the strip says why
+    /// not); a mic still coming up has recorded nothing and is cancelled.
     func stopMiraDictationForBackground() {
         miraPress = nil
         guard miraListening else {

@@ -1,8 +1,8 @@
 import XCTest
 
 /// What a text block's growth pushes is the block's to take back, and only
-/// that: Cancel never moves what Mira moved meanwhile, and the curated sets
-/// toggled back and forth leave the page where it was.
+/// that: ending the writing never moves what Mira moved meanwhile, and the
+/// curated sets toggled back and forth leave the page where it was.
 final class TextPushUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -17,9 +17,9 @@ final class TextPushUITests: XCTestCase {
 
     private var field: XCUIElement { app.descendants(matching: .any)["canvas.textEditor"] }
 
-    /// A title lands while the user writes and slides the page down; Cancel
-    /// keeps the block under the title.
-    func testCancelAfterATitleLandedKeepsTheBlockUnderIt() {
+    /// A title lands while the user writes and slides the page down; ending
+    /// the writing keeps the block under the title.
+    func testEndingAfterATitleLandedKeepsTheBlockUnderIt() {
         app.launchArguments = ["-UITEST", "-CHAT_DELAY", "6000"]
         app.launch()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
@@ -44,10 +44,11 @@ final class TextPushUITests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 10), "the title lands")
         sleep(1)
 
-        app.buttons["text.cancel"].tap()
-        XCTAssertTrue(block.waitForExistence(timeout: 5), "the block's words are back")
-        XCTAssertGreaterThanOrEqual(block.frame.minY, title.frame.maxY - 1,
-                                    "Cancel put the block back on the title")
+        app.buttons["keyboard.done"].tap()
+        let written = app.staticTexts["lunch by the river and a walk"]
+        XCTAssertTrue(written.waitForExistence(timeout: 5), "the block keeps its words")
+        XCTAssertGreaterThanOrEqual(written.frame.minY, title.frame.maxY - 1,
+                                    "ending the writing put the block back on the title")
     }
 
     /// "A little welcome": Poppins / Lora and Didot / Cardo tapped in turn,

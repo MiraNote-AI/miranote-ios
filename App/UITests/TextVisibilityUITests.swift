@@ -47,7 +47,7 @@ final class TextVisibilityUITests: XCTestCase {
             format: "identifier == 'style.sizes' OR identifier BEGINSWITH 'style.font.' OR identifier BEGINSWITH 'style.size.'"
         )).allElementsBoundByIndex.map(\.frame.minY) + [any("style.mic").frame.minY]
         let toolsTop = tools.min() ?? 0
-        let headerBottom = app.buttons["keyboard.done"].frame.maxY
+        let headerBottom = app.buttons["nav.trailing"].frame.maxY
         XCTAssertLessThanOrEqual(field.frame.maxY, toolsTop + 0.5,
                                  "\(when): the block (\(field.frame)) runs under the text tools (top \(toolsTop))")
         XCTAssertGreaterThanOrEqual(field.frame.minY, headerBottom - 0.5,
@@ -106,7 +106,7 @@ final class TextVisibilityUITests: XCTestCase {
         field.typeText(String(repeating: "We walked down to the river after lunch and sat on the warm stones. ",
                               count: 14))
         Thread.sleep(forTimeInterval: 1.5)
-        let headerBottom = app.buttons["keyboard.done"].frame.maxY
+        let headerBottom = app.buttons["nav.trailing"].frame.maxY
         // Drag the page down until the block's first line shows.
         for _ in 0..<6 where field.frame.minY < headerBottom + 20 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.2))

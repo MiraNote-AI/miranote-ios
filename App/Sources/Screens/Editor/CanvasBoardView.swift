@@ -278,8 +278,7 @@ struct CanvasBoardView: View {
         }
     }
 
-    /// While words are written the page goes under the dim glass scrim
-    /// (screens 11-20): everything but the edited block blurs and dims.
+    /// Words are being written: the page keeps room below for the block.
     private var writing: Bool { editor.editingTextItemID != nil }
 
     /// The block being written, its height and its words: what keeps it
@@ -307,24 +306,12 @@ struct CanvasBoardView: View {
         ZStack(alignment: .topLeading) {
             // A blank page is just the page (handoff screen 04): the tools
             // and the composer below are the invitation.
+            // While words are written the page stays sharp (#205): only
+            // the block being written wears its dashed frame.
             paper
-                .blur(radius: writing ? Self.writingBlur : 0)
-            if writing {
-                // Taps fall through to the paper, which ends editing.
-                Rectangle()
-                    .fill(Palette.scrim)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-                    .zIndex(1)
-                    .accessibilityElement()
-                    .accessibilityLabel("Writing")
-                    .accessibilityIdentifier("text.scrim")
-            }
             ForEach(editor.orderedItems) { item in
-                let edited = editor.editingTextItemID == item.id
                 element(item)
-                    .blur(radius: writing && !edited ? Self.writingBlur : 0)
-                    .zIndex(edited ? 2 : 0)
+                    .zIndex(editor.editingTextItemID == item.id ? 2 : 0)
             }
             if let pendingSoundMarker {
                 PendingSoundMarker()
@@ -378,15 +365,6 @@ struct CanvasBoardView: View {
             }
         )
     }
-
-    /// The frost over the page while words are written.
-    private static let writingBlur: CGFloat = {
-        #if DEBUG
-        // #162 A/B: the frost without its blur.
-        if UserDefaults.standard.bool(forKey: "NO_WRITING_BLUR") { return 0 }
-        #endif
-        return 4
-    }()
 
     /// At least the card's own height, so the page always fills the card;
     /// while writing, a card's height below the content, so the block being
@@ -521,7 +499,10 @@ struct CanvasBoardView: View {
         .frame(width: geometry.size.width, height: geometry.size.height)
         .contentShape(Rectangle())
         .overlay {
-            if isSelected && !isEditing {
+            if isEditing {
+                // The block being written: the dashed frame, no handles (R3A).
+                dashedFrame(outset: 6)
+            } else if isSelected {
                 handles(for: item, size: geometry.size)
             }
         }
@@ -737,7 +718,7 @@ extension CanvasBoardView {
     /// corner; deltas are applied in unrotated space (a deliberate
     /// simplification -- scrapbook tilts stay small).
     private func handles(for item: CanvasItem, size: CGSize) -> some View {
-        let line = Color(hex: 0x263521)
+        let line = Self.frameLine
         // A matless photo (plain or soft) wears the border along its edge.
         var photoBorder: CGFloat?
         if case .image(let ref) = item.content {
@@ -754,10 +735,7 @@ extension CanvasBoardView {
                     .strokeBorder(Palette.ink, lineWidth: 3)
                     .allowsHitTesting(false)
             } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(line, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                    .padding(-outset)
-                    .allowsHitTesting(false)
+                dashedFrame(outset: outset)
             }
             ForEach(HandleCorner.allCases, id: \.self) { corner in
                 Circle()
@@ -773,6 +751,15 @@ extension CanvasBoardView {
                     .gesture(resizeGesture(item, corner: corner))
             }
         }
+    }
+
+    private static let frameLine = Color(hex: 0x263521)
+
+    private func dashedFrame(outset: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(Self.frameLine, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            .padding(-outset)
+            .allowsHitTesting(false)
     }
 
     private func resizeGesture(_ item: CanvasItem, corner: HandleCorner) -> some Gesture {
