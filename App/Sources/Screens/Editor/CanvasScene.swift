@@ -40,6 +40,10 @@ struct CanvasScene: View {
     /// The text tool whose row is open (screen 11: Aa when writing starts).
     @State var textTool: TextTool = .font
     @State var rewrite: RewriteState?
+    /// The words typed in the chat box while writing (F6B).
+    @State var writingAsk = ""
+    /// Mira rewriting the block as the chat box asked.
+    @State var rewriteAsk: Task<Void, Never>?
     @State var colorRequest: ColorRequest?
     /// The beat between tapping Text and the block appearing (screen 10):
     /// the Text tool shows active and the composer reads as text entry.
@@ -173,6 +177,8 @@ struct CanvasScene: View {
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
     @FocusState var textFocus: CanvasItem.ID?
+    /// The caret is in the chat box while writing: still writing (F6B).
+    @FocusState var writingAskFocus: Bool
     @FocusState var miraFocus: Bool
 
     private let soundStore = SoundFileStore()
@@ -667,9 +673,20 @@ struct CanvasScene: View {
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
             // through the Done button; keep the editing state in sync. The
-            // color sheet lowers the keyboard on purpose and keeps writing.
-            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil {
+            // color sheet lowers the keyboard on purpose and keeps writing,
+            // and the caret moving to the chat box is still writing (F6B).
+            if focus == nil, !writingAskFocus, editor.editingTextItemID != nil, colorRequest == nil {
                 endTextEditing()
+            }
+        }
+        .onChange(of: writingAskFocus) { _, focus in
+            // The caret leaving the chat box for nowhere -- the box giving
+            // way to the live mic's waveform -- goes back to the block, which
+            // the words land in: still writing. Back and a page tap end it
+            // themselves.
+            if !focus, textFocus == nil, let id = editor.editingTextItemID, colorRequest == nil,
+               doneWaiting == nil {
+                textFocus = id
             }
         }
         .onChange(of: editingBlock?.text) { _, text in noteTyped(text) }

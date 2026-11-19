@@ -123,6 +123,24 @@ final class PaywallUITests: XCTestCase {
                       "the strip says the free limit, not a retry: \(String(describing: strip.value))")
     }
 
+    /// #205 F6B: Go in the chat box while writing rewrites through the same
+    /// text service, so a used-up allowance opens the paywall there too,
+    /// and the caption above the rows says the limit once it closes.
+    func testGoInTheChatBoxOpensThePaywallAndTheCaptionSaysTheLimit() {
+        startWriting("noodle shop")
+        let ask = app.descendants(matching: .any)["writing.ask"]
+        ask.tap()
+        ask.typeText("make it warmer")
+        app.buttons["writing.go"].tap()
+
+        XCTAssertTrue(paywall.waitForExistence(timeout: 5), "the used-up allowance opens the paywall")
+        app.buttons["paywall.close"].tap()
+        XCTAssertTrue(paywall.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(limitLine.waitForExistence(timeout: 3), "the caption says the free limit, not a retry")
+        XCTAssertTrue(fieldValueContains("noodle shop"), "the block keeps its words")
+        XCTAssertEqual(ask.value as? String, "make it warmer", "the ask stays, to send again")
+    }
+
     /// A build that names no accounts service (Config/App.xcconfig as
     /// shipped): the same answer opens no paywall, and Settings has no PLUS
     /// card.

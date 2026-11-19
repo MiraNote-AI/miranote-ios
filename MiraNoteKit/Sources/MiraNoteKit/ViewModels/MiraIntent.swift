@@ -155,6 +155,18 @@ enum MiraIntent {
         return false
     }
 
+    /// The text transform these words ask for, if any. Shared by the chat's
+    /// classifier and the chat box while writing (#205 F6B), so the two read
+    /// the same words the same way.
+    static func textTransform(asked words: String) -> TextTransformMode? {
+        let lowered = words.lowercased()
+        if lowered.contains("polish") || lowered.contains("warmer") || lowered.contains("softer") { return .polish }
+        if lowered.contains("expand") || lowered.contains("longer") { return .expand }
+        if lowered.contains("shorten") || lowered.contains("shorter") { return .shorten }
+        if lowered.contains("clean") || lowered.contains("tighten") { return .clean }
+        return nil
+    }
+
     /// The layout vocabulary. Shared by the nothing-to-arrange guard and
     /// the offline fallback so the two cannot drift apart.
     static func isLayoutAsk(_ words: String) -> Bool {
@@ -194,27 +206,9 @@ enum MiraIntent {
             return imageIntent
         }
 
-        if lowered.contains("polish") || lowered.contains("warmer") || lowered.contains("softer") {
+        if let mode = Self.textTransform(asked: lowered) {
             if let (id, original) = targetText() {
-                return .transformText(id, original: original, .polish)
-            }
-            return .clarifyNoText
-        }
-        if lowered.contains("expand") || lowered.contains("longer") {
-            if let (id, original) = targetText() {
-                return .transformText(id, original: original, .expand)
-            }
-            return .clarifyNoText
-        }
-        if lowered.contains("shorten") || lowered.contains("shorter") {
-            if let (id, original) = targetText() {
-                return .transformText(id, original: original, .shorten)
-            }
-            return .clarifyNoText
-        }
-        if lowered.contains("clean") || lowered.contains("tighten") {
-            if let (id, original) = targetText() {
-                return .transformText(id, original: original, .clean)
+                return .transformText(id, original: original, mode)
             }
             return .clarifyNoText
         }

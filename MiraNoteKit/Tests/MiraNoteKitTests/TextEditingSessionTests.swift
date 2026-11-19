@@ -356,6 +356,36 @@ final class TextEditingSessionTests: XCTestCase {
         XCTAssertEqual(session.selected, .original)
     }
 
+    func testARequestedRewriteShowsWithNoChipSelected() {
+        var session = TextRewriteSession(original: "words")
+        XCTAssertEqual(session.showRequested("Warm words.", of: "words"), "Warm words.")
+        XCTAssertNil(session.selected, "no chip is selected for it (H3A)")
+        XCTAssertEqual(session.shownText, "Warm words.")
+        session.adopt(typed: "Warm words.")
+        XCTAssertEqual(session.original, "words", "the binding echoing the request changes nothing")
+
+        XCTAssertEqual(session.select(.original), "words", "Original reverts")
+        XCTAssertEqual(session.selected, .original)
+        XCTAssertNil(session.select(.clean), "Clean up can still be asked for")
+    }
+
+    func testARequestOfRetypedWordsIsDropped() {
+        var session = TextRewriteSession(original: "words")
+        session.adopt(typed: "other words")
+        XCTAssertNil(session.showRequested("Warm words.", of: "words"))
+        XCTAssertEqual(session.selected, .original)
+        XCTAssertEqual(session.shownText, "other words")
+    }
+
+    func testTypingDropsTheRequestedRewrite() {
+        var session = TextRewriteSession(original: "words")
+        _ = session.showRequested("Warm words.", of: "words")
+        session.adopt(typed: "Warm words. More")
+        XCTAssertEqual(session.original, "Warm words. More")
+        XCTAssertEqual(session.selected, .original)
+        XCTAssertEqual(session.shownText, "Warm words. More")
+    }
+
     // MARK: Color field
 
     func testHexRoundTrips() {

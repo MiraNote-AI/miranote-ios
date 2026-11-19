@@ -80,9 +80,14 @@ extension CanvasScene {
             }
             .padding(.horizontal, Metrics.chromeInset)
             WritingChatBox(
+                ask: $writingAsk,
+                focus: $writingAskFocus,
                 listening: dictating,
                 recorder: dictating ? recorder : nil,
                 status: micStatus ?? "",
+                canGo: !(editingBlock?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
+                asking: rewriteAsk != nil,
+                onGo: askToRewrite,
                 onPress: { if dictationPress == nil { pressDictation() } },
                 onRelease: releaseDictation,
                 // The system took the touch: the take ends as if let go (#218).
@@ -163,9 +168,10 @@ extension CanvasScene {
             )
         case .ai:
             RewriteRow(
-                selected: rewrite?.session.selected ?? .original,
+                selected: rewrite.map(\.session.selected) ?? .original,
                 pending: rewrite?.session.pending,
-                enabled: !(block?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
+                enabled: rewriteAsk == nil
+                    && !(block?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
                 onSelect: pickRewrite
             )
             .padding(.horizontal, Metrics.chromeInset)
@@ -222,6 +228,7 @@ extension CanvasScene {
         textModeArming = false
         editor.endEditingText()
         textFocus = nil
+        writingAskFocus = false
         resetTextTools()
     }
 
@@ -239,6 +246,9 @@ extension CanvasScene {
     func resetTextTools() {
         textTool = .font
         rewrite = nil
+        rewriteAsk?.cancel()
+        rewriteAsk = nil
+        writingAsk = ""
         dictationHint = nil
     }
 
@@ -295,6 +305,44 @@ extension CanvasScene {
                 guard var now = rewrite, now.original.id == id else { return }
                 now.session.fail(choice, of: source)
                 rewrite = now
+                dictationHint = AIConsentError.message(for: error)
+                    ?? String(appCopy: "Couldn't rewrite -- try again?")
+            }
+        }
+    }
+
+    /// The chat box's Go (F6B, H3A): Mira rewrites the block as the words
+    /// ask, and the rewrite previews in place on the Polish row with no
+    /// chip selected -- Original text reverts, Clean up and Expand still
+    /// work -- and the caret goes back to the block. A failure leaves the
+    /// words and the caret in the box, to send again.
+    private func askToRewrite() {
+        let words = writingAsk.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty, rewriteAsk == nil, let id = editor.editingTextItemID else { return }
+        if textTool != .ai { selectTextTool(.ai) }
+        guard let source = rewrite?.session.original,
+              !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        dictationHint = nil
+        // Cancelled when the writing ends: a late answer never lands on
+        // the next session's block.
+        rewriteAsk = Task {
+            do {
+                let result = try await mira.rewriteText(source, asked: words)
+                guard !Task.isCancelled else { return }
+                rewriteAsk = nil
+                guard var now = rewrite, now.original.id == id else { return }
+                let shown = now.session.showRequested(result, of: source)
+                rewrite = now
+                if let shown {
+                    showRewrite(shown, in: id)
+                    // Words typed in the box since Go stay.
+                    if writingAsk.trimmingCharacters(in: .whitespacesAndNewlines) == words { writingAsk = "" }
+                    textFocus = id
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                rewriteAsk = nil
+                guard rewrite?.original.id == id else { return }
                 dictationHint = AIConsentError.message(for: error)
                     ?? String(appCopy: "Couldn't rewrite -- try again?")
             }
