@@ -359,6 +359,14 @@ struct HomeFlow: View {
             arrivingStar = memory.id
             cuttingFold = false
             closeEditor()
+            #if DEBUG
+            // `-OPEN-JAR-MID-FOLD`: the jar opens 0.5 s into the fold with
+            // no tap on Home, as a VoiceOver activation does (UI tests).
+            if ProcessInfo.processInfo.arguments.contains("-OPEN-JAR-MID-FOLD"), arrivingFold != nil {
+                try? await Task.sleep(for: .milliseconds(500))
+                path.append(StarJarRoute())
+            }
+            #endif
         }
     }
 
@@ -492,7 +500,9 @@ struct HomeFlow: View {
         .background { ChatPhotoFilesProbe() }
         .background { TriggerScheduleProbe(controller: trigger) }
         // Under a cover the scene's own probe shows too; nothing here listens.
-        .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
+        .background(DebugStateProbe {
+            ["scene": "home", "listening": [String: Bool](), "starArriving": arrivingStar != nil]
+        })
         #endif
         .fullScreenCover(item: $route, onDismiss: showPendingDraftToast) { presented in
             switch presented {

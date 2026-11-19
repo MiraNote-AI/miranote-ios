@@ -201,6 +201,12 @@ struct HomeView: View {
                 try await Task.sleep(for: .milliseconds(800))
             }
         } catch {
+            // Cut short: by a tap or the app leaving (`finishFold` has
+            // run), or by Home leaving with no tap on it mid-fold (a
+            // VoiceOver activation opens the jar), which cancels this
+            // task. Then the star is in at once, as when the app leaves,
+            // and the fold does not play again when Home is back.
+            finishFold()
             return
         }
         onStarLanded(false)

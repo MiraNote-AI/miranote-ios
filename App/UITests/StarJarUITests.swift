@@ -137,6 +137,35 @@ final class StarJarUITests: XCTestCase { // swiftlint:disable:this type_body_len
         XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5), "and a hold")
     }
 
+    /// #212 review: Home left mid-fold with no tap on it -- a VoiceOver
+    /// activation, which reaches no tap gesture -- cancels the fold's
+    /// task. The star must land then, not wait for Home and fold again
+    /// there. `-OPEN-JAR-MID-FOLD` opens the jar 0.5 s into the fold.
+    func testAFoldCutShortByLeavingHomeLandsTheStarOnce() {
+        relaunch(["-OPEN-JAR-MID-FOLD"])
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("A happy picnic")
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["jar.star.A happy picnic"].waitForExistence(timeout: 8), "the jar opened mid-fold")
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.state(of: "home")["starArriving"] as? Bool == false
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 4), .completed,
+                       "the star landed when Home left: \(state(of: "home"))")
+        app.buttons["Home"].tap()
+        XCTAssertTrue(jar.waitForExistence(timeout: 5))
+        XCTAssertEqual(jar.value as? String, "1", "it landed once")
+        sleep(3)
+        XCTAssertEqual(jar.value as? String, "1", "and Home did not fold it again")
+    }
+
     private var shakes: Int { jarState["shakes"] as? Int ?? -1 }
 
     private var anyStar: XCUIElement {
@@ -145,11 +174,15 @@ final class StarJarUITests: XCTestCase { // swiftlint:disable:this type_body_len
 
     private var jarState: [String: Any] {
         // Home's probe stays under the pushed jar: read the jar's own.
+        state(of: "jar")
+    }
+
+    private func state(of scene: String) -> [String: Any] {
         let probes = app.descendants(matching: .any).matching(identifier: "debug.state").allElementsBoundByIndex
         for probe in probes {
             guard let data = probe.label.data(using: .utf8),
                   let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  state["scene"] as? String == "jar" else { continue }
+                  state["scene"] as? String == scene else { continue }
             return state
         }
         return [:]
