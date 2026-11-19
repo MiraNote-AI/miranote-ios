@@ -88,25 +88,31 @@ struct ColorRequest {
 // MARK: - Text accessory
 
 extension CanvasScene {
-    /// Text tool, screen 10 then 11: the Text tool lights up for a beat,
-    /// then a new block appears on the canvas and the keyboard rises --
-    /// typing happens where the words will live.
+    /// Text tool, screen 11: a new block appears on the canvas and the
+    /// keyboard rises at once -- typing happens where the words will live.
+    /// The block comes on the next main-actor turn, never in the tap's own:
+    /// its field must be on screen before it can take focus.
     func armTextMode() {
-        withAnimation(.easeOut(duration: 0.15)) { textModeArming = true }
+        let beat = Self.textModeBeat
+        if beat > 0 {
+            withAnimation(.easeOut(duration: 0.15)) { textModeArming = true }
+        } else {
+            textModeArming = true
+        }
         Task {
-            try? await Task.sleep(for: .milliseconds(Self.textModeBeat))
-            // Cancel (or Done) during the beat called it off.
+            if beat > 0 { try? await Task.sleep(for: .milliseconds(beat)) }
+            // Cancel (or Done, or another tool) before it landed called it off.
             guard textModeArming else { return }
             textModeArming = false
             addTextBlock()
         }
     }
 
-    /// Long enough to read the Text tool turning on; screen-capture runs
-    /// stretch it (`-TEXT_MODE_BEAT <ms>`) to photograph the state.
+    /// No beat by default (#162: the wait read as a stall). Screen-capture
+    /// runs and the beat tests stretch one in (`-TEXT_MODE_BEAT <ms>`) to
+    /// photograph screen 10, the Text tool lit before the block appears.
     private static var textModeBeat: Int {
-        let stretched = UserDefaults.standard.integer(forKey: "TEXT_MODE_BEAT")
-        return stretched > 0 ? stretched : 250
+        max(0, UserDefaults.standard.integer(forKey: "TEXT_MODE_BEAT"))
     }
 
     /// The handoff's new block (screens 11-20): Josefin Medium 21, ink
@@ -171,6 +177,7 @@ extension CanvasScene {
         // 4 above the keyboard.
         .padding(.bottom, 4)
         .animation(.easeOut(duration: 0.15), value: textTool)
+        .onAppear { TextOpenTiming.markAccessoryShown() }
     }
 
     /// The strip's line when it is not at rest: a new take listening while
@@ -187,6 +194,7 @@ extension CanvasScene {
             FontChipRow(
                 fontName: block?.fontName ?? "",
                 pointSize: block?.pointSize ?? TextFace.newBlockSize,
+                riding: textToolsRiding,
                 onFont: { name in
                     guard let id = editor.editingTextItemID else { return }
                     editor.setTextFont(itemID: id, to: name)

@@ -43,6 +43,18 @@ struct CanvasScene: View {
     /// The beat between tapping Text and the block appearing (screen 10):
     /// the Text tool shows active and the composer reads as text entry.
     @State var textModeArming = false
+    /// Bumped when the keyboard comes and goes outside a writing session,
+    /// so the page's hold under a leaving keyboard (`TextKeyboard`) is let go.
+    @State private var keyboardMoves = 0
+    /// The text tools wait unseen for the keyboard, then ride up on its top
+    /// edge as one block (#162: they popped up over the tool bar ~140 ms
+    /// before the keyboard came).
+    @State private var textToolsShown = false
+    /// The tools are on their way up: they sit on the keyboard's own edge
+    /// and the font row rides as a still copy.
+    @State var textToolsRiding = false
+    /// This open's wait for a keyboard that may never come.
+    @State private var textToolsWait: Task<Void, Never>?
     /// The dictation strip's press in progress.
     @State var dictationPress: (start: Date, wasLive: Bool)?
     @State var miraPrompt = ""
@@ -234,13 +246,85 @@ struct CanvasScene: View {
         .transition(.opacity)
     }
 
+    /// While words are written the page keeps its size and the keyboard
+    /// rides over the dock -- and after, until that keyboard is gone (#162:
+    /// the page used to shrink above the falling keyboard at once, then
+    /// grow back down with it).
+    private var holdsPageUnderKeyboard: Bool {
+        _ = keyboardMoves
+        return editor.editingTextItemID != nil || TextKeyboard.up
+    }
+
+    /// The home indicator's inset, which the keyboard covers.
+    private static var homeInset: CGFloat {
+        let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene
+        return scene?.keyWindow?.safeAreaInsets.bottom ?? 0
+    }
+
+    /// Rising: shown the frame the keyboard starts, on its edge. Otherwise
+    /// in place.
+    private func showTextTools(rising: Bool) {
+        guard !textToolsShown else { return }
+        if rising {
+            textToolsShown = true
+        } else {
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) {
+                textToolsShown = true
+                textToolsRiding = false
+            }
+        }
+        TextOpenTiming.markToolsVisible()
+    }
+
+    /// The tools show in place if no keyboard rise is heard within `wait`.
+    /// A newer wait replaces this one.
+    private func waitForTheKeyboard(_ wait: Duration) {
+        textToolsWait?.cancel()
+        textToolsWait = Task {
+            try? await Task.sleep(for: wait)
+            if !Task.isCancelled { showTextTools(rising: false) }
+        }
+    }
+
     /// The canvas with the text chrome floating over it.
     private var canvas: some View {
         ZStack(alignment: .bottom) {
             scaffold
                 // While words are written the page keeps its size and the
                 // keyboard rides over the dock, as drawn (screens 11-20).
-                .ignoresSafeArea(.keyboard, edges: editor.editingTextItemID != nil ? .bottom : [])
+                .ignoresSafeArea(.keyboard, edges: holdsPageUnderKeyboard ? .bottom : [])
+                .onReceive(
+                    NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+                ) { note in
+                    TextKeyboard.up = editor.editingTextItemID != nil
+                    if editor.editingTextItemID == nil {
+                        keyboardMoves += 1
+                    } else if !TextKeyboard.signalMuted {
+                        // A hardware keyboard sends a rise of 0 s: nothing
+                        // to ride, the tools just show.
+                        let rise = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0
+                        showTextTools(rising: rise > 0)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { _ in
+                    // The field has focus: a software keyboard says it is
+                    // rising a few frames later, a hardware one never does
+                    // (iOS 26), so the tools wait only a moment more.
+                    if editor.editingTextItemID != nil, !textToolsShown, !TextKeyboard.up {
+                        waitForTheKeyboard(TextKeyboard.focusWait)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                    if textToolsRiding && !TextKeyboard.holdsRiding { textToolsRiding = false }
+                    // After this redraw, which would put the default back.
+                    if editor.editingTextItemID != nil { DispatchQueue.main.async { WritingKeyboard.keepDark() } }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+                    TextKeyboard.up = false
+                    if editor.editingTextItemID == nil { keyboardMoves += 1 }
+                }
             // The text chrome floats over the page, on the keyboard.
             if editor.editingTextItemID != nil {
                 Group {
@@ -253,6 +337,13 @@ struct CanvasScene: View {
                 }
                 // The board keeps the block being written above these.
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { textToolsTop = $0 }
+                // Unseen, they wait on the screen's bottom edge, where the
+                // keyboard's top starts; shown, they go up with the
+                // keyboard's own move (a little ahead of its edge at first,
+                // as before: the home inset closes as it rises).
+                .padding(.bottom, textToolsShown ? 0 : -Self.homeInset)
+                .animation(nil) { $0.opacity(textToolsShown ? 1 : 0) }
+                .allowsHitTesting(textToolsShown)
             }
             if pageColorEdit != nil {
                 // A tap anywhere outside the sheet cancels it.
@@ -445,6 +536,23 @@ struct CanvasScene: View {
             remeasureTextBlocks()
         }
         .onChange(of: editor.editingTextItemID) { ended, editing in
+            // Each open waits for its own keyboard: an earlier wait never
+            // shows a later open's tools.
+            textToolsWait?.cancel()
+            textToolsWait = nil
+            if editing == nil {
+                textToolsShown = false
+                textToolsRiding = false
+            } else if !textToolsShown {
+                textToolsRiding = true
+                // A keyboard already up brings no new rise.
+                if TextKeyboard.up {
+                    showTextTools(rising: false)
+                } else {
+                    // Never left without tools if no keyboard comes.
+                    waitForTheKeyboard(TextKeyboard.toolsWait)
+                }
+            }
             // Writing that ended any way but Cancel splits on its blank
             // lines, one block per paragraph (#184) -- after its open
             // previews are kept, like Done keeps them, each its own step.
@@ -799,6 +907,7 @@ struct CanvasScene: View {
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
             guard !textModeArming else { return }
+            TextOpenTiming.begin()
             armTextMode()
         case .voice:
             // The tool arms the recorder; only the Record button goes live.
@@ -1491,7 +1600,9 @@ extension CanvasScene {
             "backdropDescribes": editor.memory.backgroundSummary,
             "pageColor": editor.memory.pageColorName,
             "paper": editor.memory.paper.rawValue,
-            "elements": editor.items.map(Self.debugElement)
+            "elements": editor.items.map(Self.debugElement),
+            "textOpen": TextOpenTiming.snapshot,
+            "textToolsShown": textToolsShown
         ]
     }
 
@@ -1510,3 +1621,49 @@ extension CanvasScene {
     }
 }
 #endif
+
+/// Whether the keyboard a writing session raised is still on screen. Not
+/// observed: kept off SwiftUI state, so the keyboard's coming and going
+/// redraws nothing by itself.
+@MainActor
+enum TextKeyboard {
+    static var up = false
+
+    /// Tests only: the keyboard's rise goes unheard, as if none came.
+    static var signalMuted: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-NO_KEYBOARD_SIGNAL")
+        #else
+        return false
+        #endif
+    }
+
+    /// How long the tools wait for a keyboard before they show anyway.
+    static var toolsWait: Duration {
+        #if DEBUG
+        // Tests only: a longer wait, so two opens fall inside one.
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        #endif
+        return .milliseconds(1500)
+    }
+
+    /// How long the tools wait once the field has focus. A software
+    /// keyboard says it is rising about 70 ms later (130 on a first open,
+    /// iPhone 17 Pro sim); a hardware one never says so on iOS 26.
+    static var focusWait: Duration {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        #endif
+        return .milliseconds(300)
+    }
+
+    /// Tests only: the tools stay riding once the keyboard has landed, so a
+    /// tap can reach the font row's still copy.
+    static var holdsRiding: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-HOLD_TOOLS_RIDING")
+        #else
+        return false
+        #endif
+    }
+}

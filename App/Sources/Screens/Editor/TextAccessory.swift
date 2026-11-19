@@ -195,58 +195,110 @@ struct AlignGlyph: View {
 struct FontChipRow: View {
     let fontName: String
     let pointSize: CGFloat
+    /// On its way up with the keyboard: a still copy of the chips stands in,
+    /// scrolled where the row is (#162: the scroll view does not ride the
+    /// tools' slide; it stayed behind, split from the tool bar).
+    var riding = false
     let onFont: (String) -> Void
     let onSize: (TextSizeChoice) -> Void
+
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(TextFace.choices, id: \.name) { face in
-                        let selected = face.name == fontName
-                        Button { onFont(face.name) } label: {
-                            // Face names have no entry and show as given;
-                            // "Classic" is copy.
-                            Text(copy: face.label)
-                                .font(Font(TextFace.uiFont(name: face.name, size: TextScale.scaled(14.5), weight: 500)))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .frame(width: 59)
-                                .foregroundStyle(selected ? .white : Tokens.forest)
-                                .frame(width: 65, height: 35)
-                                .background(FontChipBackground(selected: selected))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("style.font.\(face.label)")
-                        .id(face.name)
-                    }
-                    Capsule()
-                        .fill(Color.white.opacity(0.5))
-                        .frame(width: 1, height: 20)
-                        .padding(.horizontal, 3)
-                    ForEach(TextSizeChoice.allCases, id: \.self) { choice in
-                        let selected = abs(choice.pointSize - pointSize) < 0.5
-                        Button { onSize(choice) } label: {
-                            Text(choice.label)
-                                .font(Sans.font(size: 16, weight: 700))
-                                .foregroundStyle(selected ? .white : Tokens.forest)
-                                .frame(width: 44, height: 35)
-                                .background(FontChipBackground(selected: selected))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Size \(choice.label)")
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("style.size.\(choice.label)")
-                    }
-                }
-                .padding(.horizontal, 17)
-                .padding(.vertical, 8)
+                chips
             }
             .padding(.vertical, -8)
             .onAppear { proxy.scrollTo(fontName, anchor: .center) }
         }
+        .opacity(riding ? 0 : 1)
+        .allowsHitTesting(!riding)
+        .overlay {
+            if riding {
+                GeometryReader { proxy in
+                    chips
+                        .fixedSize()
+                        .offset(x: -scrolled(in: proxy.size.width))
+                        .frame(width: proxy.size.width, alignment: .leading)
+                        // The scroll view's bounds: its width, 8 past the chips.
+                        .clipped()
+                        .padding(.vertical, -8)
+                }
+                // Its chips take taps as the row's do, and the gaps between
+                // them too, so no tap falls through to the page and ends
+                // the writing.
+                .contentShape(Rectangle())
+                .accessibilityHidden(true)
+            }
+        }
         .frame(height: 35)
+    }
+
+    /// Where `scrollTo(fontName, anchor: .center)` leaves the row: the
+    /// selected chip centered, held within the chips' run.
+    private func scrolled(in width: CGFloat) -> CGFloat {
+        let faces = CGFloat(TextFace.choices.count), sizes = CGFloat(TextSizeChoice.allCases.count)
+        // Insets, chips, the rule with its 3 + 3, sizes, a gap between each.
+        let run = Self.inset * 2 + faces * Self.faceWidth + (Self.rule + Self.rulePad * 2) + sizes * Self.sizeWidth
+            + (faces + sizes) * Self.gap
+        guard let index = TextFace.choices.firstIndex(where: { $0.name == fontName }) else { return 0 }
+        let center = Self.inset + CGFloat(index) * (Self.faceWidth + Self.gap) + Self.faceWidth / 2
+        let offset = min(max(center - width / 2, 0), max(run - width, 0))
+        // On the pixel the scroll view lands on, so the swap moves nothing.
+        return (offset * displayScale).rounded() / displayScale
+    }
+
+    // The chips' sizes, shared by the row and the stand-in's offset.
+    private static let inset: CGFloat = 17
+    private static let gap: CGFloat = 6
+    private static let faceWidth: CGFloat = 65
+    private static let sizeWidth: CGFloat = 44
+    private static let rule: CGFloat = 1
+    private static let rulePad: CGFloat = 3
+
+    private var chips: some View {
+        HStack(spacing: Self.gap) {
+            ForEach(TextFace.choices, id: \.name) { face in
+                let selected = face.name == fontName
+                Button { onFont(face.name) } label: {
+                    // Face names have no entry and show as given;
+                    // "Classic" is copy.
+                    Text(copy: face.label)
+                        .font(Font(TextFace.uiFont(name: face.name, size: TextScale.scaled(14.5), weight: 500)))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: Self.faceWidth - 6)
+                        .foregroundStyle(selected ? .white : Tokens.forest)
+                        .frame(width: Self.faceWidth, height: 35)
+                        .background(FontChipBackground(selected: selected))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                .accessibilityIdentifier("style.font.\(face.label)")
+                .id(face.name)
+            }
+            Capsule()
+                .fill(Color.white.opacity(0.5))
+                .frame(width: Self.rule, height: 20)
+                .padding(.horizontal, Self.rulePad)
+            ForEach(TextSizeChoice.allCases, id: \.self) { choice in
+                let selected = abs(choice.pointSize - pointSize) < 0.5
+                Button { onSize(choice) } label: {
+                    Text(choice.label)
+                        .font(Sans.font(size: 16, weight: 700))
+                        .foregroundStyle(selected ? .white : Tokens.forest)
+                        .frame(width: Self.sizeWidth, height: 35)
+                        .background(FontChipBackground(selected: selected))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Size \(choice.label)")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                .accessibilityIdentifier("style.size.\(choice.label)")
+            }
+        }
+        .padding(.horizontal, Self.inset)
+        .padding(.vertical, 8)
     }
 }
 

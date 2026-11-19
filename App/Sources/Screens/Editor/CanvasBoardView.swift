@@ -84,6 +84,10 @@ struct CanvasBoardView: View {
     /// Where the page stood before the writing scrolled it; while the
     /// scroll back is in flight, the spot to scroll the page's top to.
     @State private var restoreAnchor: CGPoint?
+    /// The page keeps the room it grew for the writing until the scroll
+    /// back has landed: given back at once, it would clamp the page down
+    /// first, ahead of that scroll (#162).
+    @State private var keepsWritingRoom = false
     @State private var scrollMemo = ScrollMemo()
     /// The page is back where it stood (`scrollMemory`): from here on its
     /// scroll is the one to keep.
@@ -91,6 +95,10 @@ struct CanvasBoardView: View {
     @State private var toast: Toast?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toastDismiss: Task<Void, Never>?
+    /// The keep-clear scroll still waiting to run: a newer reason to scroll
+    /// (the tools rising another step) replaces it, so one rise makes one
+    /// scroll, not one per step (#162).
+    @State private var clearScroll: Task<Void, Never>?
     /// Screen points per page point: the card fills the screen less its
     /// insets (the visible frame is the card's row, insets included).
     private var pageScale: CGFloat { CanvasCard.pageScale(rowWidth: visibleFrame.width) }
@@ -143,6 +151,7 @@ struct CanvasBoardView: View {
                         $0.frame(in: .named(Self.scrollSpace)).minY
                     } action: {
                         scrollMemo.offset = -$0
+                        TextOpenTiming.notePageOffset(-$0)
                         if resumed { scrollMemory.offset = max(0, -$0 / pageScale) }
                     }
             }
@@ -160,10 +169,12 @@ struct CanvasBoardView: View {
             .onChange(of: textToolsTop) { keepWrittenBlockClear(proxy) }
             .onChange(of: editor.editingTextItemID) { old, id in
                 if old == nil, id != nil {
+                    TextOpenTiming.noteSessionBegan()
                     scrollMemo.beforeWriting = scrollMemo.offset
                     scrollMemo.cardHeight = visibleFrame.height
                 }
                 if id == nil {
+                    TextOpenTiming.noteSessionEnded(offset: scrollMemo.offset)
                     // The flag is cleared only here: the written block's
                     // first frame can land (and set it) before this handler
                     // sees the session start.
@@ -213,8 +224,14 @@ struct CanvasBoardView: View {
         .background(
             GeometryReader { geo in
                 Color.clear
-                    .onAppear { visibleFrame = geo.frame(in: .global) }
-                    .onChange(of: geo.frame(in: .global)) { _, frame in visibleFrame = frame }
+                    .onAppear {
+                        visibleFrame = geo.frame(in: .global)
+                        TextOpenTiming.noteCardHeight(visibleFrame.height, writing: writing)
+                    }
+                    .onChange(of: geo.frame(in: .global)) { _, frame in
+                        visibleFrame = frame
+                        TextOpenTiming.noteCardHeight(frame.height, writing: writing)
+                    }
             }
         )
         // Derived from the @GestureState, so a cancelled drag clears the
@@ -290,7 +307,7 @@ struct CanvasBoardView: View {
             // A blank page is just the page (handoff screen 04): the tools
             // and the composer below are the invitation.
             paper
-                .blur(radius: writing ? 4 : 0)
+                .blur(radius: writing ? Self.writingBlur : 0)
             if writing {
                 // Taps fall through to the paper, which ends editing.
                 Rectangle()
@@ -305,7 +322,7 @@ struct CanvasBoardView: View {
             ForEach(editor.orderedItems) { item in
                 let edited = editor.editingTextItemID == item.id
                 element(item)
-                    .blur(radius: writing && !edited ? 4 : 0)
+                    .blur(radius: writing && !edited ? Self.writingBlur : 0)
                     .zIndex(edited ? 2 : 0)
             }
             if let pendingSoundMarker {
@@ -361,13 +378,22 @@ struct CanvasBoardView: View {
         )
     }
 
+    /// The frost over the page while words are written.
+    private static let writingBlur: CGFloat = {
+        #if DEBUG
+        // #162 A/B: the frost without its blur.
+        if UserDefaults.standard.bool(forKey: "NO_WRITING_BLUR") { return 0 }
+        #endif
+        return 4
+    }()
+
     /// At least the card's own height, so the page always fills the card;
     /// while writing, a card's height below the content, so the block being
     /// written can always scroll up clear of the keyboard and its tools.
     private var boardHeight: CGFloat {
         let cardHeight = visibleFrame.height / pageScale
         return max(minBoardHeight, cardHeight,
-                   editor.contentBottom + (writing ? max(240, cardHeight) : 240))
+                   editor.contentBottom + (writing || keepsWritingRoom ? max(240, cardHeight) : 240))
     }
 
     /// Keeps the block being written between the card's top and the text
@@ -381,9 +407,11 @@ struct CanvasBoardView: View {
         // Once the twin is laid out and the page has grown its room below
         // (writing has just begun): a scroll before that clamps short. The
         // caret is read then too, when the tap that placed it has landed.
-        Task { @MainActor in
+        clearScroll?.cancel()
+        clearScroll = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(120))
-            guard let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
+            guard !Task.isCancelled,
+                  let id = editor.editingTextItemID, let item = editor.item(id), let shown = writtenFrame,
                   let toolsTop = textToolsTop, visibleFrame.height > 0 else { return }
             let bandTop = visibleFrame.minY + 8, bandBottom = toolsTop - 8
             // The band is screen points; the block's height is the page's,
@@ -410,6 +438,8 @@ struct CanvasBoardView: View {
             scrollMemo.scrolledForWriting = true
             // The twin moves first, then the page scrolls to it.
             try? await Task.sleep(for: .milliseconds(20))
+            guard !Task.isCancelled else { return }
+            TextOpenTiming.noteClearScroll()
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))
             }
@@ -433,17 +463,19 @@ struct CanvasBoardView: View {
         // The offsets are screen points; the anchor sits on the page, which
         // the card shows scaled.
         restoreAnchor = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: max(0, target) / pageScale)
-        // Once the keyboard is down and the page has given back the room
-        // it grew for the writing (its 0.2 s shrink in flight cut the
-        // scroll 50 pt short).
+        // One slide, as the keyboard falls, on a page that keeps its room
+        // till it lands; the room then goes, off screen below.
+        keepsWritingRoom = true
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(350))
+            // The anchor lands first, then the page scrolls to it.
+            try? await Task.sleep(for: .milliseconds(20))
             if editor.editingTextItemID == nil {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(.easeOut(duration: 0.35)) {
                     proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
                 }
-                try? await Task.sleep(for: .milliseconds(300))
+                try? await Task.sleep(for: .milliseconds(400))
             }
+            keepsWritingRoom = false
             restoreAnchor = nil
         }
     }
