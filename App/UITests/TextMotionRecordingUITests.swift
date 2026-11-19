@@ -68,6 +68,7 @@ final class TextMotionRecordingUITests: XCTestCase {
         case "done-back": filmDoneBack()
         case "mira-open": filmMiraOpen()
         case "exit-empty": filmExitEmpty()
+        case "color-sheet": filmColorSheet()
         default: XCTFail("unknown REC_SCENE \(scene)")
         }
     }
@@ -86,14 +87,16 @@ final class TextMotionRecordingUITests: XCTestCase {
         filmOpens("open-full")
     }
 
-    /// A block set in a later face, so the font row opens scrolled.
+    /// A block set in a later face (the font row used to open on it).
     private func filmOpenFont() {
         launchCanvas()
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any).matching(identifier: "canvas.textEditor").firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
+        app.openTextRow("style.font")
         app.buttons["style.font.Didot"].tap()
         field.typeText("set in didot")
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         let block = app.staticTexts["set in didot"]
         XCTAssertTrue(block.waitForExistence(timeout: 5))
@@ -182,6 +185,32 @@ final class TextMotionRecordingUITests: XCTestCase {
                 print("REC-PROBE mira-open-\(round) \(state[range])")
             }
             app.buttons["nav.trailing"].firstMatch.tap()
+            sleep(2)
+        }
+    }
+
+    /// The keyboard comes back after the custom color sheet with the color
+    /// row (a snap row) open in the slot: the row must ride it with the
+    /// chat box. A dark custom color fills the centered dot to film.
+    private func filmColorSheet() {
+        launchCanvas()
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any).matching(identifier: "canvas.textEditor").firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("ink")
+        app.openTextRow("style.colors")
+        let rounds = Int(ProcessInfo.processInfo.environment["REC_ROUNDS"] ?? "") ?? 3
+        for round in 1...rounds {
+            app.buttons["style.color.custom"].tap()
+            let hex = app.textFields["colorSheet.hex"]
+            XCTAssertTrue(hex.waitForExistence(timeout: 5))
+            hex.tap()
+            let current = (hex.value as? String) ?? ""
+            hex.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 1))
+            hex.typeText("11223\(round)\n")
+            sleep(1)
+            mark("color-sheet-\(round)")
+            app.buttons["colorSheet.apply"].tap()
             sleep(2)
         }
     }

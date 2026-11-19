@@ -88,7 +88,7 @@ final class AIConsentUITests: XCTestCase {
         launch(asking: true)
         XCTAssertFalse(sheet.exists, "nothing at launch")
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 5), "the first AI action asks")
 
@@ -119,7 +119,7 @@ final class AIConsentUITests: XCTestCase {
         app.terminate()
         launch(asking: true, keep: true)
         startWriting("tea")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         XCTAssertTrue(fieldValueContains("(expanded draft -- mock)"))
         XCTAssertFalse(sheet.exists)
@@ -210,7 +210,7 @@ final class AIConsentUITests: XCTestCase {
         backHome()
 
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 5), "withdrawn: the next AI action asks again")
         app.buttons["aiConsent.notNow"].tap()

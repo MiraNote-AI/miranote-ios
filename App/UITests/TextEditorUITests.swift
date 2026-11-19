@@ -75,36 +75,45 @@ final class TextEditorUITests: XCTestCase {
         return probe.label.contains("\"escapeArmed\":true")
     }
 
-    func testTheToolBarSwitchesTheRowAbove() {
+    /// One row in the text slot (#205): each tool's row takes the text
+    /// row's place, and its own Back goes back to it.
+    func testEachToolRowReplacesTheTextRow() {
         startWriting("tools")
-        // Aa is the open tool when writing starts (screen 11).
-        XCTAssertTrue(app.buttons["style.sizes"].isSelected)
-        XCTAssertTrue(app.buttons["style.font.Josefin"].isSelected, "a new block is set in Josefin")
+        // Writing starts on the text row (S7).
+        XCTAssertTrue(app.buttons["style.font"].exists)
+        XCTAssertFalse(app.buttons["text.row.back"].exists)
 
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.font")
+        XCTAssertTrue(app.buttons["style.font.Josefin"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["style.font.Josefin"].isSelected, "a new block is set in Josefin")
+        XCTAssertFalse(app.buttons["style.colors"].exists, "the font row is in the text row's place")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "its Back goes up a level, not out")
+
+        app.openTextRow("style.colors")
         XCTAssertTrue(app.buttons["style.color.#F1EBDD"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.buttons["style.font.Josefin"].exists, "one row at a time")
-        XCTAssertTrue(app.buttons["style.colors"].isSelected)
 
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         XCTAssertTrue(app.buttons["style.ai.original"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["style.ai.original"].isSelected, "the row opens on the words as written")
         XCTAssertFalse(app.buttons["style.color.#F1EBDD"].exists)
 
-        // Align has no row (screens 16-17).
+        // Align has no row (screens 16-17): it steps on the text row.
+        app.backToTextRow()
+        waitUntilGone(app.buttons["style.ai.original"], "Back closes the row")
         app.buttons["style.align"].tap()
-        waitUntilGone(app.buttons["style.ai.original"], "align closes the open row")
-        XCTAssertTrue(app.buttons["style.align"].isSelected)
+        XCTAssertEqual(app.buttons["style.align"].value as? String, "Centered")
+        XCTAssertFalse(app.buttons["text.row.back"].exists, "align opens no row")
 
-        app.buttons["style.highlight"].tap()
+        app.openTextRow("style.highlight")
         XCTAssertTrue(app.buttons["style.highlight.none"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["style.highlight.none"].isSelected, "no background yet")
-        XCTAssertFalse(app.buttons["style.align"].isSelected)
+        XCTAssertFalse(app.buttons["style.align"].exists)
     }
 
     func testTheCustomColorSheetAppliesAHex() {
         startWriting("plum words")
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.colors")
         app.buttons["style.color.custom"].tap()
         let hex = app.textFields["colorSheet.hex"]
         XCTAssertTrue(hex.waitForExistence(timeout: 5))
@@ -131,7 +140,7 @@ final class TextEditorUITests: XCTestCase {
 
     func testOriginalBringsTheWordsBackAfterARewrite() {
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
         waitForExpectations(timeout: 5)
@@ -146,6 +155,7 @@ final class TextEditorUITests: XCTestCase {
         app.buttons["style.ai.expand"].tap()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
         waitForExpectations(timeout: 5)
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         let expanded = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "expanded draft")).firstMatch
         XCTAssertTrue(expanded.waitForExistence(timeout: 5))
@@ -179,10 +189,11 @@ final class TextEditorUITests: XCTestCase {
         // Done leaves the block selected: one tap writes again.
         block.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.colors")
         app.buttons["style.color.#FFFFFF"].tap()
         field.typeText(" more")
         app.buttons["editor.undo"].tap()
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
 
         XCTAssertTrue(app.staticTexts["kept"].waitForExistence(timeout: 5), "the words as they were")

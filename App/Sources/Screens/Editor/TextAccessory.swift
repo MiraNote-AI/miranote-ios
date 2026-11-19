@@ -2,25 +2,14 @@ import MiraNoteKit
 import SwiftUI
 
 // The text editor's accessory (handoff screens 11-20, #205), bottom to top
-// above the keyboard: the Mira chat box with its mic, Back and the
-// persistent five-icon tool bar, and the active tool's secondary row. Pure
-// views: CanvasScene owns the state and passes it in.
+// above the keyboard: the Mira chat box with its mic, and one row in the
+// text slot -- Back and the six-icon text row, or one tool's row in its
+// place with its own Back. Pure views: CanvasScene owns the state and
+// passes it in.
 
-/// The five text tools, in the tool bar's order.
+/// The six text tools, in the text row's order (K1B).
 enum TextTool: CaseIterable {
-    case font, color, ai, align, background
-
-    /// Whether the tool opens a row above the tool bar (align does not).
-    var hasRow: Bool { self != .align }
-
-    /// The row's gap above the tool bar, as drawn.
-    var rowGap: CGFloat {
-        switch self {
-        case .font: return 8.7
-        case .color: return 11.8
-        case .ai, .background, .align: return 7.8
-        }
-    }
+    case font, size, color, ai, align, background
 }
 
 enum TextSizeChoice: CaseIterable {
@@ -61,10 +50,9 @@ private enum Tokens {
 
 // MARK: - Tool bar
 
-/// "MiraNote text icon toolbar": 36 tall, a frosted glass capsule. Exactly one
-/// tool is active and drawn inverted (light).
+/// "MiraNote text icon toolbar": 36 tall, a frosted glass capsule. A tap on
+/// a tool opens its row in the bar's place; Align steps the alignment.
 struct TextToolBar: View {
-    let active: TextTool
     let alignment: TextAlign
     let onSelect: (TextTool) -> Void
 
@@ -77,27 +65,29 @@ struct TextToolBar: View {
         }
     }
 
-    /// Tool centers as fractions of the drawn 342 pt bar.
-    private static let centers: [TextTool: CGFloat] = [
-        .font: 23.5 / 342, .color: 95.2 / 342, .ai: 168.8 / 342, .align: 245 / 342, .background: 309.9 / 342,
-    ]
+    /// The first and last tool centers in the drawn 342 pt bar; the six
+    /// tools are spread evenly between them.
+    private static let firstCenter: CGFloat = 23.5 / 342
+    private static let lastCenter: CGFloat = 309.9 / 342
 
     var body: some View {
         GeometryReader { geo in
-            ForEach(TextTool.allCases, id: \.self) { tool in
+            let tools = TextTool.allCases
+            ForEach(Array(tools.enumerated()), id: \.element) { index, tool in
+                let center = Self.firstCenter
+                    + (Self.lastCenter - Self.firstCenter) * CGFloat(index) / CGFloat(tools.count - 1)
                 Button {
                     onSelect(tool)
                 } label: {
-                    glyph(tool, active: tool == active)
+                    glyph(tool)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(label(tool))
                 .accessibilityValue(tool == .align ? Self.spoken(alignment) : "")
-                .accessibilityAddTraits(tool == active ? .isSelected : [])
                 .accessibilityIdentifier(identifier(tool))
-                .position(x: geo.size.width * (Self.centers[tool] ?? 0), y: geo.size.height / 2)
+                .position(x: geo.size.width * center, y: geo.size.height / 2)
             }
         }
         .frame(height: 36)
@@ -105,17 +95,21 @@ struct TextToolBar: View {
         .background(TextGlass(shape: Capsule()))
     }
 
-    @ViewBuilder private func glyph(_ tool: TextTool, active: Bool) -> some View {
-        let ink = active ? Tokens.warmWhite : Tokens.forest
+    @ViewBuilder private func glyph(_ tool: TextTool) -> some View {
         switch tool {
         case .font:
             Text("Aa")
                 .font(Sans.font(size: 16, weight: 700))
-                .foregroundStyle(active ? Tokens.forest : .white)
+                .foregroundStyle(.white)
                 .frame(width: 29, height: 17)
-                .background(Capsule().fill(active ? Tokens.warmWhite : Tokens.forest))
+                .background(Capsule().fill(Tokens.forest))
+        case .size:
+            // A small A and a large A (decide9 K1B).
+            Image(systemName: "textformat.size")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Tokens.forest)
         case .color:
-            Image(active ? "text.tool.palette.active" : "text.tool.palette")
+            Image("text.tool.palette")
                 .resizable()
                 .frame(width: 23.8, height: 23.8)
         case .ai:
@@ -123,21 +117,22 @@ struct TextToolBar: View {
                 .renderingMode(.template)
                 .resizable()
                 .frame(width: 27, height: 27)
-                .foregroundStyle(ink)
+                .foregroundStyle(Tokens.forest)
         case .align:
-            AlignGlyph(alignment: alignment, color: ink)
+            AlignGlyph(alignment: alignment, color: Tokens.forest)
         case .background:
             Image("text.tool.background")
                 .renderingMode(.template)
                 .resizable()
                 .frame(width: 23.8, height: 23.8)
-                .foregroundStyle(ink)
+                .foregroundStyle(Tokens.forest)
         }
     }
 
     private func label(_ tool: TextTool) -> String {
         switch tool {
-        case .font: return String(appCopy: "Font and size")
+        case .font: return String(appCopy: "Font")
+        case .size: return String(appCopy: "Text size")
         case .color: return String(appCopy: "Text color")
         case .ai: return String(appCopy: "Rewrite")
         case .align: return String(appCopy: "Alignment")
@@ -145,10 +140,12 @@ struct TextToolBar: View {
         }
     }
 
-    /// The identifiers the accessory's controls had before the redesign.
+    /// The identifiers the accessory's controls had before the redesign;
+    /// Aa and Size are new (K1B).
     private func identifier(_ tool: TextTool) -> String {
         switch tool {
-        case .font: return "style.sizes"
+        case .font: return "style.font"
+        case .size: return "style.size"
         case .color: return "style.colors"
         case .ai: return "style.ai"
         case .align: return "style.align"
@@ -167,10 +164,13 @@ private struct TextGlass<S: InsettableShape>: View {
     }
 }
 
-/// The leading Back key of the text row (R1A): ends the writing, as a tap
-/// on the page or Esc on a hardware keyboard (`WritingEscape`) does. A glass circle as tall as
-/// the tool bar beside it.
+/// The leading Back key of each row in the text slot. On the text row it
+/// ends the writing (R1A), as a tap on the page or Esc on a hardware
+/// keyboard (`WritingEscape`) does; on a tool's row it goes back to the
+/// text row. A glass circle as tall as the bar beside it.
 struct TextBackKey: View {
+    /// `keyboard.done` ends the writing; `text.row.back` goes up a level.
+    var identifier = "keyboard.done"
     let onBack: () -> Void
 
     var body: some View {
@@ -189,7 +189,7 @@ struct TextBackKey: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Back")
-        .accessibilityIdentifier("keyboard.done")
+        .accessibilityIdentifier(identifier)
     }
 }
 
@@ -346,105 +346,50 @@ struct AlignGlyph: View {
 
 // MARK: - Font row
 
-/// "MiraNote font carousel": 65x35 chips, each name in its own face, the
-/// selected one forest. S/M/L follow as trailing chips (not drawn; kept).
+/// "MiraNote font carousel" as a snap row (P6A, R6B): 65x35 chips, each
+/// name in its own face, the block's face forest. Fonts only (K1B).
 struct FontChipRow: View {
     let fontName: String
-    let pointSize: CGFloat
-    /// On its way up with the keyboard: a still copy of the chips stands in,
-    /// scrolled where the row is (#162: the scroll view does not ride the
-    /// tools' slide; it stayed behind, split from the tool bar).
-    var riding = false
     let onFont: (String) -> Void
-    let onSize: (TextSizeChoice) -> Void
-
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                chips
+        SnapRow(
+            ids: TextFace.choices.map(\.name), selected: fontName, cellWidth: 65, spacing: 6,
+            identifier: { name in "style.font.\(TextFace.choices.first { $0.name == name }?.label ?? name)" },
+            onApply: onFont,
+            cell: { name in
+                let selected = name == fontName
+                // Face names have no entry and show as given; "Classic" is copy.
+                Text(copy: TextFace.choices.first { $0.name == name }?.label ?? name)
+                    .font(Font(TextFace.uiFont(name: name, size: TextScale.scaled(14.5), weight: 500)))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(width: 59)
+                    .foregroundStyle(selected ? .white : Tokens.forest)
+                    .frame(width: 65, height: 35)
+                    .background(FontChipBackground(selected: selected))
             }
-            .padding(.vertical, -8)
-            .onAppear { proxy.scrollTo(fontName, anchor: .center) }
-        }
-        .opacity(riding ? 0 : 1)
-        .allowsHitTesting(!riding)
-        .overlay {
-            if riding {
-                GeometryReader { proxy in
-                    chips
-                        .fixedSize()
-                        .offset(x: -scrolled(in: proxy.size.width))
-                        .frame(width: proxy.size.width, alignment: .leading)
-                        // The scroll view's bounds: its width, 8 past the chips.
-                        .clipped()
-                        .padding(.vertical, -8)
-                }
-                // Its chips take taps as the row's do, and the gaps between
-                // them too, so no tap falls through to the page and ends
-                // the writing.
-                .contentShape(Rectangle())
-                .accessibilityHidden(true)
-            }
-        }
-        .frame(height: 35)
+        )
     }
+}
 
-    /// Where `scrollTo(fontName, anchor: .center)` leaves the row: the
-    /// selected chip centered, held within the chips' run.
-    private func scrolled(in width: CGFloat) -> CGFloat {
-        let faces = CGFloat(TextFace.choices.count), sizes = CGFloat(TextSizeChoice.allCases.count)
-        // Insets, chips, the rule with its 3 + 3, sizes, a gap between each.
-        let run = Self.inset * 2 + faces * Self.faceWidth + (Self.rule + Self.rulePad * 2) + sizes * Self.sizeWidth
-            + (faces + sizes) * Self.gap
-        guard let index = TextFace.choices.firstIndex(where: { $0.name == fontName }) else { return 0 }
-        let center = Self.inset + CGFloat(index) * (Self.faceWidth + Self.gap) + Self.faceWidth / 2
-        let offset = min(max(center - width / 2, 0), max(run - width, 0))
-        // On the pixel the scroll view lands on, so the swap moves nothing.
-        return (offset * displayScale).rounded() / displayScale
-    }
+// MARK: - Size row
 
-    // The chips' sizes, shared by the row and the stand-in's offset.
-    private static let inset: CGFloat = 17
-    private static let gap: CGFloat = 6
-    private static let faceWidth: CGFloat = 65
-    private static let sizeWidth: CGFloat = 44
-    private static let rule: CGFloat = 1
-    private static let rulePad: CGFloat = 3
+/// S / M / L (K2A): 15 / 21 / 30, a tap applies. The block's size forest.
+struct TextSizeRow: View {
+    let pointSize: CGFloat
+    let onSize: (TextSizeChoice) -> Void
 
-    private var chips: some View {
-        HStack(spacing: Self.gap) {
-            ForEach(TextFace.choices, id: \.name) { face in
-                let selected = face.name == fontName
-                Button { onFont(face.name) } label: {
-                    // Face names have no entry and show as given;
-                    // "Classic" is copy.
-                    Text(copy: face.label)
-                        .font(Font(TextFace.uiFont(name: face.name, size: TextScale.scaled(14.5), weight: 500)))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(width: Self.faceWidth - 6)
-                        .foregroundStyle(selected ? .white : Tokens.forest)
-                        .frame(width: Self.faceWidth, height: 35)
-                        .background(FontChipBackground(selected: selected))
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityIdentifier("style.font.\(face.label)")
-                .id(face.name)
-            }
-            Capsule()
-                .fill(Color.white.opacity(0.5))
-                .frame(width: Self.rule, height: 20)
-                .padding(.horizontal, Self.rulePad)
+    var body: some View {
+        HStack(spacing: 12) {
             ForEach(TextSizeChoice.allCases, id: \.self) { choice in
                 let selected = abs(choice.pointSize - pointSize) < 0.5
-                Button { onSize(choice) } label: {
+                // The block's size again would be an undo step that changes nothing.
+                Button { if !selected { onSize(choice) } } label: {
                     Text(choice.label)
                         .font(Sans.font(size: 16, weight: 700))
                         .foregroundStyle(selected ? .white : Tokens.forest)
-                        .frame(width: Self.sizeWidth, height: 35)
+                        .frame(width: 44, height: 35)
                         .background(FontChipBackground(selected: selected))
                 }
                 .buttonStyle(.plain)
@@ -453,8 +398,8 @@ struct FontChipRow: View {
                 .accessibilityIdentifier("style.size.\(choice.label)")
             }
         }
-        .padding(.horizontal, Self.inset)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .frame(height: 35)
     }
 }
 
@@ -476,9 +421,9 @@ private struct FontChipBackground: View {
 
 // MARK: - Color row
 
-/// "Secondary selector" (screen 12): 30 pt swatches in 44 pt cells, the
-/// picked one ringed with a check, then the custom disc. A custom color
-/// already on the block fills the disc.
+/// The text color snap row (P7A, G18): today's swatches as 30 pt dots in
+/// 44 pt cells, the block's ringed with a check, then the custom disc. A
+/// custom color already on the block fills the disc.
 struct ColorSwatchRow: View {
     /// The block's color as stored.
     let current: String
@@ -487,40 +432,28 @@ struct ColorSwatchRow: View {
     let onSwatch: (String) -> Void
     let onCustom: () -> Void
 
+    private static let custom = "custom"
+
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(Palette.textSwatches, id: \.hex) { swatch in
-                let selected = swatch.hex == current
-                Button { onSwatch(swatch.hex) } label: {
-                    SwatchDisc(color: Palette.color(named: swatch.hex), selected: selected,
-                               darkMark: !RowColor.isDark(swatch.hex))
+        SnapRow(
+            ids: Palette.textSwatches.map(\.hex) + [Self.custom],
+            selected: isCustom ? Self.custom : current, cellWidth: 44, spacing: 2,
+            identifier: { "style.color.\($0)" },
+            onApply: onSwatch,
+            isAction: { $0 == Self.custom },
+            onAction: { _ in onCustom() },
+            cell: { hex in
+                if hex == Self.custom {
+                    CustomDisc(color: isCustom ? Palette.color(named: current) : nil, selected: isCustom,
+                               darkMark: !RowColor.isDark(current))
+                        .accessibilityLabel("Custom color")
+                } else {
+                    SwatchDisc(color: Palette.color(named: hex), selected: hex == current,
+                               darkMark: !RowColor.isDark(hex))
+                        .accessibilityLabel(Text(copy: Palette.textSwatches.first { $0.hex == hex }?.name ?? hex))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(copy: swatch.name))
-                .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityIdentifier("style.color.\(swatch.hex)")
             }
-            Button(action: onCustom) {
-                ZStack {
-                    if isCustom {
-                        SwatchDisc(color: Palette.color(named: current), selected: true,
-                                   darkMark: !RowColor.isDark(current))
-                    } else {
-                        Circle()
-                            .fill(AngularGradient(colors: Tokens.conic, center: .center, angle: .degrees(90)))
-                            .frame(width: 30, height: 30)
-                            .overlay(PlusMark(size: 12, thickness: 3))
-                    }
-                }
-                .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Custom color")
-            .accessibilityAddTraits(isCustom ? .isSelected : [])
-            .accessibilityIdentifier("style.color.custom")
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 35)
+        )
     }
 }
 
@@ -642,8 +575,8 @@ struct RewriteRow: View {
 
 // MARK: - Text background row
 
-/// The text-background chips (screen 18): none (outlined), Ink, Highlight
-/// and the custom chip, each previewing "Aa" on its fill.
+/// The highlight snap row (P7A, G19): "none" as a slashed dot, today's
+/// fills, then the custom disc.
 struct TextBackgroundRow: View {
     /// The block's background as stored ("" for none).
     let current: String
@@ -651,76 +584,78 @@ struct TextBackgroundRow: View {
     let onPick: (String) -> Void
     let onCustom: () -> Void
 
-    var body: some View {
-        HStack(spacing: 4) {
-            chip(fill: nil, selected: current.isEmpty, id: "none", label: "No background") { onPick("") }
-            ForEach(Palette.textBackgroundSwatches, id: \.hex) { swatch in
-                chip(fill: Palette.color(named: swatch.hex), selected: swatch.hex == current,
-                     id: swatch.hex, label: swatch.name) { onPick(swatch.hex) }
-            }
-            Button(action: onCustom) {
-                ZStack {
-                    if isCustom {
-                        RoundedRectangle(cornerRadius: 12).fill(Palette.color(named: current))
-                    } else {
-                        RoundedRectangle(cornerRadius: 12).fill(Color(hex: 0xE5D9CE))
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(AngularGradient(colors: Tokens.conic, center: .center, angle: .degrees(90)))
-                    }
-                    Text("+")
-                        .font(Sans.font(size: 34, weight: 500))
-                        .foregroundStyle(.white)
-                        .offset(y: 3)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 34)
-                .overlay(SelectionRing(on: isCustom))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Custom background")
-            .accessibilityAddTraits(isCustom ? .isSelected : [])
-            .accessibilityIdentifier("style.highlight.custom")
-        }
-        .padding(.horizontal, 5)
-        .frame(height: 34)
-    }
+    private static let custom = "custom"
 
-    private func chip(
-        fill: Color?, selected: Bool, id: String, label: String, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text("Aa")
-                .font(Sans.font(size: 14, weight: 500))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 34)
-                .background {
-                    if let fill {
-                        RoundedRectangle(cornerRadius: 12).fill(fill)
-                    } else {
-                        RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.75), lineWidth: 1)
-                    }
+    var body: some View {
+        SnapRow(
+            ids: [""] + Palette.textBackgroundSwatches.map(\.hex) + [Self.custom],
+            selected: isCustom ? Self.custom : current, cellWidth: 44, spacing: 2,
+            identifier: { "style.highlight.\($0.isEmpty ? "none" : $0)" },
+            onApply: onPick,
+            isAction: { $0 == Self.custom },
+            onAction: { _ in onCustom() },
+            cell: { hex in
+                if hex.isEmpty {
+                    NoneDisc(selected: current.isEmpty)
+                        .accessibilityLabel(Text(copy: "No background"))
+                } else if hex == Self.custom {
+                    CustomDisc(color: isCustom ? Palette.color(named: current) : nil, selected: isCustom,
+                               darkMark: !RowColor.isDark(current))
+                        .accessibilityLabel("Custom background")
+                } else {
+                    SwatchDisc(color: Palette.color(named: hex), selected: hex == current,
+                               darkMark: !RowColor.isDark(hex))
+                        .accessibilityLabel(
+                            Text(copy: Palette.textBackgroundSwatches.first { $0.hex == hex }?.name ?? hex)
+                        )
                 }
-                .overlay(SelectionRing(on: selected))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(copy: label))
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("style.highlight.\(id)")
+            }
+        )
     }
 }
 
-/// The picked background chip: a 1.5 pt linen ring inside its edge (not
-/// drawn in the handoff; the row needs one).
-private struct SelectionRing: View {
-    let on: Bool
+/// The custom cell: the conic disc with a "+", or the custom color already
+/// on the block, ringed.
+private struct CustomDisc: View {
+    let color: Color?
+    let selected: Bool
+    let darkMark: Bool
 
     var body: some View {
-        if on {
-            RoundedRectangle(cornerRadius: 12)
-                .inset(by: 2)
-                .strokeBorder(Tokens.linen, lineWidth: 1.5)
+        if let color {
+            SwatchDisc(color: color, selected: selected, darkMark: darkMark)
+        } else {
+            Circle()
+                .fill(AngularGradient(colors: Tokens.conic, center: .center, angle: .degrees(90)))
+                .frame(width: 30, height: 30)
+                .overlay(PlusMark(size: 12, thickness: 3))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
+    }
+}
+
+/// No highlight: a warm white dot struck through, ringed when it is the
+/// block's.
+private struct NoneDisc: View {
+    let selected: Bool
+
+    var body: some View {
+        Circle()
+            .fill(Tokens.warmWhite)
+            .overlay(
+                Rectangle()
+                    .fill(Tokens.rosewood)
+                    .frame(width: 1.5)
+                    .rotationEffect(.degrees(45))
+            )
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Tokens.rosewood.opacity(0.7), lineWidth: 1))
+            .overlay {
+                if selected { Circle().strokeBorder(Tokens.deepForest.opacity(0.9), lineWidth: 1.5) }
+            }
+            .frame(width: 30, height: 30)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 }

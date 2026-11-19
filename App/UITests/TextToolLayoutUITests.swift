@@ -94,12 +94,14 @@ final class TextToolLayoutUITests: TextToolUITestCase {
     /// sim, iOS 26.3: the layout changed on purpose -- Back joins the tool
     /// bar, the chat box with its mic replaces the dictation strip, and the
     /// header keeps Home / Save (greyed). #162's fix must not move these.
+    /// PR 4: the slot shows one row, so the text row's Aa key stands in for
+    /// the font row's Josefin chip; nothing else moved.
     private static let settledEmptyPage: [String: CGRect] = [
         "canvas.textEditor": CGRect(x: 90.6, y: 237.0, width: 220.9, height: 22.5),
         "keyboard": CGRect(x: 0, y: 583, width: 402, height: 233),
         "keyboard.done": CGRect(x: 12, y: 433, width: 44, height: 44),
         "nav.leading": CGRect(x: 16, y: 59, width: 70, height: 44),
-        "style.font.Josefin": CGRect(x: 88, y: 393.3, width: 65, height: 35),
+        "style.font": CGRect(x: 60.3, y: 433, width: 44, height: 44),
         "style.mic": CGRect(x: 332, y: 486, width: 44, height: 44)
     ]
     private static let settledLowBlock: [String: CGRect] = [
@@ -107,11 +109,11 @@ final class TextToolLayoutUITests: TextToolUITestCase {
         "keyboard": CGRect(x: 0, y: 583, width: 402, height: 233),
         "keyboard.done": CGRect(x: 12, y: 433, width: 44, height: 44),
         "nav.leading": CGRect(x: 16, y: 59, width: 70, height: 44),
-        "style.font.Josefin": CGRect(x: 88, y: 393.3, width: 65, height: 35),
+        "style.font": CGRect(x: 60.3, y: 433, width: 44, height: 44),
         "style.mic": CGRect(x: 332, y: 486, width: 44, height: 44)
     ]
 
-    private static let settledIDs = ["canvas.textEditor", "style.mic", "style.font.Josefin",
+    private static let settledIDs = ["canvas.textEditor", "style.mic", "style.font",
                                      "keyboard.done", "nav.leading"]
 
     private func settledFrames() throws -> [String: CGRect] {

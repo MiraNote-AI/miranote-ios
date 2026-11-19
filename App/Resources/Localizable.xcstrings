@@ -2549,13 +2549,13 @@
         }
       }
     },
-    "Font and size" : {
+    "Font" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "字体与字号"
+            "value" : "字体"
           }
         }
       }

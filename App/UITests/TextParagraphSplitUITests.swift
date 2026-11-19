@@ -136,7 +136,7 @@ final class TextParagraphSplitUITests: XCTestCase {
     /// splits it: two undos give back the words as typed.
     func testATapOnThePaperKeepsAnOpenExpandBeforeSplitting() {
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
         waitForExpectations(timeout: 5)

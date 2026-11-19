@@ -80,6 +80,7 @@ final class TextToolLatencyUITests: TextToolUITestCase {
         // Not after the whole 1.5 s wait for a keyboard (the stall of #162).
         XCTAssertLessThan(shown - focus, 600, "the tools showed \(shown - focus) ms after focus: \(row)")
         // And they work: a tap on a font sets it.
+        app.openTextRow("style.font")
         let futura = app.buttons["style.font.Futura"]
         futura.tap()
         expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: futura)
@@ -126,29 +127,24 @@ final class TextToolLatencyUITests: TextToolUITestCase {
         XCTAssertGreaterThan(shownAfter, 3.0, "the tools showed \(shownAfter) s into the open")
     }
 
-    /// While the tools ride up the font row is a still copy: a tap on it,
-    /// even between two chips, stays in the session and sets the font (it
-    /// used to fall through to the page and end the writing).
-    func testATapOnTheRisingFontRowStaysInTheSession() throws {
-        app.terminate()
-        app.launchArguments = ["-UITEST", "-HOLD_TOOLS_RIDING"]
-        app.launch()
-        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
-        app.buttons["Start a memory"].tap()
-        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+    /// A tap on the font row, even between two chips, stays in the session
+    /// and sets the font (a tap through the rising row's gaps used to fall
+    /// to the page and end the writing).
+    func testATapOnTheFontRowStaysInTheSession() throws {
         try openText()
+        app.openTextRow("style.font")
         let futura = app.buttons["style.font.Futura"]
         XCTAssertTrue(futura.waitForExistence(timeout: 5))
         let frame = futura.frame
         let origin = app.coordinate(withNormalizedOffset: .zero)
         origin.withOffset(CGVector(dx: frame.maxX + 3, dy: frame.midY)).tap()
         sleep(1)
-        XCTAssertTrue(app.buttons["keyboard.done"].exists, "a tap between two chips ended the writing")
+        XCTAssertTrue(app.buttons["text.row.back"].exists, "a tap between two chips ended the writing")
         origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
         let selected = NSPredicate(format: "isSelected == true")
         expectation(for: selected, evaluatedWith: futura)
         waitForExpectations(timeout: 3)
-        XCTAssertTrue(app.buttons["keyboard.done"].exists, "a tap on a chip ended the writing")
+        XCTAssertTrue(app.buttons["text.row.back"].exists, "a tap on a chip ended the writing")
     }
 
     // MARK: Fast taps
