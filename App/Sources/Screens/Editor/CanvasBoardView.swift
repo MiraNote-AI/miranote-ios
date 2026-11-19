@@ -93,7 +93,8 @@ struct CanvasBoardView: View {
     /// scroll is the one to keep.
     @State private var resumed = false
     @State private var toast: Toast?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { ReduceMotion.resolved(systemReduceMotion) }
     @State private var toastDismiss: Task<Void, Never>?
     /// The keep-clear scroll still waiting to run: a newer reason to scroll
     /// (the tools rising another step) replaces it, so one rise makes one
@@ -440,7 +441,7 @@ struct CanvasBoardView: View {
             try? await Task.sleep(for: .milliseconds(20))
             guard !Task.isCancelled else { return }
             TextOpenTiming.noteClearScroll()
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 proxy.scrollTo(Self.editAnchorID, anchor: UnitPoint(x: 0.5, y: anchorY))
             }
         }
@@ -470,7 +471,7 @@ struct CanvasBoardView: View {
             // The anchor lands first, then the page scrolls to it.
             try? await Task.sleep(for: .milliseconds(20))
             if editor.editingTextItemID == nil {
-                withAnimation(.easeOut(duration: 0.35)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                     proxy.scrollTo(Self.restoreAnchorID, anchor: UnitPoint(x: 0.5, y: 0))
                 }
                 try? await Task.sleep(for: .milliseconds(400))
