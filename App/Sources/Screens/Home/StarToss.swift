@@ -9,8 +9,10 @@ import UIKit
 /// glass and each other. Only the toss is drawn here: at rest the stars
 /// are the jar's own buttons again, at the spots `onSettle` hands back.
 final class StarTossScene: SKScene, SKPhysicsContactDelegate {
-    /// Every star's spot once all of them lie still, in the jar's
-    /// (SwiftUI, y-down) coordinates.
+    /// Every star's spot when a toss ends, in the jar's (SwiftUI, y-down)
+    /// coordinates: where it landed, or for a toss `stop` dropped, where it
+    /// lay before. Give it the view's bindings, not the view: the view
+    /// holds this scene, and the two would keep each other alive.
     var onSettle: ([Memory.ID: StarPile.Spot]) -> Void = { _ in }
 
     private(set) var isTossing = false
@@ -19,9 +21,12 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
     /// through the edge) goes back to where it last was inside.
     private var inside = CGPath(rect: .zero, transform: nil)
     private var lastInside: [Memory.ID: CGPoint] = [:]
-    /// When the last tap threw the stars: set on the first frame after it,
-    /// since a paused scene's clock stands still.
-    private var lastThrow: TimeInterval?
+    /// Where the stars lay when loaded, for a toss dropped mid-air.
+    private var start: [Memory.ID: StarPile.Spot] = [:]
+    /// Time in the air since the last tap threw the stars, counted in
+    /// frames the scene ran (nil until the first): seconds the scene stood
+    /// still, the app in the background, are not time in the air.
+    private var airTime: TimeInterval?
     private var now: TimeInterval = 0
     private var stillFrames = 0
     private var ticks = 0
@@ -62,6 +67,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         removeAllChildren()
         nodes = [:]
         lastInside = [:]
+        start = [:]
         size = geometry.size
         // Inside the hairline by what a turned star's tips reach past its
         // circle (its face sits a little low in its frame): no tip ever
@@ -91,6 +97,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
             addChild(node)
             nodes[star.id] = node
             lastInside[star.id] = node.position
+            start[star.id] = spot
         }
     }
 
@@ -106,7 +113,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         isPaused = false
         stillFrames = 0
         ticks = 0
-        lastThrow = nil
+        airTime = nil
         #if DEBUG
         frameTimes = []
         #endif
@@ -145,12 +152,14 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
 
     override func update(_ currentTime: TimeInterval) {
         #if DEBUG
-        if isTossing, lastThrow != nil { frameTimes.append(currentTime - now) }
+        if isTossing, airTime != nil { frameTimes.append(currentTime - now) }
         #endif
+        // This frame's share of the toss, at most a slow frame's.
+        let step = min(max(currentTime - now, 0), 0.1)
         now = currentTime
         guard isTossing else { return }
-        let thrown = lastThrow ?? currentTime
-        lastThrow = thrown
+        let elapsed = airTime.map { $0 + step } ?? 0
+        airTime = elapsed
         for (id, node) in nodes {
             if inside.contains(node.position) {
                 lastInside[id] = node.position
@@ -165,12 +174,23 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
                 || (hypot(body.velocity.dx, body.velocity.dy) < 8 && abs(body.angularVelocity) < 0.4)
         }
         stillFrames = still ? stillFrames + 1 : 0
-        let elapsed = currentTime - thrown
         // Calm for a few frames after the throw has landed, or at most 3 s
         // after the last tap: a heap that keeps creeping still hands back.
         if (elapsed > 0.6 && stillFrames >= 6) || elapsed > 3 {
             settle()
         }
+    }
+
+    /// Drops a toss still in the air: the jar moved on (another period, or
+    /// off screen), so its landing would move stars no longer shown. The
+    /// stars go back to where they lay before it.
+    func stop() {
+        guard isTossing else { return }
+        isTossing = false
+        for node in nodes.values { node.removeAllActions() }
+        isPaused = true
+        view?.isPaused = true
+        onSettle(start)
     }
 
     private func settle() {
@@ -193,7 +213,7 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
 
     /// Soft ticks as the first stars land: at most three a toss.
     func didBegin(_ contact: SKPhysicsContact) {
-        guard isTossing, let lastThrow, now - lastThrow > 0.25, ticks < 3, now - lastTick > 0.12,
+        guard isTossing, let airTime, airTime > 0.25, ticks < 3, now - lastTick > 0.12,
               contact.collisionImpulse > 4 else { return }
         ticks += 1
         lastTick = now
