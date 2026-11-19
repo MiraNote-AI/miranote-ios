@@ -201,7 +201,7 @@ final class RecentPhotos {
             let raw: Data?
             if usesSamples {
                 raw = Self.sample(pick)
-            } else if let asset = assets[pick.id] {
+            } else if let asset = assets[pick.id] ?? Self.asset(pick.id) {
                 let options = PHImageRequestOptions()
                 options.isNetworkAccessAllowed = true
                 options.version = .current
@@ -216,6 +216,13 @@ final class RecentPhotos {
             if let raw, let scaled = UIImage(data: raw)?.downscaled() { result.append(scaled) }
         }
         return result
+    }
+
+    /// A pick the shown pages no longer hold is still in the library: a
+    /// library change refills `assets` for the shown count only, so new
+    /// photos on top push the last shown ones (and a pick there) out.
+    private static func asset(_ id: String) -> PHAsset? {
+        PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
     }
 
     /// One thumbnail request PhotoKit can be told to drop. The continuation
