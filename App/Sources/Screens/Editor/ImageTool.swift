@@ -548,7 +548,7 @@ struct PhotoDragGhost: View {
                 Image(uiImage: thumb)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 96, height: 92)
+                    .frame(width: 96, height: 96)
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.imageCorner))
                     .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
                     .opacity(pagePoint(drag.point) == nil ? 0.6 : 1)
