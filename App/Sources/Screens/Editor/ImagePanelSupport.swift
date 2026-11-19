@@ -66,7 +66,7 @@ struct PagePreview: View {
             let cardWidth = geo.size.width - 2 * Metrics.canvasInset
             let scale = CanvasCard.pageScale(rowWidth: geo.size.width)
             // Shown where the canvas stood: the page laid out shifted by its
-            // scroll, not scrolled -- the scrim takes every touch, and a
+            // scroll, not scrolled -- the inert page takes no touch, and a
             // scroll asked for while the panel came in was lost (#127
             // review: the preview opened on the page's top). Padding, not
             // offset, so VoiceOver's frames move with it.

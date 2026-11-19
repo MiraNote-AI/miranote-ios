@@ -91,6 +91,12 @@ public struct FileCollectionStore: CollectionStore {
             return keepAsideThenSeed()
         }
         if let library = try? JSONDecoder().decode(MemoryLibrary.self, from: data) {
+            // Moods are gone (#206): a library that still holds them is
+            // written again without.
+            if data.range(of: Data(#""mood":"#.utf8)) != nil
+                || data.range(of: Data(#""moodTextHash":"#.utf8)) != nil {
+                save(library)
+            }
             return library
         }
         // Legacy file: a bare collections array from before the bin existed.

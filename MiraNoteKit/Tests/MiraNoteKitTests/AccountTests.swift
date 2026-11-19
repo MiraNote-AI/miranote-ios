@@ -248,7 +248,7 @@ final class AccountTests: XCTestCase {
                        "Sign in to use Mira's AI. You can sign in from Settings.")
     }
 
-    func testMoodNeverAsksToSignIn() async throws {
+    func testBackgroundDescribeNeverAsksToSignIn() async throws {
         let defaults = UserDefaults(suiteName: "account-test-\(UUID().uuidString)")!
         let consent = AIConsent(defaults: defaults, grantedByDefault: true)
         consent.signIn = {
@@ -256,7 +256,7 @@ final class AccountTests: XCTestCase {
             return false
         }
         let services = ServiceContainer.mock.asking(consent)
-        _ = try await services.mood.mood(for: "a calm day")
+        _ = try await services.imageStudio.describe(image: MockImageStudioService.tinyPNG)
     }
 
     // MARK: The live API

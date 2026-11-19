@@ -8,8 +8,7 @@ import SwiftUI
 /// paywall and Restore, in a build that offers sign-in
 /// (`Account.isOffered`). PRIVACY & LEGAL (no URLs yet) is
 /// left out until the links exist. AI & PRIVACY says what goes
-/// to the AI providers, holds the mood switch and withdraws consent
-/// (#151). A TestFlight install adds a TESTING card: the photo trigger's
+/// to the AI providers and withdraws consent (#151). A TestFlight install adds a TESTING card: the photo trigger's
 /// switch (InstallSource).
 struct SettingsView: View {
     var settings: AppSettings
@@ -224,9 +223,8 @@ private struct PlusCard: View {
     }
 }
 
-/// What is sent and to whom (the consent sheet's own lines), "Mood from my
-/// words", and withdrawing consent. Turning the mood on before consent
-/// asks first, with the sheet.
+/// What is sent and to whom (the consent sheet's own lines), and
+/// withdrawing consent.
 private struct AIPrivacyCard: View {
     var consent: AIConsent
 
@@ -236,19 +234,6 @@ private struct AIPrivacyCard: View {
                 .padding(.top, 16)
             AIDataDetails(idPrefix: "settings.ai")
                 .padding(.vertical, 4)
-            divider
-            VStack(alignment: .leading, spacing: 6) {
-                Toggle(isOn: Binding(get: { consent.allowsMood }, set: setMood)) {
-                    Text("Mood from my words")
-                        .font(Sans.font(size: 16, weight: 600))
-                        .foregroundStyle(Palette.ink)
-                }
-                .tint(Palette.forest)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("settings.moodFromWords")
-                note("Off: saved pages are not read for a mood, and their stars stay one neutral color.")
-            }
-            .padding(.vertical, 12)
             divider
             VStack(alignment: .leading, spacing: 6) {
                 if consent.isGranted {
@@ -282,12 +267,6 @@ private struct AIPrivacyCard: View {
             .lineSpacing(AIDataLines.spacing(for: 13))
             .foregroundStyle(SettingsStyle.value)
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func setMood(_ on: Bool) {
-        guard on else { return consent.moodFromWords = false }
-        guard !consent.isGranted else { return consent.moodFromWords = true }
-        Task { if await consent.permit() { consent.moodFromWords = true } }
     }
 }
 
