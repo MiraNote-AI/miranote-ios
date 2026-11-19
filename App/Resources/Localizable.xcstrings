@@ -73,18 +73,6 @@
         }
       }
     },
-    "%@, mood off" : {
-      "comment" : "VoiceOver: a star's page title while moods are not read (#151).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@，心情已关闭"
-          }
-        }
-      }
-    },
     "%@: every question type was taken nearby; the first was asked" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -1199,18 +1187,6 @@
         }
       }
     },
-    "Calm" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "平静"
-          }
-        }
-      }
-    },
     "Camera" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1476,14 +1452,14 @@
         }
       }
     },
-    "Clean, Expand, Polish, Shorten and moods" : {
-      "comment" : "AI consent Details list (#151): feature.",
+    "Clean, Expand, Polish and Shorten" : {
+      "comment" : "AI details: the text tools' row.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "整理、扩写、润色、精简和心情"
+            "value" : "整理、扩写、润色和精简"
           }
         }
       }
@@ -2964,18 +2940,6 @@
         }
       }
     },
-    "Joyful" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "喜悦"
-          }
-        }
-      }
-    },
     "Keep" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3267,18 +3231,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在看这一页…"
-          }
-        }
-      }
-    },
-    "Low" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "低落"
           }
         }
       }
@@ -3759,18 +3711,6 @@
         }
       }
     },
-    "Mood from my words" : {
-      "comment" : "Settings, AI & privacy (#151): switch: read saved pages' moods.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "根据文字判断心情"
-          }
-        }
-      }
-    },
     "More" : {
       "comment" : "VoiceOver: the photo trigger's more-options button.",
       "extractionState" : "manual",
@@ -3895,18 +3835,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自然风光"
-          }
-        }
-      }
-    },
-    "Neutral" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "平常"
           }
         }
       }
@@ -4315,18 +4243,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知没开"
-          }
-        }
-      }
-    },
-    "Off: saved pages are not read for a mood, and their stars stay one neutral color." : {
-      "comment" : "Settings, AI & privacy (#151): what the mood switch's off does.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭后：不会读取保存页面的心情，星星都保持同一种中性颜色。"
           }
         }
       }
@@ -5947,6 +5863,18 @@
         }
       }
     },
+    "Shake" : {
+      "comment" : "Star jar: VoiceOver action that shakes the jar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摇一摇"
+          }
+        }
+      }
+    },
     "Share" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6401,6 +6329,18 @@
         }
       }
     },
+    "Tap to shake. Hold a star to open." : {
+      "comment" : "Star jar: the hint under the jar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点摇一摇，按住星星打开。"
+          }
+        }
+      }
+    },
     "Tap your avatar or name to edit" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6442,30 +6382,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "告诉 Mira 要改什么"
-          }
-        }
-      }
-    },
-    "Tender" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "温柔"
-          }
-        }
-      }
-    },
-    "Tense" : {
-      "comment" : "Mood.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "紧张"
           }
         }
       }
@@ -6825,14 +6741,14 @@
         }
       }
     },
-    "The words on your page, photos you choose, and your voice when you dictate. Saved pages' words are also read for a mood that colors their star." : {
-      "comment" : "AI consent sheet (#151): what is sent.",
+    "The words on your page, photos you choose, and your voice when you dictate." : {
+      "comment" : "AI consent: what is sent.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "页面上的文字、你选择的照片，以及你口述时的语音。保存的页面文字也会用来判断心情，为它的星星上色。"
+            "value" : "页面上的文字、你选择的照片，以及你口述时的语音。"
           }
         }
       }
@@ -8237,18 +8153,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "马天尼"
-          }
-        }
-      }
-    },
-    "mood not read yet" : {
-      "comment" : "VoiceOver: a star whose page's mood is not known yet.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "心情尚未识别"
           }
         }
       }

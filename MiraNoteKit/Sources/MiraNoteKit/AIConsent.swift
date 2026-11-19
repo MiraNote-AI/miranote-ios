@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /// Whether the writer agreed to send page content to the AI providers
-/// (#151, App Store Review Guideline 5.1.2(i)), and whether their pages'
-/// moods are read. Kept in the settings' defaults (`AppSettings.storeDefaults`).
+/// (#151, App Store Review Guideline 5.1.2(i)). Kept in the settings'
+/// defaults (`AppSettings.storeDefaults`).
 ///
 /// Nothing is sent before `isGranted`: the services `ServiceContainer.asking`
 /// wraps ask first. `permit()` shows the "How Mira uses AI" sheet through
@@ -28,6 +28,7 @@ public final class AIConsent {
 
     enum Key {
         static let granted = "miranote.ai.consent"
+        /// The retired "Mood from my words" switch (#206): wiped at launch.
         static let moodFromWords = "miranote.ai.moodFromWords"
     }
 
@@ -36,15 +37,6 @@ public final class AIConsent {
     public private(set) var isGranted: Bool {
         didSet { defaults.set(isGranted, forKey: Key.granted) }
     }
-
-    /// Settings > AI & privacy > "Mood from my words". On by default; it
-    /// reads moods only while `isGranted` too (`allowsMood`).
-    public var moodFromWords: Bool {
-        didSet { defaults.set(moodFromWords, forKey: Key.moodFromWords) }
-    }
-
-    /// Whether saved pages' words go to the text service for their mood.
-    public var allowsMood: Bool { isGranted && moodFromWords }
 
     /// The sheet is up, waiting for `answer(_:)`.
     public private(set) var isAsking = false
@@ -66,7 +58,7 @@ public final class AIConsent {
     public init(defaults: UserDefaults, grantedByDefault: Bool = false) {
         self.defaults = defaults
         isGranted = (defaults.object(forKey: Key.granted) as? Bool) ?? grantedByDefault
-        moodFromWords = (defaults.object(forKey: Key.moodFromWords) as? Bool) ?? true
+        defaults.removeObject(forKey: Key.moodFromWords)
     }
 
     /// True at once when granted. Otherwise shows the sheet (once for any
@@ -113,11 +105,10 @@ public final class AIConsent {
         sentRequests += 1
     }
 
-    /// For work the writer did not just ask for -- a page's mood
-    /// (`allowsMood`), a photo's description (`isGranted`): never shows the
-    /// sheet.
-    func clearToSendQuietly(forMood: Bool) throws {
-        guard forMood ? allowsMood : isGranted else { throw AIConsentError.notNow }
+    /// For work the writer did not just ask for -- a photo's description:
+    /// never shows the sheet.
+    func clearToSendQuietly() throws {
+        guard isGranted else { throw AIConsentError.notNow }
         sentRequests += 1
     }
 }
@@ -158,8 +149,7 @@ public extension ServiceContainer {
                 base: imageStudio, consent: consent,
                 localCutout: live?.cutsLocally ?? true,
                 localOutline: live?.outlinesLocally ?? true
-            ),
-            mood: AskingMood(base: mood, consent: consent)
+            )
         )
     }
 }
@@ -201,18 +191,6 @@ struct AskingChat: ChatService {
     func askToSend() async throws { try await consent.askToSend() }
 }
 
-/// A page's mood is read after Save, never on request: it does not show
-/// the sheet (HomeFlow asks once after a Save instead).
-struct AskingMood: MoodService {
-    let base: MoodService
-    let consent: AIConsent
-
-    func mood(for text: String) async throws -> Mood {
-        try await consent.clearToSendQuietly(forMood: true)
-        return try await base.mood(for: text)
-    }
-}
-
 struct AskingImageStudio: ImageStudioService {
     let base: ImageStudioService
     let consent: AIConsent
@@ -252,7 +230,7 @@ struct AskingImageStudio: ImageStudioService {
     /// A placed photo is described in the background for Mira's context:
     /// only once granted, never with the sheet.
     func describe(image: Data) async throws -> String {
-        try await consent.clearToSendQuietly(forMood: false)
+        try await consent.clearToSendQuietly()
         return try await base.describe(image: image)
     }
 }

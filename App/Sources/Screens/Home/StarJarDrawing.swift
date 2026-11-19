@@ -122,9 +122,13 @@ struct JarLid: View {
 
 // MARK: - Star
 
-/// The star's face: the mood's fill, a soft light from above, and a
-/// hairline edge so neighbors in a pile stay apart.
+/// A plain star: a fill, a soft light from above, and a hairline edge so
+/// neighbors in a pile stay apart. A page's star wears its own face
+/// (`StarFace`); this one stands in while it bakes.
 struct StarMark: View {
+    /// The warm paper of a star whose face is not baked yet.
+    static let paper = Color(hex: 0xCFC6B6)
+
     let color: Color
 
     var body: some View {

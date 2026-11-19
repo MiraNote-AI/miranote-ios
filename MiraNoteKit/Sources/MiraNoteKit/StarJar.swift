@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 /// One saved page as a star in the jar, with the journal it lives in (the
@@ -85,33 +84,4 @@ public enum StarJar {
     /// still one when it is a draft again, never one that only ever was
     /// (#137).
     private static func isStar(_ memory: Memory) -> Bool { memory.hasBeenSaved }
-}
-
-public extension Memory {
-    /// What the mood is judged from: the page's words top to bottom, its
-    /// photos' descriptions and its backdrop's, at most 2000 characters.
-    /// A page from before the canvas (title and body only) reads as the
-    /// blocks the editor would make of it. Empty: nothing to judge.
-    var moodText: String {
-        let parts = materializedForEditing().items
-            .sorted { ($0.position.y, $0.position.x) < ($1.position.y, $1.position.x) }
-            .compactMap { item -> String? in
-                switch item.content {
-                case .text(let block): return block.text
-                case .image(let ref): return ref.summary
-                case .sticker, .sound: return nil
-                }
-            } + [backgroundSummary]
-        let joined = parts
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
-        return String(joined.prefix(2000))
-    }
-
-    /// A fingerprint of `text` that stays the same across launches (unlike
-    /// `hashValue`): SHA-256, in hex.
-    static func moodHash(of text: String) -> String {
-        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
-    }
 }

@@ -193,20 +193,14 @@ struct EditorFlowView: View {
 /// turn the conversation into a filed memory.
 struct HomeFlow: View {
     @Environment(\.services) private var services
-    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
     @State private var route: Route?
     @State private var path = NavigationPath()
     @State private var settings = AppSettings.shared
     @State private var profile = LocalProfile(defaults: AppSettings.storeDefaults, images: HomeFlow.profileImages)
-    @State private var moodJudge: MoodJudge?
-    @State private var consent = AIConsent.shared
-    /// A Save before AI consent asks for it once the editor is gone, once
-    /// a launch: a page's mood is the first thing most writers send (#151).
-    @State private var moodConsentPending = false
-    @State private var moodConsentAsked = false
-    /// A page just saved from a new canvas, its star still to land in the
-    /// jar on Home (#160). Edits of filed pages have their star already.
+    /// A page Save just made a star (a new page, or a draft's first Save),
+    /// still to land in the jar on Home (#160, #206). Edits of saved pages
+    /// have their star already.
     @State private var arrivingStar: Memory.ID?
     /// Home left a page without Save (#137): a toast says it was kept,
     /// once the editor is gone.
@@ -331,33 +325,12 @@ struct HomeFlow: View {
     /// Navigation token for the star jar.
     struct StarJarRoute: Hashable {}
 
-    /// Asks the moods of saved pages in the background (the star jar's
-    /// colors); made on first use, then one queue for the whole app. Save
-    /// starts it, never Home: a draft keeps its last Save's mood (#137).
-    private func judgeMoods(_ noteIDs: [Memory.ID]) {
-        guard !noteIDs.isEmpty else { return }
-        makeMoodJudge().judge(noteIDs)
-        if !consent.isGranted, consent.moodFromWords, !moodConsentAsked { moodConsentPending = true }
-    }
-
-    /// A cover closed: a draft's toast, then the mood's consent ask.
-    private func coverDismissed() {
-        showPendingDraftToast()
-        askMoodConsentIfPending()
-    }
-
-    /// The editor is gone: a Save before consent asks for it now. Granted,
-    /// `allowsMood` turns true and the queue resumes.
-    private func askMoodConsentIfPending() {
-        guard moodConsentPending else { return }
-        moodConsentPending = false
-        moodConsentAsked = true
-        Task { _ = await consent.permit() }
-    }
-
-    /// The pages the star jar shows (`[]`: it closed): asked after saves.
-    private func showMoods(_ noteIDs: [Memory.ID]) {
-        if noteIDs.isEmpty { moodJudge?.show([]) } else { makeMoodJudge().show(noteIDs) }
+    /// A Save: the page's star is baked now (#206). The first Save that
+    /// makes a page a star -- a new page, or a draft never saved -- flies
+    /// it into the jar, when Home shows the jar.
+    private func saved(_ memory: Memory, wasStar: Bool) {
+        StarFace.bake(memory)
+        if !wasStar && path.isEmpty { arrivingStar = memory.id }
     }
 
     var body: some View {
@@ -401,8 +374,7 @@ struct HomeFlow: View {
                 StarJarView(
                     viewModel: viewModel,
                     onBack: { path.removeLast() },
-                    onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) },
-                    onShow: showMoods
+                    onOpenNote: { path.append(NoteRef(collectionID: $0.collectionID, noteID: $0.id)) }
                 )
                 .navigationBarHidden(true)
             }
@@ -438,16 +410,13 @@ struct HomeFlow: View {
         .overlay(alignment: .bottom) { draftToast }
         // The Appearance setting, applied live (a choice redraws at once).
         .environment(\.theme, Theme(appearance: settings.appearance))
+        // Pages the bin let go of at launch take their stars along.
+        .task { StarFace.forget(allBut: viewModel.library) }
         .task {
             guard Self.triggerEntryAllowed else { return }
             triggerGates = await trigger.resolveGates { await InstallSource.live() }
         }
         .triggerLifecycle(trigger, enabled: openTriggerGates.schedulesAutomatically)
-        // Moods whose asks ran out of tries while the service was down
-        // are asked again when the app comes back (#159).
-        .onChange(of: scenePhase) {
-            if scenePhase == .active { moodJudge?.resume() }
-        }
         // A tapped push, also one that launched the app: open it once Home is
         // up and no other cover (an editor, chat, a story) is on screen.
         .task(id: PendingPushKey(pushId: router.pending, coverUp: route != nil || keeper.switching)) {
@@ -459,11 +428,7 @@ struct HomeFlow: View {
         // Under a cover the scene's own probe shows too; nothing here listens.
         .background(DebugStateProbe { ["scene": "home", "listening": [String: Bool]()] })
         #endif
-        // Consent given or the mood switch turned on: queued pages are read.
-        .onChange(of: consent.allowsMood) {
-            if consent.allowsMood { moodJudge?.resume() }
-        }
-        .fullScreenCover(item: $route, onDismiss: coverDismissed) { presented in
+        .fullScreenCover(item: $route, onDismiss: showPendingDraftToast) { presented in
             switch presented {
             case .editor, .editorIn:
                 let journal = presented.journal
@@ -472,11 +437,10 @@ struct HomeFlow: View {
                     onComplete: { memory, saved in
                         viewModel.file(memory, inCollection: journal, orTitled: Self.inbox)
                         draftToastPending = memory.isDraft
-                        if saved { judgeMoods([memory.id]) }
                         // Only Home shows the jar, and only a saved page
                         // earns a star: a page saved over a collection, or
                         // left as a draft, lands without the flight.
-                        if saved && path.isEmpty { arrivingStar = memory.id }
+                        if saved { self.saved(memory, wasStar: false) }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, inCollection: journal, orTitled: Self.inbox) },
@@ -493,7 +457,7 @@ struct HomeFlow: View {
                     onComplete: { edited, saved in
                         viewModel.file(edited, underCollectionTitled: Self.inbox)
                         draftToastPending = edited.isDraft
-                        if saved { judgeMoods([edited.id]) }
+                        if saved { self.saved(edited, wasStar: memory.hasBeenSaved) }
                         route = nil
                     },
                     onAutosave: { viewModel.file($0, underCollectionTitled: Self.inbox) },
@@ -550,13 +514,6 @@ struct HomeFlow: View {
 }
 
 extension HomeFlow {
-    private func makeMoodJudge() -> MoodJudge {
-        let judge = moodJudge ?? MoodJudge(service: Self.editorServices(base: services).mood, library: viewModel,
-                                           allowed: { AIConsent.shared.allowsMood })
-        moodJudge = judge
-        return judge
-    }
-
     /// Text the page `route` opens holds only to prompt the writer.
     private static func prompts(of route: Route) -> [CanvasItem.ID: String] {
         if case .draft(_, let prompts, _) = route { return prompts }
@@ -585,7 +542,7 @@ extension HomeFlow {
             // `-JAR_STARS <n>`: n more pages this month, a crowd in the jar.
             let extra = UserDefaults.standard.integer(forKey: "JAR_STARS")
             seed[0].memories += (0..<extra).map { index in
-                Memory(title: "Star \(index + 1)", mood: Mood.allCases[index % Mood.allCases.count])
+                Memory(title: "Star \(index + 1)")
             }
             return InMemoryCollectionStore(collections: seed)
         }
