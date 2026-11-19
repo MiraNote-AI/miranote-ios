@@ -80,7 +80,9 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
         physicsBody?.restitution = 0.3
         inside = geometry.outline(inset: JarGeometry.stroke).cgPath.copy(using: [flip]) ?? edge
         for (star, spot) in stars {
-            let node = SKSpriteNode(texture: face(star.memory.starMood), size: CGSize(width: starSize, height: starSize))
+            let node = SKSpriteNode(
+                texture: face(star.memory.starMood), size: CGSize(width: starSize, height: starSize)
+            )
             node.position = flipped(spot.center)
             node.zRotation = -spot.rotation * .pi / 180
             // A circle a little inside the star's tips: neighbors nest the
