@@ -10,8 +10,8 @@ import UIKit
 /// keeps its light from the top left. A page with a photo, a sticker or a
 /// photo backdrop gives its most colorful band; a page of words gives a
 /// calm paper star. Pages from before are baked when the jar first shows
-/// them. Only the rendering of the page is on the main actor; the cut is
-/// not.
+/// them, a frame apart (`bakeInTurn`). Only the rendering of the page is
+/// on the main actor; the cut is not.
 @MainActor
 enum StarFace {
     /// Points a side; baked at 2x, twice the largest star in the jar.
@@ -26,9 +26,17 @@ enum StarFace {
     /// Lit and upright, for the toss's sprites.
     private static let faces = NSCache<NSUUID, UIImage>()
 
+    private static var caches: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    }
+
     private static var directory: URL {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return caches.appendingPathComponent("star-dress", isDirectory: true)
+        caches.appendingPathComponent("star-dress", isDirectory: true)
+    }
+
+    /// Where part A of #206 kept its lit stars: swept, no longer read.
+    private static var litStarsDirectory: URL {
+        caches.appendingPathComponent("stars", isDirectory: true)
     }
 
     private static func file(_ id: Memory.ID) -> URL {
@@ -55,6 +63,38 @@ enum StarFace {
         let face = renderer.uiImage ?? UIImage()
         if dress != nil { faces.setObject(face, forKey: id as NSUUID) }
         return face
+    }
+
+    /// When the last missing star was baked (`bakeInTurn`).
+    private static var lastTurn: ContinuousClock.Instant?
+    /// A missing star is being baked: the next one waits for it.
+    private static var baking = false
+    private static let turnGap = Duration.milliseconds(17)
+
+    /// Bakes a star the jar finds missing (a page not saved since #206, or
+    /// one whose dress iOS cleared from Caches) in its turn: one at a
+    /// time, at least a frame after the last such bake, so a jar of old
+    /// pages fills in a star at a time instead of in one stall. Nil if the
+    /// waiting star went away first.
+    static func bakeInTurn(_ memory: Memory) async -> UIImage? {
+        while let wake = nextTurn() {
+            do { try await Task.sleep(until: wake, clock: .continuous) } catch { return nil }
+        }
+        if let dress = cached(memory.id) { return dress }
+        baking = true
+        defer {
+            baking = false
+            lastTurn = .now
+        }
+        return await bake(memory)
+    }
+
+    /// When a waiting bake may look again; nil once its turn has come.
+    private static func nextTurn() -> ContinuousClock.Instant? {
+        let now = ContinuousClock.now
+        if baking { return now + turnGap }
+        guard let last = lastTurn, now < last + turnGap else { return nil }
+        return last + turnGap
     }
 
     /// Bakes the page's dress as it is now and keeps it. Save calls this:
@@ -145,6 +185,25 @@ enum StarFace {
         return dress
     }
 
+    /// Drops the stars of pages gone for good (their 30 days in the bin
+    /// are up): a page on the shelf or in the bin keeps its star. Both
+    /// folders are swept: the dresses, and part A's lit stars.
+    static func forget(allBut library: MemoryLibrary) {
+        let pages = library.collections.flatMap(\.memories) + library.trash.map(\.memory)
+        let kept = Set(pages.map(\.id))
+        let manager = FileManager.default
+        for folder in [directory, litStarsDirectory] {
+            let files = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+            for file in files where file.pathExtension == "png" {
+                guard let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
+                      !kept.contains(id) else { continue }
+                dresses.removeObject(forKey: id as NSUUID)
+                faces.removeObject(forKey: id as NSUUID)
+                try? manager.removeItem(at: file)
+            }
+        }
+    }
+
     /// No photo, sticker or photo backdrop: nothing colorful to find.
     private static func isWordsOnly(_ memory: Memory) -> Bool {
         memory.backgroundFileName.isEmpty && !memory.items.contains { item in
@@ -199,15 +258,16 @@ struct PageStar: View, Animatable {
     @State private var dress: UIImage?
 
     var body: some View {
-        let baked = dress ?? StarFace.cached(memory.id)
+        // The cache first: a Save bakes the page again, and a dress baked
+        // here earlier would be the page as it was.
+        let baked = StarFace.cached(memory.id) ?? dress
         PaperStarView(dress: baked.map { .baked(Image(uiImage: $0)) } ?? .paint(.paper),
                       rotation: CGFloat(rotation * .pi / 180))
             .task(id: memory.id) {
                 guard StarFace.cached(memory.id) == nil else { return }
-                // One page at a time, between frames: a jar of old pages
+                // One page at a time, a frame apart: a jar of old pages
                 // bakes without a stall.
-                await Task.yield()
-                dress = await StarFace.bake(memory)
+                dress = await StarFace.bakeInTurn(memory)
             }
     }
 }

@@ -215,7 +215,9 @@ struct JarPose {
 
 extension StarTossScene {
     /// A page's star as a texture: the resting star's own dress, lit
-    /// upright (in the air its light turns with it).
+    /// upright (in the air its light turns with it), or a paper star while
+    /// its page waits its turn to bake. It reads only the cache: a toss
+    /// never bakes.
     @MainActor static func face(of memory: Memory) -> SKTexture {
         SKTexture(image: StarFace.face(for: memory.id))
     }

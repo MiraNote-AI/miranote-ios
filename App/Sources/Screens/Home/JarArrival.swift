@@ -39,15 +39,18 @@ struct JarLanding: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content
+        // Read here: the animator's closure is Sendable and may not read a
+        // main-actor static.
+        let glow = Self.glow, ring = Self.ring, swelled: CGFloat = swell ? 1.06 : 1
+        return content
             .keyframeAnimator(initialValue: Pose(), trigger: beat) { view, pose in
                 view
-                    .background(Circle().fill(Self.glow).blur(radius: 10).opacity(pose.glow))
-                    .scaleEffect(pose.scale * (swell ? 1.06 : 1))
+                    .background(Circle().fill(glow).blur(radius: 10).opacity(pose.glow))
+                    .scaleEffect(pose.scale * swelled)
                     .overlay {
                         // 22 to 40 pt out from a 44 pt circle.
                         Circle()
-                            .stroke(Self.ring.opacity(0.7 * (1 - pose.ring)), lineWidth: 2.4)
+                            .stroke(ring.opacity(0.7 * (1 - pose.ring)), lineWidth: 2.4)
                             .frame(width: 44 + 36 * pose.ring, height: 44 + 36 * pose.ring)
                             .allowsHitTesting(false)
                     }
