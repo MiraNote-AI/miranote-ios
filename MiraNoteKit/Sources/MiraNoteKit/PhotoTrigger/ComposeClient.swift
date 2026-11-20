@@ -170,7 +170,7 @@ public struct LiveComposeClient: ComposeClient {
 
     private static func composeError(_ error: BackendError) -> ComposeError {
         switch error {
-        case .unreachable, .timedOut: return .unreachable
+        case .unreachable, .timedOut, .answerLost: return .unreachable
         case .decoding: return .server(200)
         // A used-up photo push allowance (api #95) frees up in hours or
         // days, not in the 10 s a rate limit waits: stop at once.

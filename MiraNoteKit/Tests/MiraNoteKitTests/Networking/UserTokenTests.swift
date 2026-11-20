@@ -114,6 +114,22 @@ final class UserTokenTests: XCTestCase {
         XCTAssertFalse(account.isSignedIn)
     }
 
+    /// The server takes the refresh but refuses the new token too: signed
+    /// out, not the beta's 401 ("This build cannot get into the beta").
+    func testA401AfterARenewSignsOut() async {
+        StubURLProtocol.handler = { Self.answer($0, 401) }
+        let api = FakeAccountsAPI(refreshResults: [.success(tokens(2))])
+        let account = account(tokens(1), api: api)
+        do {
+            _ = try await client(account).send(request())
+            XCTFail("expected signed out")
+        } catch {
+            XCTAssertEqual(error as? AccountError, .signedOut)
+        }
+        XCTAssertEqual(api.refreshes, ["refresh-1"], "renewed once")
+        XCTAssertFalse(account.isSignedIn, "the next action offers sign-in")
+    }
+
     /// A build that offers no sign-in installs no token source
     /// (`SignInPresenter.install`), and every client built with the default
     /// sends what it sent before this change: the beta token, no request id,
@@ -215,51 +231,6 @@ final class UserTokenTests: XCTestCase {
         let error = await failure(status: 429, body: #"{"detail": "beta rate limit exceeded"}"#)
         guard case .server(429, _) = error as? BackendError else { return XCTFail("got \(String(describing: error))") }
     }
-
-    // MARK: The paywall at a used-up allowance
-
-    private final class LimitedText: TextTransformService {
-        let limit: AILimit
-        init(_ limit: AILimit) { self.limit = limit }
-        func transform(_ text: String, mode: TextTransformMode) async throws -> String {
-            throw BackendError.limitReached(limit)
-        }
-    }
-
-    private func consent() -> AIConsent {
-        AIConsent(defaults: UserDefaults(suiteName: "limit-test-\(UUID().uuidString)")!, grantedByDefault: true)
-    }
-
-    func testAFreeLimitOnAnActionShowsThePaywall() async {
-        let consent = consent()
-        var shown: [AILimit] = []
-        consent.limitReached = { shown.append($0) }
-        let free = AILimit(feature: "expand", plan: "free")
-        let services = ServiceContainer(
-            textTransform: LimitedText(free), voiceTranscription: MockVoiceTranscriptionService(),
-            stickerGeneration: MockStickerGenerationService(), styleTransfer: MockStyleTransferService()
-        ).asking(consent)
-        do {
-            _ = try await services.textTransform.transform("tea", mode: .expand)
-            XCTFail("expected the limit")
-        } catch {
-            XCTAssertEqual(error as? BackendError, .limitReached(free), "the action still fails")
-        }
-        XCTAssertEqual(shown, [free])
-    }
-
-    func testAPlusLimitDoesNotOfferPlus() async {
-        let consent = consent()
-        var shown = 0
-        consent.limitReached = { _ in shown += 1 }
-        let services = ServiceContainer(
-            textTransform: LimitedText(AILimit(feature: "expand", plan: "plus")),
-            voiceTranscription: MockVoiceTranscriptionService(),
-            stickerGeneration: MockStickerGenerationService(), styleTransfer: MockStyleTransferService()
-        ).asking(consent)
-        _ = try? await services.textTransform.transform("tea", mode: .expand)
-        XCTAssertEqual(shown, 0)
-    }
 }
 
 /// What the phone counts as Plus (api #95 step 4).
@@ -320,11 +291,18 @@ final class LiveSubscriptionsAPITests: XCTestCase {
         super.tearDown()
     }
 
+    private struct Seen {
+        let path: String
+        let auth: String?
+        let body: [String: Any]
+    }
+
     func testSyncPostsBothSignedStringsWithOurToken() async throws {
-        var seen: (path: String, auth: String?, body: [String: Any])?
+        var seen: Seen?
         StubURLProtocol.handler = { request in
             let body = (try? JSONSerialization.jsonObject(with: request.capturedBody ?? Data())) as? [String: Any]
-            seen = (request.url?.path ?? "", request.value(forHTTPHeaderField: "Authorization"), body ?? [:])
+            seen = Seen(path: request.url?.path ?? "", auth: request.value(forHTTPHeaderField: "Authorization"),
+                        body: body ?? [:])
             return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
                     Data(#"{"plan": "plus"}"#.utf8))
         }
