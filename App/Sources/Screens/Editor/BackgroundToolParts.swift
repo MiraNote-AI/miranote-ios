@@ -4,10 +4,8 @@ import SwiftUI
 /// Colors the Background tool draws (handoff screen 05).
 enum BackgroundToolColors {
     static let tileSelected = Color(hex: 0xFFFEFA)
-    static let tileSelectedRim = Color(hex: 0x94784D)
     static let tile = Color(hex: 0xFBF8EE)
     static let rule = Color(hex: 0xD1C9B8)
-    static let labelSurface = Color(hex: 0xFAF8EF)
 }
 
 extension PaperKind {
@@ -22,36 +20,46 @@ extension PaperKind {
     }
 }
 
+// MARK: - Tray and ring
+
+/// The frosted tray a Background row sits in (P2A).
+struct BackgroundTray: View {
+    var body: some View {
+        GlassSurface(shape: RoundedRectangle(cornerRadius: 24, style: .continuous),
+                     tint: Palette.warmWhite.opacity(0.55), shadowOpacity: 0.06, shadowRadius: 6, shadowY: 4)
+    }
+}
+
+extension View {
+    /// Today's thin dark ring around the chosen cell (P4A), a little
+    /// outside its shape.
+    func selectionRing<S: InsettableShape>(_ shape: S, selected: Bool) -> some View {
+        overlay {
+            if selected {
+                shape.inset(by: -4).stroke(Palette.ink, lineWidth: 1.5)
+            }
+        }
+    }
+}
+
 // MARK: - Page type tile
 
-/// A 67x63 page-type tile with its drawn paper sample (30 pt, at 18,10)
-/// and the label inside the tile, centered on y 53.
+/// A page type as an icon-only 34 pt tile (F5B): its paper drawn small,
+/// ringed when it is the page's.
 struct PageTypeTile: View {
     let kind: PaperKind
     let selected: Bool
 
-    private static let shape = RoundedRectangle(cornerRadius: 12)
-    private let rule = BackgroundToolColors.rule
+    private static let shape = RoundedRectangle(cornerRadius: 10)
+    private let rule = Palette.toolIcon
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Self.shape.fill(selected ? BackgroundToolColors.tileSelected : BackgroundToolColors.tile)
-            sample
-                .offset(x: 18, y: 10)
-            Text(kind.title)
-                .font(Sans.font(size: 12, weight: 500))
-                .foregroundStyle(Palette.muted)
-                .frame(maxWidth: .infinity)
-                .frame(height: 15)
-                .offset(y: 53 - 7.5)
-        }
-        .overlay(
-            Self.shape.strokeBorder(
-                selected ? BackgroundToolColors.tileSelectedRim : rule,
-                lineWidth: selected ? 1.5 : 1
-            )
-        )
-        .frame(height: 63)
+        sample
+            .scaleEffect(2 / 3)
+            .frame(width: 34, height: 34)
+            .background(Self.shape.fill(selected ? BackgroundToolColors.tileSelected : BackgroundToolColors.tile))
+            .overlay(Self.shape.strokeBorder(BackgroundToolColors.rule, lineWidth: 1))
+            .selectionRing(Self.shape, selected: selected)
     }
 
     private var sample: some View {
@@ -100,10 +108,10 @@ struct PageTypeTile: View {
     }
 }
 
-// MARK: - Color swatch
+// MARK: - Color dots
 
-/// A 28 pt page-color dot: a white 1 pt rim at rest, a 1.5 pt black ring
-/// when it is the page's color.
+/// A 32 pt page-color dot with a hairline rim, ringed when it is the page's
+/// color.
 struct PageSwatch: View {
     let color: Color
     let selected: Bool
@@ -111,13 +119,60 @@ struct PageSwatch: View {
     var body: some View {
         Circle()
             .fill(color)
-            .overlay(Circle().strokeBorder(selected ? Color.black : Color.white, lineWidth: selected ? 1.5 : 1))
-            .frame(width: 28, height: 28)
+            .overlay(Circle().strokeBorder(Palette.ink.opacity(0.12), lineWidth: 1))
+            .frame(width: 32, height: 32)
+            .selectionRing(Circle(), selected: selected)
     }
 }
 
-/// The handoff's Custom dot: a dawn-to-sage sweep with a forest "+".
+/// Default: the page's own dawn-to-dusk backdrop, no color -- a warm white
+/// dot struck through.
+struct DefaultColorDot: View {
+    let selected: Bool
+
+    var body: some View {
+        Circle()
+            .fill(Palette.warmWhite)
+            .overlay(
+                Rectangle()
+                    .fill(Color(hex: 0xB4533A))
+                    .frame(width: 1.5)
+                    .rotationEffect(.degrees(45))
+            )
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Palette.ink.opacity(0.12), lineWidth: 1))
+            .frame(width: 32, height: 32)
+            .selectionRing(Circle(), selected: selected)
+    }
+}
+
+/// The page's latest painting by Mira: a soft sky with sparkles.
+struct PaintedColorDot: View {
+    let selected: Bool
+
+    var body: some View {
+        Circle()
+            .fill(LinearGradient(
+                colors: [Color(hex: 0xC9D8EE), Color(hex: 0xE9DDF0), Color(hex: 0xF4DCD3)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+            .overlay(
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+            )
+            .overlay(Circle().strokeBorder(Palette.ink.opacity(0.12), lineWidth: 1))
+            .frame(width: 32, height: 32)
+            .selectionRing(Circle(), selected: selected)
+    }
+}
+
+/// The handoff's Custom dot: a dawn-to-sage sweep with a forest "+",
+/// ringed while the page wears a color of its own.
 struct CustomColorDot: View {
+    let selected: Bool
+
     var body: some View {
         Circle()
             .fill(LinearGradient(
@@ -138,44 +193,40 @@ struct CustomColorDot: View {
                     .foregroundStyle(Palette.selectedTool)
                     .offset(y: 2)
             )
-            .frame(width: 28, height: 28)
+            .frame(width: 32, height: 32)
+            .selectionRing(Circle(), selected: selected)
     }
 }
 
-/// The handoff's Pick dot: forest with the eyedropper glyph.
+/// Pick: the eyedropper glyph on a warm white dot.
 struct PickColorDot: View {
     var body: some View {
         Circle()
-            .fill(Palette.selectedTool)
+            .fill(Palette.warmWhite)
             .overlay(
                 Image("background.eyedropper")
                     .renderingMode(.template)
                     .resizable()
-                    .foregroundStyle(Palette.onInk)
-                    .frame(width: 20, height: 20)
+                    .foregroundStyle(Palette.forest)
+                    .frame(width: 18, height: 18)
             )
-            .frame(width: 28, height: 28)
+            .overlay(Circle().strokeBorder(Palette.ink.opacity(0.12), lineWidth: 1))
+            .frame(width: 32, height: 32)
     }
 }
 
 // MARK: - Curated set card
 
-/// How a curated set's 126x102 card looks: its photo, the palette band
-/// over the label surface, and the two face names in their own faces.
+/// How a curated set's card looks: its palette band and its display
+/// face's name.
 struct CuratedSetLook {
     let displayLabel: String
-    let bodyLabel: String
-    let labelColor: Color
     let band: Band
-    var labelSurface = BackgroundToolColors.labelSurface
-    /// Light lettering on the dark Optima card carries a soft shadow.
-    var labelShadow = false
 
     enum Band {
         /// A CSS linear gradient: angle in degrees (0 points up), stops in
-        /// gradient-line fractions (values past 0...1 are allowed), drawn in
-        /// a box `frame` relative to the label surface's top-left.
-        case gradient(angle: Double, stops: [(UInt32, Double)], frame: CGRect)
+        /// gradient-line fractions (values past 0...1 are allowed).
+        case gradient(angle: Double, stops: [(UInt32, Double)])
         /// A photo strip from the asset catalog.
         case image(String)
     }
@@ -187,103 +238,83 @@ struct CuratedSetLook {
         switch set.id {
         case "poppins-lora":
             return CuratedSetLook(
-                displayLabel: "Poppins", bodyLabel: "Lora", labelColor: .black,
-                band: .gradient(angle: 0, stops: [(0xFE6404, 0), (0xA21101, 1)],
-                                frame: CGRect(x: 0, y: 0, width: 126, height: 40)))
+                displayLabel: "Poppins",
+                band: .gradient(angle: 0, stops: [(0xFE6404, 0), (0xA21101, 1)]))
         case "didot-cardo":
             return CuratedSetLook(
-                displayLabel: "Didot", bodyLabel: "Cardo", labelColor: Color(hex: 0x2D372C),
-                band: .gradient(angle: 180, stops: [(0xFCE7A6, 0), (0xFCD766, 0.42), (0xEC9E36, 1)],
-                                frame: CGRect(x: 0, y: 0, width: 126, height: 40)))
+                displayLabel: "Didot",
+                band: .gradient(angle: 180, stops: [(0xFCE7A6, 0), (0xFCD766, 0.42), (0xEC9E36, 1)]))
         case "merriweather-raleway":
             return CuratedSetLook(
-                displayLabel: "Merriweather", bodyLabel: "Raleway", labelColor: .black,
+                displayLabel: "Merriweather",
                 band: .image("curated.merriweather-raleway.band"))
         case "montserrat-opensans":
             return CuratedSetLook(
-                displayLabel: "Montserrat", bodyLabel: "Open Sans", labelColor: Color(hex: 0x741000),
+                displayLabel: "Montserrat",
                 band: .gradient(angle: 0, stops: [
                     (0x35364B, 0.20207), (0x7B502E, 0.40934), (0x7D96CA, 0.70978), (0xFBFBFC, 0.99163)
-                ], frame: CGRect(x: 0, y: 0, width: 126, height: 62)))
+                ]))
         case "playfair-oswald":
             return CuratedSetLook(
-                displayLabel: "Playfair Display", bodyLabel: "Oswald", labelColor: Color(hex: 0xFEF8DD),
+                displayLabel: "Playfair Display",
                 band: .gradient(angle: 180, stops: [
                     (0x7CAAB3, 0.3125), (0x3E8AB7, 0.625), (0x236FB3, 0.8125), (0x66A6DB, 0.99519)
-                ], frame: CGRect(x: 0, y: 0, width: 126, height: 45)))
+                ]))
         case "bodoni-raleway":
             return CuratedSetLook(
-                displayLabel: "Bodoni", bodyLabel: "Raleway", labelColor: Color(hex: 0xD8FFF5),
-                band: .gradient(angle: 186.45, stops: [(0x18231B, 0.10211), (0x415A58, 0.50947), (0x81A7A3, 0.89105)],
-                                frame: CGRect(x: 0, y: 0, width: 126, height: 40)))
+                displayLabel: "Bodoni",
+                band: .gradient(angle: 186.45, stops: [(0x18231B, 0.10211), (0x415A58, 0.50947), (0x81A7A3, 0.89105)]))
         case "optima-darkergrotesque":
             return CuratedSetLook(
-                displayLabel: "Optima", bodyLabel: "Darker Grotesque", labelColor: .white,
-                band: .gradient(angle: 180, stops: [(0x1D2223, 0), (0x152A15, 0.25), (0x8B2D15, 0.5), (0xFFBD77, 1)],
-                                frame: CGRect(x: 0, y: 0, width: 126, height: 40)),
-                labelSurface: Palette.selectedTool, labelShadow: true)
+                displayLabel: "Optima",
+                band: .gradient(angle: 180, stops: [(0x1D2223, 0), (0x152A15, 0.25), (0x8B2D15, 0.5), (0xFFBD77, 1)]))
         default:
             // "montserrat-opensans-rose": the Figma's first stop renders
             // behind the others, as on cards 01 and 02.
             return CuratedSetLook(
-                displayLabel: "Montserrat", bodyLabel: "Open Sans", labelColor: Color(hex: 0x5C2626),
-                band: .gradient(angle: -4.04, stops: [(0xF59081, 0.37051), (0xBBB3A9, 1.0755)],
-                                frame: CGRect(x: 0, y: 0, width: 126, height: 40)))
+                displayLabel: "Montserrat",
+                band: .gradient(angle: -4.04, stops: [(0xF59081, 0.37051), (0xBBB3A9, 1.0755)]))
         }
     }
 }
 
+/// A set as a 40x52 mini page (P5A): its palette band over "Aa" in its
+/// display face, ringed while the page wears it.
 struct CuratedSetCard: View {
     let set: CuratedSet
     let worn: Bool
 
-    private static let shape = RoundedRectangle(cornerRadius: 10)
+    private static let shape = RoundedRectangle(cornerRadius: 9)
+    private static let size = CGSize(width: 40, height: 52)
 
     var body: some View {
         let look = CuratedSetLook.look(for: set)
         VStack(spacing: 0) {
-            Image("curated.\(set.id)")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 126, height: 62)
+            band(look.band)
+                .frame(width: Self.size.width, height: Self.size.height / 2)
                 .clipped()
-            ZStack(alignment: .top) {
-                look.labelSurface
-                band(look.band)
-                VStack(spacing: 0) {
-                    Text(look.displayLabel)
-                        .font(Font(TextFace.uiFont(name: set.displayFont, size: 12)))
-                        .frame(height: 15)
-                        .padding(.top, 5)
-                    Text(look.bodyLabel)
-                        .font(Font(TextFace.uiFont(name: set.bodyFont, size: 10)))
-                        .frame(height: 13)
-                        .padding(.top, 2)
-                }
-                .lineLimit(1)
-                .foregroundStyle(look.labelColor)
-                .shadow(color: .black.opacity(look.labelShadow ? 0.25 : 0), radius: 0.6, y: 0.8)
-            }
-            .frame(width: 126, height: 40)
-            .clipped()
+            Text(verbatim: "Aa")
+                .font(Font(TextFace.uiFont(name: set.displayFont, size: 16)))
+                .foregroundStyle(Palette.ink)
+                .frame(width: Self.size.width, height: Self.size.height / 2)
+                .background(Palette.warmWhite)
         }
-        .frame(width: 126, height: 102)
-        .background(Palette.paper)
         .clipShape(Self.shape)
-        .overlay(Self.shape.strokeBorder(worn ? Palette.ink : .clear, lineWidth: 2))
+        .overlay(Self.shape.strokeBorder(Palette.ink.opacity(0.08), lineWidth: 1))
+        .shadow(color: Palette.ink.opacity(0.08), radius: 2, y: 1)
+        .selectionRing(Self.shape, selected: worn)
     }
 
+    /// The band filling the card's top half.
     @ViewBuilder private func band(_ band: CuratedSetLook.Band) -> some View {
         switch band {
         case .image(let name):
             Image(name)
                 .resizable()
-                .frame(width: 126, height: 40)
-        case .gradient(let angle, let stops, let frame):
-            CSSLinearGradient(angle: angle, stops: stops, size: frame.size)
-                .frame(width: frame.width, height: frame.height)
-                .offset(x: frame.minX, y: frame.minY)
-                .frame(width: 126, height: 40, alignment: .topLeading)
+                .scaledToFill()
+        case .gradient(let angle, let stops):
+            CSSLinearGradient(angle: angle, stops: stops,
+                              size: CGSize(width: Self.size.width, height: Self.size.height / 2))
         }
     }
 }

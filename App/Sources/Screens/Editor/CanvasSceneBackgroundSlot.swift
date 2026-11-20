@@ -13,12 +13,13 @@ extension CanvasScene {
     /// The Background tool's one row in the tool slot (REQ 11-18 overlay
     /// rule): Back and the Sets / Color / Paper / Tidy capsules (P1A), or
     /// the chosen item's row with its own Back in their place -- never two
-    /// stacked. The slot keeps the tool bar's 40; a taller row rises over
-    /// the card's foot, and the card never resizes. The painting's status,
-    /// or why it did not come, shows one line above the row (G25).
+    /// stacked. The slot keeps the tool bar's 40; a taller row stays
+    /// centered on its line, rising over the card's foot, and the card
+    /// never resizes. The painting's status, or why it did not come, shows
+    /// one line above the row (G25).
     var backgroundSlot: some View {
-        ZStack(alignment: .bottom) {
-            HStack(alignment: .bottom, spacing: 8) {
+        ZStack {
+            HStack(spacing: 8) {
                 if let row = backgroundRow {
                     TextBackKey(identifier: "background.row.back", size: 40) { showBackgroundRow(nil) }
                     BackgroundRowView(
@@ -46,7 +47,7 @@ extension CanvasScene {
             .id(backgroundRow)
             .transition(slotLevelTransition)
         }
-        .frame(height: 40, alignment: .bottom)
+        .frame(height: 40)
         .padding(.horizontal, Metrics.toolBarInset)
         // VoiceOver's two-finger scrub goes up one level, as Back does.
         .accessibilityAction(.escape) {
@@ -148,8 +149,9 @@ private struct BackgroundTools: View {
 
 // MARK: - Third level
 
-/// An item's row: today's curated sets, page colors and page types, one
-/// row each; every tap applies to the page at once, one undo step.
+/// An item's row in a glass tray, centered on the tool bar's line: Sets and
+/// Color are snap rows that apply on settle or tap (Q5A), Paper a row of
+/// four tiles that apply on tap (F5B, H4A). One undo step each.
 private struct BackgroundRowView: View {
     let row: BackgroundRow
     @Bindable var editor: CanvasViewModel
@@ -167,103 +169,53 @@ private struct BackgroundRowView: View {
     var body: some View {
         switch row {
         case .sets: setsRow
-        case .color: colorRow
+        case .color: PageColorRow(editor: editor, painting: painting, onCustomColor: onCustomColor)
         case .paper: paperRow
         }
     }
 
     // MARK: Sets
 
-    /// 102 tall: rises over the card's foot.
+    /// Mini page cards (P5A), opened on the set the page wears. 64 tall: it
+    /// rises over the card's foot.
     private var setsRow: some View {
-        let worn = editor.wornCuratedSet()
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(CuratedSet.all) { set in
-                    let look = CuratedSetLook.look(for: set)
-                    Button {
-                        editor.applyCuratedSet(set)
-                    } label: {
-                        CuratedSetCard(set: set, worn: worn == set)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(look.displayLabel) and \(look.bodyLabel)")
-                    .accessibilityAddTraits(worn == set ? .isSelected : [])
-                    .accessibilityIdentifier("background.set.\(set.id)")
+        let sets = CuratedSet.all
+        let worn = editor.wornCuratedSet()?.id
+        return SnapRow(
+            ids: sets.map(\.id), selected: worn, cellWidth: 44, spacing: 8,
+            identifier: { "background.set.\($0)" },
+            onApply: { id in
+                if let set = sets.first(where: { $0.id == id }) { editor.applyCuratedSet(set) }
+            },
+            cell: { id in
+                if let set = sets.first(where: { $0.id == id }) {
+                    CuratedSetCard(set: set, worn: id == worn)
+                        .frame(width: 44)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel(CuratedSetLook.look(for: set).displayLabel)
                 }
             }
-        }
-        .frame(height: 102)
-    }
-
-    // MARK: Color
-
-    /// The page's own color when it shows: not while a painting covers it.
-    private var pageColor: String {
-        editor.memory.backgroundFileName.isEmpty ? editor.memory.pageColorName : ""
-    }
-
-    /// The five page colors, then Custom and Pick, evenly spaced. The two
-    /// tools carry their names for VoiceOver; their glyphs say it on screen.
-    private var colorRow: some View {
-        HStack(spacing: 0) {
-            ForEach(Self.pageSwatches, id: \.hex) { swatch in
-                swatchButton(swatch)
-                Spacer(minLength: 4)
-            }
-            colorTool(request: .custom) { CustomColorDot() }
-            Spacer(minLength: 4)
-            colorTool(request: .pick) { PickColorDot() }
-        }
-        .frame(height: 40)
+        )
+        .frame(height: 64)
+        .background(BackgroundTray())
+        // A set would wipe the painting on its way (R5A).
         .disabled(painting)
         .opacity(painting ? 0.45 : 1)
     }
 
-    private func swatchButton(_ swatch: (hex: String, name: String)) -> some View {
-        let chosen = pageColor == swatch.hex
-        return Button {
-            // The chosen dot, tapped again, gives the page back its default
-            // backdrop; the paper stays.
-            if chosen {
-                editor.resetPageBackground()
-            } else {
-                editor.setPageColor(swatch.hex)
-            }
-        } label: {
-            PageSwatch(color: Palette.color(named: swatch.hex), selected: chosen)
-                .dotHitTarget()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(copy: swatch.name))
-        .accessibilityHint(chosen ? Text("Returns the page to its default backdrop") : Text(verbatim: ""))
-        .accessibilityAddTraits(chosen ? .isSelected : [])
-        .accessibilityIdentifier("background.color.\(swatch.hex)")
-    }
-
-    private func colorTool<Dot: View>(request: PageColorRequest, @ViewBuilder dot: () -> Dot) -> some View {
-        Button {
-            onCustomColor(request)
-        } label: {
-            dot().dotHitTarget()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(request == .custom ? Text("Custom page color") : Text("Pick a page color"))
-        .accessibilityIdentifier("background.color.\(request.rawValue)")
-    }
-
     // MARK: Paper
 
-    /// 63 tall: rises over the card's foot.
+    /// Blank, Grid, Lined and Dot spread across the tray; a tap applies.
     private var paperRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             ForEach(PaperKind.allCases, id: \.self) { kind in
                 let selected = editor.memory.paper == kind
                 Button {
                     editor.setPaper(kind)
                 } label: {
                     PageTypeTile(kind: kind, selected: selected)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(appCopy: "\(kind.title) paper"))
@@ -271,15 +223,113 @@ private struct BackgroundRowView: View {
                 .accessibilityIdentifier("background.paper.\(kind.rawValue)")
             }
         }
+        .frame(height: 48)
+        .background(BackgroundTray())
     }
 }
 
-private extension View {
-    /// A 28 pt color dot taps as a 44 x 44 box without moving the row.
-    func dotHitTarget() -> some View {
-        padding(8)
-            .contentShape(Rectangle())
-            .padding(-8)
+/// The page color snap row (P2A, D8A): Pick and Custom (they open today's
+/// eyedropper and sheet), the page's latest painting once Mira painted it,
+/// Default (no color), then the page colors. The page stays still while
+/// the dots move; the one that settles crossfades onto it (P3A).
+private struct PageColorRow: View {
+    @Bindable var editor: CanvasViewModel
+    let painting: Bool
+    let onCustomColor: (PageColorRequest) -> Void
+
+    /// The latest painting the page wore since the row opened: a color that
+    /// replaces it leaves its cell in the row, to bring it back (final 45).
+    @State private var latest: (fileName: String, describes: String)?
+
+    init(editor: CanvasViewModel, painting: Bool, onCustomColor: @escaping (PageColorRequest) -> Void) {
+        self.editor = editor
+        self.painting = painting
+        self.onCustomColor = onCustomColor
+        let memory = editor.memory
+        _latest = State(initialValue: memory.backgroundFileName.isEmpty
+            ? nil : (memory.backgroundFileName, memory.backgroundSummary))
+    }
+
+    private static let pick = PageColorRequest.pick.rawValue
+    private static let custom = PageColorRequest.custom.rawValue
+    private static let paintedID = "painted"
+    private static let defaultID = "default"
+
+    var body: some View {
+        SnapRow(
+            ids: ids, selected: selected, cellWidth: 44, spacing: 2,
+            identifier: { "background.color.\($0)" },
+            onApply: apply,
+            isAction: { $0 == Self.pick || $0 == Self.custom },
+            onAction: { onCustomColor($0 == Self.pick ? .pick : .custom) },
+            cell: cell
+        )
+        .frame(height: 48)
+        .background(BackgroundTray())
+        .disabled(painting)
+        .opacity(painting ? 0.45 : 1)
+        .onChange(of: [editor.memory.backgroundFileName, editor.memory.backgroundSummary]) { _, now in
+            if !now[0].isEmpty { latest = (now[0], now[1]) }
+        }
+    }
+
+    /// The Painted cell's painting: the one the page wears, else the latest
+    /// one a color replaced. Read in the same render as `selected`, so the
+    /// cell is never missing while the row moves to it.
+    private var painted: (fileName: String, describes: String)? {
+        let memory = editor.memory
+        return memory.backgroundFileName.isEmpty ? latest : (memory.backgroundFileName, memory.backgroundSummary)
+    }
+
+    private var ids: [String] {
+        [Self.pick, Self.custom] + (painted == nil ? [] : [Self.paintedID]) + [Self.defaultID]
+            + BackgroundRowView.pageSwatches.map(\.hex)
+    }
+
+    /// What the page wears: a painting covers any color under it.
+    private var selected: String {
+        let color = editor.memory.pageColorName
+        if !editor.memory.backgroundFileName.isEmpty { return Self.paintedID }
+        if color.isEmpty { return Self.defaultID }
+        return BackgroundRowView.pageSwatches.contains { $0.hex == color } ? color : Self.custom
+    }
+
+    private func apply(_ id: String) {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            switch id {
+            case Self.defaultID:
+                editor.resetPageBackground()
+            case Self.paintedID:
+                if let painted { editor.setBackground(fileName: painted.fileName, describes: painted.describes) }
+            default:
+                editor.setPageColor(id)
+            }
+        }
+    }
+
+    @ViewBuilder private func cell(_ id: String) -> some View {
+        let on = id == selected
+        Group {
+            switch id {
+            case Self.pick:
+                PickColorDot()
+                    .accessibilityLabel(Text("Pick a page color"))
+            case Self.custom:
+                CustomColorDot(selected: on)
+                    .accessibilityLabel(Text("Custom page color"))
+            case Self.paintedID:
+                PaintedColorDot(selected: on)
+                    .accessibilityLabel(Text("Mira's painting"))
+            case Self.defaultID:
+                DefaultColorDot(selected: on)
+                    .accessibilityLabel(Text("Default backdrop"))
+            default:
+                PageSwatch(color: Palette.color(named: id), selected: on)
+                    .accessibilityLabel(Text(copy: BackgroundRowView.pageSwatches.first { $0.hex == id }?.name ?? id))
+            }
+        }
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
     }
 }
 
