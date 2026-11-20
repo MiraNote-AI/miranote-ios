@@ -217,6 +217,8 @@ public protocol UserTokenSource: Sendable {
     /// A token the server refused with 401: a fresh one. Every request
     /// refused with the same token shares one refresh.
     @MainActor func renewAccessToken(after rejected: String) async throws -> String
+    /// The server refused a token just renewed: this sign-in has ended.
+    @MainActor func endSignIn(refused token: String)
 }
 
 extension Account: UserTokenSource {
@@ -230,6 +232,12 @@ extension Account: UserTokenSource {
         // Another request already renewed it.
         if tokens.accessToken != rejected { return tokens.accessToken }
         return try await refreshed(tokens).accessToken
+    }
+
+    public func endSignIn(refused token: String) {
+        // A newer sign-in is not the one refused.
+        guard store.load()?.accessToken == token else { return }
+        forgetTokens()
     }
 }
 
@@ -250,6 +258,10 @@ public enum UserTokens {
         func renewAccessToken(after rejected: String) async throws -> String {
             guard let installed = UserTokens.installed else { throw AccountError.signedOut }
             return try await installed.renewAccessToken(after: rejected)
+        }
+
+        func endSignIn(refused token: String) {
+            UserTokens.installed?.endSignIn(refused: token)
         }
     }
 }

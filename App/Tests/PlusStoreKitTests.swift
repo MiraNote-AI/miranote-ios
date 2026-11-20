@@ -147,6 +147,19 @@ final class PlusStoreKitTests: XCTestCase {
         }
     }
 
+    func testRestoreAfterTheRelinkLimitSaysThePurchaseMovedTooOften() async throws {
+        _ = try await session.buyProduct(identifier: PlusStore.ProductID.monthly)
+        let (store, subscriptions) = store()
+        let detail = #"{"detail": "too many purchases linked today"}"#
+        subscriptions.error = BackendError.server(status: 429, detail: detail)
+        do {
+            _ = try await store.restore()
+            XCTFail("expected the relink limit")
+        } catch {
+            XCTAssertEqual(error as? PlusError, .movedTooOften)
+        }
+    }
+
     func testARefundTakesPlusAway() async throws {
         let (store, _) = store()
         _ = try await store.purchase(try await product(PlusStore.ProductID.monthly, in: store))
@@ -187,6 +200,21 @@ final class StoreKitConfigurationTests: XCTestCase {
         XCTAssertEqual(groups.compactMap { $0["name"] as? String }, ["Plus"])
         let plans = groups.flatMap { $0["subscriptions"] as? [[String: Any]] ?? [] }
         XCTAssertEqual(Set(plans.compactMap { $0["productID"] as? String }), Set(PlusStore.ProductID.all))
+    }
+
+    /// Yearly is the higher level (1 is the top), so monthly to yearly is
+    /// an upgrade and the reverse a downgrade, not a crossgrade. App Store
+    /// Connect holds the same levels.
+    func testYearlyRanksAboveMonthly() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "MiraNote", withExtension: "storekit"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let groups = try XCTUnwrap(object["subscriptionGroups"] as? [[String: Any]])
+        let plans = groups.flatMap { $0["subscriptions"] as? [[String: Any]] ?? [] }
+        let levels = Dictionary(uniqueKeysWithValues: plans.compactMap { plan in
+            (plan["productID"] as? String).map { ($0, plan["groupNumber"] as? Int) }
+        })
+        XCTAssertEqual(levels[PlusStore.ProductID.yearly], 1)
+        XCTAssertEqual(levels[PlusStore.ProductID.monthly], 2)
     }
 }
 

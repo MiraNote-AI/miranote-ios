@@ -7419,13 +7419,25 @@
       }
     },
     "This purchase belongs to another MiraNote account. Contact us to move it." : {
-      "comment" : "Restore error: the subscription is linked to another account.",
+      "comment" : "Purchase or Restore error: the subscription is linked to another account.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这笔购买属于另一个 MiraNote 账号。如需转移，请联系我们。"
+            "value" : "这笔购买属于另一个 MiraNote 账户。如需转移，请联系我们。"
+          }
+        }
+      }
+    },
+    "This purchase has moved between MiraNote accounts too often. Contact us to move it." : {
+      "comment" : "Purchase or Restore error: the server refused to move the subscription again so soon (relinked within 30 days, or too many links in a day).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这笔购买在 MiraNote 账户之间转移得太频繁。如需转移，请联系我们。"
           }
         }
       }
