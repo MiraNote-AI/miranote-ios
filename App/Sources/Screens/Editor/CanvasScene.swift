@@ -1083,9 +1083,16 @@ struct CanvasScene: View {
         // Only a stop or a failure gives the words back.
         applyWords = mira.refillPrompt ?? applyWords
         mira.refillPrompt = nil
-        if case .failure(let failure) = mira.phase {
+        switch mira.phase {
+        case .failure(let failure):
             backgroundNotice = failure.message
             mira.dismiss()
+        case .idle, .receipt:
+            // Stopped, or landed: the receipt floats over the row (F4A).
+            break
+        default:
+            // Anything else waits in the Mira strip, which the tool covers.
+            closeBackground()
         }
     }
 
