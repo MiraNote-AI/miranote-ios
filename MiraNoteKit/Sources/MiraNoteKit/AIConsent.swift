@@ -147,13 +147,14 @@ public enum AIConsentError: Error, LocalizedError, Equatable {
 
     /// The words for an AI action that stopped on the writer's side rather
     /// than the server's: no consent or sign-in yet, a sign-in that ended,
-    /// or a used-up allowance (api #95). Retrying or rephrasing cannot get
+    /// a used-up allowance (api #95), or a block too long to rewrite. Retrying or rephrasing cannot get
     /// past these, so screens that word other failures their own way say
     /// these as they are. nil for any other failure.
     public static func message(for error: Error) -> String? {
         if let consent = error as? AIConsentError { return consent.errorDescription }
         if let account = error as? AccountError { return account.errorDescription }
         if let backend = error as? BackendError, case .limitReached = backend { return backend.errorDescription }
+        if let tooLong = error as? RewriteTooLong { return tooLong.errorDescription }
         return nil
     }
 }
@@ -189,6 +190,10 @@ struct AskingTextTransform: TextTransformService {
 
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
         try await consent.send { try await base.transform(text, mode: mode) }
+    }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        try await consent.send { try await base.rewrite(text, instruction: instruction) }
     }
 }
 

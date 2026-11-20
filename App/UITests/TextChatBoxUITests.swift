@@ -4,8 +4,8 @@ import XCTest
 /// while it is empty and Go once there are words (F7A); the caret moves
 /// there and back without ending the writing; Go has Mira rewrite the
 /// block, previewed in place on the Polish row with no chip selected (F6B,
-/// H3A). Under -UITEST the rewrite is the mock's ("make it warmer" asks a
-/// polish).
+/// H3A). Under -UITEST the rewrite is the mock's `/rewrite` answer,
+/// "(rewritten -- mock)", distinct from every Polish chip's.
 final class TextChatBoxUITests: TextToolUITestCase {
     private var field: XCUIElement { any("canvas.textEditor") }
     private var ask: XCUIElement { app.descendants(matching: .any)["writing.ask"] }
@@ -80,7 +80,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
         ask.typeText("make it warmer")
         go.tap()
 
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked"),
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"),
                       "the block shows the rewrite: \(fieldValue())")
         let original = app.buttons["style.ai.original"]
         XCTAssertTrue(original.waitForExistence(timeout: 3), "the Polish row shows")
@@ -96,7 +96,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
 
         // The caret is back at the end of the block.
         app.typeText("!")
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked!"), "typed at the block's end: \(fieldValue())")
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked!"), "typed at the block's end: \(fieldValue())")
         XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the same block")
 
     }
@@ -108,7 +108,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
         ask.tap()
         ask.typeText("make it warmer")
         go.tap()
-        XCTAssertTrue(waitForField("BEGINSWITH", "(polished -- mock)"), "\(fieldValue())")
+        XCTAssertTrue(waitForField("BEGINSWITH", "(rewritten -- mock)"), "\(fieldValue())")
 
         app.buttons["style.ai.original"].tap()
         XCTAssertTrue(waitForField("==", "we walked "), "Original reverts: \(fieldValue())")
@@ -128,10 +128,11 @@ final class TextChatBoxUITests: TextToolUITestCase {
         let writing = canvasState()["writing"] as? String ?? ""
         ask.tap()
         ask.typeText("make it warmer\n")
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked"), "\(fieldValue())")
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "\(fieldValue())")
         XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the same block")
         app.typeText("!")
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked!"), "the caret is in the block: \(fieldValue())")
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked!"),
+                      "the caret is in the block: \(fieldValue())")
     }
 
     /// The mic tapped while the caret is in the empty box: the waveform
@@ -160,6 +161,85 @@ final class TextChatBoxUITests: TextToolUITestCase {
         ask.typeText("make it warmer")
         XCTAssertTrue(go.waitForExistence(timeout: 3))
         XCTAssertFalse(go.isEnabled, "an empty block: Go is off")
+    }
+
+    /// "Edit text" on another block while writing opens it straight from
+    /// this one. The chat box's words were this block's and stay behind,
+    /// and Go then rewrites the new block (it used to do nothing once a Go
+    /// had opened the Polish row on the first).
+    func testGoRewritesABlockOpenedStraightFromAnother() {
+        write("first block")
+        write("second block")
+        editText("first block")
+        ask.tap()
+        ask.typeText("make it warmer")
+        go.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) first block"), "\(fieldValue())")
+        ask.tap()
+        ask.typeText("and shorter")
+        let first = canvasState()["writing"] as? String ?? ""
+
+        editText("second block")
+        XCTAssertNotEqual(canvasState()["writing"] as? String, first, "writing the second block")
+        XCTAssertEqual(ask.value as? String ?? "", ask.placeholderValue ?? "",
+                       "the first block's words stay with it")
+        ask.tap()
+        ask.typeText("make it warmer")
+        go.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) second block"), "Go rewrites it: \(fieldValue())")
+    }
+
+    /// `/rewrite` takes a block of at most 3000 code points. Exactly 3000
+    /// goes. One more is not sent: the caption says why, and the words stay
+    /// in the box with the block as it was.
+    func testGoSendsABlockOf3000ButNotOneLonger() {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let block = String(repeating: "a", count: 3000)
+        app.paste(block, into: field)
+        XCTAssertTrue(waitForField("==", block), "pasted: \(fieldValue().count)")
+        closeTheBlocksMenu()
+        ask.tap()
+        ask.typeText("make it shorter")
+        go.tap()
+        let rewritten = "(rewritten -- mock) " + block
+        XCTAssertTrue(waitForField("==", rewritten), "3000 goes: \(fieldValue().prefix(40))")
+
+        // The caret is back in the block: typing makes these words the
+        // ones Go sends, 3021 code points.
+        app.typeText("!")
+        XCTAssertTrue(waitForField("==", rewritten + "!"))
+        ask.tap()
+        ask.typeText("make it shorter")
+        go.tap()
+        let tooLong = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ OR value CONTAINS %@", "too long for Mira", "too long for Mira"
+        )).firstMatch
+        XCTAssertTrue(tooLong.waitForExistence(timeout: 3), "the caption says why")
+        XCTAssertEqual(ask.value as? String, "make it shorter", "the words stay, to send again")
+        XCTAssertEqual(fieldValue(), rewritten + "!", "the block is as it was")
+    }
+
+    /// The long press that pastes also opens the block's own menu (Edit
+    /// text, Duplicate, ...), over the chat box. A tap closes the menu and
+    /// does nothing else: the caret stays in the block.
+    private func closeTheBlocksMenu() {
+        let menu = app.buttons["Edit text"]
+        guard menu.waitForExistence(timeout: 2) else { return }
+        let writing = canvasState()["writing"] as? String
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 3), "the block's menu closed")
+        XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the block")
+    }
+
+    /// The block's menu, "Edit text", from wherever the page is.
+    private func editText(_ words: String) {
+        let block = app.staticTexts[words]
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        block.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Edit text"].waitForExistence(timeout: 3))
+        app.buttons["Edit text"].tap()
+        XCTAssertTrue(waitForField("==", words), "writing '\(words)': \(fieldValue())")
     }
 
     /// A page tap with the caret in the chat box ends the writing, as it
