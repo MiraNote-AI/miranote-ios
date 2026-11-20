@@ -79,6 +79,16 @@ final class LocalizationCatalogTests: XCTestCase {
         }
     }
 
+    /// "Account" has one Chinese word across the app, zhanghu, as in "Delete
+    /// account" and "Apple Account": never zhanghao, a second word a reader
+    /// may take for a different thing (the Plus refusals said it, #231).
+    func testAccountIsOneWordInChinese() throws {
+        let zhanghao = "\u{8D26}\u{53F7}"
+        for (key, entry) in try catalog("Localizable") {
+            XCTAssertFalse(value(entry, "zh-Hans")?.contains(zhanghao) ?? false, key)
+        }
+    }
+
     /// Copy written into the code as a literal -- `Text("...")`,
     /// `Button("...")`, `Label("...", ...)`, `TextField("...")`,
     /// `.alert("...")`, `.accessibilityLabel/Hint/Value("...")`,

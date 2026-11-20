@@ -65,10 +65,9 @@ public final class PlusStore {
         switch try await product.purchase(options: [.appAccountToken(userID)]) {
         case .success(let verification):
             guard case .verified(let transaction) = verification else { throw PlusError.unverified }
-            // Not fatal: the launch sync and Restore send it again.
-            try? await syncWithServer()
-            await transaction.finish()
+            let refused = await Self.settle(sync: syncWithServer, finish: transaction.finish)
             await refreshEntitlement()
+            if let refused { throw refused }
             return .purchased
         case .pending:
             return .pending
@@ -77,6 +76,21 @@ public final class PlusStore {
         @unknown default:
             return .cancelled
         }
+    }
+
+    /// A purchase the App Store took: the server is told, then the
+    /// transaction is finished whatever it said, since Apple has charged.
+    /// The server's refusal is the writer's to hear; any other failure is
+    /// not, and the launch sync and Restore send it again.
+    static func settle(sync: () async throws -> Void, finish: () async -> Void) async -> PlusError? {
+        var refused: PlusError?
+        do {
+            try await sync()
+        } catch let error as PlusError {
+            refused = error
+        } catch {}
+        await finish()
+        return refused
     }
 
     /// Restore Purchases (Guideline 3.1.1): signed in first, then the App
@@ -93,6 +107,20 @@ public final class PlusStore {
         return isPlus
     }
 
+    /// With Plus on the phone, tells the server; whether it took it. A
+    /// free limit asks this first (`AIConsent.syncPlus`).
+    public func syncIfPlus() async -> Bool {
+        // A plan that lapsed while the app was open sends no update.
+        await refreshEntitlement()
+        guard isPlus else { return false }
+        do {
+            try await syncWithServer()
+            return true
+        } catch {
+            return false
+        }
+    }
+
     public func refreshEntitlement() async {
         var facts: [PlusEntitlement.Facts] = []
         for await result in Transaction.currentEntitlements {
@@ -102,8 +130,7 @@ public final class PlusStore {
     }
 
     /// Each chain the phone holds, with Apple's signed transaction and
-    /// renewal info (design 5.3). A chain another account owns is
-    /// `PlusError.ownedByAnotherAccount`.
+    /// renewal info (design 5.3). The server's refusals are `PlusError`s.
     func syncWithServer() async throws {
         guard account.isSignedIn else { return }
         for await result in Transaction.currentEntitlements {
@@ -115,8 +142,8 @@ public final class PlusStore {
                     signedTransaction: status.transaction.jwsRepresentation,
                     signedRenewalInfo: status.renewalInfo.jwsRepresentation
                 )
-            } catch BackendError.server(let code, _) where code == 403 || code == 409 {
-                throw PlusError.ownedByAnotherAccount
+            } catch {
+                throw PlusError(syncFailure: error) ?? error
             }
         }
     }
@@ -140,6 +167,18 @@ public enum PlusError: Error, Equatable, LocalizedError {
     case notSignedIn
     case unverified
     case ownedByAnotherAccount
+    /// The chain was relinked within 30 days, or this account linked its
+    /// third chain in a day (miranote-api #113).
+    case movedTooOften
+
+    /// What `/subscriptions/sync` refused, nil for any other failure.
+    init?(syncFailure error: Error) {
+        switch error as? BackendError {
+        case .server(status: 403, _), .server(status: 409, _): self = .ownedByAnotherAccount
+        case .server(status: 429, _): self = .movedTooOften
+        default: return nil
+        }
+    }
 
     public var errorDescription: String? {
         switch self {
@@ -149,6 +188,11 @@ public enum PlusError: Error, Equatable, LocalizedError {
             return String(appCopy: "The App Store could not confirm this purchase.")
         case .ownedByAnotherAccount:
             return String(appCopy: "This purchase belongs to another MiraNote account. Contact us to move it.")
+        case .movedTooOften:
+            return String(appCopy: """
+                This purchase has moved between MiraNote accounts too often. \
+                Contact us to move it.
+                """)
         }
     }
 }
