@@ -2133,6 +2133,17 @@
         }
       }
     },
+    "Discard this sticker" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃这张贴纸"
+          }
+        }
+      }
+    },
     "Display Name" : {
       "comment" : "Profile field. Glossary: display name = 昵称; your name = 名字.",
       "extractionState" : "manual",
