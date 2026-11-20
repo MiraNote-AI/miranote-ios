@@ -12,6 +12,12 @@ struct ScriptedText: TextTransformService {
         if let error { throw error }
         return "[\(mode.rawValue)] " + text
     }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        if delay > .zero { try await Task.sleep(for: delay) }
+        if let error { throw error }
+        return "[\(instruction)] " + text
+    }
 }
 
 struct ScriptedChat: ChatService {
