@@ -294,6 +294,31 @@ final class StarJarUITests: XCTestCase { // swiftlint:disable:this type_body_len
         XCTAssertGreaterThan(top, pileTop - 30, "a star hangs \(Int(pileTop - top)) pt above the pile")
     }
 
+    /// #219: a visit builds one toss scene, however often SwiftUI rebuilds
+    /// the jar's view. Opened mid-fold, the star landing on Home rebuilds
+    /// it; a toss after makes no other scene.
+    func testAVisitBuildsOneTossScene() {
+        relaunch(["-OPEN-JAR-MID-FOLD"])
+        XCTAssertTrue(app.buttons["home.starJar"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("A happy picnic")
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["jar.star.A happy picnic"].waitForExistence(timeout: 8), "the jar opened mid-fold")
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.state(of: "home")["starArriving"] as? Bool == false
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 4), .completed, "\(state(of: "home"))")
+        sleep(2)
+        tapNeck(of: app.otherElements["jar.glass"])
+        waitUntilSettled(tosses: 1, "one toss, landed")
+        XCTAssertEqual(jarState["tossScenes"] as? Int, 1, "\(jarState)")
+    }
+
     /// #179: under Reduce Motion a tap only sways the jar: no stars fly.
     func testReduceMotionSkipsTheToss() {
         relaunch(["-REDUCE_MOTION"])

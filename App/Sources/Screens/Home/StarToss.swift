@@ -43,10 +43,15 @@ final class StarTossScene: SKScene, SKPhysicsContactDelegate {
     /// The last toss's frame rate, for the debug probe.
     private(set) var frameStats = (fps: 0, worstMs: 0)
     private var frameTimes: [TimeInterval] = []
+    /// Scenes built so far, for the debug probe: one per jar (#219).
+    private(set) static var made = 0
     #endif
 
     override init(size: CGSize) {
         super.init(size: size)
+        #if DEBUG
+        Self.made += 1
+        #endif
         backgroundColor = .clear
         scaleMode = .resizeFill
         physicsWorld.gravity = CGVector(dx: 0, dy: -9.8)

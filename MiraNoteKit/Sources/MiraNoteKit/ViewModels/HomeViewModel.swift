@@ -12,18 +12,40 @@ public final class HomeViewModel {
     public var collections: [MemoryCollection] { library.collections }
     public var trash: [TrashedMemory] { library.trash }
 
+    /// Pages this model's load took out of the bin for good, until
+    /// `forgetPurgedMedia` deletes their files.
+    @ObservationIgnored private var purgedOnLoad: [Memory] = []
+
     /// App entry point: load (and seed on first run) from a store; pages
     /// past their 30 days in the bin are purged on the way in.
     public init(store: CollectionStore, now: Date = .now) {
         self.store = store
         var loaded = store.load()
         let cutoff = now.addingTimeInterval(-30 * 24 * 3600)
-        let purged = loaded.trash.filter { $0.deletedAt > cutoff }
-        if purged.count != loaded.trash.count {
-            loaded.trash = purged
+        purgedOnLoad = loaded.trash.filter { $0.deletedAt <= cutoff }.map(\.memory)
+        if !purgedOnLoad.isEmpty {
+            loaded.trash.removeAll { $0.deletedAt <= cutoff }
             store.save(loaded)
         }
         self.library = loaded
+    }
+
+    /// Deletes the photos and sounds of the pages this model's load purged
+    /// (#219), once. A file a kept page or a favorite still shows stays.
+    /// Not in `init`: SwiftUI can build a model and drop it, and that one
+    /// must not delete a page the live model's Bin still shows.
+    public func forgetPurgedMedia(images: ImageFileStore, sounds: SoundFileStore, favorites: StickerFavoritesStore) {
+        guard !purgedOnLoad.isEmpty else { return }
+        let kept = library.collections.flatMap(\.memories) + library.trash.map(\.memory)
+        let keptImages = Set(kept.flatMap(\.imageFileNames) + favorites.all().map(\.fileName))
+        let keptSounds = Set(kept.flatMap(\.soundFileNames))
+        for name in Set(purgedOnLoad.flatMap(\.imageFileNames)).subtracting(keptImages) {
+            images.delete(fileName: name)
+        }
+        for name in Set(purgedOnLoad.flatMap(\.soundFileNames)).subtracting(keptSounds) {
+            sounds.delete(fileName: name)
+        }
+        purgedOnLoad = []
     }
 
     /// Test/preview entry point: start from a fixed in-memory list.
@@ -187,5 +209,27 @@ public final class HomeViewModel {
         let moved = library.collections[sourceIndex].memories.remove(at: noteIndex)
         library.collections[destinationIndex].memories.append(moved)
         store.save(library)
+    }
+}
+
+private extension Memory {
+    /// The page's files in the ImageFileStore: photos, stickers, backdrop.
+    var imageFileNames: [String] {
+        let placed = items.compactMap { item -> String? in
+            switch item.content {
+            case .image(let ref): return ref.fileName
+            case .sticker(let sticker): return sticker.fileName
+            case .text, .sound: return nil
+            }
+        }
+        return (placed + [backgroundFileName]).filter { !$0.isEmpty }
+    }
+
+    /// The page's clips in the SoundFileStore.
+    var soundFileNames: [String] {
+        items.compactMap { item -> String? in
+            guard case .sound(let clip) = item.content, !clip.fileName.isEmpty else { return nil }
+            return clip.fileName
+        }
     }
 }
