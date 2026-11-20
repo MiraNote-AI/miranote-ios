@@ -486,8 +486,14 @@ struct HomeFlow: View {
         .overlay(alignment: .bottom) { draftToast }
         // The Appearance setting, applied live (a choice redraws at once).
         .environment(\.theme, Theme(appearance: settings.appearance))
-        // Pages the bin let go of at launch take their stars along.
-        .task { StarFace.forget(allBut: viewModel.library) }
+        // Pages the bin let go of at launch take their stars, photos and
+        // sounds along.
+        .task {
+            StarFace.forget(allBut: viewModel.library)
+            viewModel.forgetPurgedMedia(
+                images: ImageFileStore(), sounds: SoundFileStore(), favorites: .forCurrentProcess()
+            )
+        }
         .task {
             guard Self.triggerEntryAllowed else { return }
             triggerGates = await trigger.resolveGates { await InstallSource.live() }
