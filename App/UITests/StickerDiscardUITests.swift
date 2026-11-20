@@ -33,19 +33,29 @@ final class StickerDiscardUITests: XCTestCase {
         return state?["drafts"] as? Int
     }
 
-    /// Two made, the second showing: Discard drops it and the first shows,
-    /// still live (Discard and Add work on it); the last one gone is Make's
-    /// start.
-    func testDiscardLetsGoOfTheShowingStickerOnly() {
+    /// The fake studio makes two, alike; the first shows.
+    private func makeTwo() {
         let prompt = app.textFields["sticker.prompt"]
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.tap()
         prompt.typeText("a coffee cup")
         app.buttons["sticker.generate.run"].tap()
-        let first = any("sticker.result.0")
-        XCTAssertTrue(first.waitForExistence(timeout: 8))
+        XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
         XCTAssertEqual(draftCount, 2, "the studio made two")
+    }
 
+    private func waitUntil(_ element: XCUIElement, isSelected selected: Bool, _ message: String) {
+        let lit = NSPredicate(format: "isSelected == %@", NSNumber(value: selected))
+        let result = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: lit, object: element)], timeout: 5)
+        XCTAssertEqual(result, .completed, message)
+    }
+
+    /// Two made, the second showing: Discard drops it and the first shows,
+    /// still live (Discard and Add work on it); the last one gone is Make's
+    /// start.
+    func testDiscardLetsGoOfTheShowingStickerOnly() {
+        makeTwo()
+        let first = any("sticker.result.0")
         let discard = app.buttons["sticker.draft.discard"]
         let redo = app.buttons["sticker.redo"]
         XCTAssertTrue(discard.isEnabled)
@@ -53,12 +63,19 @@ final class StickerDiscardUITests: XCTestCase {
         // Frames carry the circles' 5 pt hit slop: 19 apart here, 0 without the hairline.
         XCTAssertGreaterThan(discard.frame.minX, redo.frame.maxX + 15, "past redo and the hairline")
 
+        // The two come out alike: the first one cut out, so it can be told
+        // from the second by its lit style tile.
+        let cutout = app.buttons["sticker.style.cutout"]
+        cutout.tap()
+        waitUntil(cutout, isSelected: true, "the first one is cut out")
         first.swipeLeft()
         XCTAssertTrue(any("sticker.result.1").waitForExistence(timeout: 3), "the second one shows")
+        waitUntil(cutout, isSelected: false, "the second one is as it came")
         discard.tap()
         sleep(1)
         XCTAssertEqual(draftCount, 1, "only the showing one went")
         XCTAssertTrue(first.exists, "the other one shows")
+        XCTAssertTrue(cutout.isSelected, "the one left is the cut-out first one, not the second")
         XCTAssertTrue(discard.isEnabled, "the one left is live")
         XCTAssertTrue(app.buttons["sticker.addToPage"].isEnabled)
 
