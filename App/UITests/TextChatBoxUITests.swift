@@ -187,6 +187,49 @@ final class TextChatBoxUITests: TextToolUITestCase {
         XCTAssertTrue(waitForField("==", "(rewritten -- mock) second block"), "Go rewrites it: \(fieldValue())")
     }
 
+    /// `/rewrite` takes a block of at most 3000 code points. Exactly 3000
+    /// goes. One more is not sent: the caption says why, and the words stay
+    /// in the box with the block as it was.
+    func testGoSendsABlockOf3000ButNotOneLonger() {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let block = String(repeating: "a", count: 3000)
+        app.paste(block, into: field)
+        XCTAssertTrue(waitForField("==", block), "pasted: \(fieldValue().count)")
+        closeTheBlocksMenu()
+        ask.tap()
+        ask.typeText("make it shorter")
+        go.tap()
+        let rewritten = "(rewritten -- mock) " + block
+        XCTAssertTrue(waitForField("==", rewritten), "3000 goes: \(fieldValue().prefix(40))")
+
+        // The caret is back in the block: typing makes these words the
+        // ones Go sends, 3021 code points.
+        app.typeText("!")
+        XCTAssertTrue(waitForField("==", rewritten + "!"))
+        ask.tap()
+        ask.typeText("make it shorter")
+        go.tap()
+        let tooLong = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS %@ OR value CONTAINS %@", "too long for Mira", "too long for Mira"
+        )).firstMatch
+        XCTAssertTrue(tooLong.waitForExistence(timeout: 3), "the caption says why")
+        XCTAssertEqual(ask.value as? String, "make it shorter", "the words stay, to send again")
+        XCTAssertEqual(fieldValue(), rewritten + "!", "the block is as it was")
+    }
+
+    /// The long press that pastes also opens the block's own menu (Edit
+    /// text, Duplicate, ...), over the chat box. A tap closes the menu and
+    /// does nothing else: the caret stays in the block.
+    private func closeTheBlocksMenu() {
+        let menu = app.buttons["Edit text"]
+        guard menu.waitForExistence(timeout: 2) else { return }
+        let writing = canvasState()["writing"] as? String
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 3), "the block's menu closed")
+        XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the block")
+    }
+
     /// The block's menu, "Edit text", from wherever the page is.
     private func editText(_ words: String) {
         let block = app.staticTexts[words]

@@ -157,13 +157,18 @@ public final class MiraCanvasCoordinator {
     }
 
     /// The chat box's Go while writing (#205 F6B): the block rewritten as
-    /// the writer's own words ask, no Mira turn. `/rewrite` takes at most
-    /// 500 characters of them.
+    /// the writer's own words ask, no Mira turn. `/rewrite` counts in
+    /// Unicode code points, as Python does (an emoji with a skin tone is
+    /// one Character but two): it takes at most 500 of the words, cut here
+    /// at the last whole Character that fits, and a block of at most 3000.
+    /// A longer block is not sent: the service would refuse it every time.
     public func rewriteText(_ text: String, asked words: String) async throws -> String {
-        try await self.text.rewrite(text, instruction: String(words.prefix(Self.rewriteInstructionLimit)))
+        guard text.unicodeScalars.count <= Self.rewriteTextLimit else { throw RewriteTooLong() }
+        return try await self.text.rewrite(text, instruction: words.wholeCharacters(upTo: Self.rewriteInstructionLimit))
     }
 
     static let rewriteInstructionLimit = 500
+    static let rewriteTextLimit = 3000
 
     // MARK: Turn lifecycle
 
