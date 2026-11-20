@@ -296,7 +296,7 @@ extension BackgroundUITests {
 
         app.buttons["Undo"].tap()
         XCTAssertFalse(lilac.isSelected, "one undo takes the color off")
-        XCTAssertTrue(byDefault.isSelected, "and the row is back on Default")
+        XCTAssertTrue(byDefault.waitForSelection(), "and the row is back on Default")
         XCTAssertTrue(probeShows("\"paper\":\"grid\""), "and leaves the paper: \(probe.label)")
 
         lilac.tap()
