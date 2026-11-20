@@ -550,7 +550,8 @@ struct StickerPanelScene: View {
 
     private var favoritesGrid: some View {
         ScrollView(showsIndicators: false) {
-            // Five 60 pt cells across the sheet (screen 34).
+            // Five across (screen 34): 60 pt cells where the column has room,
+            // else the column's width (58 on a 402 pt phone, 52 on a 375 one).
             LazyVGrid(columns: Self.columns, spacing: 9) {
                 ForEach(favorites) { favorite in
                     Button {
@@ -638,7 +639,7 @@ struct StickerPanelScene: View {
             .frame(width: 38, height: 36)
             .clipShape(RoundedRectangle(cornerRadius: 18))
             .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Palette.ink, lineWidth: 3))
-            .frame(width: 60, height: 60)
+            .frame(maxWidth: 60).frame(height: 60)
             // Taps stop at the cell: a tall photo spills past 38 x 36, and the
             // clip hides that but would still take taps there.
             .contentShape(Rectangle())
@@ -651,7 +652,9 @@ struct StickerPanelScene: View {
                         .foregroundStyle(Palette.taupe)
                 }
             }
-            .frame(width: 60, height: 60)
+            // No wider than its column: wider, the cell runs past the grid,
+            // whose edges cut the first and the last in a row.
+            .frame(maxWidth: 60).frame(height: 60)
         }
     }
 

@@ -91,12 +91,15 @@ final class StickerGridUITests: XCTestCase {
     }
 
     /// The Favorites cells stand where the set's do, so a tab change keeps
-    /// them in place.
+    /// them in place, and inside the grid: five across, a column is under
+    /// 60 pt on most phones, and a wider cell is cut at the grid's edge.
     func testFavoritesLineUpWithTheSetCells() {
         favoriteAMadeSticker()
         app.buttons["sticker.tab.favorites"].tap()
         XCTAssertTrue(favorites.firstMatch.waitForExistence(timeout: 5))
         let favorite = favorites.firstMatch.frame
+        let grid = app.scrollViews.containing(.button, identifier: favorites.firstMatch.identifier).firstMatch
+        XCTAssertGreaterThanOrEqual(favorite.minX, grid.frame.minX - 0.5, "the first cell is not cut by the grid")
         app.buttons["sticker.tab.food"].tap()
         let preset = app.buttons["sticker.preset.focaccia"]
         XCTAssertTrue(preset.waitForExistence(timeout: 5))
