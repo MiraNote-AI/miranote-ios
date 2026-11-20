@@ -74,6 +74,32 @@ final class PurgedMediaTests: XCTestCase {
         XCTAssertTrue(images.exists(fileName: photo))
     }
 
+    /// A favorites file that cannot be read could hold any photo: nothing
+    /// is deleted, the pages wait in the bin, and the next launch retries.
+    func testAnUnreadableFavoritesFileDeletesNothingUntilALaterLaunch() throws {
+        let photo = try images.save(Data([1]), id: UUID())
+        let gone = page(images: [photo], sticker: nil, backdrop: "", sounds: [])
+        let old = Date.now.addingTimeInterval(-31 * 24 * 3600)
+        let file = FileCollectionStore(url: folder.appendingPathComponent("library.json"))
+        file.save(MemoryLibrary(trash: [TrashedMemory(memory: gone, collectionTitle: "Log", deletedAt: old)]))
+        let favoritesFile = folder.appendingPathComponent("favorites.json")
+        try Data("not json".utf8).write(to: favoritesFile)
+
+        let first = HomeViewModel(store: file)
+        first.forgetPurgedMedia(images: images, sounds: sounds, favorites: favorites)
+
+        XCTAssertTrue(images.exists(fileName: photo), "an unreadable favorites file deletes nothing")
+        XCTAssertEqual(first.trash.map(\.id), [gone.id], "the page waits in the bin")
+        XCTAssertEqual(file.load().trash.map(\.id), [gone.id], "and stays there on disk")
+
+        try FileManager.default.removeItem(at: favoritesFile)
+        let next = HomeViewModel(store: file)
+        next.forgetPurgedMedia(images: images, sounds: sounds, favorites: favorites)
+
+        XCTAssertFalse(images.exists(fileName: photo), "the next launch deletes it")
+        XCTAssertTrue(next.trash.isEmpty)
+    }
+
     private func page(images: [String], sticker: String?, backdrop: String, sounds: [String]) -> Memory {
         var items = images.map {
             CanvasItem(content: .image(ImageRef(displayName: "photo", fileName: $0)), position: .zero)

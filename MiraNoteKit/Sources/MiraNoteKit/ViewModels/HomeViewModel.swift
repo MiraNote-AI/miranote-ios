@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Home screen: the user's note collections, loaded from and persisted to a
 /// `CollectionStore`.
@@ -14,7 +15,8 @@ public final class HomeViewModel {
 
     /// Pages this model's load took out of the bin for good, until
     /// `forgetPurgedMedia` deletes their files.
-    @ObservationIgnored private var purgedOnLoad: [Memory] = []
+    @ObservationIgnored private var purgedOnLoad: [TrashedMemory] = []
+    private static let log = Logger(subsystem: "ai.miranote.app", category: "Bin")
 
     /// App entry point: load (and seed on first run) from a store; pages
     /// past their 30 days in the bin are purged on the way in.
@@ -22,7 +24,7 @@ public final class HomeViewModel {
         self.store = store
         var loaded = store.load()
         let cutoff = now.addingTimeInterval(-30 * 24 * 3600)
-        purgedOnLoad = loaded.trash.filter { $0.deletedAt <= cutoff }.map(\.memory)
+        purgedOnLoad = loaded.trash.filter { $0.deletedAt <= cutoff }
         if !purgedOnLoad.isEmpty {
             loaded.trash.removeAll { $0.deletedAt <= cutoff }
             store.save(loaded)
@@ -34,18 +36,31 @@ public final class HomeViewModel {
     /// (#219), once. A file a kept page or a favorite still shows stays.
     /// Not in `init`: SwiftUI can build a model and drop it, and that one
     /// must not delete a page the live model's Bin still shows.
+    /// If the favorites cannot be read, any file may be one: nothing is
+    /// deleted, and the pages go back in the bin for the next launch.
     public func forgetPurgedMedia(images: ImageFileStore, sounds: SoundFileStore, favorites: StickerFavoritesStore) {
         guard !purgedOnLoad.isEmpty else { return }
+        let pending = purgedOnLoad
+        purgedOnLoad = []
+        let favoriteStickers: [GeneratedSticker]
+        do {
+            favoriteStickers = try favorites.load()
+        } catch {
+            Self.log.error("Favorites unreadable, purged pages' media kept until next launch: \(error)")
+            library.trash += pending
+            store.save(library)
+            return
+        }
         let kept = library.collections.flatMap(\.memories) + library.trash.map(\.memory)
-        let keptImages = Set(kept.flatMap(\.imageFileNames) + favorites.all().map(\.fileName))
+        let keptImages = Set(kept.flatMap(\.imageFileNames) + favoriteStickers.map(\.fileName))
         let keptSounds = Set(kept.flatMap(\.soundFileNames))
-        for name in Set(purgedOnLoad.flatMap(\.imageFileNames)).subtracting(keptImages) {
+        let purged = pending.map(\.memory)
+        for name in Set(purged.flatMap(\.imageFileNames)).subtracting(keptImages) {
             images.delete(fileName: name)
         }
-        for name in Set(purgedOnLoad.flatMap(\.soundFileNames)).subtracting(keptSounds) {
+        for name in Set(purged.flatMap(\.soundFileNames)).subtracting(keptSounds) {
             sounds.delete(fileName: name)
         }
-        purgedOnLoad = []
     }
 
     /// Test/preview entry point: start from a fixed in-memory list.
