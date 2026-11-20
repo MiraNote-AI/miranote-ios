@@ -37,7 +37,7 @@ public final class AccountDeletion {
         init(_ error: Error) {
             switch error {
             case BackendError.unreachable: self = .offline
-            case BackendError.timedOut: self = .timedOut
+            case BackendError.timedOut, BackendError.answerLost: self = .timedOut
             case AccountError.signedOut: self = .signedOut
             case is BackendError: self = .server
             default: self = .apple
