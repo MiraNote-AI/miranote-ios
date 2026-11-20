@@ -129,6 +129,21 @@ final class StarStripTests: XCTestCase {
         }
     }
 
+    /// A page of words on a peach backdrop wears that peach, washed toward
+    /// paper, not the boosted orange a photo's band gets.
+    func testACalmLookKeepsThePagesTint() {
+        let peach = StarColor(240, 190, 150)
+        let calm = StarStrip.look(StarPixels(width: 192, height: 32, fill: peach), calm: true)
+        let boosted = StarStrip.look(StarPixels(width: 192, height: 32, fill: peach))
+        let washed = peach.mixed(with: StarStrip.paper, 0.16)
+        for tint in calm.tints + [calm.average] {
+            XCTAssertEqual(tint.red, washed.red, accuracy: 2)
+            XCTAssertEqual(tint.green, washed.green, accuracy: 2)
+            XCTAssertEqual(tint.blue, washed.blue, accuracy: 2)
+        }
+        XCTAssertLessThan(boosted.average.blue, calm.average.blue - 20, "a band's look is louder")
+    }
+
     /// CSS saturate: grey stays grey, 1 changes nothing, more pushes away
     /// from grey.
     func testSaturateMatchesCSS() {

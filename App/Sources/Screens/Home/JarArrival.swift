@@ -2,11 +2,19 @@ import MiraNoteKit
 import SwiftUI
 import UIKit
 
-/// Where Home's star jar circle sits, for a saved page's star to land on.
+/// Where Home's star jar circle sits, for a saved page's star to land
+/// on, and Home's ask bar, which the star stays below.
 struct JarAnchorKey: PreferenceKey {
-    static let defaultValue: Anchor<CGPoint>? = nil
-    static func reduce(value: inout Anchor<CGPoint>?, nextValue: () -> Anchor<CGPoint>?) {
-        value = value ?? nextValue()
+    struct Anchors {
+        var jar: Anchor<CGPoint>?
+        var askBar: Anchor<CGRect>?
+    }
+
+    static let defaultValue = Anchors()
+    static func reduce(value: inout Anchors, nextValue: () -> Anchors) {
+        let next = nextValue()
+        value.jar = value.jar ?? next.jar
+        value.askBar = value.askBar ?? next.askBar
     }
 }
 

@@ -154,14 +154,17 @@ public enum StarStrip {
     /// strip blurred, saturated 1.8x and washed 16% toward paper, so the
     /// star carries its page's colors without photo detail; five flat arm
     /// tints from the strip's fifths, saturated again (1.9x); and the
-    /// average, saturated, for stars too small for any of that.
-    public static func look(_ strip: StarPixels) -> StarLook {
-        let washed = recolor(blur(strip, radius: max(1, strip.width / 76))) { wash(saturate($0, 1.8)) }
+    /// average, saturated, for stars too small for any of that. A calm
+    /// strip (`calm`) is not saturated: the star wears its page's own
+    /// paper tint, not a louder one.
+    public static func look(_ strip: StarPixels, calm: Bool = false) -> StarLook {
+        let boost = calm ? 1 : 1.8, armBoost = calm ? 1 : 1.9
+        let washed = recolor(blur(strip, radius: max(1, strip.width / 76))) { wash(saturate($0, boost)) }
         let fifth = washed.width / 5
         let tints = (0..<5).map { arm in
-            saturate(average(washed, columns: arm * fifth..<(arm == 4 ? washed.width : (arm + 1) * fifth)), 1.9)
+            saturate(average(washed, columns: arm * fifth..<(arm == 4 ? washed.width : (arm + 1) * fifth)), armBoost)
         }
-        let whole = saturate(average(washed, columns: 0..<washed.width), 1.8)
+        let whole = saturate(average(washed, columns: 0..<washed.width), boost)
         return StarLook(texture: washed, tints: tints, average: whole)
     }
 

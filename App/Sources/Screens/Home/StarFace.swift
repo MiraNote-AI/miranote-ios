@@ -7,7 +7,7 @@ import UIKit
 /// Save the page's top is read for its most colorful row (`StarStrip`) and
 /// the star's dress -- its washed colors, unlit and upright
 /// (`PaperStar.dressing`) -- is baked once and kept by page id in
-/// Caches/star-dress; the light is drawn over it live, so a turned star
+/// Caches/star-dress-x; the light is drawn over it live, so a turned star
 /// keeps its light from the top left. A page with a photo, a sticker or a
 /// photo backdrop gives its most colorful band; a page of words gives a
 /// calm paper star. Pages from before are baked when the jar first shows
@@ -32,7 +32,8 @@ enum StarFace {
     }
 
     private static var directory: URL {
-        caches.appendingPathComponent("star-dress", isDirectory: true)
+        // -x: design X re-dresses the calm stars of pages of words.
+        caches.appendingPathComponent("star-dress-x", isDirectory: true)
     }
 
     /// Where part A of #206 kept its lit stars: swept, no longer read.
@@ -193,7 +194,7 @@ enum StarFace {
             let row = StarStrip.foldRow(in: pixels)
             var strip = StarStrip.strip(StarStrip.foldCut(row, in: pixels), from: pixels)
             if wordsOnly { strip = StarStrip.calm(strip, id: id) }
-            return (row, StarStrip.look(strip))
+            return (row, StarStrip.look(strip, calm: wordsOnly))
         }.value
     }
 
@@ -215,11 +216,13 @@ enum StarFace {
 
     /// Drops the stars of pages gone for good (their 30 days in the bin
     /// are up): a page on the shelf or in the bin keeps its star. Both
-    /// folders are swept: the dresses, and part A's lit stars.
+    /// folders are swept: the dresses, and part A's lit stars. The dresses
+    /// from before design X go whole: their pages bake again.
     static func forget(allBut library: MemoryLibrary) {
         let pages = library.collections.flatMap(\.memories) + library.trash.map(\.memory)
         let kept = Set(pages.map(\.id))
         let manager = FileManager.default
+        try? manager.removeItem(at: caches.appendingPathComponent("star-dress", isDirectory: true))
         for folder in [directory, litStarsDirectory] {
             let files = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
             for file in files where file.pathExtension == "png" {

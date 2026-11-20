@@ -18,6 +18,9 @@ struct SaveFold: View {
     let paper: StarPaper
     /// The header jar chip's middle, in this view's space.
     let chip: CGPoint
+    /// The foot of Home's ask bar: the knot, the star and its toss stay
+    /// below it, clear of the headline, Start and the bar.
+    let clear: CGFloat
     /// This month's stars, the new one among them (`newStar`) unless its
     /// page is dated another month: then it drops in out of sight.
     let pile: JarPile
@@ -41,7 +44,8 @@ struct SaveFold: View {
         return GeometryReader { proxy in
             TimelineView(.animation) { timeline in
                 let t = CGFloat(StarClock.ms(since: start, at: timeline.date))
-                let stage = Stage(size: proxy.size, chip: chip, editorTop: editorTop, readingTop: readingTop)
+                let stage = Stage(size: proxy.size, chip: chip, editorTop: editorTop, readingTop: readingTop,
+                                  clear: clear)
                 ZStack(alignment: .topLeading) {
                     Canvas { context, _ in
                         if reduceMotion {
@@ -67,12 +71,23 @@ struct SaveFold: View {
         /// Where the editor and reading mode show the page's top.
         let editorTop: CGFloat
         let readingTop: CGFloat
+        /// What the star stays below (Home's ask bar); 0 for none.
+        var clear: CGFloat = 0
         var k: CGFloat { size.width / 402 }
-        /// The hero point: the page's resting middle.
-        var hero: CGPoint { CGPoint(x: size.width / 2, y: size.height * 446 / 874) }
-        /// Where the jar steps out to: low right, clear of the headline and
-        /// the Start button.
-        var jar: CGPoint { CGPoint(x: size.width * 300 / 402, y: size.height * 628 / 874) }
+        /// The big star's reach, its 7% pop included.
+        var heroReach: CGFloat { FoldDrawing.hero * k * 1.08 }
+        /// The hero point: the page's resting middle, where it winds and
+        /// puffs; never higher than its star clears `clear`.
+        var hero: CGPoint {
+            CGPoint(x: size.width / 2, y: max(size.height * 446 / 874, clear + 12 * k + heroReach))
+        }
+        /// Where the jar steps out to: low right, its cap below the star,
+        /// its foot above the home indicator.
+        var jar: CGPoint {
+            let s = SaveFold.stageScale * k
+            let below = hero.y + heroReach + 8 * k + 98 * s, lowest = size.height - 40 * k - 78 * s
+            return CGPoint(x: size.width * 300 / 402, y: min(max(size.height * 628 / 874, below), lowest))
+        }
         var pageScale: CGFloat { CanvasCard.pageScale(rowWidth: size.width) }
         var editorCenter: CGPoint {
             CGPoint(x: size.width / 2, y: editorTop + StarPaper.half * pageScale)
@@ -165,8 +180,10 @@ struct SaveFold: View {
     // swiftlint:disable:next function_body_length
     private func drawBehind(in context: GraphicsContext, stage: Stage, at t: CGFloat) {
         let full = Path(CGRect(origin: .zero, size: stage.size))
-        let veil = Ease.out3(Ease.seg(t, 80, 260)) * (1 - Ease.inOut3(Ease.seg(t, 1150, 1450)))
-        if veil > 0 { context.fill(full, with: .color(veilColor.opacity(0.34 * veil))) }
+        // Lighter than the prototype's 34%: Home's cards are darker than its
+        // mock, and a stronger cream greys them. It lifts slowly, no pop.
+        let veil = Ease.out3(Ease.seg(t, 80, 260)) * (1 - Ease.inOut3(Ease.seg(t, 1200, 1800)))
+        if veil > 0 { context.fill(full, with: .color(veilColor.opacity(0.18 * veil))) }
 
         // The jar, the star landing in it, the cap.
         let pose = jar(stage, at: t)
@@ -247,7 +264,8 @@ struct SaveFold: View {
         let at: CGPoint, R: CGFloat
         if t < 1390 {
             let u = Ease.sine(Ease.seg(t, 1200, 1390))
-            let control = CGPoint(x: mouth.x - 60 * stage.k, y: min(stage.hero.y, mouth.y) - 60 * stage.k)
+            let control = CGPoint(x: mouth.x - 60 * stage.k,
+                                  y: max(stage.clear + R0, min(stage.hero.y, mouth.y) - 60 * stage.k))
             at = Ease.bezier(stage.hero, control, mouth, u)
             R = R0 * pow(Rm / R0, u)
         } else {

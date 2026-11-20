@@ -66,6 +66,7 @@ struct HomeView: View {
                     startButton
                         .padding(.bottom, 27)
                     promptBar
+                        .anchorPreference(key: JarAnchorKey.self, value: .bounds) { .init(askBar: $0) }
                         .padding(.bottom, 22)
                     grid
 
@@ -110,10 +111,11 @@ struct HomeView: View {
         // A tap during the fold skips to the landing, and still does what
         // it tapped (the jar opens, a page starts).
         .simultaneousGesture(TapGesture().onEnded { finishFold() })
-        .overlayPreferenceValue(JarAnchorKey.self) { anchor in
+        .overlayPreferenceValue(JarAnchorKey.self) { anchors in
             GeometryReader { proxy in
-                if let foldStart, let arrivingFold, let arrivingStar, let anchor {
-                    SaveFold(paper: arrivingFold, chip: proxy[anchor], pile: jarPile, newStar: arrivingStar.id,
+                if let foldStart, let arrivingFold, let arrivingStar, let jar = anchors.jar {
+                    SaveFold(paper: arrivingFold, chip: proxy[jar], clear: anchors.askBar.map { proxy[$0].maxY } ?? 0,
+                             pile: jarPile, newStar: arrivingStar.id,
                              start: foldStart, editorBackground: Theme(appearance: .system).background,
                              veilColor: theme.background, reduceMotion: foldFades)
                 }
@@ -157,7 +159,7 @@ struct HomeView: View {
                 // Not drawn by the handoff: the star jar, a twin of the
                 // circles beside it.
                 headerJar
-                    .anchorPreference(key: JarAnchorKey.self, value: .center) { $0 }
+                    .anchorPreference(key: JarAnchorKey.self, value: .center) { .init(jar: $0) }
                     #if DEBUG
                     // UI tests count the landings.
                     .accessibilityValue("\(jarBeat)")
