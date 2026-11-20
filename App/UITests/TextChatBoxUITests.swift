@@ -4,8 +4,8 @@ import XCTest
 /// while it is empty and Go once there are words (F7A); the caret moves
 /// there and back without ending the writing; Go has Mira rewrite the
 /// block, previewed in place on the Polish row with no chip selected (F6B,
-/// H3A). Under -UITEST the rewrite is the mock's ("make it warmer" asks a
-/// polish).
+/// H3A). Under -UITEST the rewrite is the mock's `/rewrite` answer,
+/// "(rewritten -- mock)", distinct from every Polish chip's.
 final class TextChatBoxUITests: TextToolUITestCase {
     private var field: XCUIElement { any("canvas.textEditor") }
     private var ask: XCUIElement { app.descendants(matching: .any)["writing.ask"] }
@@ -80,7 +80,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
         ask.typeText("make it warmer")
         go.tap()
 
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked"),
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"),
                       "the block shows the rewrite: \(fieldValue())")
         let original = app.buttons["style.ai.original"]
         XCTAssertTrue(original.waitForExistence(timeout: 3), "the Polish row shows")
@@ -96,7 +96,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
 
         // The caret is back at the end of the block.
         app.typeText("!")
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked!"), "typed at the block's end: \(fieldValue())")
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked!"), "typed at the block's end: \(fieldValue())")
         XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the same block")
 
     }
@@ -108,7 +108,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
         ask.tap()
         ask.typeText("make it warmer")
         go.tap()
-        XCTAssertTrue(waitForField("BEGINSWITH", "(polished -- mock)"), "\(fieldValue())")
+        XCTAssertTrue(waitForField("BEGINSWITH", "(rewritten -- mock)"), "\(fieldValue())")
 
         app.buttons["style.ai.original"].tap()
         XCTAssertTrue(waitForField("==", "we walked "), "Original reverts: \(fieldValue())")
@@ -128,10 +128,11 @@ final class TextChatBoxUITests: TextToolUITestCase {
         let writing = canvasState()["writing"] as? String ?? ""
         ask.tap()
         ask.typeText("make it warmer\n")
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked"), "\(fieldValue())")
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "\(fieldValue())")
         XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the same block")
         app.typeText("!")
-        XCTAssertTrue(waitForField("==", "(polished -- mock) we walked!"), "the caret is in the block: \(fieldValue())")
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked!"),
+                      "the caret is in the block: \(fieldValue())")
     }
 
     /// The mic tapped while the caret is in the empty box: the waveform
