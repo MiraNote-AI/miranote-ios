@@ -4,7 +4,8 @@ import Foundation
 /// POC and returns the transformed string. Endpoint/field mapping per the
 /// integration spec (T3 table): clean -> /clean -> `cleaned`,
 /// expand -> /expand -> `expanded`, polish -> /polish -> `polished`,
-/// shorten -> /shorten -> `shortened` (the POC's target defaults to 50%).
+/// shorten -> /shorten -> `shortened` (the POC's target defaults to 50%);
+/// a rewrite as asked -> /rewrite {text, instruction} -> `rewritten`.
 public struct LiveTextTransformService: TextTransformService {
     private let baseURL: URL
     private let client: HTTPClient
@@ -26,6 +27,21 @@ public struct LiveTextTransformService: TextTransformService {
             throw BackendError.decoding
         }
         return value
+    }
+
+    private struct RewriteRequest: Encodable {
+        let text: String
+        let instruction: String
+    }
+
+    private struct RewriteResponse: Decodable { let rewritten: String }
+
+    public func rewrite(_ text: String, instruction: String) async throws -> String {
+        let response: RewriteResponse = try await client.postJSON(
+            to: baseURL.appendingPathComponent("rewrite"),
+            body: RewriteRequest(text: text, instruction: instruction)
+        )
+        return response.rewritten
     }
 
     /// The POC names the result field after the endpoint, so one decodable

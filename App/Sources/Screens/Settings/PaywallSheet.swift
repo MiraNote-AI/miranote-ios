@@ -278,10 +278,12 @@ enum PaywallPresenter {
     private static weak var shown: UIViewController?
 
     /// In a build that offers sign-in (`Account.isOffered`): a free
-    /// allowance used up by an action the writer started opens the paywall,
-    /// and Plus starts following the App Store.
+    /// allowance used up by an action the writer started opens the paywall
+    /// (after a sync and one more try when the phone has Plus), and Plus
+    /// starts following the App Store.
     static func install(_ plus: PlusStore, consent: AIConsent) {
         guard Account.isOffered else { return }
+        consent.syncPlus = { await plus.syncIfPlus() }
         consent.limitReached = { _ in show(plus, limitReached: true) }
         plus.start()
     }
