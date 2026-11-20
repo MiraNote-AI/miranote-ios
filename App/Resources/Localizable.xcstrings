@@ -7408,7 +7408,7 @@
       }
     },
     "This purchase belongs to another MiraNote account. Contact us to move it." : {
-      "comment" : "Restore error: the subscription is linked to another account.",
+      "comment" : "Purchase or Restore error: the subscription is linked to another account.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {

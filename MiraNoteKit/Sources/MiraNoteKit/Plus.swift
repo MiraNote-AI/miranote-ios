@@ -65,10 +65,9 @@ public final class PlusStore {
         switch try await product.purchase(options: [.appAccountToken(userID)]) {
         case .success(let verification):
             guard case .verified(let transaction) = verification else { throw PlusError.unverified }
-            // Not fatal: the launch sync and Restore send it again.
-            try? await syncWithServer()
-            await transaction.finish()
+            let refused = await Self.settle(sync: syncWithServer, finish: transaction.finish)
             await refreshEntitlement()
+            if let refused { throw refused }
             return .purchased
         case .pending:
             return .pending
@@ -77,6 +76,21 @@ public final class PlusStore {
         @unknown default:
             return .cancelled
         }
+    }
+
+    /// A purchase the App Store took: the server is told, then the
+    /// transaction is finished whatever it said, since Apple has charged.
+    /// A chain another account owns is the writer's to hear; any other
+    /// failure is not, and the launch sync and Restore send it again.
+    static func settle(sync: () async throws -> Void, finish: () async -> Void) async -> PlusError? {
+        var refused: PlusError?
+        do {
+            try await sync()
+        } catch PlusError.ownedByAnotherAccount {
+            refused = .ownedByAnotherAccount
+        } catch {}
+        await finish()
+        return refused
     }
 
     /// Restore Purchases (Guideline 3.1.1): signed in first, then the App
