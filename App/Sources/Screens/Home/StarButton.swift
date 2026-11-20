@@ -2,9 +2,9 @@ import MiraNoteKit
 import SwiftUI
 import UIKit
 
-/// One star (#206, fold demo v4). A quick tap shakes the jar. Held, it
-/// gathers tension from 120 ms (it lifts and grows, a ring fills round
-/// it) and at 350 ms commits: the page opens. Letting go before then, or
+/// One star (#206, design X). A quick tap shakes the jar. Held, it
+/// presses in, gathers tension from 120 ms (a green ring fills round it)
+/// and at 350 ms commits: the page opens. Letting go before then, or
 /// sliding 10 pt, springs it back silently (`StarHold`). VoiceOver reads
 /// it as a button that opens the page at once. It drops in from `drop`
 /// when given one (or, under Reduce Motion, fades in).
@@ -18,13 +18,15 @@ struct StarButton: View {
     var onShake: () -> Void = {}
     /// The tension began (true) or sprang back (false).
     var onTension: (Bool) -> Void = { _ in }
-    /// The hold committed; the star's middle on screen, lifted.
+    /// The hold committed; the star's middle on screen.
     var onCommit: (CGPoint) -> Void = { _ in }
     /// VoiceOver's activate: the page opens directly.
     let action: () -> Void
 
     @State private var landed = false
     @State private var hold = StarHold()
+    /// The finger is on it: it presses in a little.
+    @State private var pressing = false
     /// The finger is down (a cancelled hold waits for it to lift).
     @State private var touching = false
     /// Resets when the press ends or the system cancels it: a cancel
@@ -34,9 +36,10 @@ struct StarButton: View {
     @State private var timer: Task<Void, Never>?
     @State private var center: CGPoint = .zero
 
-    /// The lift at full tension.
-    static let lift: CGFloat = 10
-    static let grow: CGFloat = 0.3
+    /// How far a held star presses in.
+    static let press: CGFloat = 0.93
+    /// The hold's ring: the app's green.
+    static let ring = Color(hex: 0x2F4A3A)
 
     var body: some View {
         let waiting = drop != nil && !landed
@@ -49,9 +52,8 @@ struct StarButton: View {
                 return CGPoint(x: frame.midX, y: frame.midY)
             } action: { center = $0 }
             // Under Reduce Motion the ring alone shows the hold.
-            .scaleEffect(1 + grow * tension)
+            .scaleEffect(pressing && !reduceMotion ? Self.press : 1)
             .overlay { ring }
-            .offset(y: reduceMotion ? 0 : -Self.lift * tension)
             .frame(width: size * 1.3, height: size * 1.3)
             .contentShape(Circle())
             .gesture(press)
@@ -82,25 +84,21 @@ struct StarButton: View {
             .accessibilityIdentifier("jar.star.\(star.memory.title)")
     }
 
-    /// The hold's progress: a white under-stroke, a faint track, and the
-    /// filled arc from the top.
+    /// The hold's progress: a faint white disc, a faint green track, and
+    /// the green arc filling from the top.
     private var ring: some View {
-        let diameter = size * 0.45 * 3 * (1 + grow * tension)
-        let amber = Color(hex: 0xA8682A)
+        let radius = size * 0.45 * 1.6
         return ZStack {
-            Circle().stroke(Color.white.opacity(0.7), lineWidth: 5)
-            Circle().stroke(amber.opacity(0.25), lineWidth: 3)
+            Circle().fill(Color.white.opacity(0.26)).padding(4)
+            Circle().stroke(Self.ring.opacity(0.16), lineWidth: 3)
             Circle().trim(from: 0, to: tension)
-                .stroke(amber.opacity(0.95), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(Self.ring, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .frame(width: diameter, height: diameter)
+        .frame(width: 2 * radius, height: 2 * radius)
         .opacity(tension > 0 ? 1 : 0)
         .allowsHitTesting(false)
     }
-
-    /// How much the hold grows the star: not at all under Reduce Motion.
-    private var grow: CGFloat { reduceMotion ? 0 : Self.grow }
 
     private var press: some Gesture {
         DragGesture(minimumDistance: 0)
@@ -118,6 +116,7 @@ struct StarButton: View {
                 switch hold.up(at: CACurrentMediaTime()) {
                 case .shake:
                     timer?.cancel()
+                    release()
                     onShake()
                 case .cancel: springBack()
                 case .commit: commit()
@@ -127,6 +126,7 @@ struct StarButton: View {
     }
 
     private func begin() {
+        withAnimation(.easeOut(duration: StarHold.tapWindow)) { pressing = true }
         let start = CACurrentMediaTime()
         hold.down(at: start)
         timer?.cancel()
@@ -145,21 +145,44 @@ struct StarButton: View {
     /// Released or slid away during the tension: back, without a sound.
     private func springBack() {
         timer?.cancel()
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { tension = 0 }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            tension = 0
+            pressing = false
+        }
         onTension(false)
+    }
+
+    private func release() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { pressing = false }
     }
 
     private func commit() {
         timer?.cancel()
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.6)
-        onCommit(CGPoint(x: center.x, y: center.y - Self.lift))
+        if let haptic = StarUnfold.haptics.first {
+            UIImpactFeedbackGenerator(style: haptic.style.impact).impactOccurred(intensity: haptic.intensity)
+        }
+        onCommit(center)
         // The open draws the star from here on; the button rests unseen.
         var instant = Transaction()
         instant.disablesAnimations = true
-        withTransaction(instant) { tension = 0 }
+        withTransaction(instant) {
+            tension = 0
+            pressing = false
+        }
     }
 
     private var label: String {
         star.memory.title.isEmpty ? CaptionDate.string(for: star.memory.memoryDate) : star.memory.title
+    }
+}
+
+extension StarHaptic.Style {
+    var impact: UIImpactFeedbackGenerator.FeedbackStyle {
+        switch self {
+        case .light: return .light
+        case .medium: return .medium
+        case .rigid: return .rigid
+        case .soft: return .soft
+        }
     }
 }

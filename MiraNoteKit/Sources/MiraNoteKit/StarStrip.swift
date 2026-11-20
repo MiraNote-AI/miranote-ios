@@ -67,15 +67,14 @@ public struct StarPixels: Equatable, Sendable {
     }
 }
 
-/// A star's paper strip, cut from a snapshot of its page (#206, the
-/// "colorful-D" method of the strip experiment): of every band as long as
-/// the page is wide and a sixth as thick, turned 30 degrees either way,
-/// the one whose colors vary most. One contiguous cut, so the star is
-/// literally a strip of its page: the fold winds it into the star, and
-/// its washed colors (`look`) dress the star.
+/// A star's paper strip (#206, design X): of the four rows of the page's
+/// top half, each a quarter of that half tall, the one whose colors vary
+/// most. The half-page folds up accordion-style onto that row, so the
+/// star is the page folded up and kept, never cut: the strip winds into
+/// the star, and its washed colors (`look`) dress the star.
 public enum StarStrip {
-    /// A band on the page: its middle, its turn in radians (y down, so a
-    /// positive turn runs down to the right), and its size in pixels.
+    /// A band on the page: its middle, its turn in radians (y down; the
+    /// fold's bands lie level), and its size in pixels.
     public struct Cut: Equatable, Sendable {
         public let centerX: Double
         public let centerY: Double
@@ -87,33 +86,40 @@ public enum StarStrip {
     /// The strip's raster: 32 thick by 192 long, 1:6.
     public static let stripThickness = 32
     public static let stripLength = 192
-    static let angles = [Double.pi / 6, -Double.pi / 6]
+    /// The fold's page in page widths: 560 tall on a 360 page, folded in
+    /// half at its middle; the top half is four rows (pleats) of 70.
+    public static let foldPageHeight = 560.0 / 360
+    public static let foldRows = 4
+    /// A row's height in page widths (70 on a 360 page).
+    public static var foldRow: Double { foldPageHeight / 2 / Double(foldRows) }
+    /// The row a page with no color anywhere folds onto: under the top
+    /// edge, where a photo's upper third usually lies.
+    public static let plainRow = 1
 
-    /// The most colorful band of `page`: the largest variance of CIELAB
-    /// a* plus b* over a coarse grid along it.
-    public static func colorfulCut(in page: StarPixels) -> Cut {
-        let length = Double(page.width)
-        let thickness = length / 6
-        var best: (score: Double, cut: Cut)?
-        for angle in angles {
-            let half = abs(sin(angle)) * length / 2 + thickness / 2
-            var centerY = half
-            while centerY <= Double(page.height) - half + 1 {
-                let cut = Cut(centerX: length / 2, centerY: centerY, angle: angle, length: length, thickness: thickness)
-                var greenRed: [Double] = [], blueYellow: [Double] = []
-                sample(cut, in: page, across: 6, along: 36) { column, row in
-                    let lab = Self.lab(page.color(Int(column), Int(row)))
-                    greenRed.append(lab.greenRed)
-                    blueYellow.append(lab.blueYellow)
-                }
-                let score = variance(greenRed) + variance(blueYellow)
-                if score > best?.score ?? -1 { best = (score, cut) }
-                centerY += 4
+    /// The row of the page's top half (0 at the top) whose colors vary
+    /// most: the largest variance of CIELAB a* plus b* over a coarse grid.
+    public static func foldRow(in page: StarPixels) -> Int {
+        var best: (score: Double, row: Int)?
+        for row in 0..<foldRows {
+            var greenRed: [Double] = [], blueYellow: [Double] = []
+            sample(foldCut(row, in: page), in: page, across: 6, along: 36) { column, line in
+                let lab = Self.lab(page.color(Int(column), Int(line)))
+                greenRed.append(lab.greenRed)
+                blueYellow.append(lab.blueYellow)
             }
+            let score = variance(greenRed) + variance(blueYellow)
+            if score > best?.score ?? -1 { best = (score, row) }
         }
-        // A page shorter than a band still has its middle.
-        return best?.cut ?? Cut(centerX: length / 2, centerY: Double(page.height) / 2, angle: angles[0],
-                                length: length, thickness: thickness)
+        // Paper and grey words only: nothing to choose by.
+        guard let best, best.score > 1 else { return plainRow }
+        return best.row
+    }
+
+    /// Row `row` of the top half as a band of `page`'s pixels.
+    public static func foldCut(_ row: Int, in page: StarPixels) -> Cut {
+        let width = Double(page.width), thickness = width * foldRow
+        return Cut(centerX: width / 2, centerY: thickness * (Double(row) + 0.5), angle: 0, length: width,
+                   thickness: thickness)
     }
 
     /// The band's pixels, `stripLength` by `stripThickness`, bilinear.

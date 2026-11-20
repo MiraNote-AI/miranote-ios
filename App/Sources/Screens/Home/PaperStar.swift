@@ -37,8 +37,9 @@ enum StarDress {
 /// points, bowed sides, the page's washed colors with a flat tint per
 /// arm, each arm lit on one side and shaded on the other, darker valleys,
 /// a dome highlight from the top left, a rim light, paper grain and a
-/// soft shadow. Every star in the app is this one drawing: the jar's, the
-/// toss's, the fold's and the open's.
+/// soft shadow. Every star at rest is this drawing: the jar's and the
+/// toss's, each in its page's dress. The fold and the open draw their
+/// one big star as design X's `FoldedStar`.
 enum PaperStar {
     /// The ten points: tips at `radius`, valleys at `radius * inner[k]`,
     /// the first tip straight up, turned by `rotation` radians.
@@ -77,10 +78,6 @@ enum PaperStar {
 
     struct Style {
         var shadow: CGFloat = 0
-        /// The hero's deeper shadow (pinch, throw, open).
-        var hero = false
-        /// 1 = full puff light; nil = from how deep the valleys are.
-        var puff: CGFloat?
         var opacity: CGFloat = 1
     }
 
@@ -104,15 +101,6 @@ enum PaperStar {
         }
     }
 
-    // swiftlint:disable:next function_parameter_count
-    static func draw(
-        in context: GraphicsContext, at center: CGPoint, radius: CGFloat, inner: [CGFloat],
-        rotation: CGFloat, paint: StarPaint, style: Style = Style()
-    ) {
-        draw(in: context, at: center, radius: radius, inner: inner, rotation: rotation, dress: .paint(paint),
-             style: style)
-    }
-
     /// Draws the star centered at `center`.
     static func draw( // swiftlint:disable:this function_parameter_count function_body_length
         in context: GraphicsContext, at center: CGPoint, radius: CGFloat, inner: [CGFloat],
@@ -123,7 +111,7 @@ enum PaperStar {
         ctx.translateBy(x: center.x, y: center.y)
         ctx.opacity *= style.opacity
         let average = inner.reduce(0, +) / CGFloat(inner.count)
-        let puff = style.puff ?? min(1, max(0, (0.809 - average) / 0.209))
+        let puff = min(1, max(0, (0.809 - average) / 0.209))
         let p = points(radius: radius, inner: inner, rotation: rotation)
         let outline = path(p, bow: 0.08 * puff, round: 0.07 + 0.03 * puff)
         let R = radius
@@ -132,9 +120,9 @@ enum PaperStar {
             var shadow = ctx
             let s = style.shadow
             shadow.addFilter(.shadow(
-                color: PaperArt.brown.opacity((style.hero ? 0.34 : 0.26) * s),
-                radius: (style.hero ? 14 : R * 0.35) * s / 2,
-                x: R * 0.08 * s, y: (style.hero ? 6 : R * 0.16) * s
+                color: PaperArt.brown.opacity(0.26 * s),
+                radius: R * 0.35 * s / 2,
+                x: R * 0.08 * s, y: R * 0.16 * s
             ))
             shadow.fill(outline, with: .color(Color(hex: 0xE6DCCB)))
         }
@@ -242,8 +230,6 @@ enum PaperArt {
     static let cream = Color(.sRGB, red: 1, green: 252 / 255, blue: 244 / 255)
     static let highlight = Color(.sRGB, red: 1, green: 253 / 255, blue: 246 / 255)
     static let rim = Color(.sRGB, red: 1, green: 251 / 255, blue: 240 / 255)
-    /// The knot's and a strip's back: plain paper.
-    static let paper = Color(hex: 0xEFE6D6)
 
     static func color(_ color: StarColor) -> Color {
         Color(.sRGB, red: color.red / 255, green: color.green / 255, blue: color.blue / 255)

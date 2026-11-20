@@ -1,44 +1,75 @@
 import Foundation
 
-/// A Save's star on its way to the jar (#206, fold demo v4). Times are
-/// milliseconds from the Save tap.
+/// One haptic of a star's fold or open: when (ms), how, how strong.
+public struct StarHaptic: Equatable, Sendable {
+    public enum Style: Equatable, Sendable {
+        case light, medium, rigid, soft
+    }
+
+    public let ms: Double
+    public let style: Style
+    public let intensity: Double
+
+    public init(_ ms: Double, _ style: Style, _ intensity: Double) {
+        self.ms = ms
+        self.style = style
+        self.intensity = intensity
+    }
+}
+
+/// A Save's page folding into a star and into the jar (#206, design X).
+/// Times are milliseconds from the Save tap.
 public enum StarFold {
-    /// The page shrinks to `pageScale` and lifts.
-    public static let shrinkEnd = 180.0
-    /// The strip is cut, lifts and turns level.
-    public static let cutEnd = 400.0
-    /// The strip winds into a pentagon knot.
-    public static let windEnd = 780.0
-    /// The knot is pinched and puffed into the hero star.
-    public static let pinchEnd = 920.0
-    /// The star is thrown at the header jar (overlapping the pinch).
-    public static let throwStart = 880.0
-    /// It lands: the jar squashes, glows and rings.
-    public static let land = 1320.0
-    public static let end = 1620.0
-    /// Haptics of the fold itself; the landing's is the jar's own.
-    public static let haptics = [0.0, 840.0]
-    /// The page's scale on stage while it folds.
-    public static let pageScale = 0.6
-    /// The jar circle swells a little just before the star drops in.
-    public static let swell = 140.0
+    /// The bottom half swings back on the middle crease.
+    public static let halfFoldEnd = 280.0
+    /// The half-page folds up accordion-style onto its band: a strip.
+    public static let pleatsEnd = 600.0
+    /// The strip ties its first loop.
+    public static let tieEnd = 680.0
+    /// Five rolls wind the strip into the knot.
+    public static let windEnd = 1000.0
+    /// The knot is squeezed and puffs into the hero star.
+    public static let puffEnd = 1200.0
+    /// The star arcs into the jar's mouth and drops onto the pile.
+    public static let land = 1440.0
+    /// The cap seats; then the jar docks back into its header chip.
+    public static let dockStart = 1590.0
+    public static let end = 1800.0
+
+    public static let haptics: [StarHaptic] = [
+        StarHaptic(0, .light, 1), StarHaptic(270, .rigid, 0.6), StarHaptic(400, .light, 0.4),
+        StarHaptic(450, .light, 0.4), StarHaptic(580, .rigid, 0.5), StarHaptic(650, .soft, 0.5),
+        StarHaptic(780, .soft, 0.35), StarHaptic(830, .soft, 0.35), StarHaptic(875, .soft, 0.35),
+        StarHaptic(920, .soft, 0.35), StarHaptic(1040, .medium, 0.8), StarHaptic(1440, .rigid, 0.7),
+        StarHaptic(1560, .light, 0.4), StarHaptic(1780, .soft, 0.3)
+    ]
+
+    /// Under Reduce Motion: the page cross-fades to its star (200 ms),
+    /// which fades and shrinks into the header jar (300 ms).
+    public static let fadeToStar = 200.0
+    public static let fadeEnd = 500.0
+    public static let fadeHaptics = [StarHaptic(fadeEnd, .soft, 0.6)]
 
     /// What the fold shows at `ms`.
     public enum Beat: Equatable, Sendable {
-        case shrink, cut, wind, pinch, `throw`
-        /// In the jar: the star rests over the circle a moment, then goes in.
+        case halfFold, pleats, tie, wind, puff, toss
+        /// On the pile: the bounces, the cap seating.
         case landed
+        /// The jar goes back into its header chip.
+        case dock
         case done
     }
 
     public static func beat(at ms: Double) -> Beat {
         switch ms {
-        case ..<shrinkEnd: return .shrink
-        case ..<cutEnd: return .cut
+        case ..<halfFoldEnd: return .halfFold
+        case ..<pleatsEnd: return .pleats
+        case ..<tieEnd: return .tie
         case ..<windEnd: return .wind
-        case ..<throwStart: return .pinch
-        case ..<land: return .throw
-        case ..<end: return .landed
+        case ..<puffEnd: return .puff
+        case ..<land: return .toss
+        case ..<dockStart: return .landed
+        case ..<end: return .dock
         default: return .done
         }
     }
@@ -47,48 +78,65 @@ public enum StarFold {
     public enum Arrival: Equatable, Sendable {
         /// Nothing: the page was a star already, or was not saved.
         case none
-        /// The fold, the throw and the landing.
+        /// The fold, the drop into the jar and its dock.
         case fold
-        /// Under Reduce Motion: the cover slides away and the jar glows.
-        case glow
+        /// Under Reduce Motion: the page cross-fades to its star, which
+        /// fades into the header jar.
+        case fade
     }
 
     /// Only the Save that first makes a page a star -- a new page, or a
     /// draft never saved -- and only onto Home, where the jar is.
     public static func arrival(saved: Bool, wasStar: Bool, onHome: Bool, reduceMotion: Bool) -> Arrival {
         guard saved, !wasStar, onHome else { return .none }
-        return reduceMotion ? .glow : .fold
+        return reduceMotion ? .fade : .fold
     }
 }
 
-/// A held star opening its page (#206, fold demo v4). Times are
-/// milliseconds from the commit, 350 ms into the hold.
+/// A held star opening its page (#206, design X). Times are milliseconds
+/// from the commit, 350 ms into the hold.
 public enum StarUnfold {
-    /// The star rises to the middle, at hero size.
-    public static let riseEnd = 210.0
-    /// The reversed wind unwinds the strip, tilting it to its cut.
-    public static let unwindEnd = 470.0
-    /// The strip docks onto a faint page at its true place.
-    public static let dockEnd = 630.0
-    /// The page unrolls from the strip; then it opens.
-    public static let unrollEnd = 770.0
-    public static let haptics = [0.0, 470.0]
-    /// Under Reduce Motion the page cross-fades in instead.
-    public static let fade = 200.0
+    /// The cap unscrews and lifts away; the ring releases.
+    public static let capEnd = 150.0
+    /// The star rises out of the mouth to hero size.
+    public static let liftEnd = 400.0
+    /// It relaxes back into the knot.
+    public static let unpuffEnd = 490.0
+    /// The knot rolls back out into the strip and unties.
+    public static let unwindEnd = 840.0
+    /// The pleats swing back out of the strip.
+    public static let pleatsEnd = 990.0
+    /// The half with the title and text unfolds last.
+    public static let halfEnd = 1140.0
+    /// The card grows into the reading page.
+    public static let fillEnd = 1390.0
+    /// Readable: the reading page takes over.
+    public static let end = 1400.0
+
+    public static let haptics: [StarHaptic] = [
+        StarHaptic(0, .medium, 0.8), StarHaptic(110, .light, 0.4), StarHaptic(930, .soft, 0.4),
+        StarHaptic(1000, .soft, 0.4), StarHaptic(1130, .rigid, 0.4), StarHaptic(end, .soft, 0.4)
+    ]
+
+    /// Under Reduce Motion the star cross-fades to the reading page.
+    public static let fade = 400.0
 
     /// What the open shows at `ms` after the commit.
     public enum Beat: Equatable, Sendable {
-        case rise, unwind, dock, unroll
-        /// The page has unrolled: it opens.
+        case cap, lift, unpuff, unwind, pleats, half, fill
+        /// Readable: the page itself is up.
         case open
     }
 
     public static func beat(at ms: Double) -> Beat {
         switch ms {
-        case ..<riseEnd: return .rise
+        case ..<capEnd: return .cap
+        case ..<liftEnd: return .lift
+        case ..<unpuffEnd: return .unpuff
         case ..<unwindEnd: return .unwind
-        case ..<dockEnd: return .dock
-        case ..<unrollEnd: return .unroll
+        case ..<pleatsEnd: return .pleats
+        case ..<halfEnd: return .half
+        case ..<end: return .fill
         default: return .open
         }
     }
