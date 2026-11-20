@@ -1154,9 +1154,11 @@ struct CanvasScene: View {
     }
 
     /// Photos landed (Add, Camera, an AI painting): the tool closes and the
-    /// page shows them, the last one selected (F10A).
+    /// page shows them, the last one selected (F10A). A block opened while
+    /// they imported keeps its writing: selecting would end it.
     private func closeImageTool(selecting ids: [CanvasItem.ID]) {
         endImageVisit()
+        guard editor.editingTextItemID == nil else { return }
         editor.select(ids.last)
     }
 

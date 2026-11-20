@@ -684,10 +684,15 @@ extension CanvasViewModel {
     /// Folds the last `count` undo steps into one, the page before the
     /// first of them: the Image tool's Add places several photos, and one
     /// Undo takes them all back (#205 G8). Nothing when fewer were recorded.
-    /// Never while writing: the text session's step count is not adjusted.
+    /// A slow import can land while a block is written: the text session
+    /// counts the joined steps as one too, so its Cancel still finds where
+    /// it began.
     public func joinLastSteps(_ count: Int) {
         guard count > 1, history.count >= count else { return }
         history.removeLast(count - 1)
+        if let steps = sessionSteps {
+            sessionSteps = steps >= count ? steps - (count - 1) : nil
+        }
     }
 
     /// Removes an abandoned husk (e.g. an empty text block) without
