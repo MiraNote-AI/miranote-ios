@@ -144,7 +144,7 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "a cat", "the words stay")
 
         raiseKeyboard(field)
-        let page = point(app.frame.midX, app.buttons["Cancel"].frame.maxY + 40)
+        let page = point(app.frame.midX, app.buttons["nav.leading"].frame.maxY + 40)
         page.tap()
         waitUntilGone(keyboard, "the first tap on the page lowers the keyboard")
         XCTAssertTrue(field.exists, "the panel stays open")
@@ -161,7 +161,7 @@ final class KeyboardDismissUITests: XCTestCase {
         let field = app.textFields["sticker.prompt"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         raiseKeyboard(field)
-        point(app.frame.midX, app.buttons["Cancel"].frame.maxY + 40).tap()
+        point(app.frame.midX, app.buttons["nav.leading"].frame.maxY + 40).tap()
         waitUntilGone(field, "with nothing typed, the first tap on the page goes back to the canvas")
         XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "back on the idle canvas")
     }

@@ -360,7 +360,7 @@ final class DictationOwnershipUITests: XCTestCase {
         app.buttons["mode.sticker"].tap()
         XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5))
         sleep(4)
-        app.buttons["nav.leading"].tap()
+        app.buttons["mode.sticker"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         sleep(1)
         XCTAssertFalse(field.exists, "no writing session on return")

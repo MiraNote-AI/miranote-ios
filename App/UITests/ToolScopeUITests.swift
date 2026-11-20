@@ -30,7 +30,7 @@ final class ToolScopeUITests: XCTestCase {
         samples.tap()
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the Image tool closed on them")
 
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any)["canvas.textEditor"]
@@ -71,7 +71,7 @@ final class ToolScopeUITests: XCTestCase {
         app.buttons["image.library.samples"].tap()
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the Image tool closed on them")
 
         photo.press(forDuration: 0.9)
         XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))

@@ -10,10 +10,10 @@ import SwiftUI
 /// a recorder, Text drops an editable block; Sticker leaves for its panel.
 /// The composer opens the Mira canvas chat (06); a landed change waits on
 /// the result sheet (07); a dragged element floats above the dock over the
-/// composer's delete zone (22). Header is Home (Canvas while a tool is open
-/// in place) / undo / Save; Save still files the page and leaves. Writing
-/// and Background grey Home and Save (#205), picking photos reads Cancel /
-/// Add, a lifted photo Cancel / Done.
+/// composer's delete zone (22). Header is Home / undo / Save; Save still
+/// files the page and leaves. Writing, Background and the Image tool grey
+/// Home and Save (#205); a lifted photo or an edited sticker reads Cancel /
+/// Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -114,8 +114,6 @@ struct CanvasScene: View {
     @State private var recentsFrame: CGRect = .zero
     /// Bumped when a visit or a pick is left; a slower import checks it.
     @State private var importGeneration = 0
-    /// The photos this Image visit placed: its Cancel takes them back.
-    @State private var placedThisVisit: [CanvasItem.ID] = []
     @State private var imageNotice: String?
     /// The Image tool's AI Image words, paintings and their guard.
     @State private var aiImage = AIImageDraft()
@@ -429,11 +427,8 @@ struct CanvasScene: View {
             onTrailing: header.onTrailing,
             onUndo: headerUndo,
             undoEnabled: headerUndoEnabled,
-            // Writing ends first (Q3B, R2B), and Background closes first
-            // (D5A, F1A): Home and Save wait for them.
-            leadingEnabled: !writing && !backgroundPanelOpen,
-            // The picks importing are Add's: a second tap waits it out.
-            trailingEnabled: !writing && !backgroundPanelOpen && !(imagePhase == .library && importingPicks),
+            leadingEnabled: header.leadingEnabled,
+            trailingEnabled: header.trailingEnabled,
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
             pageInert: editingImageItem != nil,
@@ -675,8 +670,7 @@ struct CanvasScene: View {
                     imageNotice = String(appCopy: "That photo couldn't be saved. Try again?")
                     return
                 }
-                placedThisVisit.append(id)
-                imagePhase = .placed
+                closeImageTool(selecting: [id])
             }
             .ignoresSafeArea()
         }
@@ -981,8 +975,7 @@ struct CanvasScene: View {
         attachedSound = nil
         let backgroundWasOpen = backgroundPanelOpen
         backgroundPanelOpen = false
-        // Another tool keeps the photos this Image visit placed (as Add);
-        // the Image tool itself toggles shut only from its first sheet.
+        // The Image tool toggles shut only from its first sheet.
         let imageWasOpen = imagePhase
         if mode != .image { endImageVisit() }
         switch mode {
@@ -1016,12 +1009,12 @@ struct CanvasScene: View {
             switch imageWasOpen {
             case nil: openImageTool()
             case .choose: endImageVisit()
-            // Picking or placed: the tap brings back the first sheet, and
-            // leaves a pick still importing (it must not land afterwards).
+            // Picking: the tap brings back the first sheet, and leaves a
+            // pick still importing (it must not land afterwards).
             case .library:
                 cancelImport()
                 imagePhase = .choose
-            case .placed, .generate: imagePhase = .choose
+            case .generate: imagePhase = .choose
             }
         case .sticker:
             cancelRecording()
@@ -1042,23 +1035,13 @@ struct CanvasScene: View {
                      onDimmedLayout: { if let layoutBlocked { flashHint(layoutBlocked) } }, onSelect: handleTool)
     }
 
-    /// A tool open in place over the canvas (photo or sticker editing).
-    /// The handoff's leading pill then reads "Canvas" and folds the tool
-    /// away; on the bare canvas it is the way Home.
-    private var toolOpen: Bool {
-        editingImageItem != nil || editingStickerItem != nil || imagePhase != nil
-    }
-
-    private func closeTool() {
-        endImageVisit()
-        if let id = editingImageItem {
-            revealItem = id
-            editingImageItem = nil
-        }
-        if let id = editingStickerItem {
-            revealItem = id
-            editingStickerItem = nil
-        }
+    /// Edit sticker's Cancel and Done: an edit replaces the sticker and
+    /// closes the panel as it lands, so there is nothing to keep or take
+    /// back here (a running one's result is ignored when it lands).
+    private func closeStickerEditor() {
+        guard let id = editingStickerItem else { return }
+        revealItem = id
+        editingStickerItem = nil
     }
 
     /// The Background tool's Apply (owner, TestFlight 1.0(6)). With no words
@@ -1096,58 +1079,37 @@ struct CanvasScene: View {
         let trailing: String
         let onLeading: () -> Void
         let onTrailing: () -> Void
+        var leadingEnabled = true
+        var trailingEnabled = true
     }
 
-    /// The handoff's labels per state: a lifted photo Cancel / Done (27),
-    /// picking and placed photos Cancel / Add (24-29), any other open tool
-    /// Canvas / Save (23), the bare canvas, writing and Background Home /
-    /// Save (the two greyed while writing or in Background, #205).
+    /// The labels per state (#205 spec 1): a lifted photo or an edited
+    /// sticker Cancel / Done (E4B, F3A), trying layouts Cancel / Done; the
+    /// bare canvas Home / Save, greyed while writing, Background or the
+    /// Image tool is open (R2B, F1A) -- the tool closes first.
     private var header: Header {
         if layoutOriginal != nil {
             return Header(leading: "Cancel", trailing: "Done", onLeading: cancelLayout, onTrailing: keepLayout)
-        }
-        // Writing, or Background open at any level (D5A, F1A): Home and
-        // Save, greyed.
-        if writing || backgroundPanelOpen {
-            return Header(leading: "Home", trailing: "Save", onLeading: actions.leading, onTrailing: actions.done)
         }
         if editingImageItem != nil {
             return Header(leading: "Cancel", trailing: "Done",
                           onLeading: cancelPhotoEdit, onTrailing: closePhotoEditor)
         }
-        switch imagePhase {
-        case .library:
-            // Cancel goes straight back to the canvas, as the other tools'
-            // leading pill does (#167); with photos placed this visit it
-            // shows them, so they can still be kept or taken back.
-            return Header(leading: "Cancel", trailing: "Add", onLeading: {
-                if placedThisVisit.isEmpty {
-                    endImageVisit()
-                } else {
-                    libraryPicks = []
-                    cancelImport()
-                    imagePhase = .placed
-                }
-            }, onTrailing: addPicks)
-        case .placed:
-            return Header(leading: "Cancel", trailing: "Add",
-                          onLeading: cancelImageVisit, onTrailing: endImageVisit)
-        case .generate:
-            // Cancel lets the paintings go; Add waits for a pick.
-            return Header(leading: "Cancel", trailing: "Add", onLeading: {
-                aiImage.discard()
-                imagePhase = placedThisVisit.isEmpty ? .choose : .placed
-            }, onTrailing: {
-                if aiImage.holdsWork {
-                    aiImage.notice = Self.aiImageWaiting
-                } else {
-                    endImageVisit()
-                }
-            })
-        case .choose, nil:
-            return Header(leading: toolOpen ? "Canvas" : "Home", trailing: "Save",
-                          onLeading: toolOpen ? closeTool : actions.leading, onTrailing: actions.done)
+        if editingStickerItem != nil {
+            return Header(leading: "Cancel", trailing: "Done",
+                          onLeading: closeStickerEditor, onTrailing: closeStickerEditor)
         }
+        // AI paintings waiting to be picked: as a made sticker waits (H2),
+        // the leading pill is Cancel and lets them go.
+        if imagePhase == .generate, aiImage.holdsWork {
+            return Header(leading: "Cancel", trailing: "Save", onLeading: {
+                aiImage.discard()
+                imagePhase = .choose
+            }, onTrailing: actions.done, trailingEnabled: false)
+        }
+        let greyed = writing || backgroundPanelOpen || imagePhase != nil
+        return Header(leading: "Home", trailing: "Save", onLeading: actions.leading, onTrailing: actions.done,
+                      leadingEnabled: !greyed, trailingEnabled: !greyed)
     }
 
     /// The header's undo: while a photo is lifted, only that visit's own
@@ -1170,40 +1132,52 @@ struct CanvasScene: View {
         return editingStickerItem == nil && editor.canUndo
     }
 
-    // MARK: Image tool (handoff screens 23-26, 29)
+    // MARK: Image tool (handoff screens 23-26)
 
     private var placer: PhotoPlacer { PhotoPlacer(editor: editor, studio: imageStudio) }
 
     private func openImageTool() {
         imageNotice = nil
         libraryPicks = []
-        placedThisVisit = []
         cancelImport()
         imagePhase = .choose
     }
 
-    /// Closes the Image tool keeping what it placed (Add, another tool).
-    /// Never with an AI image waiting: those paths are guarded first.
+    /// Closes the Image tool (another tool, a tap on the page). Never with
+    /// an AI image waiting: those paths are guarded first.
     private func endImageVisit() {
         imagePhase = nil
         libraryPicks = []
-        placedThisVisit = []
         imageNotice = nil
         aiImage.discard()
         cancelImport()
     }
 
+    /// Photos landed (Add, Camera, an AI painting): the tool closes and the
+    /// page shows them, the last one selected (F10A).
+    private func closeImageTool(selecting ids: [CanvasItem.ID]) {
+        endImageVisit()
+        editor.select(ids.last)
+    }
+
+    /// An import landed: with system picker picks queued behind it the tool
+    /// stays open (Home and Save greyed) until the last one lands.
+    private func importLanded(_ ids: [CanvasItem.ID]) {
+        guard queuedImports.isEmpty else { return }
+        closeImageTool(selecting: ids)
+    }
+
     static var aiImageWaiting: String { String(appCopy: "Pick an image first, or Cancel to let it go.") }
 
     /// A candidate tapped: it lands like a library photo (aspect-true, one
-    /// undo step, looked at by vision) and the tool shows it placed (25).
+    /// undo step, looked at by vision) and the tool closes on it (G9).
     private func placeAIImage(_ index: Int) {
-        let placed = aiImage.pick(index) { data, prompt in
-            guard let id = placer.place(data, name: prompt) else { return false }
-            placedThisVisit.append(id)
-            return true
+        var placed: CanvasItem.ID?
+        aiImage.pick(index) { data, prompt in
+            placed = placer.place(data, name: prompt)
+            return placed != nil
         }
-        if placed { imagePhase = .placed }
+        if let placed { closeImageTool(selecting: [placed]) }
     }
 
     /// A slow import (iCloud originals) still loading belongs to a visit,
@@ -1212,12 +1186,6 @@ struct CanvasScene: View {
         importGeneration += 1
         importingPicks = false
         queuedImports = []
-    }
-
-    /// Cancel after placing: this visit's photos come off as one step.
-    private func cancelImageVisit() {
-        editor.remove(itemIDs: placedThisVisit)
-        endImageVisit()
     }
 
     @ViewBuilder private var toolSheet: some View {
@@ -1263,14 +1231,14 @@ struct CanvasScene: View {
                     importing: importingPicks,
                     onEditing: editPick,
                     onSystemPicks: { items in
-                        importPicks(load: { await PhotoPlacer.data(for: items) }) { _ in imagePhase = .placed }
+                        importPicks(load: { await PhotoPlacer.data(for: items) }, then: importLanded)
                     },
                     onDrag: { photoDrag.drag = $0 },
                     onDrop: dropPhoto
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { recentsFrame = $0 }
                 .transition(.opacity)
-            case .placed, nil:
+            case nil:
                 EmptyView()
             }
         }
@@ -1301,36 +1269,35 @@ struct CanvasScene: View {
                     aiImage.generate(with: imageStudio)
                 }
             )
-        case .library, .placed:
+        case .library:
+            // The only Add (E3A): the picks importing are its, so a second
+            // tap waits them out.
             ToolComposer(
                 placeholder: "Add selected photos to canvas",
                 action: "Add",
-                actionEnabled: phase == .placed || (!libraryPicks.isEmpty && !importingPicks),
+                actionEnabled: !libraryPicks.isEmpty && !importingPicks,
                 fieldID: "image.composer",
                 actionID: "image.composer.add",
-                onAction: {
-                    // Placed: Add opens the grid for more.
-                    if phase == .placed { imagePhase = .library } else { addPicks() }
-                }
+                onAction: addPicks
             )
         }
     }
 
     /// The grid's picks are imported once: while they load, Add and
     /// Editing wait (only the system picker's picks queue behind them).
+    /// They land and the tool closes on them (F10A).
     private func addPicks() {
         guard !libraryPicks.isEmpty, !importingPicks else { return }
-        importPicks(load: libraryLoad) { _ in imagePhase = .placed }
+        importPicks(load: libraryLoad, then: importLanded)
     }
 
-    /// Screen 26: one pick, "Editing" -- it lands, and lifts straight into
-    /// the photo editor; Done returns to the placed state (29).
+    /// Screen 26: one pick, "Editing" -- it lands, the tool closes, and it
+    /// lifts straight into the photo editor; Done returns to the page.
     private func editPick() {
         guard !importingPicks else { return }
         importPicks(load: libraryLoad) { ids in
-            imagePhase = .placed
+            closeImageTool(selecting: ids)
             guard let id = ids.first else { return }
-            editor.select(id)
             openPhotoEditor(id)
         }
     }
@@ -1345,11 +1312,10 @@ struct CanvasScene: View {
         Task {
             let data = await library.data(for: [drag.photo]).first
             guard generation == importGeneration, imagePhase == .library else { return }
-            guard let data, let id = placer.place(data, name: "Library photo", at: spot) else {
+            guard let data, placer.place(data, name: "Library photo", at: spot) != nil else {
                 imageNotice = String(appCopy: "Those photos couldn't be imported. Try different ones?")
                 return
             }
-            placedThisVisit.append(id)
         }
     }
 
@@ -1393,7 +1359,6 @@ struct CanvasScene: View {
                 imageNotice = String(appCopy: "Those photos couldn't be imported. Try different ones?")
                 imagePhase = .choose
             } else {
-                placedThisVisit += ids
                 then(ids)
                 // They land under everything else on the page: bring the
                 // first one into view, wherever the page was scrolled (#167).
@@ -1408,8 +1373,9 @@ struct CanvasScene: View {
 
     private func placeSamples() {
         #if DEBUG
-        placedThisVisit += placer.placeSamples()
-        imagePhase = .placed
+        // Unselected, as the tests that ask Mira about the page expect.
+        _ = placer.placeSamples()
+        closeImageTool(selecting: [])
         #endif
     }
 

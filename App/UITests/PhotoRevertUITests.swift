@@ -25,7 +25,7 @@ final class PhotoRevertUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    /// Samples land two photos and the Image tool stays open (screen 25).
+    /// Samples land two photos and the Image tool closes on them (F10A).
     private func placeSamples() -> XCUIElement {
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
@@ -84,7 +84,7 @@ final class PhotoRevertUITests: XCTestCase {
 
         app.buttons["mode.sticker"].tap()
         XCTAssertTrue(app.buttons["sticker.tab.make"].waitForExistence(timeout: 5))
-        app.buttons["nav.leading"].tap()
+        app.buttons["mode.sticker"].tap()
         XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
 
         openEditor(photo)
@@ -216,9 +216,7 @@ final class PhotoRevertUITests: XCTestCase {
         openEditor(photo)
         app.buttons["photo.filter.bw"].tap()
         app.buttons["photo.composer.action"].tap()
-        let add = app.buttons["nav.trailing"]
-        XCTAssertTrue(add.waitForExistence(timeout: 5))
-        add.tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Done returns to the page")
 
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any)["canvas.textEditor"]
@@ -243,11 +241,8 @@ final class PhotoRevertUITests: XCTestCase {
         let photo = placeSamples()
         openEditor(photo)
         app.buttons["photo.composer.action"].tap()
-        // The header's Add keeps the placed photos and closes the Image tool.
-        let add = app.buttons["nav.trailing"]
-        XCTAssertTrue(add.waitForExistence(timeout: 5))
-        XCTAssertEqual(add.label, "Add")
-        add.tap()
+        // Done returns to the page: the Image tool closed as the photos landed.
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
 
         photo.tap()
         app.askMira("make the photo black and white")

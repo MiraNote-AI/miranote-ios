@@ -150,7 +150,7 @@ final class TextMotionRecordingUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "image.library.photo.\(index)").firstMatch.tap()
         }
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the Image tool")
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any).matching(identifier: "canvas.textEditor").firstMatch

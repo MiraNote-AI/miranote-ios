@@ -33,7 +33,7 @@ final class TextVisibilityUITests: XCTestCase {
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
         for index in 0..<3 { any("image.library.photo.\(index)").tap() }
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the Image tool")
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
     }
 

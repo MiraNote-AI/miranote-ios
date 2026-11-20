@@ -75,6 +75,29 @@ final class StickerEditUITests: XCTestCase {
         XCTAssertFalse(app.buttons["editor.undo"].isEnabled, "the panel's Undo would take the sticker away")
     }
 
+    /// F3A: Edit sticker's header is Cancel / Undo / Done; either pill
+    /// closes the panel back to the page, the sticker as it was.
+    func testEditStickersHeaderIsCancelAndDone() {
+        startMemory()
+        placeOneSticker()
+        let sticker = app.descendants(matching: .any)
+            .matching(identifier: "element.sticker").firstMatch
+        let field = app.textFields["sticker.ai.instruction"]
+        for pill in ["nav.leading", "nav.trailing"] {
+            sticker.press(forDuration: 1.1)
+            let entry = app.buttons["Edit sticker"]
+            XCTAssertTrue(entry.waitForExistence(timeout: 5))
+            entry.tap()
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
+            XCTAssertEqual(app.buttons["nav.trailing"].label, "Done")
+            app.buttons[pill].tap()
+            XCTAssertTrue(field.waitForNonExistence(timeout: 5), "\(pill) closes the panel")
+            XCTAssertEqual(app.buttons["nav.leading"].label, "Home")
+            XCTAssertTrue(sticker.exists, "the sticker stays")
+        }
+    }
+
     func testLongPressPanelEditsTheSticker() {
         startMemory()
         placeOneSticker()
@@ -102,7 +125,7 @@ final class StickerEditUITests: XCTestCase {
     }
 
     /// A result that lands after Edit sticker closes is dropped (Meng's probe,
-    /// #156 review): the header's Canvas closes the panel mid-edit, the slow
+    /// #156 review): the header's Cancel closes the panel mid-edit, the slow
     /// edit lands and swaps nothing, so one Undo takes back the placement.
     func testAnEditLandingAfterThePanelClosesIsDropped() {
         app.terminate()
@@ -123,7 +146,7 @@ final class StickerEditUITests: XCTestCase {
         field.typeText("make it blue")
         app.buttons["sticker.ai.run"].tap()
         app.buttons["nav.leading"].tap()
-        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Canvas closes the panel, the edit still running")
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Cancel closes the panel, the edit still running")
 
         sleep(6)
         app.buttons["editor.undo"].tap()
