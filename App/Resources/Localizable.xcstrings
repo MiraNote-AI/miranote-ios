@@ -3158,6 +3158,18 @@
         }
       }
     },
+    "Kept without your name" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading over what the server keeps but no longer links to the user.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名保留"
+          }
+        }
+      }
+    },
     "Keyboard" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -8308,14 +8320,26 @@
         }
       }
     },
-    "Your MiraNote account, your AI usage, and your Sign in with Apple link to MiraNote." : {
+    "Your AI usage records stop being linked to you." : {
+      "comment" : "Settings > Delete account (api #95 step 6): what the server keeps with user_id set to null (api #116).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 AI 使用记录将不再与你关联。"
+          }
+        }
+      }
+    },
+    "Your MiraNote account and your Sign in with Apple link to MiraNote." : {
       "comment" : "Settings > Delete account (api #95 step 6): what the server deletes.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的 MiraNote 账户、AI 使用记录，以及 MiraNote 与“通过 Apple 登录”的关联。"
+            "value" : "你的 MiraNote 账户，以及 MiraNote 与“通过 Apple 登录”的关联。"
           }
         }
       }
