@@ -260,6 +260,72 @@ final class UserTokenTests: XCTestCase {
         _ = try? await services.textTransform.transform("tea", mode: .expand)
         XCTAssertEqual(shown, 0)
     }
+
+    // MARK: Plus the server has not heard of
+
+    /// The free limit until the server is told about Plus; counts tries.
+    private final class FreeUntilSynced: TextTransformService, @unchecked Sendable {
+        var synced = false
+        var tries = 0
+        func transform(_ text: String, mode: TextTransformMode) async throws -> String {
+            tries += 1
+            guard synced else { throw BackendError.limitReached(AILimit(feature: "expand", plan: "free")) }
+            return "expanded"
+        }
+    }
+
+    private func services(_ text: TextTransformService, _ consent: AIConsent) -> ServiceContainer {
+        ServiceContainer(
+            textTransform: text, voiceTranscription: MockVoiceTranscriptionService(),
+            stickerGeneration: MockStickerGenerationService(), styleTransfer: MockStyleTransferService()
+        ).asking(consent)
+    }
+
+    /// A sync lost offline after a purchase: the phone has Plus, the
+    /// server answers the free limit. The server is told, and the action
+    /// tried once more instead of opening the paywall.
+    func testAFreeLimitWithPlusOnThePhoneSyncsAndTriesOnceMore() async throws {
+        let consent = consent()
+        let text = FreeUntilSynced()
+        var shown = 0
+        consent.limitReached = { _ in shown += 1 }
+        consent.syncPlus = {
+            text.synced = true
+            return true
+        }
+        let result = try await services(text, consent).textTransform.transform("tea", mode: .expand)
+        XCTAssertEqual(result, "expanded")
+        XCTAssertEqual(text.tries, 2)
+        XCTAssertEqual(shown, 0)
+    }
+
+    func testAFreeLimitAfterTheSyncShowsThePaywallWithoutAThirdTry() async {
+        let consent = consent()
+        let text = FreeUntilSynced()
+        var syncs = 0
+        var shown = 0
+        consent.limitReached = { _ in shown += 1 }
+        consent.syncPlus = {
+            syncs += 1
+            return true
+        }
+        _ = try? await services(text, consent).textTransform.transform("tea", mode: .expand)
+        XCTAssertEqual(syncs, 1)
+        XCTAssertEqual(text.tries, 2)
+        XCTAssertEqual(shown, 1)
+    }
+
+    /// No Plus on the phone, or the sync failed: the paywall at once.
+    func testAFreeLimitWithoutPlusOnThePhoneDoesNotTryAgain() async {
+        let consent = consent()
+        let text = FreeUntilSynced()
+        var shown = 0
+        consent.limitReached = { _ in shown += 1 }
+        consent.syncPlus = { false }
+        _ = try? await services(text, consent).textTransform.transform("tea", mode: .expand)
+        XCTAssertEqual(text.tries, 1)
+        XCTAssertEqual(shown, 1)
+    }
 }
 
 /// What the phone counts as Plus (api #95 step 4).

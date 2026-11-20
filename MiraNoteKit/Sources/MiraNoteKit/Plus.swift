@@ -107,6 +107,20 @@ public final class PlusStore {
         return isPlus
     }
 
+    /// With Plus on the phone, tells the server; whether it took it. A
+    /// free limit asks this first (`AIConsent.syncPlus`).
+    public func syncIfPlus() async -> Bool {
+        // A plan that lapsed while the app was open sends no update.
+        await refreshEntitlement()
+        guard isPlus else { return false }
+        do {
+            try await syncWithServer()
+            return true
+        } catch {
+            return false
+        }
+    }
+
     public func refreshEntitlement() async {
         var facts: [PlusEntitlement.Facts] = []
         for await result in Transaction.currentEntitlements {
