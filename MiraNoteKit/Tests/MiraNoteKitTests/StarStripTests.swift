@@ -1,8 +1,8 @@
 import XCTest
 @testable import MiraNoteKit
 
-/// #206: a star's strip is the most colorful band of its page at 30
-/// degrees; a text-only page's is calm paper.
+/// #206: a star's strip is the most colorful row of its page's top
+/// half; a text-only page's is calm paper.
 final class StarStripTests: XCTestCase {
     private let paper = StarColor(244, 238, 226)
     private let red = StarColor(220, 40, 50)
@@ -19,48 +19,48 @@ final class StarStripTests: XCTestCase {
         return page
     }
 
-    /// Red and blue stripes inside the band through (98, `middle`) at
-    /// `angle`.
-    private func band(middle: Double, angle: Double) -> (Int, Int) -> StarColor? {
-        { column, row in
-            let dx = Double(column) - 98, dy = Double(row) - middle
-            let across = -dx * sin(angle) + dy * cos(angle)
-            let along = dx * cos(angle) + dy * sin(angle)
-            guard abs(across) < 14 else { return nil }
-            return Int((along + 200) / 12).isMultiple(of: 2) ? self.red : self.blue
+    /// The top half's rows on a 196 px page: 38.1 px each.
+    private let row = 196.0 * 70 / 360
+
+    /// Red and blue stripes across fold row `index`.
+    private func stripes(inRow index: Int) -> (Int, Int) -> StarColor? {
+        { column, line in
+            guard Double(line) >= self.row * Double(index) + 2, Double(line) < self.row * Double(index + 1) - 2
+            else { return nil }
+            return (column / 12).isMultiple(of: 2) ? self.red : self.blue
         }
     }
 
-    func testTheCutFollowsTheColorfulBandDownToTheRight() {
-        let cut = StarStrip.colorfulCut(in: page(band(middle: 180, angle: .pi / 6)))
-        XCTAssertEqual(cut.angle, .pi / 6, accuracy: 0.001)
-        XCTAssertEqual(cut.centerY, 180, accuracy: 4)
+    func testThePageFoldsOntoItsMostColorfulRow() {
+        for index in 0..<4 {
+            XCTAssertEqual(StarStrip.foldRow(in: page(stripes(inRow: index))), index, "stripes in row \(index)")
+        }
+        let cut = StarStrip.foldCut(2, in: page { _, _ in nil })
+        XCTAssertEqual(cut.angle, 0)
         XCTAssertEqual(cut.length, 196)
-        XCTAssertEqual(cut.thickness, 196 / 6, accuracy: 0.001)
-    }
-
-    func testTheCutFollowsTheColorfulBandUpToTheRight() {
-        let cut = StarStrip.colorfulCut(in: page(band(middle: 100, angle: -.pi / 6)))
-        XCTAssertEqual(cut.angle, -.pi / 6, accuracy: 0.001)
-        XCTAssertEqual(cut.centerY, 100, accuracy: 4)
+        XCTAssertEqual(cut.thickness, row, accuracy: 0.001)
+        XCTAssertEqual(cut.centerY, row * 2.5, accuracy: 0.001)
     }
 
     /// Dark text lines vary in lightness only: a small sticker's color
     /// wins over a page of words.
     func testColorBeatsGreyWords() {
-        let cut = StarStrip.colorfulCut(in: page { column, row in
-            if (150..<175).contains(row), (20..<60).contains(column) { return StarColor(240, 180, 30) }
-            if (150..<175).contains(row), (60..<100).contains(column) { return StarColor(30, 150, 90) }
-            return row % 10 < 3 ? StarColor(40, 40, 40) : nil
+        let folded = StarStrip.foldRow(in: page { column, line in
+            if (125..<140).contains(line), (20..<60).contains(column) { return StarColor(240, 180, 30) }
+            if (125..<140).contains(line), (60..<100).contains(column) { return StarColor(30, 150, 90) }
+            return line % 10 < 3 ? StarColor(40, 40, 40) : nil
         })
-        // The band's middle line passes over the sticker.
-        let atSticker = cut.centerY + (40 - cut.centerX) * tan(cut.angle)
-        XCTAssertTrue((140..<185).contains(atSticker), "band at x=40 is y=\(atSticker)")
+        XCTAssertEqual(folded, 3, "the sticker's row")
     }
 
-    func testTheStripIsTheBandsPixels() {
-        let source = page(band(middle: 128, angle: .pi / 6))
-        let strip = StarStrip.strip(StarStrip.colorfulCut(in: source), from: source)
+    func testAPlainPageFoldsOntoItsSecondRow() {
+        XCTAssertEqual(StarStrip.foldRow(in: page { _, _ in nil }), StarStrip.plainRow)
+        XCTAssertEqual(StarStrip.plainRow, 1)
+    }
+
+    func testTheStripIsTheRowsPixels() {
+        let source = page(stripes(inRow: 0))
+        let strip = StarStrip.strip(StarStrip.foldCut(0, in: source), from: source)
         XCTAssertEqual(strip.width, 192)
         XCTAssertEqual(strip.height, 32)
         let middle = (0..<192).map { strip.color($0, 16) }
@@ -127,6 +127,21 @@ final class StarStripTests: XCTestCase {
             XCTAssertGreaterThan(tint.red, tint.blue)
             XCTAssertEqual(tint.blue, look.tints[0].blue, accuracy: 4)
         }
+    }
+
+    /// A page of words on a peach backdrop wears that peach, washed toward
+    /// paper, not the boosted orange a photo's band gets.
+    func testACalmLookKeepsThePagesTint() {
+        let peach = StarColor(240, 190, 150)
+        let calm = StarStrip.look(StarPixels(width: 192, height: 32, fill: peach), calm: true)
+        let boosted = StarStrip.look(StarPixels(width: 192, height: 32, fill: peach))
+        let washed = peach.mixed(with: StarStrip.paper, 0.16)
+        for tint in calm.tints + [calm.average] {
+            XCTAssertEqual(tint.red, washed.red, accuracy: 2)
+            XCTAssertEqual(tint.green, washed.green, accuracy: 2)
+            XCTAssertEqual(tint.blue, washed.blue, accuracy: 2)
+        }
+        XCTAssertLessThan(boosted.average.blue, calm.average.blue - 20, "a band's look is louder")
     }
 
     /// CSS saturate: grey stays grey, 1 changes nothing, more pushes away

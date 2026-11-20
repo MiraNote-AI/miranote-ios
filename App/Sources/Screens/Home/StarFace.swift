@@ -1,12 +1,13 @@
+import CoreImage
 import MiraNoteKit
 import SwiftUI
 import UIKit
 
 /// A page's star (#206): a strip of the page wound into a lucky star. At
-/// Save the page's top is cut (`StarStrip`, the most colorful band) and
+/// Save the page's top is read for its most colorful row (`StarStrip`) and
 /// the star's dress -- its washed colors, unlit and upright
 /// (`PaperStar.dressing`) -- is baked once and kept by page id in
-/// Caches/star-dress; the light is drawn over it live, so a turned star
+/// Caches/star-dress-x; the light is drawn over it live, so a turned star
 /// keeps its light from the top left. A page with a photo, a sticker or a
 /// photo backdrop gives its most colorful band; a page of words gives a
 /// calm paper star. Pages from before are baked when the jar first shows
@@ -31,7 +32,8 @@ enum StarFace {
     }
 
     private static var directory: URL {
-        caches.appendingPathComponent("star-dress", isDirectory: true)
+        // -x: design X re-dresses the calm stars of pages of words.
+        caches.appendingPathComponent("star-dress-x", isDirectory: true)
     }
 
     /// Where part A of #206 kept its lit stars: swept, no longer read.
@@ -117,55 +119,82 @@ enum StarFace {
         try? FileManager.default.removeItem(at: file(id))
     }
 
-    /// The page ready to fold or unfold: its top at screen resolution,
-    /// the cut, the strip and the star's paint.
+    /// The page ready to fold or unfold (design X): the page as reading
+    /// mode shows it at screen resolution, the row of its top half it
+    /// folds up onto, that row as a strip, the strip softened for the
+    /// star's faces, and the star's paint.
     static func paper(for memory: Memory) async -> StarPaper? {
         let scale = UITraitCollection.current.displayScale
-        guard let page = render(memory, scale: scale) else { return nil }
-        let (cut, look) = await cutting(memory, page)
-        let toPage = MiraNoteConfig.pageWidth / CGFloat(snapshot.width)
-        let center = CGPoint(x: cut.centerX * toPage, y: cut.centerY * toPage)
-        let length = cut.length * toPage, thickness = cut.thickness * toPage
-        let strip = UIGraphicsImageRenderer(size: CGSize(width: length, height: thickness)).image { renderer in
-            let context = renderer.cgContext
-            UIColor(Color(hex: 0xF4EEE3)).setFill()
-            context.fill(CGRect(x: 0, y: 0, width: length, height: thickness))
-            context.translateBy(x: length / 2, y: thickness / 2)
-            context.rotate(by: -cut.angle)
-            context.translateBy(x: -center.x, y: -center.y)
-            UIImage(cgImage: page).draw(in: CGRect(origin: .zero, size: pageTop))
-        }
-        let margin = StarPaper.shadowMargin
-        // Soft enough to bake at 1x: a 50 pt blur at 3x costs the Save.
-        let flat = UIGraphicsImageRendererFormat()
-        flat.scale = 1
-        let shadow = UIGraphicsImageRenderer(
-            size: CGSize(width: pageTop.width + 2 * margin, height: pageTop.height + 2 * margin), format: flat
-        ).image { renderer in
-            let context = renderer.cgContext
-            context.setShadow(offset: CGSize(width: 0, height: 20), blur: 50,
-                              color: UIColor(red: 40 / 255, green: 28 / 255, blue: 16 / 255, alpha: 0.25).cgColor)
-            UIColor(Color(hex: 0xF4EEE3)).setFill()
-            UIBezierPath(roundedRect: CGRect(x: margin, y: margin, width: pageTop.width, height: pageTop.height),
-                         cornerRadius: 30).fill()
-        }
+        let height = foldHeight(memory)
+        guard let page = render(memory, height: height, scale: scale),
+              let top = page.cropping(to: CGRect(x: 0, y: 0, width: CGFloat(page.width),
+                                                 height: (pageTop.height * scale).rounded())) else { return nil }
+        let (row, look) = await cutting(memory, top)
+        let tile = StarPaper.tile * scale
+        guard let band = page.cropping(to: CGRect(x: 0, y: (CGFloat(row) * tile).rounded(),
+                                                  width: CGFloat(page.width), height: tile.rounded()))
+        else { return nil }
+        let face = await Task.detached(priority: .userInitiated) { soften(band, scale: scale) }.value
         return StarPaper(
-            page: Image(decorative: page, scale: scale), pageSize: pageTop,
-            cutCenter: center, cutAngle: cut.angle, stripLength: length, stripThickness: thickness,
-            strip: Image(uiImage: strip), paint: StarPaint(look), pageShadow: Image(uiImage: shadow)
+            page: Image(decorative: page, scale: scale), fullHeight: height, row: row,
+            strip: Image(decorative: band, scale: scale), face: Image(decorative: face ?? band, scale: scale),
+            paint: StarPaint(look), shadow: Image(uiImage: pageShadow)
         )
     }
 
-    /// The most colorful band of the page's top, and the star's look from
-    /// it (calm paper for a page of words), worked out off the main actor.
-    private static func cutting(_ memory: Memory, _ page: CGImage) async -> (cut: StarStrip.Cut, look: StarLook) {
+    /// How much of the page the fold draws: its top 560, and below that as
+    /// far as reading mode shows it on this screen.
+    private static func foldHeight(_ memory: Memory) -> CGFloat {
+        let window = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first
+        let screen = window?.bounds.size ?? CGSize(width: 402, height: 874)
+        let shown = (screen.height - OpenUnfold.readingTop) / CanvasCard.pageScale(rowWidth: screen.width)
+        return min(StaticPageView.contentHeight(of: memory), max(StarPaper.height, shown.rounded(.up)))
+    }
+
+    /// The band blurred and a little brighter: the faces' colors without
+    /// the photo's detail.
+    nonisolated private static func soften(_ band: CGImage, scale: CGFloat) -> CGImage? {
+        let source = CIImage(cgImage: band)
+        let soft = source.clampedToExtent()
+            .applyingGaussianBlur(sigma: 2.4 * scale)
+            .applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1.2])
+            .applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: 0.07])
+            .cropped(to: source.extent)
+        return softener.createCGImage(soft, from: source.extent)
+    }
+
+    nonisolated private static let softener = CIContext()
+
+    /// The page's soft warm shadow, drawn once: 70 pt round a 360 x 560
+    /// page, stretched to what the fold shows.
+    private static let pageShadow: UIImage = {
+        let margin = StarPaper.shadowMargin
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let size = CGSize(width: StarPaper.width + 2 * margin, height: StarPaper.height + 2 * margin)
+        return UIGraphicsImageRenderer(size: size, format: format).image { renderer in
+            let context = renderer.cgContext
+            // Drawn far off and its shadow thrown back in: only the blur shows.
+            context.setShadow(offset: CGSize(width: 0, height: 10_000), blur: 32,
+                              color: UIColor(red: 150 / 255, green: 82 / 255, blue: 62 / 255, alpha: 0.2).cgColor)
+            UIColor.black.setFill()
+            UIBezierPath(roundedRect: CGRect(x: margin, y: margin - 10_000, width: StarPaper.width,
+                                             height: StarPaper.height),
+                         cornerRadius: StarPaper.corner).fill()
+        }
+    }()
+
+    /// The row of the page's top half it folds onto, and the star's look
+    /// from that row (calm paper for a page of words), worked out off the
+    /// main actor.
+    private static func cutting(_ memory: Memory, _ page: CGImage) async -> (row: Int, look: StarLook) {
         let wordsOnly = isWordsOnly(memory), id = memory.id
         return await Task.detached(priority: .userInitiated) {
             let pixels = pixels(of: page)
-            let cut = StarStrip.colorfulCut(in: pixels)
-            var strip = StarStrip.strip(cut, from: pixels)
+            let row = StarStrip.foldRow(in: pixels)
+            var strip = StarStrip.strip(StarStrip.foldCut(row, in: pixels), from: pixels)
             if wordsOnly { strip = StarStrip.calm(strip, id: id) }
-            return (cut, StarStrip.look(strip))
+            return (row, StarStrip.look(strip, calm: wordsOnly))
         }.value
     }
 
@@ -187,11 +216,13 @@ enum StarFace {
 
     /// Drops the stars of pages gone for good (their 30 days in the bin
     /// are up): a page on the shelf or in the bin keeps its star. Both
-    /// folders are swept: the dresses, and part A's lit stars.
+    /// folders are swept: the dresses, and part A's lit stars. The dresses
+    /// from before design X go whole: their pages bake again.
     static func forget(allBut library: MemoryLibrary) {
         let pages = library.collections.flatMap(\.memories) + library.trash.map(\.memory)
         let kept = Set(pages.map(\.id))
         let manager = FileManager.default
+        try? manager.removeItem(at: caches.appendingPathComponent("star-dress", isDirectory: true))
         for folder in [directory, litStarsDirectory] {
             let files = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
             for file in files where file.pathExtension == "png" {
@@ -214,12 +245,12 @@ enum StarFace {
         }
     }
 
-    /// The page's top, `pageTop` points, on its paper.
-    private static func render(_ memory: Memory, scale: CGFloat) -> CGImage? {
+    /// The page's top, `height` points (`pageTop` unless given), on its paper.
+    private static func render(_ memory: Memory, height: CGFloat? = nil, scale: CGFloat) -> CGImage? {
         let renderer = ImageRenderer(content: StaticPageView(
             memory: memory, designWidth: MiraNoteConfig.pageWidth, showsSound: false
         )
-        .frame(width: pageTop.width, height: pageTop.height, alignment: .top)
+        .frame(width: pageTop.width, height: height ?? pageTop.height, alignment: .top)
         .background(Palette.paper)
         .clipped())
         renderer.scale = scale

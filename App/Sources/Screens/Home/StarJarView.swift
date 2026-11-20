@@ -11,16 +11,13 @@ import SwiftUI
 struct StarJarView: View {
     var viewModel: HomeViewModel
     var onBack: () -> Void = {}
-    /// The page unrolled from its star zooms open from here (iOS 18).
-    var zoom: Namespace.ID?
     var onOpenNote: (JarStar, OpenStyle) -> Void = { _, _ in }
 
     enum OpenStyle {
-        /// After the unfold: zooms from the unrolled page.
-        case zoom
         /// VoiceOver's activate: the usual push.
         case push
-        /// Under Reduce Motion, after the page has faded in.
+        /// After the unfold (or its Reduce Motion cross-fade), which left
+        /// the page where reading mode shows it.
         case instant
     }
 
@@ -50,8 +47,11 @@ struct StarJarView: View {
     /// A hold has opened a page: the hint has done its job. Kept with
     /// the settings, so a UI test starts with the hint showing.
     @AppStorage(StarJarView.openedKey, store: AppSettings.storeDefaults) var hasOpened = false
-    /// The jar fades as a star unfolds over it.
+    /// The jar fades and sinks as a star unfolds over it.
     @State var jarFade = 1.0
+    @State var jarSink: CGFloat = 0
+    /// The jar's frame on screen, for the open to take its cap off.
+    @State var jarFrame: CGRect = .zero
 
     /// When the jar was last opened: what was saved since drops in.
     static let lastOpenedKey = "starJar.lastOpened"
@@ -114,12 +114,13 @@ struct StarJarView: View {
             tossScene.stop()
             // Left (an edge swipe back) before the page opened: it never
             // opens on top of where the jar was.
-            if opening?.unrolled != true {
+            if opening?.opened != true {
                 openTask?.cancel()
                 opening = nil
                 holding = nil
                 held = nil
                 jarFade = 1
+                jarSink = 0
             }
         }
     }
@@ -213,7 +214,7 @@ struct StarJarView: View {
             let pile = StarPile.layout(stars.map(\.id), in: geometry.interior)
             let spots = zip(stars, pile.spots).map { settled[$0.id] ?? $1 }
             ZStack(alignment: .topLeading) {
-                JarGlass(geometry: geometry)
+                JarBackGlass(geometry: geometry)
                 // After the visit has decided what drops in.
                 ForEach(Array((visited ? stars : []).enumerated()), id: \.element.id) { index, star in
                     let spot = spots[index]
@@ -243,8 +244,8 @@ struct StarJarView: View {
                     .opacity(tossing ? 1 : 0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-                JarShine(geometry: geometry)
-                JarLid(geometry: geometry)
+                // The open takes the cap off itself.
+                JarFrontGlass(geometry: geometry, capped: opening == nil || reduceMotion)
                 if stars.isEmpty {
                     Text(emptyLine)
                         .font(.miraBody)
@@ -299,6 +300,8 @@ struct StarJarView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("jar.glass")
         }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { jarFrame = $0 }
+        .offset(y: jarSink)
         .aspectRatio(JarGeometry.aspect, contentMode: .fit)
         // As wide as fits, short enough that the count and hint stay on
         // screen on a small phone (the rest of the column is ~290 pt).

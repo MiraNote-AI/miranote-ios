@@ -1,452 +1,605 @@
 import MiraNoteKit
 import SwiftUI
 
-// A port of the fold demo's canvas maths: t (ms), p/u/f (progress), R
-// (radius), k (arm) read as the formulas they are; longer names would
-// hide them. The drawing is one long struct, as the demo's file is.
+// A port of design X's canvas maths (debug/star-anim/X/proto.html): t
+// (ms), p/q/u (progress), R (radius), S (roll length), k (arm or scale)
+// read as the formulas they are; longer names would hide them. The
+// drawing is one long file, as the prototype's is.
 // swiftlint:disable file_length
 // swiftlint:disable identifier_name
 
-/// A page ready to fold into its star, or to unfold from it (#206): its
-/// top as a picture, where its strip was cut, the strip, and the star's
-/// paint. Lengths are page points (the 360 pt page).
+/// A page ready to fold into its star, or to unfold from it (#206, design
+/// X). Lengths are page points: the page is 360 wide; its top 560 fold
+/// (`height`), folded in half at 280 and the top half in four rows of 70,
+/// one of which (`row`) is the band the rest folds up onto.
 struct StarPaper {
+    /// The page as reading mode shows it, `fullHeight` tall.
     let page: Image
-    let pageSize: CGSize
-    /// The strip's middle on the page, its turn (y down) and its size.
-    let cutCenter: CGPoint
-    let cutAngle: CGFloat
-    let stripLength: CGFloat
-    let stripThickness: CGFloat
+    let fullHeight: CGFloat
+    /// The band's row in the top half, 0...3.
+    let row: Int
+    /// The band, 360 x 70: the folded-up page seen face up.
     let strip: Image
+    /// The band softened, for the knot's and the star's faces.
+    let face: Image
+    /// The star's dress in the jar.
     let paint: StarPaint
-    /// The page's soft shadow, drawn once: `shadowMargin` round the page.
-    let pageShadow: Image
-    static let shadowMargin: CGFloat = 60
+    /// The page's soft warm shadow: `shadowMargin` round a 360 x 560 page.
+    let shadow: Image
+
+    static let width: CGFloat = 360
+    static let height: CGFloat = 560
+    static let half: CGFloat = 280
+    static let tile: CGFloat = 70
+    static let corner: CGFloat = 22
+    static let shadowMargin: CGFloat = 70
+
+    /// The band's top on the page.
+    var bandTop: CGFloat { CGFloat(row) * Self.tile }
+    /// The band's middle, from the page's middle (world units).
+    var bandY: CGFloat { bandTop + Self.tile / 2 - Self.height / 2 }
 }
 
-/// The demo's easing curves (fold demo v4).
+/// The prototype's easing curves.
 enum Ease {
     static func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat { a + (b - a) * t }
     static func clamp(_ x: CGFloat, _ a: CGFloat = 0, _ b: CGFloat = 1) -> CGFloat { max(a, min(b, x)) }
     /// Where `t` stands between `a` and `b`, 0...1.
     static func seg(_ t: CGFloat, _ a: CGFloat, _ b: CGFloat) -> CGFloat { clamp((t - a) / (b - a)) }
-    static func inOut(_ p: CGFloat) -> CGFloat { p < 0.5 ? 4 * p * p * p : 1 - pow(-2 * p + 2, 3) / 2 }
+    static func out3(_ p: CGFloat) -> CGFloat { 1 - pow(1 - p, 3) }
+    static func in2(_ p: CGFloat) -> CGFloat { p * p }
+    static func inOut3(_ p: CGFloat) -> CGFloat { p < 0.5 ? 4 * p * p * p : 1 - pow(-2 * p + 2, 3) / 2 }
     static func sine(_ p: CGFloat) -> CGFloat { 0.5 - 0.5 * cos(.pi * p) }
-    static func outC(_ p: CGFloat) -> CGFloat { 1 - pow(1 - p, 3) }
-    static func inQ(_ p: CGFloat) -> CGFloat { p * p }
-    static func spring(_ p: CGFloat, _ overshoot: CGFloat) -> CGFloat {
+    static func smooth(_ p: CGFloat) -> CGFloat { p * p * (3 - 2 * p) }
+    static func outBack(_ p: CGFloat, _ k: CGFloat) -> CGFloat {
         let q = p - 1
-        return 1 + (overshoot + 1) * q * q * q + overshoot * q * q
+        return 1 + (k + 1) * q * q * q + k * q * q
     }
 
-    /// A CSS cubic-bezier.
-    static func bezier(_ x1: CGFloat, _ y1: CGFloat, _ x2: CGFloat, _ y2: CGFloat, _ x: CGFloat) -> CGFloat {
-        if x <= 0 { return 0 }
-        if x >= 1 { return 1 }
-        var t = x
-        for _ in 0..<8 {
-            let xt = 3 * x1 * t * (1 - t) * (1 - t) + 3 * x2 * t * t * (1 - t) + t * t * t - x
-            let d = 3 * x1 * (1 - t) * (1 - t) + 6 * (x2 - x1) * t * (1 - t) + 3 * (1 - x2) * t * t
-            if abs(d) < 1e-6 { break }
-            t = clamp(t - xt / d)
-        }
-        return 3 * y1 * t * (1 - t) * (1 - t) + 3 * y2 * t * t * (1 - t) + t * t * t
+    /// A damped spring 0 to 1, about 10% over.
+    static func spring(_ p: CGFloat, _ w: CGFloat) -> CGFloat {
+        if p <= 0 { return 0 }
+        if p >= 1 { return 1 }
+        return 1 - exp(-6.5 * p) * cos(w * p)
     }
 
-    // swiftlint:disable:next large_tuple
-    typealias Key = (CGFloat, CGFloat, ((CGFloat) -> CGFloat)?)
+    /// An underdamped spring, damping ratio `z`, angular frequency `w`.
+    static func springZ(_ p: CGFloat, _ z: CGFloat, _ w: CGFloat) -> CGFloat {
+        if p <= 0 { return 0 }
+        if p >= 1 { return 1 }
+        let wd = w * (1 - z * z).squareRoot()
+        return 1 - exp(-z * w * p) * (cos(wd * p) + z * w / wd * sin(wd * p))
+    }
 
-    /// Keyframes `(t, value)`, eased by `ease` between them (sine if nil).
-    static func keyframes(_ t: CGFloat, _ keys: [Key]) -> CGFloat {
-        guard let first = keys.first, t > first.0 else { return keys.first?.1 ?? 0 }
-        for index in 1..<keys.count where t <= keys[index].0 {
-            let from = keys[index - 1], to = keys[index]
-            return lerp(from.1, to.1, (to.2 ?? sine)((t - from.0) / (to.0 - from.0)))
+    static func bounceOut(_ p: CGFloat) -> CGFloat {
+        let n: CGFloat = 7.5625, d: CGFloat = 2.75
+        if p < 1 / d { return n * p * p }
+        if p < 2 / d { let q = p - 1.5 / d; return n * q * q + 0.75 }
+        if p < 2.5 / d { let q = p - 2.25 / d; return n * q * q + 0.9375 }
+        let q = p - 2.625 / d
+        return n * q * q + 0.984375
+    }
+
+    /// A paper fold: eases in from rest, lands with speed (the snap),
+    /// then a tiny rebound. Radians, 0 to pi.
+    static func foldIn(_ t: CGFloat, _ t0: CGFloat, _ tl: CGFloat, _ settle: CGFloat) -> CGFloat {
+        if t <= t0 { return 0 }
+        if t < tl {
+            let p = (t - t0) / (tl - t0)
+            return .pi * (0.45 * smooth(p) + 0.55 * p * p)
         }
-        return keys[keys.count - 1].1
+        let q = seg(t, tl, tl + settle)
+        return .pi - 0.11 * sin(.pi * q) * (1 - q)
+    }
+
+    static func bezier(_ a: CGPoint, _ c: CGPoint, _ b: CGPoint, _ u: CGFloat) -> CGPoint {
+        let m = 1 - u
+        return CGPoint(x: m * m * a.x + 2 * m * u * c.x + u * u * b.x, y: m * m * a.y + 2 * m * u * c.y + u * u * b.y)
     }
 }
 
-/// The fold's drawings, ported from the demo: one strip renderer for the
-/// cut, the wind and the lay-back; the pentagon knot; the page.
-struct FoldDrawing { // swiftlint:disable:this type_body_length
-    let paper: StarPaper
-    /// Screen points per page point with the page at full size.
-    let unit: CGFloat
-    /// The page's scale on stage.
-    static let stage = CGFloat(StarFold.pageScale)
-    /// The hero star's radius at the pinch, the throw's start and the open.
-    static let hero: CGFloat = 42
-    static let wraps = 4
+// MARK: - Camera
 
-    private var length: CGFloat { paper.stripLength }
-    private var thickness: CGFloat { paper.stripThickness }
-    /// The strip's thickness on stage, in screen points.
-    var stageThickness: CGFloat { thickness * Self.stage * unit }
-    /// The knot's (and resting star's) radius on stage.
-    var knotRadius: CGFloat { min(34, stageThickness * 1.0) }
+/// What the fold's camera sees: world points (page points from the
+/// page's middle) at `zoom` design points apiece, `focus` at `anchor` on
+/// screen. `scale` turns the prototype's 402 pt wide screen into this one.
+struct FoldCamera {
+    var zoom: CGFloat
+    var focus: CGPoint
+    var anchor: CGPoint
+    var scale: CGFloat
+
+    /// Screen points per world point.
+    var z: CGFloat { zoom * scale }
+    /// The perspective's focal length, in screen points.
+    var focal: CGFloat { 950 * scale }
+
+    func apply(to context: inout GraphicsContext) {
+        context.translateBy(x: anchor.x, y: anchor.y)
+        context.scaleBy(x: z, y: z)
+        context.translateBy(x: -focus.x, y: -focus.y)
+    }
+
+    /// Page points (top left 0, 0) folded by `fold` to screen, in true
+    /// perspective: the transform of a view laid out at the screen's
+    /// origin in page points.
+    func projection(_ fold: CATransform3D) -> CATransform3D {
+        var t = fold
+        t = CATransform3DConcat(t, CATransform3DMakeTranslation(-StarPaper.width / 2 - focus.x,
+                                                                -StarPaper.height / 2 - focus.y, 0))
+        t = CATransform3DConcat(t, CATransform3DMakeScale(z, z, z))
+        var perspective = CATransform3DIdentity
+        perspective.m34 = -1 / focal
+        t = CATransform3DConcat(t, perspective)
+        return CATransform3DConcat(t, CATransform3DMakeTranslation(anchor.x, anchor.y, 0))
+    }
+}
+
+// MARK: - Folds
+
+/// How the page folds up onto its band: three mountain folds, each of
+/// the rows beyond a crease turning away behind its neighbour, outer rows
+/// first, alternating sides (the prototype's top pleat, bottom pleat,
+/// then the pair). Their angles run on the prototype's three slots.
+struct FoldPlan {
+    struct Fold {
+        let crease: CGFloat
+        /// Rows above the band turn up and back; below, down and back.
+        let above: Bool
+        /// The rows this fold turns.
+        let rows: ClosedRange<Int>
+    }
+
+    let folds: [Fold]
+    /// The band's middle on the page.
+    private let middle: CGFloat
+
+    init(row band: Int) {
+        middle = (CGFloat(band) + 0.5) * StarPaper.tile
+        let tile = StarPaper.tile
+        let above = (0..<band).map { j in Fold(crease: CGFloat(j + 1) * tile, above: true, rows: 0...j) }
+        let below = (band + 1..<4).reversed().map { j in Fold(crease: CGFloat(j) * tile, above: false, rows: j...3) }
+        var order: [Fold] = []
+        var tops = above[...], bottoms = below[...]
+        while let next = tops.popFirst() ?? bottoms.popFirst() {
+            order.append(next)
+            if let other = bottoms.popFirst() { order.append(other) }
+        }
+        folds = order
+    }
+
+    /// The order the folds open in (Open): those at the band's edges
+    /// first, the later of two first, then outward, so a fold inside a
+    /// folded packet never opens before the packet.
+    var openOrder: [Int] {
+        folds.indices.sorted { a, b in
+            let da = distance(folds[a]), db = distance(folds[b])
+            return da == db ? a > b : da < db
+        }
+    }
+
+    private func distance(_ fold: Fold) -> CGFloat {
+        abs(fold.crease - middle) - StarPaper.tile / 2
+    }
+
+    /// The fold turning `row` itself: the one at its inner edge.
+    func own(_ row: Int) -> Int? {
+        folds.firstIndex { $0.above ? $0.crease == CGFloat(row + 1) * StarPaper.tile
+                                    : $0.crease == CGFloat(row) * StarPaper.tile }
+    }
+
+    /// Row `row` turned by every fold it is in, outermost crease first.
+    func transform(of row: Int, angles: [CGFloat]) -> CATransform3D {
+        var t = CATransform3DIdentity
+        let turning = folds.indices.filter { folds[$0].rows.contains(row) }
+            .sorted { abs(folds[$0].crease - middle) > abs(folds[$1].crease - middle) }
+        for index in turning where angles[index] > 1e-3 {
+            t = CATransform3DConcat(t, Self.hinge(folds[index].crease, angles[index], away: !folds[index].above))
+        }
+        return t
+    }
+
+    /// A mountain fold about the level line `y`: the paper beyond it
+    /// turns `angle` away from the viewer.
+    static func hinge(_ y: CGFloat, _ angle: CGFloat, away below: Bool) -> CATransform3D {
+        let a = below ? angle : -angle
+        var r = CATransform3DIdentity
+        r.m22 = cos(a)
+        r.m23 = -sin(a)
+        r.m32 = sin(a)
+        r.m33 = cos(a)
+        return CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(0, -y, 0), r),
+                                   CATransform3DMakeTranslation(0, y, 0))
+    }
+}
+
+// MARK: - Strip, knot and star
+
+/// The strip, the knot it winds into and the star it puffs into, ported
+/// from the prototype's drawStrip, drawWind and drawFolded.
+struct FoldDrawing {
+    let paper: StarPaper
+
+    static let length = StarPaper.width
+    static let thickness = StarPaper.tile
+    static let rolls = 5
+    /// A roll's length along the strip.
+    static let roll = length / CGFloat(rolls + 1)
+    static let cos36 = cos(36 * CGFloat.pi / 180)
+    /// The knot's radius, drawn 1.35x its fold pitch.
+    static let knot = roll / (2 * sin(36 * CGFloat.pi / 180)) * 1.35
+    /// The hero zoom and star radius (about 100 pt).
+    static let heroZoom: CGFloat = 1.45
+    static let hero = knot * heroZoom
+    /// The width the camera keeps strip and knot inside.
+    static let fitWidth: CGFloat = 340
+    /// The strip's middle shows on the star's faces.
+    static let faceU = length / 2
+    static let rollAngle = 72 * CGFloat.pi / 180
+    static let wound = CGFloat(rolls) * rollAngle
+    static let twist = 14 * CGFloat.pi / 180
+    static let spin = 200 * CGFloat.pi / 180
+
+    /// Where the knot is after `n` rolls (world x, the band's frame).
+    static func knotX(_ n: CGFloat) -> CGFloat { -length / 2 + roll / 2 + n * roll }
+
+    /// One fold a unit of `g`, each eased, so the eye sees tumbles.
+    static func step(_ g: CGFloat) -> CGFloat {
+        if g >= CGFloat(rolls) { return CGFloat(rolls) }
+        if g <= 0 { return 0 }
+        let k = floor(g), ph = g - k
+        return k + Ease.lerp(ph, Ease.inOut3(ph), 0.65)
+    }
+
+    /// The camera that frames what is left of the strip plus the knot.
+    static func fitZoom(_ n: CGFloat) -> CGFloat {
+        min(heroZoom, fitWidth / (length / 2 - knotX(n) + knot * 1.15))
+    }
+
+    static func fitX(_ n: CGFloat) -> CGFloat { (knotX(n) - knot * 1.15 + length / 2) / 2 }
 
     // MARK: Strip
 
-    // swiftlint:disable:next large_tuple
-    private typealias Hair = (u: CGFloat, bottom: Bool, length: CGFloat, angle: CGFloat)
-    // swiftlint:disable:next large_tuple
-    private typealias Edge = (top: [CGFloat], bottom: [CGFloat], hairs: [Hair])
+    // swiftlint:disable function_body_length function_parameter_count
+    /// The strip in its own frame, its middle at the origin: from `u0`
+    /// (0...1 along it, where the knot has reached) to its end, with a
+    /// paper ripple, its free end curling up into the knot, a lift shadow
+    /// and its folded-up layers showing at its foot.
+    func strip(in context: GraphicsContext, from u0: CGFloat, lift: CGFloat, ripple: CGFloat, phase: CGFloat,
+               curl: CGFloat) {
+        let L = Self.length, SW = Self.thickness
+        let x0 = -L / 2 + Ease.clamp(u0) * L, x1 = L / 2
+        guard x1 - x0 >= 0.5 else { return }
+        func z(_ u: CGFloat) -> CGFloat {
+            ripple * sin(u / 46 + phase) * (0.65 + 0.35 * sin(u / 19 - phase * 1.3))
+        }
+        let n = max(1, Int(ceil((x1 - x0) / 8))), dx = (x1 - x0) / CGFloat(n)
+        let ys: [CGFloat] = (0...n).map { i in
+            let u = x0 + CGFloat(i) * dx, cq = max(0, 1 - (u - x0) / 150)
+            return z(u) * 0.3 - curl * pow(cq, 1.3)
+        }
+        var outline = Path()
+        for i in 0...n {
+            let point = CGPoint(x: x0 + CGFloat(i) * dx, y: -SW / 2 + ys[i])
+            if i == 0 { outline.move(to: point) } else { outline.addLine(to: point) }
+        }
+        for i in stride(from: n, through: 0, by: -1) {
+            outline.addLine(to: CGPoint(x: x0 + CGFloat(i) * dx, y: SW / 2 + ys[i]))
+        }
+        outline.closeSubpath()
 
-    /// The fibre edge: smoothed noise along both sides, and hairlines.
-    private static let edge: Edge = {
-        var random = SeededRandom(77)
-        var raw: [[CGFloat]] = [[], []]
-        for side in 0..<2 { for _ in 0...edgeSteps { raw[side].append(random.next() - 0.5) } }
-        let smooth = raw.map { values in
-            values.indices.map { index in
-                (values[max(0, index - 1)] + 2 * values[index] + values[min(edgeSteps, index + 1)]) / 4 * 1.4
+        var ctx = context
+        if lift > 0.001 {
+            var shadow = ctx
+            shadow.addFilter(.shadow(color: Color(.sRGB, red: 80 / 255, green: 42 / 255, blue: 34 / 255,
+                                                  opacity: 0.28 * min(1, lift)),
+                                     radius: (3 + 13 * lift) / 2, x: 2.5 * lift, y: 8 * lift))
+            shadow.fill(outline, with: .color(Color(hex: 0xD9A08E)))
+        }
+        // The folded-up layers at its foot.
+        var layers = ctx
+        layers.translateBy(x: 0, y: 1.8)
+        layers.fill(outline, with: .color(Color(.sRGB, red: 120 / 255, green: 60 / 255, blue: 64 / 255, opacity: 0.5)))
+
+        let image = ctx.resolve(paper.strip)
+        for i in 0..<n {
+            let u = x0 + CGFloat(i) * dx, slope = (ys[i + 1] - ys[i]) / dx
+            var slice = ctx
+            slice.concatenate(CGAffineTransform(a: 1, b: slope, c: 0, d: 1, tx: u, ty: ys[i]))
+            let width = min(dx + 0.7, L / 2 - u)
+            slice.clip(to: Path(CGRect(x: 0, y: -SW / 2, width: max(0.1, width), height: SW)))
+            slice.draw(image, in: CGRect(x: -(u + L / 2), y: -SW / 2, width: L, height: SW))
+            let d = slope * 3.3
+            if abs(d) > 0.002 {
+                let shade = d > 0 ? Color(.sRGB, red: 1, green: 248 / 255, blue: 240 / 255, opacity: min(0.3, d * 2.2))
+                    : Color(.sRGB, red: 70 / 255, green: 30 / 255, blue: 30 / 255, opacity: min(0.26, -d * 1.8))
+                slice.fill(Path(CGRect(x: 0, y: -SW / 2, width: dx, height: SW)), with: .color(shade))
             }
         }
-        let hairs = (0..<16).map { index in
-            (u: random.next(), bottom: index % 2 == 1, length: 1 + random.next() * 1.6,
-             angle: (random.next() - 0.5) * 1.2)
-        }
-        return (smooth[0], smooth[1], hairs)
-    }()
-    private static let edgeSteps = 160
-
-    /// The strip from `u0` (0...1 along it) to its end, centered at the
-    /// origin, length along x.
-    func ribbonPath(from u0: CGFloat) -> Path {
-        let steps = Self.edgeSteps, rough = thickness / 46
-        let first = Int(u0 * CGFloat(steps))
-        var path = Path()
-        path.move(to: CGPoint(x: -length / 2 + u0 * length, y: -thickness / 2 + Self.edge.top[first] * rough))
-        for index in (first + 1)...steps {
-            path.addLine(to: CGPoint(x: -length / 2 + length * CGFloat(index) / CGFloat(steps),
-                                     y: -thickness / 2 + Self.edge.top[index] * rough))
-        }
-        for index in stride(from: steps, through: first + 1, by: -1) {
-            path.addLine(to: CGPoint(x: -length / 2 + length * CGFloat(index) / CGFloat(steps),
-                                     y: thickness / 2 + Self.edge.bottom[index] * rough))
-        }
-        path.addLine(to: CGPoint(x: -length / 2 + u0 * length, y: thickness / 2 + Self.edge.bottom[first] * rough))
-        path.closeSubpath()
-        return path
-    }
-
-    /// The strip in its own frame (page points): its picture with a soft
-    /// light, a curl at its end, a lift shadow and a fibre edge.
-    func ribbon(in context: GraphicsContext, from u0: CGFloat = 0, lift: CGFloat = 1, opacity: CGFloat = 1,
-                sheen: CGFloat? = nil) {
-        guard u0 < 0.999, opacity > 0 else { return }
-        var ctx = context
-        ctx.opacity *= opacity
-        let shape = ribbonPath(from: u0)
-        if lift > 0 {
-            var shadow = ctx
-            shadow.opacity *= lift
-            shadow.addFilter(.shadow(color: Color(.sRGB, red: 40 / 255, green: 28 / 255, blue: 16 / 255,
-                                                  opacity: Ease.lerp(0.3, 0.18, lift)),
-                                     radius: Ease.lerp(4, 16, lift) / 2,
-                                     x: Ease.lerp(0.5, 3, lift), y: Ease.lerp(1, 9, lift)))
-            shadow.fill(shape, with: .color(Color(hex: 0xF0E8DA)))
-        }
-        var face = ctx
-        face.clip(to: shape)
-        let rect = CGRect(x: -length / 2, y: -thickness / 2, width: length, height: thickness)
-        face.draw(paper.strip, in: rect)
-        face.fill(Path(rect), with: .linearGradient(
-            Gradient(stops: [.init(color: .white.opacity(0.12), location: 0),
-                             .init(color: .white.opacity(0), location: 0.5),
-                             .init(color: .black.opacity(0.07), location: 1)]),
-            startPoint: CGPoint(x: 0, y: -thickness / 2), endPoint: CGPoint(x: 0, y: thickness / 2)))
-        let curl = Color(.sRGB, red: 60 / 255, green: 40 / 255, blue: 20 / 255)
-        face.fill(Path(CGRect(x: length * 0.35, y: -thickness / 2, width: length * 0.15, height: thickness)),
-                  with: .linearGradient(Gradient(colors: [curl.opacity(0), curl.opacity(0.14 * lift)]),
-                                        startPoint: CGPoint(x: length * 0.35, y: 0),
-                                        endPoint: CGPoint(x: length / 2, y: 0)))
-        if let sheen, sheen > 0, sheen < 1 {
-            let x = Ease.lerp(-length / 2 - length * 0.3, length / 2, sheen)
-            let shine = Color(.sRGB, red: 1, green: 250 / 255, blue: 236 / 255)
-            face.fill(Path(rect), with: .linearGradient(
-                Gradient(colors: [shine.opacity(0), shine.opacity(0.35), shine.opacity(0)]),
-                startPoint: CGPoint(x: x, y: 0), endPoint: CGPoint(x: x + length * 0.3, y: 0)))
-        }
-        ctx.stroke(shape, with: .color(Color(.sRGB, red: 1, green: 250 / 255, blue: 240 / 255, opacity: 0.65)),
-                   lineWidth: 0.9)
-        var hairs = Path()
-        for hair in Self.edge.hairs where hair.u >= u0 {
-            let x = -length / 2 + hair.u * length, y = hair.bottom ? thickness / 2 : -thickness / 2
-            hairs.move(to: CGPoint(x: x, y: y))
-            hairs.addLine(to: CGPoint(x: x + sin(hair.angle) * hair.length * 2,
-                                      y: y + (hair.bottom ? 1 : -1) * hair.length * 1.4))
-        }
-        ctx.stroke(hairs, with: .color(Color(.sRGB, red: 250 / 255, green: 244 / 255, blue: 232 / 255, opacity: 0.75)),
-                   style: StrokeStyle(lineWidth: 0.6, lineCap: .round))
-    }
-
-    /// The strip at `center`, turned `angle`, at `scale` screen points per
-    /// page point.
-    func strip(in context: GraphicsContext, at center: CGPoint, angle: CGFloat, scale: CGFloat,
-               lift: CGFloat = 1, opacity: CGFloat = 1, sheen: CGFloat? = nil) {
-        var ctx = context
-        ctx.translateBy(x: center.x, y: center.y)
-        ctx.rotate(by: .radians(angle))
-        ctx.scaleBy(x: scale, y: scale)
-        ribbon(in: ctx, lift: lift, opacity: opacity, sheen: sheen)
-    }
-
-    // MARK: Knot
-
-    static func pentagon(_ radius: CGFloat, _ rotation: CGFloat) -> Path {
-        var path = Path()
-        for k in 0..<5 {
-            let angle = (-90 + CGFloat(k) * 72) * .pi / 180 + rotation
-            let point = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
-            if k == 0 { path.move(to: point) } else { path.addLine(to: point) }
-        }
-        path.closeSubpath()
-        return path
-    }
-
-    /// The knot: plain paper with one washed band per wrap, a dome light,
-    /// at most two seams.
-    func knotFace(in context: GraphicsContext, radius R: CGFloat, rotation: CGFloat, wraps: CGFloat, shadow: CGFloat) {
-        let ctx = context
-        let outline = Self.pentagon(R, rotation)
-        var lifted = ctx
-        lifted.addFilter(.shadow(color: Color(.sRGB, red: 40 / 255, green: 28 / 255, blue: 16 / 255,
-                                              opacity: 0.24 * shadow),
-                                 radius: R * 0.15 * shadow, x: R * 0.06 * shadow, y: R * 0.14 * shadow))
-        lifted.fill(outline, with: .color(PaperArt.paper))
         var face = ctx
         face.clip(to: outline)
-        let paint = paper.paint
-        for wrap in 0..<min(Self.wraps, Int(ceil(wraps - 1e-6))) {
-            var band = face
-            band.opacity *= Ease.clamp(wraps - CGFloat(wrap))
-            var ring = Self.pentagon(R * (1 - 0.12 * CGFloat(wrap)), rotation)
-            ring.addPath(Self.pentagon(R * (1 - 0.12 * CGFloat(wrap + 1)), rotation))
-            band.clip(to: ring, style: FillStyle(eoFill: true))
-            band.rotate(by: .radians(rotation))
-            // This wrap's quarter of the washed strip, stretched over the knot.
-            let quarter = paint.textureSize.width / CGFloat(Self.wraps)
-            let scaleX = 2 * R / quarter
-            band.draw(paint.texture, in: CGRect(x: -R - CGFloat(wrap) * quarter * scaleX, y: -R,
-                                                width: paint.textureSize.width * scaleX, height: 2 * R))
-        }
-        face.fill(Path(CGRect(x: -R * 1.1, y: -R * 1.1, width: R * 2.2, height: R * 2.2)),
-                  with: .radialGradient(Gradient(stops: [
-                      .init(color: PaperArt.highlight.opacity(0.22), location: 0),
-                      .init(color: PaperArt.highlight.opacity(0), location: 0.6),
-                      .init(color: PaperArt.brown.opacity(0.12), location: 1)
-                  ]), center: CGPoint(x: -R * 0.15, y: -R * 0.18), startRadius: R * 0.05, endRadius: R * 1.05))
-        PaperArt.grain(in: face, rect: CGRect(x: -R, y: -R, width: 2 * R, height: 2 * R), opacity: 0.07)
-        for seam in 0..<min(2, Int(wraps)) {
-            ctx.stroke(Self.pentagon(R * (1 - 0.12 * CGFloat(seam + 1)), rotation),
-                       with: .color(Color(.sRGB, red: 90 / 255, green: 64 / 255, blue: 40 / 255, opacity: 0.3)),
-                       lineWidth: 0.5)
-        }
-        ctx.stroke(outline, with: .color(PaperArt.rim.opacity(0.6)), lineWidth: 0.8)
-    }
-
-    // MARK: Wind
-
-    // swiftlint:disable function_body_length
-    /// The strip winding into the knot, `f` 0 (laid flat, centered at
-    /// `mid`) to 1 (all wound, the knot at `mid`): the knot tumbles 72
-    /// degrees a wrap along the strip while the rest reels in.
-    func wind(in context: GraphicsContext, mid: CGPoint, f: CGFloat) {
-        let scale = Self.stage * unit
-        let hs = stageThickness, R = knotRadius, wraps = CGFloat(Self.wraps)
-        let g = f * wraps, k = min(wraps - 1, floor(g)), phase = f >= 1 ? 1 : g - k
-        let stepT = (k + Ease.inOut(phase)) / wraps
-        let left = mid.x - length * scale / 2
-        let rotation = 72 * .pi / 180 * wraps * stepT
-        let knotX = Ease.lerp(left, mid.x, stepT)
-        let loopT = Ease.clamp(f / 0.15), loopIn = Ease.clamp(f / 0.04)
-        let drop = (0.809 * R - hs / 2) * Ease.sine(loopT)
-
-        // What is left of the strip, leaving the knot's bottom edge.
-        let contact = Ease.lerp(left, mid.x, f)
-        var rest = context
-        rest.translateBy(x: contact - (-length / 2 + f * length) * scale, y: mid.y + drop)
-        rest.scaleBy(x: scale, y: scale)
-        ribbon(in: rest, from: f)
-        guard loopIn > 0 else { return }
-
-        var ctx = context
-        ctx.translateBy(x: knotX, y: mid.y)
-        if loopT < 1 {
-            // A loose loop flattening into the knot.
-            var loop = ctx
-            loop.opacity *= loopIn * (1 - loopT)
-            var ring = Path(ellipseIn: CGRect(x: -R * 0.9, y: -R * 0.9, width: R * 1.8, height: R * 1.8))
-            let inner = R * 0.9 - hs * 0.55
-            ring.addPath(Path(ellipseIn: CGRect(x: -inner, y: -inner, width: 2 * inner, height: 2 * inner)))
-            loop.clip(to: ring, style: FillStyle(eoFill: true))
-            loop.draw(paper.strip, in: CGRect(x: -R, y: -R, width: 2 * R / 0.3, height: 2 * R))
-        }
-        ctx.opacity *= loopIn * loopT
-        // Thickness: a layer a wrap.
-        let layers = 1 + Int(f * 6)
-        for layer in stride(from: layers, through: 1, by: -1) {
-            var back = ctx
-            back.translateBy(x: 0.6 * CGFloat(layer), y: 1.2 * CGFloat(layer))
-            let shade = CGFloat(layer) * 4 / 255
-            back.fill(Self.pentagon(R * 0.99, rotation),
-                      with: .color(Color(.sRGB, red: 200 / 255 - shade, green: 186 / 255 - shade,
-                                         blue: 160 / 255 - shade)))
-        }
-        knotFace(in: ctx, radius: R, rotation: rotation, wraps: f >= 1 ? wraps : k + phase, shadow: 0.6 + 0.4 * f)
-        if f > 0, f < 1, phase < 0.5 {
-            // The strip passing over the knot on every other half step.
-            let over = sin(phase * 2 * .pi)
-            var pass = ctx
-            pass.clip(to: Self.pentagon(R, rotation))
-            pass.rotate(by: .radians(rotation + 72 * .pi / 180 * Ease.inOut(phase)))
-            pass.opacity *= over
-            let top = 0.809 * R - hs * 0.55
-            var lifted = pass
-            lifted.addFilter(.shadow(color: PaperArt.brown.opacity(0.25), radius: 1.5, x: 0, y: 2))
-            lifted.fill(Path(CGRect(x: -R * 1.2, y: top, width: R * 2.4, height: hs * 0.55)),
-                        with: .color(Color(hex: 0xEEE5D5)))
-            pass.fill(Path(CGRect(x: -R * 1.2, y: top, width: R * 2.4, height: 1)),
-                      with: .color(PaperArt.cream.opacity(0.8)))
-            pass.fill(Path(CGRect(x: -R * 1.2, y: top + hs * 0.55 - 1, width: R * 2.4, height: 1)),
-                      with: .color(Color(.sRGB, red: 80 / 255, green: 58 / 255, blue: 36 / 255, opacity: 0.1)))
+        let rect = CGRect(x: x0, y: -SW / 2 - 4, width: x1 - x0, height: SW + 8)
+        face.fill(Path(rect), with: .linearGradient(
+            Gradient(stops: [.init(color: Color(.sRGB, red: 1, green: 250 / 255, blue: 244 / 255, opacity: 0.14),
+                                   location: 0),
+                             .init(color: Color(.sRGB, red: 1, green: 250 / 255, blue: 244 / 255, opacity: 0),
+                                   location: 0.45),
+                             .init(color: Color(.sRGB, red: 60 / 255, green: 25 / 255, blue: 30 / 255, opacity: 0.09),
+                                   location: 1)]),
+            startPoint: CGPoint(x: 0, y: -SW / 2), endPoint: CGPoint(x: 0, y: SW / 2)))
+        PaperArt.grain(in: face, rect: rect, opacity: 0.06)
+        for (edge, color) in [(-SW / 2 + 0.4, Color(.sRGB, red: 1, green: 250 / 255, blue: 245 / 255, opacity: 0.7)),
+                              (SW / 2 - 0.4, Color(.sRGB, red: 1, green: 240 / 255, blue: 235 / 255, opacity: 0.3))] {
+            var line = Path()
+            for i in 0...n {
+                let point = CGPoint(x: x0 + CGFloat(i) * dx, y: edge + ys[i])
+                if i == 0 { line.move(to: point) } else { line.addLine(to: point) }
+            }
+            ctx.stroke(line, with: .color(color), lineWidth: 0.8)
         }
     }
-
     // swiftlint:enable function_body_length
 
-    // MARK: Page
+    /// The wrapped layers a knot shows after `n` rolls.
+    static func bands(_ n: CGFloat) -> [FoldedStar.Band] {
+        let done = min(rolls, Int(floor(n + 1e-6)))
+        let ph = done >= rolls ? 0 : n - CGFloat(done)
+        return (0...min(rolls, done + 1)).compactMap { j in
+            let reveal = j <= done ? 1 : ph
+            guard reveal > 0 else { return nil }
+            return FoldedStar.Band(angle: -CGFloat(j) * rollAngle, reveal: reveal, u: (CGFloat(j) + 0.5) * roll)
+        }
+    }
 
-    /// The page's size on screen at `scale` of full size.
-    func pageSize(_ scale: CGFloat) -> CGSize {
-        CGSize(width: paper.pageSize.width * unit * scale, height: paper.pageSize.height * unit * scale)
+    /// The strip winding into the knot after `n` rolls; `tie` is the
+    /// first loop (0...1). In the band's frame, its middle at the origin.
+    func wind(in context: GraphicsContext, n: CGFloat, tie: CGFloat, lift: CGFloat, ripple: CGFloat,
+              phase: CGFloat) {
+        let rolls = CGFloat(Self.rolls)
+        let u0 = (tie * 0.5 + n) * Self.roll / Self.length
+        strip(in: context, from: tie > 0 ? u0 : 0, lift: lift, ripple: ripple, phase: phase,
+              curl: tie > 0 && n < rolls - 0.02 ? Self.thickness * 0.7 * min(1, tie * 1.5) : 0)
+        guard tie > 0 else { return }
+        // swiftlint:enable function_parameter_count
+        let sc = Ease.lerp(0.3, 1, Ease.outBack(tie, 1.2))
+        let rotation = n * Self.rollAngle + Ease.lerp(-110 * .pi / 180, 0, Ease.out3(tie))
+        var bands = Self.bands(n)
+        if n < 1e-6, !bands.isEmpty {
+            bands[0] = FoldedStar.Band(angle: bands[0].angle, reveal: tie, u: bands[0].u)
+        }
+        FoldedStar.draw(in: context, paper: paper, at: CGPoint(x: Self.knotX(n), y: 0), radius: Self.knot * sc,
+                        rotation: rotation,
+                        look: .init(puff: 0, faceU: Ease.lerp((n + 1) * Self.roll, Self.faceU, n / rolls),
+                                    bands: bands, k: sc, layers: n, shadow: 0.5 + 0.5 * min(1, lift),
+                                    opacity: Ease.clamp(tie * 2.5)))
+    }
+}
+
+// MARK: - Folded star
+
+/// The knot (puff 0, a flat pentagon) to the matte lucky star (puff 1),
+/// ten facets under one fixed light, wrapped strip layers on the knot,
+/// paper thickness, grain and a soft rim (the prototype's drawFolded).
+enum FoldedStar {
+    struct Band {
+        let angle: CGFloat
+        let reveal: CGFloat
+        /// Where on the strip this layer comes from.
+        let u: CGFloat
+    }
+
+    struct Look {
+        var puff: CGFloat = 1
+        var faceU = FoldDrawing.faceU
+        var bands: [Band] = []
+        /// Screen points per world point, so the bands show the strip true.
+        var k: CGFloat = 1
+        var layers: CGFloat = 0
+        var shadow: CGFloat = 0
+        var opacity: CGFloat = 1
     }
 
     // swiftlint:disable:next large_tuple
-    typealias Band = (center: CGPoint, angle: CGFloat, scale: CGFloat)
+    private static let light: (x: CGFloat, y: CGFloat, z: CGFloat) = {
+        let x: CGFloat = -0.5, y: CGFloat = -0.62, z: CGFloat = 0.6
+        let m = (x * x + y * y + z * z).squareRoot()
+        return (x / m, y / m, z / m)
+    }()
 
-    /// Where the cut lies on a page centered at `center` at `scale`.
-    func band(pageCenter center: CGPoint, scale: CGFloat) -> Band {
-        let s = scale * unit
-        return (CGPoint(x: center.x + (paper.cutCenter.x - paper.pageSize.width / 2) * s,
-                        y: center.y + (paper.cutCenter.y - paper.pageSize.height / 2) * s),
-                paper.cutAngle, s)
-    }
-
-    struct PageMarks {
-        /// The empty slot where the strip was.
-        var slot: CGFloat = 0
-        /// The blade's score lines along the cut, 0...1.2.
-        var score: CGFloat = 0
-        /// Only this half-width around the band shows (unrolling), page points.
-        var mask: CGFloat?
-    }
-
-    // swiftlint:disable:next function_body_length
-    func page(in context: GraphicsContext, center: CGPoint, scale: CGFloat, corner: CGFloat, opacity: CGFloat = 1,
-              shadow: CGFloat = 0, marks: PageMarks = PageMarks()) {
-        guard opacity > 0 else { return }
-        var ctx = context
-        ctx.opacity *= opacity
-        let s = scale * unit
-        ctx.translateBy(x: center.x, y: center.y)
-        ctx.scaleBy(x: s, y: s)
-        ctx.translateBy(x: -paper.pageSize.width / 2, y: -paper.pageSize.height / 2)
-        let card = Path(roundedRect: CGRect(origin: .zero, size: paper.pageSize), cornerRadius: max(0.1, corner / s))
-        if shadow > 0, marks.mask == nil {
-            // A baked shadow: a live blur of the whole page every frame
-            // costs the shrink its frames.
-            var lifted = ctx
-            lifted.opacity *= shadow
-            let margin = StarPaper.shadowMargin
-            lifted.draw(paper.pageShadow,
-                        in: CGRect(origin: .zero, size: paper.pageSize).insetBy(dx: -margin, dy: -margin))
-        }
-        var sheet = ctx
-        sheet.clip(to: card)
-        if let mask = marks.mask {
-            var shown = Path(CGRect(x: -paper.pageSize.height * 2, y: -mask,
-                                    width: paper.pageSize.height * 4, height: mask * 2))
-            shown = shown.applying(CGAffineTransform(rotationAngle: paper.cutAngle)
-                .concatenating(CGAffineTransform(translationX: paper.cutCenter.x, y: paper.cutCenter.y)))
-            sheet.clip(to: shown)
-        }
-        sheet.fill(card, with: .color(Color(hex: 0xF4EEE3)))
-        sheet.draw(paper.page, in: CGRect(origin: .zero, size: paper.pageSize))
-        if let mask = marks.mask, mask > 12 {
-            // A feathered edge, so words are never sliced mid-glyph.
-            var feather = sheet
-            feather.translateBy(x: paper.cutCenter.x, y: paper.cutCenter.y)
-            feather.rotate(by: .radians(paper.cutAngle))
-            let paperColor = Color(hex: 0xF4EEE3)
-            for side: CGFloat in [-1, 1] {
-                let edge = side * mask, inside = side * (mask - 10)
-                feather.fill(Path(CGRect(x: -paper.pageSize.height * 2, y: min(edge, inside),
-                                         width: paper.pageSize.height * 4, height: 10)),
-                             with: .linearGradient(Gradient(colors: [paperColor, paperColor.opacity(0)]),
-                                                   startPoint: CGPoint(x: 0, y: edge),
-                                                   endPoint: CGPoint(x: 0, y: inside)))
-            }
-        }
-        if marks.slot > 0 || marks.score > 0 {
-            var cut = sheet
-            cut.translateBy(x: paper.cutCenter.x, y: paper.cutCenter.y)
-            cut.rotate(by: .radians(paper.cutAngle))
-            let shape = ribbonPath(from: 0)
-            if marks.slot > 0 {
-                var slot = cut
-                slot.opacity *= marks.slot
-                slot.fill(shape, with: .color(Color(hex: 0xEDE5D7)))
-                slot.fill(shape,
-                          with: .color(Color(.sRGB, red: 120 / 255, green: 96 / 255, blue: 64 / 255, opacity: 0.1)))
-                slot.stroke(line(at: -thickness / 2 + 1, to: length),
-                            with: .color(Color(.sRGB, red: 80 / 255, green: 58 / 255, blue: 36 / 255, opacity: 0.28)),
-                            lineWidth: 1 / s)
-            }
-            if marks.score > 0, marks.score < 1.2 {
-                var score = cut
-                score.opacity *= marks.score > 1 ? 1 - (marks.score - 1) / 0.2 : 1
-                let reach = length * Ease.clamp(marks.score)
-                for y in [-thickness / 2, thickness / 2] {
-                    score.stroke(line(at: y - 0.5 / s, to: reach), with: .color(.white), lineWidth: 1.5 / s)
-                    score.stroke(line(at: y + 0.6 / s, to: reach),
-                                 with: .color(Color(.sRGB, red: 60 / 255, green: 40 / 255, blue: 20 / 255,
-                                                    opacity: 0.5)),
-                                 lineWidth: 0.6 / s)
-                }
-            }
+    static func points(_ R: CGFloat, inner: CGFloat, rotation: CGFloat) -> [CGPoint] {
+        (0..<5).flatMap { k -> [CGPoint] in
+            let a = -.pi / 2 + CGFloat(k) * 72 * .pi / 180 + rotation, b = a + 36 * .pi / 180
+            return [CGPoint(x: cos(a) * R, y: sin(a) * R), CGPoint(x: cos(b) * R * inner, y: sin(b) * R * inner)]
         }
     }
 
-    /// A faint page with its empty slot, for the opening strip to dock on.
-    func pageGhost(in context: GraphicsContext, center: CGPoint, scale: CGFloat, corner: CGFloat, opacity: CGFloat) {
-        guard opacity > 0 else { return }
-        var ctx = context
-        ctx.opacity *= opacity
-        let s = scale * unit
-        ctx.translateBy(x: center.x, y: center.y)
-        ctx.scaleBy(x: s, y: s)
-        ctx.translateBy(x: -paper.pageSize.width / 2, y: -paper.pageSize.height / 2)
-        let card = Path(roundedRect: CGRect(origin: .zero, size: paper.pageSize), cornerRadius: max(0.1, corner / s))
-        ctx.fill(card, with: .color(Color(hex: 0xF4EEE3)))
-        ctx.stroke(card, with: .color(Color(.sRGB, red: 120 / 255, green: 96 / 255, blue: 64 / 255, opacity: 0.25)),
-                   lineWidth: 1 / s)
-        ctx.translateBy(x: paper.cutCenter.x, y: paper.cutCenter.y)
-        ctx.rotate(by: .radians(paper.cutAngle))
-        ctx.fill(ribbonPath(from: 0), with: .color(Color(hex: 0xE6DCCB)))
-        ctx.stroke(line(at: -thickness / 2 + 1, to: length),
-                   with: .color(Color(.sRGB, red: 80 / 255, green: 58 / 255, blue: 36 / 255, opacity: 0.3)),
-                   lineWidth: 1 / s)
-    }
-
-    private func line(at y: CGFloat, to reach: CGFloat) -> Path {
+    /// The polygon with its tips rounded by `tip` and valleys by `valley`.
+    static func rounded(_ p: [CGPoint], tip: CGFloat, valley: CGFloat) -> Path {
         var path = Path()
-        path.move(to: CGPoint(x: -length / 2, y: y))
-        path.addLine(to: CGPoint(x: -length / 2 + reach, y: y))
+        let n = p.count
+        for i in 0..<n {
+            let P = p[i], A = p[(i + n - 1) % n], B = p[(i + 1) % n], r = i % 2 == 1 ? valley : tip
+            let la = max(hypot(A.x - P.x, A.y - P.y), 1e-6), lb = max(hypot(B.x - P.x, B.y - P.y), 1e-6)
+            let ta = min(0.45, r / la), tb = min(0.45, r / lb)
+            let a0 = CGPoint(x: P.x + (A.x - P.x) * ta, y: P.y + (A.y - P.y) * ta)
+            let b0 = CGPoint(x: P.x + (B.x - P.x) * tb, y: P.y + (B.y - P.y) * tb)
+            if i == 0 { path.move(to: a0) } else { path.addLine(to: a0) }
+            path.addQuadCurve(to: b0, control: P)
+        }
+        path.closeSubpath()
         return path
+    }
+
+    // swiftlint:disable:next function_body_length cyclomatic_complexity function_parameter_count
+    static func draw(in context: GraphicsContext, paper: StarPaper, at center: CGPoint, radius R: CGFloat,
+                     rotation: CGFloat, look: Look) {
+        guard R >= 0.4, look.opacity > 0.002 else { return }
+        let pf = look.puff, pfc = Ease.clamp(pf)
+        let inner = Ease.lerp(cos36Value, 0.58, pf), h = R * Ease.lerp(0.16, 0.5, pfc)
+        let p = points(R, inner: inner, rotation: rotation)
+        let outline = rounded(p, tip: R * Ease.lerp(0.09, 0.2, pfc), valley: R * 0.13 * pfc)
+        let k = look.k
+        var ctx = context
+        ctx.translateBy(x: center.x, y: center.y)
+        ctx.opacity *= look.opacity
+        if look.shadow > 0 {
+            var shadow = ctx
+            shadow.addFilter(.shadow(color: Color(.sRGB, red: 72 / 255, green: 38 / 255, blue: 30 / 255,
+                                                  opacity: 0.3 * min(1.2, look.shadow)),
+                                     radius: R * 0.19, x: R * 0.08, y: R * 0.2))
+            shadow.fill(outline, with: .color(Color(hex: 0xE2A493)))
+        }
+        // Paper thickness: the stacked layers peek out lower right.
+        var thick = ctx
+        thick.translateBy(x: R * (0.02 + 0.004 * look.layers), y: R * (0.04 + 0.007 * look.layers))
+        thick.fill(outline, with: .color(Color(.sRGB, red: 128 / 255, green: 66 / 255, blue: 66 / 255, opacity: 0.42)))
+
+        var face = ctx
+        face.clip(to: outline)
+        let L = FoldDrawing.length, SW = FoldDrawing.thickness
+        do {
+            var turned = face
+            turned.rotate(by: .radians(rotation))
+            let sw = min(L, 4.6 * R / k), sx = Ease.clamp(look.faceU - sw / 2, 0, L - sw)
+            let sxScale = 2.2 * R / sw
+            turned.draw(paper.face, in: CGRect(x: -1.1 * R - sx * sxScale, y: -1.1 * R, width: L * sxScale,
+                                               height: 2.2 * R))
+        }
+        let bandsShown = Ease.clamp(1 - pfc * 1.7)
+        if bandsShown > 0, !look.bands.isEmpty {
+            let ap = R * cos36Value, bh = SW * 0.5 * k, bsw = 2 * R / k
+            let strip = face.resolve(paper.strip)
+            for band in look.bands where band.reveal > 0 {
+                var layer = face
+                layer.rotate(by: .radians(rotation + band.angle))
+                layer.opacity *= bandsShown
+                let rx = R - 2 * R * band.reveal
+                layer.clip(to: Path(CGRect(x: rx, y: ap - bh - 6, width: R - rx + 1, height: bh + 8)))
+                layer.fill(Path(CGRect(x: -R, y: ap - bh - 5, width: 2 * R, height: 5)), with: .linearGradient(
+                    Gradient(colors: [Color(.sRGB, red: 60 / 255, green: 25 / 255, blue: 28 / 255, opacity: 0),
+                                      Color(.sRGB, red: 60 / 255, green: 25 / 255, blue: 28 / 255, opacity: 0.2)]),
+                    startPoint: CGPoint(x: 0, y: ap - bh - 5), endPoint: CGPoint(x: 0, y: ap - bh)))
+                var wrap = layer
+                wrap.clip(to: Path(CGRect(x: -R, y: ap - bh, width: 2 * R, height: bh + 1)))
+                let bsx = Ease.clamp(band.u - bsw / 2, 0, L - bsw), sx = 2 * R / bsw, sy = (bh + 1) / (SW * 0.5)
+                wrap.draw(strip, in: CGRect(x: -R - bsx * sx, y: ap - bh, width: L * sx, height: SW * sy))
+                layer.fill(Path(CGRect(x: -R, y: ap - bh, width: 2 * R, height: bh)), with: .linearGradient(
+                    Gradient(colors: [Color(.sRGB, red: 1, green: 244 / 255, blue: 234 / 255, opacity: 0.12),
+                                      Color(.sRGB, red: 80 / 255, green: 34 / 255, blue: 40 / 255, opacity: 0.16)]),
+                    startPoint: CGPoint(x: 0, y: ap - bh), endPoint: CGPoint(x: 0, y: ap)))
+                layer.fill(Path(CGRect(x: -R, y: ap - bh, width: 2 * R, height: max(0.6, 0.025 * R))),
+                           with: .color(Color(.sRGB, red: 1, green: 246 / 255, blue: 238 / 255, opacity: 0.55)))
+                let seam = max(0.6, 0.02 * R)
+                layer.fill(Path(CGRect(x: -R, y: ap - bh - seam, width: 2 * R, height: seam)),
+                           with: .color(Color(.sRGB, red: 90 / 255, green: 40 / 255, blue: 46 / 255, opacity: 0.3)))
+            }
+        }
+        // Ten facets lit by one fixed light (matte: light and shade capped).
+        let fm = Ease.lerp(0.4, 1, pfc)
+        for f in 0..<5 {
+            let T = p[2 * f]
+            for (A, B) in [(p[(2 * f + 9) % 10], T), (T, p[2 * f + 1])] {
+                var nx = h * (B.y - A.y), ny = h * (A.x - B.x), nz = A.x * B.y - A.y * B.x
+                if nz < 0 { nx = -nx; ny = -ny; nz = -nz }
+                let m = max((nx * nx + ny * ny + nz * nz).squareRoot(), 1e-6)
+                let d = (nx * light.x + ny * light.y + nz * light.z) / m - light.z
+                var tri = Path()
+                tri.move(to: .zero)
+                tri.addLine(to: CGPoint(x: A.x * 1.02, y: A.y * 1.02))
+                tri.addLine(to: CGPoint(x: B.x * 1.02, y: B.y * 1.02))
+                tri.closeSubpath()
+                face.fill(tri, with: .color(d > 0
+                    ? Color(.sRGB, red: 1, green: 238 / 255, blue: 226 / 255, opacity: fm * min(0.2, d * 0.8))
+                    : Color(.sRGB, red: 70 / 255, green: 30 / 255, blue: 40 / 255, opacity: fm * min(0.3, -d * 0.9))))
+            }
+        }
+        if pfc > 0 {
+            let valley = Color(.sRGB, red: 70 / 255, green: 28 / 255, blue: 30 / 255)
+            for v in 0..<5 {
+                let I = p[2 * v + 1]
+                face.fill(Path(CGRect(x: I.x - R * 0.35, y: I.y - R * 0.35, width: R * 0.7, height: R * 0.7)),
+                          with: .radialGradient(Gradient(colors: [valley.opacity(0.18 * pfc), valley.opacity(0)]),
+                                                center: I, startRadius: 0, endRadius: R * 0.34))
+            }
+            let width = max(0.25, R * 0.022)
+            for r in 0..<5 {
+                let tip = p[2 * r], dip = p[2 * r + 1]
+                var ridge = Path()
+                ridge.move(to: .zero)
+                ridge.addLine(to: CGPoint(x: tip.x * 0.86, y: tip.y * 0.86))
+                face.stroke(ridge, with: .color(Color(.sRGB, red: 1, green: 240 / 255, blue: 230 / 255,
+                                                      opacity: 0.16 * pfc)),
+                            style: StrokeStyle(lineWidth: width, lineCap: .round))
+                var groove = Path()
+                groove.move(to: .zero)
+                groove.addLine(to: CGPoint(x: dip.x * 0.9, y: dip.y * 0.9))
+                face.stroke(groove, with: .color(Color(.sRGB, red: 90 / 255, green: 40 / 255, blue: 38 / 255,
+                                                       opacity: 0.13 * pfc)),
+                            style: StrokeStyle(lineWidth: width, lineCap: .round))
+            }
+        }
+        face.fill(Path(CGRect(x: -R, y: -R, width: 2 * R, height: 2 * R)), with: .radialGradient(
+            Gradient(colors: [Color(.sRGB, red: 1, green: 244 / 255, blue: 234 / 255, opacity: 0.05 * (1 - pfc)),
+                              Color(.sRGB, red: 1, green: 253 / 255, blue: 247 / 255, opacity: 0)]),
+            center: CGPoint(x: -R * 0.32, y: -R * 0.38), startRadius: 0, endRadius: R * 0.95))
+        if R > 6 { PaperArt.grain(in: face, rect: CGRect(x: -R, y: -R, width: 2 * R, height: 2 * R), opacity: 0.12) }
+        // The rim: soft lit top-left edge, darker lower right.
+        ctx.stroke(outline, with: .linearGradient(
+            Gradient(stops: [.init(color: Color(.sRGB, red: 1, green: 242 / 255, blue: 232 / 255, opacity: 0.32),
+                                   location: 0),
+                             .init(color: Color(.sRGB, red: 1, green: 242 / 255, blue: 232 / 255, opacity: 0.06),
+                                   location: 0.55),
+                             .init(color: Color(.sRGB, red: 90 / 255, green: 44 / 255, blue: 40 / 255, opacity: 0.24),
+                                   location: 1)]),
+            startPoint: CGPoint(x: -R, y: -R), endPoint: CGPoint(x: R, y: R)),
+                   style: StrokeStyle(lineWidth: max(0.3, R * 0.026), lineJoin: .round))
+    }
+
+    private static let cos36Value = FoldDrawing.cos36
+}
+
+// MARK: - Page marks
+
+/// What the page draws over its flat part: crease lines where it will
+/// fold or has folded, the lip where paper turns behind it, its border.
+enum PageMarks {
+    static func crease(in context: GraphicsContext, at v: CGFloat, opacity a: CGFloat) {
+        guard a > 0.003 else { return }
+        let y = v - StarPaper.height / 2, x0 = -StarPaper.width / 2 + 1.5, w = StarPaper.width - 3
+        let ink = Color(.sRGB, red: 70 / 255, green: 30 / 255, blue: 50 / 255)
+        context.fill(Path(CGRect(x: x0, y: y - 2.5, width: w, height: 5)), with: .color(ink.opacity(0.06 * a)))
+        context.fill(Path(CGRect(x: x0, y: y - 0.45, width: w, height: 0.9)), with: .color(ink.opacity(0.24 * a)))
+        context.fill(Path(CGRect(x: x0, y: y + 0.7, width: w, height: 0.8)),
+                     with: .color(Color(.sRGB, red: 1, green: 246 / 255, blue: 236 / 255, opacity: 0.45 * a)))
+    }
+
+    /// A fold edge where the paper turns behind: a thin lip of its back
+    /// and a highlight. `down` when the paper beyond lies below.
+    static func lip(in context: GraphicsContext, at v: CGFloat, down: Bool, opacity a: CGFloat) {
+        guard a > 0.003 else { return }
+        let y = v - StarPaper.height / 2, x0 = -StarPaper.width / 2 + 1, w = StarPaper.width - 2
+        context.fill(Path(CGRect(x: x0, y: down ? y : y - 2.5, width: w, height: 2.5)),
+                     with: .color(Color(.sRGB, red: 120 / 255, green: 58 / 255, blue: 72 / 255, opacity: 0.85 * a)))
+        context.fill(Path(CGRect(x: x0, y: down ? y - 1 : y + 0.2, width: w, height: 0.8)),
+                     with: .color(Color(.sRGB, red: 1, green: 240 / 255, blue: 230 / 255, opacity: 0.55 * a)))
+    }
+
+    /// The shade the folded half casts on the flat half above its crease.
+    static func halfShade(in context: GraphicsContext, angle: CGFloat) {
+        let s = abs(sin(angle)), y = StarPaper.half - StarPaper.height / 2
+        let ink = Color(.sRGB, red: 60 / 255, green: 25 / 255, blue: 35 / 255)
+        context.fill(Path(CGRect(x: -StarPaper.width / 2, y: y - 34, width: StarPaper.width, height: 34)),
+                     with: .linearGradient(Gradient(colors: [ink.opacity(0), ink.opacity(0.16 * s)]),
+                                           startPoint: CGPoint(x: 0, y: y - 34), endPoint: CGPoint(x: 0, y: y)))
+    }
+
+    static func border(in context: GraphicsContext, height: CGFloat, corner: CGFloat, opacity: CGFloat) {
+        guard opacity > 0 else { return }
+        let rect = CGRect(x: -StarPaper.width / 2 + 0.5, y: -StarPaper.height / 2 + 0.5,
+                          width: StarPaper.width - 1, height: height - 1)
+        context.stroke(Path(roundedRect: rect, cornerRadius: corner),
+                       with: .color(Color(.sRGB, red: 1, green: 245 / 255, blue: 235 / 255, opacity: 0.55 * opacity)),
+                       lineWidth: 1)
     }
 }
 // swiftlint:enable identifier_name
