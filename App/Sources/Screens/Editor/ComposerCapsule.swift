@@ -42,8 +42,8 @@ struct ComposerCapsule<Leading: View>: View {
 
 /// The composer while the Background tool is open (screen 05): words that
 /// describe a backdrop, and Apply asks Mira to paint it for this page; with
-/// no words Apply returns to the canvas. Never a dead pill: while Apply's
-/// painting is on its way it reads Stop.
+/// no words Apply returns to the canvas (Q6A). While the painting is on its
+/// way it is Mira's working bar, "Painting..." with Stop (R5A).
 struct BackgroundApplyBar: View {
     @Binding var words: String
     var focus: FocusState<Bool>.Binding
@@ -56,23 +56,25 @@ struct BackgroundApplyBar: View {
     @State private var appliedAt = Date.distantPast
 
     var body: some View {
-        ComposerCapsule(action: painting ? "Stop" : "Apply", actionID: "background.apply", canAct: true,
-                        onAct: painting ? stop : apply) {
-            TextField("", text: $words, prompt: Text("Apply to this page").foregroundStyle(Palette.muted))
-                .font(.miraComposer)
-                .foregroundStyle(Palette.ink)
-                .tint(Palette.forest)
-                .submitLabel(.go)
-                .focused(focus)
-                .onSubmit(apply)
-                .disabled(painting)
-                .accessibilityLabel("Describe a background for this page")
-                .accessibilityIdentifier("background.apply.input")
+        if painting {
+            MiraWorkingBar(verb: String(appCopy: "Painting..."), stopID: "background.apply", onStop: stop,
+                           verbID: "background.status")
+        } else {
+            ComposerCapsule(action: "Apply", actionID: "background.apply", canAct: true, onAct: apply) {
+                TextField("", text: $words, prompt: Text("Apply to this page").foregroundStyle(Palette.muted))
+                    .font(.miraComposer)
+                    .foregroundStyle(Palette.ink)
+                    .tint(Palette.forest)
+                    .submitLabel(.go)
+                    .focused(focus)
+                    .onSubmit(apply)
+                    .accessibilityLabel("Describe a background for this page")
+                    .accessibilityIdentifier("background.apply.input")
+            }
         }
     }
 
     private func apply() {
-        guard !painting else { return }
         let sent = words.trimmingCharacters(in: .whitespacesAndNewlines)
         words = ""
         focus.wrappedValue = false

@@ -81,8 +81,11 @@ struct CanvasScene: View {
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState var applyFocus: Bool
-    /// Apply's painting is on its way: the Background row says so and
-    /// stays up until it lands.
+    /// The keyboard's height while it is up for a Background field, 0 once
+    /// it is down: the card keeps its size and the tool rides over it.
+    @State private var backgroundKeyboard: CGFloat = 0
+    /// Apply's painting is on its way: the composer is Mira's working bar
+    /// and the page glows until it lands (R5A).
     @State var applyingBackground = false
     /// Why Apply's painting did not come, shown over the Background row.
     @State var backgroundNotice: String?
@@ -259,10 +262,29 @@ struct CanvasScene: View {
     /// While words are written the page keeps its size and the keyboard
     /// rides over the dock -- and after, until that keyboard is gone (#162:
     /// the page used to shrink above the falling keyboard at once, then
-    /// grow back down with it).
+    /// grow back down with it). The Background tool's keyboard rides over
+    /// it the same way (final 42).
     private var holdsPageUnderKeyboard: Bool {
         _ = keyboardMoves
-        return editor.editingTextItemID != nil || TextKeyboard.up
+        return editor.editingTextItemID != nil || TextKeyboard.up || backgroundPanelOpen || backgroundKeyboard > 0
+    }
+
+    /// How far the dock rides up from its place to sit 10 above the
+    /// Background keyboard (final 42: the card keeps its size).
+    private var backgroundKeyboardLift: CGFloat {
+        let inset = Self.homeInset
+        return max(0, backgroundKeyboard - inset - Metrics.bottomGap(safeAreaBottom: inset) + 10)
+    }
+
+    /// The keyboard rising or falling for a Background field: the dock goes
+    /// with it. One rising elsewhere leaves it be.
+    private func followBackgroundKeyboard(_ note: Notification) {
+        guard backgroundPanelOpen || backgroundKeyboard > 0,
+              let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds
+        else { return }
+        let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        withAnimation(.easeOut(duration: duration)) { backgroundKeyboard = max(0, screen.maxY - end.minY) }
     }
 
     /// The home indicator's inset, which the keyboard covers.
@@ -344,6 +366,10 @@ struct CanvasScene: View {
                     TextKeyboard.up = false
                     if editor.editingTextItemID == nil { keyboardMoves += 1 }
                 }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification),
+                    perform: followBackgroundKeyboard
+                )
             // The text chrome floats over the page, on the keyboard.
             if editor.editingTextItemID != nil {
                 Group {
@@ -415,6 +441,14 @@ struct CanvasScene: View {
         ) {
             board
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { boardRow = $0 }
+                // Mira is painting: a soft glow breathes on the page (R5A).
+                .overlay {
+                    if applyingBackground {
+                        PaintingGlow(reduceMotion: ReduceMotion.resolved(reduceMotion))
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.3), value: applyingBackground)
                 .overlay(alignment: .bottom) {
                     if let receipt, layoutOriginal == nil {
                         // Screen 07: what Mira changed and what she kept.
@@ -472,6 +506,7 @@ struct CanvasScene: View {
                 }
                 .animation(.easeOut(duration: 0.15), value: dropToDelete)
                 .animation(.easeOut(duration: 0.2), value: attachedSound)
+                .offset(y: -backgroundKeyboardLift)
         }
         .overlay {
             if dropToDelete != nil {
@@ -660,12 +695,17 @@ struct CanvasScene: View {
         .onChange(of: mira.isWorking) { _, working in
             // A running turn owns the strip (Stop, then the receipt) --
             // except the Background tool's own Apply, which shows its work
-            // over its row and closes it once the painting lands.
+            // in the tool's composer; the tool stays once the painting lands.
             if working {
                 if !applyingBackground { backgroundPanelOpen = false }
             } else if applyingBackground {
                 finishBackgroundApply()
             }
+        }
+        .onChange(of: applyFocus) { _, focused in
+            // Typing a new painting moves on from the last one's receipt,
+            // which the keyboard would cover (F4A).
+            if focused { keepPaintReceipt() }
         }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
@@ -1023,7 +1063,7 @@ struct CanvasScene: View {
 
     /// The Background tool's Apply (owner, TestFlight 1.0(6)). With no words
     /// the rows' choices are already on the page: back to the canvas.
-    /// With words Mira paints a backdrop; the row stays, saying so.
+    /// With words Mira paints a backdrop; the row stays while she works.
     private func applyBackground(_ words: String) {
         guard !words.isEmpty else {
             closeBackground()
@@ -1035,22 +1075,17 @@ struct CanvasScene: View {
         mira.askBackground(words, editor: editor)
     }
 
-    /// Apply's turn ended: landed, the canvas with its result sheet; failed,
-    /// the row's caption says why (once -- not again in the strip) with the
-    /// words back; stopped, the words back.
+    /// Apply's turn ended: landed, its receipt floats on the card's foot
+    /// and the row stays (F4A); failed, the row's caption says why (once --
+    /// not again in the strip) with the words back; stopped, the words back.
     private func finishBackgroundApply() {
         applyingBackground = false
-        let refill = mira.refillPrompt
+        // Only a stop or a failure gives the words back.
+        applyWords = mira.refillPrompt ?? applyWords
         mira.refillPrompt = nil
-        switch mira.phase {
-        case .failure(let failure):
+        if case .failure(let failure) = mira.phase {
             backgroundNotice = failure.message
-            applyWords = refill ?? applyWords
             mira.dismiss()
-        case .idle:
-            applyWords = refill ?? applyWords
-        default:
-            closeBackground()
         }
     }
 
@@ -1653,7 +1688,10 @@ extension CanvasScene {
             "elements": editor.items.map(Self.debugElement),
             "textOpen": TextOpenTiming.snapshot,
             "textToolsShown": textToolsShown,
-            "escapeArmed": WritingEscape.armed
+            "escapeArmed": WritingEscape.armed,
+            "board": [boardRow.minY, boardRow.height],
+            // Mira painting's glow: breathing, or still under Reduce Motion.
+            "paintGlow": applyingBackground ? (ReduceMotion.resolved(reduceMotion) ? "still" : "breathing") : ""
         ]
     }
 

@@ -26,15 +26,26 @@ struct UITestLimitedText: TextTransformService {
     private let mock = MockTextTransformService()
 
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
-        let limited = ProcessInfo.processInfo.arguments.contains("-AI-LIMIT-REACHED")
-        guard limited, !(await PlusStore.shared.isPlus) else { return try await mock.transform(text, mode: mode) }
+        guard await Self.limited else { return try await mock.transform(text, mode: mode) }
+        let live = LiveTextTransformService(baseURL: Self.invalidURL, client: Self.quotaClient)
+        return try await live.transform(text, mode: mode)
+    }
+
+    /// `-AI-LIMIT-REACHED` and no Plus yet.
+    static var limited: Bool {
+        get async {
+            guard ProcessInfo.processInfo.arguments.contains("-AI-LIMIT-REACHED") else { return false }
+            return !(await PlusStore.shared.isPlus)
+        }
+    }
+
+    static let invalidURL = URL(string: "http://uitest.invalid")!
+
+    /// A client every request of which the server answers with the quota 429.
+    static var quotaClient: HTTPClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [QuotaAnswer.self]
-        let live = LiveTextTransformService(
-            baseURL: URL(string: "http://uitest.invalid")!,
-            client: HTTPClient(session: URLSession(configuration: configuration), betaToken: nil)
-        )
-        return try await live.transform(text, mode: mode)
+        return HTTPClient(session: URLSession(configuration: configuration), betaToken: nil)
     }
 
     private final class QuotaAnswer: URLProtocol {
@@ -74,11 +85,18 @@ struct UITestScriptedStudio: ImageStudioService {
     private let mock = MockImageStudioService()
 
     /// Slower by `-GENERATE_DELAY <ms>`: a picture or backdrop being painted.
-    /// A prompt with "fail" throws, as an unreachable backend does.
+    /// A prompt with "fail" throws, as an unreachable backend does. Under
+    /// `-AI-LIMIT-REACHED` a backdrop gets the quota 429, as the text
+    /// transforms do (UITestLimitedText).
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
         let delay = UserDefaults.standard.integer(forKey: "GENERATE_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
         if prompt.lowercased().contains("fail") { throw URLError(.notConnectedToInternet) }
+        if kind == .background, await UITestLimitedText.limited {
+            let live = LiveImageStudioService(baseURL: UITestLimitedText.invalidURL,
+                                              client: UITestLimitedText.quotaClient)
+            return try await live.generate(kind: kind, prompt: prompt)
+        }
         return try await mock.generate(kind: kind, prompt: prompt)
     }
 

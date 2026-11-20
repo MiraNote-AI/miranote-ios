@@ -71,4 +71,34 @@ final class BackgroundDesignShotsUITests: XCTestCase {
         app.openBackgroundRow("paper")
         shot("bg-5-paper")
     }
+
+    /// Mira paints (demo3 S4): typing in the Apply field, the working
+    /// composer, the receipt on the card's foot, then the Color row.
+    func testWalkThroughMiraPainting() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "5000"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Sunday at the lake")
+        app.buttons["keyboard.done"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+
+        app.openBackground()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("soft watercolor sky")
+        shot("bg-6-typing")
+        app.buttons["background.apply"].tap()
+        sleep(1)
+        shot("bg-7-painting")
+        XCTAssertTrue(app.buttons["mira.keep"].waitForExistence(timeout: 12), "the painting landed")
+        shot("bg-8-receipt")
+        app.openBackgroundRow("color")
+        shot("bg-9-painted")
+    }
 }
