@@ -114,6 +114,22 @@ final class UserTokenTests: XCTestCase {
         XCTAssertFalse(account.isSignedIn)
     }
 
+    /// The server takes the refresh but refuses the new token too: signed
+    /// out, not the beta's 401 ("This build cannot get into the beta").
+    func testA401AfterARenewSignsOut() async {
+        StubURLProtocol.handler = { Self.answer($0, 401) }
+        let api = FakeAccountsAPI(refreshResults: [.success(tokens(2))])
+        let account = account(tokens(1), api: api)
+        do {
+            _ = try await client(account).send(request())
+            XCTFail("expected signed out")
+        } catch {
+            XCTAssertEqual(error as? AccountError, .signedOut)
+        }
+        XCTAssertEqual(api.refreshes, ["refresh-1"], "renewed once")
+        XCTAssertFalse(account.isSignedIn, "the next action offers sign-in")
+    }
+
     /// A build that offers no sign-in installs no token source
     /// (`SignInPresenter.install`), and every client built with the default
     /// sends what it sent before this change: the beta token, no request id,
