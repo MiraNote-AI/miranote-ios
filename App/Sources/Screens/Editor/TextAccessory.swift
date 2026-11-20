@@ -164,13 +164,18 @@ private struct TextGlass<S: InsettableShape>: View {
     }
 }
 
-/// The leading Back key of each row in the text slot. On the text row it
+/// The leading Back key of each row in the tool slot. On the text row it
 /// ends the writing (R1A), as a tap on the page or Esc on a hardware
 /// keyboard (`WritingEscape`) does; on a tool's row it goes back to the
-/// text row. A glass circle as tall as the bar beside it.
+/// text row. Background's rows use it the same way. A glass circle as tall
+/// as the bar beside it.
 struct TextBackKey: View {
-    /// `keyboard.done` ends the writing; `text.row.back` goes up a level.
+    /// `keyboard.done` ends the writing; `text.row.back` goes up a level;
+    /// `background.back` and `background.row.back` do the same for
+    /// Background.
     var identifier = "keyboard.done"
+    /// The text rows' 36; the Background rows' 40, the tool bar's height.
+    var size: CGFloat = 36
     let onBack: () -> Void
 
     var body: some View {
@@ -180,12 +185,12 @@ struct TextBackKey: View {
                 .resizable()
                 .frame(width: 20, height: 20)
                 .foregroundStyle(Tokens.forest)
-                .frame(width: 36, height: 36)
+                .frame(width: size, height: size)
                 .background(TextGlass(shape: Circle()))
-                // 36 drawn, 44 to the finger.
-                .padding(4)
+                // Drawn smaller, 44 to the finger.
+                .padding((44 - size) / 2)
                 .contentShape(Rectangle())
-                .padding(-4)
+                .padding(-(44 - size) / 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Back")

@@ -58,11 +58,11 @@ final class StarJarSaveUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.edit"].waitForExistence(timeout: 5))
         app.buttons["reading.edit"].tap()
         XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
-        app.buttons["mode.background"].tap()
+        app.openBackgroundRow("color")
         let lilac = app.buttons["background.color.#E6D9F0"]
         XCTAssertTrue(lilac.waitForExistence(timeout: 5))
         lilac.tap()
-        app.buttons["mode.background"].tap()
+        app.closeBackground()
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5))
         app.buttons["reading.back"].tap()

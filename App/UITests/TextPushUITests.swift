@@ -67,7 +67,7 @@ final class TextPushUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.edit"].waitForExistence(timeout: 5))
         app.buttons["reading.edit"].tap()
         XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
-        app.buttons["mode.background"].tap()
+        app.openBackgroundRow("sets")
 
         let sticker = app.descendants(matching: .any)["element.sticker"].firstMatch
         let poppins = app.buttons["background.set.poppins-lora"]

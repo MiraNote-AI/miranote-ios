@@ -81,10 +81,10 @@ final class OwnerTourUITests: XCTestCase {
         check("photo-edit")
         app.buttons["nav.trailing"].tap()
 
-        open("mode.background", until: app.descendants(matching: .any)["background.title"])
+        open("mode.background", until: app.descendants(matching: .any)["background.row.tools"])
         check("background")
-        // A tool's header: "Canvas" leads back; the trailing Save files the page.
-        app.buttons["nav.leading"].tap()
+        // The tool's items in the tool bar's place: Back leads to the tool bar.
+        app.buttons["background.back"].tap()
 
         open("mode.sticker", until: app.buttons["sticker.tab.make"])
         check("sticker")

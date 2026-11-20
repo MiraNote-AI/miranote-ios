@@ -4,16 +4,16 @@ import PhotosUI
 import SwiftUI
 
 /// The base editor: the infinite canvas plus the five-tool bar. Background,
-/// Voice, Text and Image act directly on the canvas -- Background lays its
-/// glass sheet over the card (screen 05), Image opens its sheets in place
+/// Voice, Text and Image act directly on the canvas -- Background swaps the
+/// tool bar for its one row (#205), Image opens its sheets in place
 /// and lifts a photo into its editor (23-29), Voice swaps the bottom bar for
 /// a recorder, Text drops an editable block; Sticker leaves for its panel.
 /// The composer opens the Mira canvas chat (06); a landed change waits on
 /// the result sheet (07); a dragged element floats above the dock over the
 /// composer's delete zone (22). Header is Home (Canvas while a tool is open
 /// in place) / undo / Save; Save still files the page and leaves. Writing
-/// greys Home and Save (#205), picking photos reads Cancel / Add, a lifted
-/// photo Cancel / Done.
+/// and Background grey Home and Save (#205), picking photos reads Cancel /
+/// Add, a lifted photo Cancel / Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -39,8 +39,8 @@ struct CanvasScene: View {
     @State var attachedSound: AttachedSound?
     /// The tool whose row is in the text slot; nil shows the text row.
     @State var textRow: TextTool?
-    /// The last level change went deeper: its row rises (D7A).
-    @State var textRowDeeper = true
+    /// The last tool-slot level change went deeper: its row rises (D7A).
+    @State var slotDeeper = true
     @State var rewrite: RewriteState?
     /// The words typed in the chat box while writing (F6B).
     @State var writingAsk = ""
@@ -81,10 +81,10 @@ struct CanvasScene: View {
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState var applyFocus: Bool
-    /// Apply's painting is on its way: the Background sheet shows the work
-    /// and stays up until it lands.
+    /// Apply's painting is on its way: the Background row says so and
+    /// stays up until it lands.
     @State var applyingBackground = false
-    /// Why Apply's painting did not come, shown in the Background sheet.
+    /// Why Apply's painting did not come, shown over the Background row.
     @State var backgroundNotice: String?
     /// The photo editor's AI prompt, lowered by a tap on the photo or page.
     @FocusState private var photoPromptFocus: Bool
@@ -135,6 +135,12 @@ struct CanvasScene: View {
     @State var layoutScroll: CGFloat = 0
     @State var scrollBack: CGFloat?
     @State var backgroundPanelOpen = false
+    /// The Background item whose row is in the tool slot; nil shows the
+    /// four items.
+    @State var backgroundRow: BackgroundRow?
+    /// The tool bar or Background's row, just swapped into the dock, waits
+    /// hidden before it enters (D7A, `SlotEntrance`).
+    @State var slotEntering = false
     /// The Background tool's custom page color sheet, while it is up.
     @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
@@ -374,13 +380,14 @@ struct CanvasScene: View {
         }
         .onChange(of: backgroundPanelOpen) { _, open in
             if !open {
+                backgroundRow = nil
                 closePageColorSheet(keeping: false)
                 // Closed mid-painting: the turn runs on in the Mira strip.
                 applyingBackground = false
                 backgroundNotice = nil
             }
             // Opening Background moves on from a waiting result (Keep):
-            // its sheet would draw over the tool's sets and layout.
+            // its sheet would draw over the tool's rows.
             if open, receipt != nil { mira.dismiss() }
         }
     }
@@ -396,10 +403,11 @@ struct CanvasScene: View {
             onTrailing: header.onTrailing,
             onUndo: headerUndo,
             undoEnabled: headerUndoEnabled,
-            // Writing ends first (Q3B, R2B): Home and Save wait for it.
-            leadingEnabled: !writing,
+            // Writing ends first (Q3B, R2B), and Background closes first
+            // (D5A, F1A): Home and Save wait for them.
+            leadingEnabled: !writing && !backgroundPanelOpen,
             // The picks importing are Add's: a second tap waits it out.
-            trailingEnabled: !writing && !(imagePhase == .library && importingPicks),
+            trailingEnabled: !writing && !backgroundPanelOpen && !(imagePhase == .library && importingPicks),
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
             pageInert: editingImageItem != nil,
@@ -407,13 +415,6 @@ struct CanvasScene: View {
         ) {
             board
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { boardRow = $0 }
-                .overlay(alignment: .top) {
-                    if backgroundPanelOpen {
-                        // A tap on the sheet lowers the Apply field's keyboard.
-                        backgroundSheet
-                            .onTapGesture { applyFocus = false }
-                    }
-                }
                 .overlay(alignment: .bottom) {
                     if let receipt, layoutOriginal == nil {
                         // Screen 07: what Mira changed and what she kept.
@@ -620,7 +621,7 @@ struct CanvasScene: View {
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
             } else {
-                // Writing takes the bottom cluster; the Background card must
+                // Writing takes the bottom cluster; the Background row must
                 // not come back over Mira's strip once it ends.
                 backgroundPanelOpen = false
             }
@@ -659,7 +660,7 @@ struct CanvasScene: View {
         .onChange(of: mira.isWorking) { _, working in
             // A running turn owns the strip (Stop, then the receipt) --
             // except the Background tool's own Apply, which shows its work
-            // in the sheet and closes it once the painting lands.
+            // over its row and closes it once the painting lands.
             if working {
                 if !applyingBackground { backgroundPanelOpen = false }
             } else if applyingBackground {
@@ -709,9 +710,14 @@ struct CanvasScene: View {
                 // folds it like it folds the text tools. Recording keeps
                 // its bar: a stray tap must not lose audio.
                 if case .armed = recorderState { recorderState = .idle }
-                // The Background card is a tool too: the paper folds it,
-                // and the Image tool before anything is picked.
-                backgroundPanelOpen = false
+                // Background folds back to the tool bar -- once Apply's
+                // keyboard is down: the first tap only lowers it -- and the
+                // Image tool folds before anything is picked.
+                if applyFocus {
+                    applyFocus = false
+                } else if backgroundPanelOpen {
+                    closeBackground()
+                }
                 if imagePhase == .choose { endImageVisit() }
                 // Edit sticker and AI Image stay open; the tap only lowers
                 // their keyboards.
@@ -826,9 +832,10 @@ struct CanvasScene: View {
                     onSelectTool: handleTool
                 )
             } else if backgroundPanelOpen {
-                // The tool's sheet lies over the canvas; the composer below
+                // The tool's row in the tool bar's place; the composer below
                 // asks Mira to paint a backdrop from words (screen 05).
-                toolBar(active: .background)
+                backgroundSlot
+                    .modifier(SlotEntrance(deeper: true, waiting: slotEntering))
                 BackgroundApplyBar(
                     words: $applyWords,
                     focus: $applyFocus,
@@ -856,6 +863,7 @@ struct CanvasScene: View {
             }
             // Voice stays lit while its take's result sheet shows (09).
             toolBar(active: attachedSound == nil ? nil : .voice)
+                .modifier(SlotEntrance(deeper: false, waiting: slotEntering))
             // The card and the bar are one conversational dock.
             VStack(spacing: 6) {
                 MiraCard(
@@ -945,6 +953,7 @@ struct CanvasScene: View {
             guard !mira.isWorking else { return }
             if case .recording = recorderState { return }
             cancelRecording()
+            if !backgroundWasOpen { enterSlot() }
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
             guard !textModeArming else { return }
@@ -993,15 +1002,14 @@ struct CanvasScene: View {
                      onDimmedLayout: { if let layoutBlocked { flashHint(layoutBlocked) } }, onSelect: handleTool)
     }
 
-    /// A tool open in place over the canvas (Background, photo or sticker
-    /// editing). The handoff's leading pill then reads "Canvas" and folds
-    /// the tool away (screen 05); on the bare canvas it is the way Home.
+    /// A tool open in place over the canvas (photo or sticker editing).
+    /// The handoff's leading pill then reads "Canvas" and folds the tool
+    /// away; on the bare canvas it is the way Home.
     private var toolOpen: Bool {
-        backgroundPanelOpen || editingImageItem != nil || editingStickerItem != nil || imagePhase != nil
+        editingImageItem != nil || editingStickerItem != nil || imagePhase != nil
     }
 
     private func closeTool() {
-        backgroundPanelOpen = false
         endImageVisit()
         if let id = editingImageItem {
             revealItem = id
@@ -1014,11 +1022,11 @@ struct CanvasScene: View {
     }
 
     /// The Background tool's Apply (owner, TestFlight 1.0(6)). With no words
-    /// the sheet's choices are already on the page: back to the canvas.
-    /// With words Mira paints a backdrop; the sheet shows the work.
+    /// the rows' choices are already on the page: back to the canvas.
+    /// With words Mira paints a backdrop; the row stays, saying so.
     private func applyBackground(_ words: String) {
         guard !words.isEmpty else {
-            backgroundPanelOpen = false
+            closeBackground()
             return
         }
         guard !mira.isWorking else { return }
@@ -1028,8 +1036,8 @@ struct CanvasScene: View {
     }
 
     /// Apply's turn ended: landed, the canvas with its result sheet; failed,
-    /// the sheet says why (once -- not again in the strip) with the words
-    /// back; stopped, the words back.
+    /// the row's caption says why (once -- not again in the strip) with the
+    /// words back; stopped, the words back.
     private func finishBackgroundApply() {
         applyingBackground = false
         let refill = mira.refillPrompt
@@ -1042,7 +1050,7 @@ struct CanvasScene: View {
         case .idle:
             applyWords = refill ?? applyWords
         default:
-            backgroundPanelOpen = false
+            closeBackground()
         }
     }
 
@@ -1057,13 +1065,15 @@ struct CanvasScene: View {
 
     /// The handoff's labels per state: a lifted photo Cancel / Done (27),
     /// picking and placed photos Cancel / Add (24-29), any other open tool
-    /// Canvas / Save (05, 23), the bare canvas and writing Home / Save (the
-    /// two greyed while writing, #205).
+    /// Canvas / Save (23), the bare canvas, writing and Background Home /
+    /// Save (the two greyed while writing or in Background, #205).
     private var header: Header {
         if layoutOriginal != nil {
             return Header(leading: "Cancel", trailing: "Done", onLeading: cancelLayout, onTrailing: keepLayout)
         }
-        if writing {
+        // Writing, or Background open at any level (D5A, F1A): Home and
+        // Save, greyed.
+        if writing || backgroundPanelOpen {
             return Header(leading: "Home", trailing: "Save", onLeading: actions.leading, onTrailing: actions.done)
         }
         if editingImageItem != nil {

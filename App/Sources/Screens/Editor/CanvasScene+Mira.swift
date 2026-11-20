@@ -1,37 +1,13 @@
 import MiraNoteKit
 import SwiftUI
 
-// MARK: - Background sheet, Mira chat (06), result sheet (07), dictation
+// MARK: - Background color sheet, Mira chat (06), result sheet (07), dictation
 
 extension CanvasScene {
     /// The change waiting for Keep or Revert (screen 07), if any.
     var receipt: MiraReceipt? {
         if case .receipt(let receipt) = mira.phase { return receipt }
         return nil
-    }
-
-    /// Screen 05: the tool's glass sheet floating inside the canvas card,
-    /// `Metrics.sheetInCard` from its top and sides (the board spans the
-    /// card's row, its insets included, so the sides sit on the chrome line).
-    var backgroundSheet: some View {
-        BackgroundToolSheet(
-            editor: editor,
-            // Never cancel a running turn by starting another.
-            // Its one ask is a chip (Tidy the layout): app copy.
-            onAsk: { chip in
-                guard !mira.isWorking else { return }
-                mira.askSuggestion(chip, editor: editor)
-            },
-            onClose: { backgroundPanelOpen = false },
-            onCustomColor: openPageColorSheet,
-            painting: applyingBackground,
-            notice: backgroundNotice,
-            folded: applyFocus
-        )
-        .animation(.easeOut(duration: 0.2), value: applyFocus)
-        .padding(.horizontal, Metrics.chromeInset)
-        .padding(.vertical, Metrics.sheetInCard)
-        .transition(.opacity)
     }
 
     // MARK: Custom page color (screen 05 through the sheet of 14 and 20)
