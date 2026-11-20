@@ -63,8 +63,11 @@ extension XCUIElement {
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return false }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        let lightness = stride(from: 0, to: pixels.count, by: 4).map {
-            Int(pixels[$0]) + Int(pixels[$0 + 1]) + Int(pixels[$0 + 2])
+        // Typed step by step: one expression of it does not type-check in
+        // time on Xcode 26.6.
+        let lightness: [Int] = stride(from: 0, to: pixels.count, by: 4).map { index in
+            let red = Int(pixels[index]), green = Int(pixels[index + 1]), blue = Int(pixels[index + 2])
+            return red + green + blue
         }
         return (lightness.max() ?? 0) - (lightness.min() ?? 0) > 150
     }
