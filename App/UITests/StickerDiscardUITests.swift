@@ -87,4 +87,15 @@ final class StickerDiscardUITests: XCTestCase {
         XCTAssertEqual(app.buttons["nav.trailing"].label, "Add", "nothing waits: the header Add is back")
         XCTAssertFalse(any("element.sticker").exists, "nothing landed on the page")
     }
+
+    /// Discard stays put after it lets one go, and the one left often looks
+    /// the same: a double tap lets go of one, not both. Neither comes back.
+    func testADoubleTapOnDiscardLetsGoOfOneOnly() {
+        makeTwo()
+        let discard = app.buttons["sticker.draft.discard"]
+        discard.doubleTap()
+        sleep(1)
+        XCTAssertEqual(draftCount, 1, "one double tap, one sticker gone")
+        XCTAssertTrue(discard.isEnabled, "the one left is live")
+    }
 }

@@ -46,6 +46,8 @@ struct StickerPanelScene: View {
     /// A style tile's studio call in flight.
     @State private var styling = false
     @State private var notice: String?
+    /// When Discard last let a made sticker go.
+    @State private var discardedAt = Date.distantPast
     /// The page's card row and the made sticker's preview, on screen: the
     /// hop runs from one onto the other.
     @State private var pageRow: CGRect = .zero
@@ -831,8 +833,11 @@ struct StickerPanelScene: View {
     }
 
     /// Drops only the made sticker on screen, for good; none left is Make's start.
+    /// A second tap within half a second is a double tap, not a second sticker:
+    /// Discard stays put, and the one left often looks just like the one gone.
     private func discard() {
-        guard !busy, drafts.indices.contains(page) else { return }
+        guard !busy, drafts.indices.contains(page), Date().timeIntervalSince(discardedAt) > 0.5 else { return }
+        discardedAt = Date()
         drafts.remove(at: page)
         page = min(page, max(drafts.count - 1, 0))
         notice = nil
