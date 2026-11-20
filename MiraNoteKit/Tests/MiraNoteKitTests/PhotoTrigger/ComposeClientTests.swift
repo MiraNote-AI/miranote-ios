@@ -347,6 +347,13 @@ final class LiveComposeClientTests: XCTestCase {
         } catch {
             XCTAssertEqual(error as? ComposeError, .unreachable)
         }
+        StubURLProtocol.handler = { _ in throw URLError(.networkConnectionLost) }
+        do {
+            _ = try await client.poll("job-1")
+            XCTFail("expected unreachable")
+        } catch {
+            XCTAssertEqual(error as? ComposeError, .unreachable, "a lost answer retries as before")
+        }
         respond(401, "")
         do {
             _ = try await client.poll("job-1")
