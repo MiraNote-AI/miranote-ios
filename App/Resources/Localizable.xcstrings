@@ -7419,6 +7419,18 @@
         }
       }
     },
+    "This purchase has moved between MiraNote accounts too often. Contact us to move it." : {
+      "comment" : "Restore error: the server refused to move the subscription again so soon (relinked within 30 days, or too many links in a day).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这笔购买在 MiraNote 账号之间转移得太频繁。如需转移，请联系我们。"
+          }
+        }
+      }
+    },
     "This sticker has no stored pixels to change." : {
       "extractionState" : "manual",
       "localizations" : {

@@ -147,6 +147,19 @@ final class PlusStoreKitTests: XCTestCase {
         }
     }
 
+    func testRestoreAfterTheRelinkLimitSaysThePurchaseMovedTooOften() async throws {
+        _ = try await session.buyProduct(identifier: PlusStore.ProductID.monthly)
+        let (store, subscriptions) = store()
+        let detail = #"{"detail": "too many purchases linked today"}"#
+        subscriptions.error = BackendError.server(status: 429, detail: detail)
+        do {
+            _ = try await store.restore()
+            XCTFail("expected the relink limit")
+        } catch {
+            XCTAssertEqual(error as? PlusError, .movedTooOften)
+        }
+    }
+
     func testARefundTakesPlusAway() async throws {
         let (store, _) = store()
         _ = try await store.purchase(try await product(PlusStore.ProductID.monthly, in: store))

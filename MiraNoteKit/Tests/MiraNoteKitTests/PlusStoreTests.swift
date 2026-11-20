@@ -17,10 +17,12 @@ final class PlusStoreTests: XCTestCase {
         return (steps, refused)
     }
 
-    func testAPurchaseAnotherAccountOwnsIsFinishedThenSaysSo() async {
-        let (steps, refused) = await settled(syncError: PlusError.ownedByAnotherAccount)
-        XCTAssertEqual(steps, ["sync", "finish"], "Apple has charged: finished whatever the server says")
-        XCTAssertEqual(refused, .ownedByAnotherAccount)
+    func testAPurchaseTheServerRefusesIsFinishedThenSaysWhy() async {
+        for error in [PlusError.ownedByAnotherAccount, .movedTooOften] {
+            let (steps, refused) = await settled(syncError: error)
+            XCTAssertEqual(steps, ["sync", "finish"], "Apple has charged: finished whatever the server says")
+            XCTAssertEqual(refused, error)
+        }
     }
 
     func testAPurchaseTheServerDidNotHearOfIsFinishedQuietly() async {
@@ -35,5 +37,29 @@ final class PlusStoreTests: XCTestCase {
         let (steps, refused) = await settled(syncError: nil)
         XCTAssertEqual(steps, ["sync", "finish"])
         XCTAssertNil(refused)
+    }
+
+    // MARK: The server's refusals
+
+    func testTheServerSaysWhoseChainItIs() {
+        XCTAssertEqual(PlusError(syncFailure: BackendError.server(status: 403, detail: nil)), .ownedByAnotherAccount)
+        XCTAssertEqual(PlusError(syncFailure: BackendError.server(status: 409, detail: nil)), .ownedByAnotherAccount)
+    }
+
+    /// miranote-api #113: a chain relinked within 30 days, or a third link
+    /// in a day, is a 429 that says nothing about the beta's rate limit.
+    func testTheRelinkLimitSaysThePurchaseMovedTooOften() {
+        let detail = #"{"detail": "this purchase was moved recently"}"#
+        let refused = PlusError(syncFailure: BackendError.server(status: 429, detail: detail))
+        XCTAssertEqual(refused, .movedTooOften)
+        XCTAssertEqual(refused?.localizedDescription,
+                       "This purchase has moved between MiraNote accounts too often. Contact us to move it.")
+    }
+
+    func testOtherFailuresAreNotTheServersRefusal() {
+        for error in [BackendError.unreachable, .answerLost, .server(status: 500, detail: nil)] {
+            XCTAssertNil(PlusError(syncFailure: error), "\(error)")
+        }
+        XCTAssertNil(PlusError(syncFailure: AccountError.signedOut))
     }
 }
