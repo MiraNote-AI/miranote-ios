@@ -58,6 +58,12 @@ public final class AIConsent {
     /// so. Background work never shows it.
     @ObservationIgnored public var limitReached: (@MainActor (AILimit) -> Void)?
 
+    /// Asked at a free limit before `limitReached`: whether the phone holds
+    /// Plus and has just told the server (`PlusStore.syncIfPlus`), as when
+    /// the sync after a purchase was lost offline. True, the action is
+    /// tried once more. Unset, the limit stands.
+    @ObservationIgnored public var syncPlus: (@MainActor () async -> Bool)?
+
     @ObservationIgnored private var waiting: [CheckedContinuation<Bool, Never>] = []
 
     public init(defaults: UserDefaults, grantedByDefault: Bool = false) {
@@ -110,16 +116,26 @@ public final class AIConsent {
         sentRequests += 1
     }
 
-    /// `work` once clear to send; a free allowance it finds used up also
-    /// shows `limitReached`.
+    /// `work` once clear to send; a free allowance it finds used up is
+    /// tried once more after `syncPlus`, then shows `limitReached`. The
+    /// 429 came before anything was counted.
     func send<T>(_ work: () async throws -> T) async throws -> T {
         try await clearToSend()
         do {
             return try await work()
         } catch BackendError.limitReached(let limit) where limit.isFree {
-            limitReached?(limit)
-            throw BackendError.limitReached(limit)
+            guard let syncPlus, await syncPlus() else { return try offerPlus(limit) }
         }
+        do {
+            return try await work()
+        } catch BackendError.limitReached(let limit) where limit.isFree {
+            return try offerPlus(limit)
+        }
+    }
+
+    private func offerPlus<T>(_ limit: AILimit) throws -> T {
+        limitReached?(limit)
+        throw BackendError.limitReached(limit)
     }
 
     /// For work the writer did not just ask for -- a photo's description:
@@ -189,6 +205,10 @@ struct AskingTextTransform: TextTransformService {
 
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
         try await consent.send { try await base.transform(text, mode: mode) }
+    }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        try await consent.send { try await base.rewrite(text, instruction: instruction) }
     }
 }
 
