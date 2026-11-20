@@ -161,6 +161,42 @@ final class TextChatBoxUITests: TextToolUITestCase {
         XCTAssertFalse(go.isEnabled, "an empty block: Go is off")
     }
 
+    /// "Edit text" on another block while writing opens it straight from
+    /// this one. The chat box's words were this block's and stay behind,
+    /// and Go then rewrites the new block (it used to do nothing once a Go
+    /// had opened the Polish row on the first).
+    func testGoRewritesABlockOpenedStraightFromAnother() {
+        write("first block")
+        write("second block")
+        editText("first block")
+        ask.tap()
+        ask.typeText("make it warmer")
+        go.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) first block"), "\(fieldValue())")
+        ask.tap()
+        ask.typeText("and shorter")
+        let first = canvasState()["writing"] as? String ?? ""
+
+        editText("second block")
+        XCTAssertNotEqual(canvasState()["writing"] as? String, first, "writing the second block")
+        XCTAssertEqual(ask.value as? String ?? "", ask.placeholderValue ?? "",
+                       "the first block's words stay with it")
+        ask.tap()
+        ask.typeText("make it warmer")
+        go.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) second block"), "Go rewrites it: \(fieldValue())")
+    }
+
+    /// The block's menu, "Edit text", from wherever the page is.
+    private func editText(_ words: String) {
+        let block = app.staticTexts[words]
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        block.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Edit text"].waitForExistence(timeout: 3))
+        app.buttons["Edit text"].tap()
+        XCTAssertTrue(waitForField("==", words), "writing '\(words)': \(fieldValue())")
+    }
+
     /// A page tap with the caret in the chat box ends the writing, as it
     /// does with the caret in the block.
     func testAPageTapFromTheChatBoxEndsTheWriting() {
