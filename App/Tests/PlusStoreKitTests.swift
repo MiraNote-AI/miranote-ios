@@ -188,6 +188,21 @@ final class StoreKitConfigurationTests: XCTestCase {
         let plans = groups.flatMap { $0["subscriptions"] as? [[String: Any]] ?? [] }
         XCTAssertEqual(Set(plans.compactMap { $0["productID"] as? String }), Set(PlusStore.ProductID.all))
     }
+
+    /// Yearly is the higher level (1 is the top), so monthly to yearly is
+    /// an upgrade and the reverse a downgrade, not a crossgrade. App Store
+    /// Connect holds the same levels.
+    func testYearlyRanksAboveMonthly() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "MiraNote", withExtension: "storekit"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let groups = try XCTUnwrap(object["subscriptionGroups"] as? [[String: Any]])
+        let plans = groups.flatMap { $0["subscriptions"] as? [[String: Any]] ?? [] }
+        let levels = Dictionary(uniqueKeysWithValues: plans.compactMap { plan in
+            (plan["productID"] as? String).map { ($0, plan["groupNumber"] as? Int) }
+        })
+        XCTAssertEqual(levels[PlusStore.ProductID.yearly], 1)
+        XCTAssertEqual(levels[PlusStore.ProductID.monthly], 2)
+    }
 }
 
 // MARK: - Doubles
