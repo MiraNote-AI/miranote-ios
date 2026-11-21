@@ -78,6 +78,12 @@ targets:
         # ProMotion: the star fold and unfold draw every frame at up to
         # 120 Hz, not the 60 Hz an app gets without this.
         CADisableMinimumFrameDurationOnPhone: true
+        # The repeat-theme finder's BGProcessingTask (ThemeBackgroundTask):
+        # runs while the phone is on power and online.
+        BGTaskSchedulerPermittedIdentifiers:
+          - app.miranote.photo-trigger.themes
+        UIBackgroundModes:
+          - processing
         # The beta bearer token, injected from an untracked xcconfig so it
         # never reaches the repository. Absent in a build without one, which
         # the app reports as a 401 it can explain rather than refusing to run.

@@ -225,6 +225,25 @@ final class ThemeEngineRunTests: XCTestCase {
         XCTAssertEqual(harness.client.roundOneRequests.count, 1)
     }
 
+    func testStopEarlyEndsTheRunInFlightAsAtItsDeadline() async {
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        let engine = harness.engine()
+        // A background task's time runs out while the third photo is read.
+        harness.analyzer.onCheckup = { id in if id == "x-3" { engine.stopEarly() } }
+        let stopped = await engine.run(trigger: .background, deadline: nil)
+        XCTAssertEqual(stopped.checkedNew, 3)
+        XCTAssertTrue(stopped.piles.isEmpty)
+        XCTAssertEqual(stopped.asked, 0)
+        XCTAssertFalse(stopped.failures.isEmpty)
+
+        // A run asked for after the stop is not stopped by it.
+        harness.analyzer.onCheckup = nil
+        let next = await engine.run(trigger: .foreground, deadline: nil)
+        XCTAssertEqual(next.checkedNew, 3)
+        XCTAssertEqual(next.piles.count, 1)
+        XCTAssertEqual(next.asked, 1)
+    }
+
     func testRunReportsAreKeptLastTwenty() async {
         harness.addTheme("x", base: 0, days: Array(1...6))
         let engine = harness.engine()

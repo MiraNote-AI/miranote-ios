@@ -9,8 +9,11 @@ extension TriggerController {
     static let shared = make()
 
     /// The app's one controller: PhotoKit, Vision, Apple's geocoder and the
-    /// photo-collections backend -- or, under `-UITEST-TRIGGER`, the
-    /// synthetic library and a scripted backend.
+    /// photo-collections backend, with the repeat-theme finder -- or, under
+    /// `-UITEST-TRIGGER`, the synthetic library and a scripted backend. The
+    /// finder is built in every build but runs only behind the install's
+    /// gates, as V1's scheduling does: after a gated foreground run, from
+    /// the gated background task, or from the debug page's test-push.
     private static func make() -> TriggerController {
         let fakeAI = AppSettings.storeDefaults.bool(forKey: fakeAIKey)
         let optedIn = AppSettings.storeDefaults.bool(forKey: optedInKey)
@@ -18,21 +21,42 @@ extension TriggerController {
         if ProcessInfo.processInfo.arguments.contains("-UITEST-TRIGGER") { return makeSynthetic() }
         #endif
         let reader = PhotoLibraryReader()
+        let analyzer = PhotoAnalyzer(photos: reader)
         let clock = debugClock(ProcessInfo.processInfo.arguments)
+        let themePhotos = ThemePhotoStore(directory: ThemePhotoStore.defaultDirectory)
+        let engine = makeThemeEngine(reader: reader, analyzer: analyzer, photos: themePhotos, clock: clock)
         return TriggerController(
             photos: reader, records: PushRecordStore(directory: PushRecordStore.defaultDirectory),
             dependencies: { flag in
                 var deps = SchedulerDependencies(
-                    library: reader, analyzer: PhotoAnalyzer(photos: reader), places: PlaceNamer(),
+                    library: reader, analyzer: analyzer, places: PlaceNamer(),
                     client: LiveComposeClient(), notifications: LivePushNotificationCenter(photos: reader),
                     calendar: { Calendar.autoupdatingCurrent },
-                    fakeAI: { flag.value }, zh: TriggerContent.zh, groupingReport: saveGroupingReport
+                    fakeAI: { flag.value }, zh: TriggerContent.zh, groupingReport: saveGroupingReport,
+                    themes: themePhotos, themeEngine: engine
                 )
                 if let clock { deps.now = clock }
                 return deps
             },
             permissions: .live, fakeAI: fakeAI, optedIn: optedIn
         )
+    }
+
+    /// The repeat-theme finder over the live library and backend. On the
+    /// simulator the checkup gives no theme vision (its prints are all
+    /// alike), so no theme record is kept there: the engine leaves those
+    /// photos out for the rest of the launch and finds no piles.
+    private static func makeThemeEngine(reader: PhotoLibraryReader, analyzer: PhotoAnalyzer,
+                                        photos: ThemePhotoStore, clock: (@Sendable () -> Date)?) -> ThemeEngine {
+        ThemeEngine(ThemeDependencies(
+            library: reader, analyzer: analyzer,
+            analyses: AnalysisStore(directory: AnalysisStore.defaultDirectory), photos: photos,
+            themes: ThemeLibrary(file: ThemeLibrary.defaultFile), rounds: RoundLog(file: RoundLog.defaultFile),
+            window: ThemeWindowStore(file: ThemeWindowStore.defaultFile),
+            runs: ThemeRunLog(file: ThemeRunLog.defaultFile), client: LiveThemeRoundClient(),
+            imageData: { await reader.uploadData(for: $0) }, now: clock ?? { Date() },
+            calendar: .autoupdatingCurrent
+        ))
     }
 
     #if DEBUG

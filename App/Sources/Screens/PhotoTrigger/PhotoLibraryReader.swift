@@ -16,10 +16,6 @@ protocol TriggerPhotoProviding: Sendable {
 /// upload and the story. Authorization works like the Recents grid's
 /// (`RecentPhotos`): asked once, limited access uses what it can see.
 struct PhotoLibraryReader: PhotoLibraryReading, TriggerPhotoProviding {
-    /// Original file names are read for this window only (filtering and
-    /// the threshold need them); older photos are used for their position.
-    static let filenameDays: Double = 91
-
     func requestAccess() async -> PhotoAccess {
         var status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         if status == .notDetermined {
@@ -38,20 +34,21 @@ struct PhotoLibraryReader: PhotoLibraryReading, TriggerPhotoProviding {
         }.value
     }
 
+    /// Every image asset since `date`, however far back (the repeat-theme
+    /// window reaches past V1's 90 days), each with its original file name:
+    /// filtering needs it. The order is PhotoKit's; a run sorts its own.
     private static func fetch(since date: Date, known: [String: String]) -> [LibraryAsset] {
         let options = PHFetchOptions()
         options.predicate = NSPredicate(format: "creationDate >= %@", date as NSDate)
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
         // Hidden photos are not fetched by default; screenshots are marked.
         let result = PHAsset.fetchAssets(with: .image, options: options)
-        let filenameStart = Date().addingTimeInterval(-filenameDays * 86_400)
         var assets: [LibraryAsset] = []
         assets.reserveCapacity(result.count)
         result.enumerateObjects { asset, _, _ in
-            let recent = (asset.creationDate ?? .distantPast) >= filenameStart
             // Names kept from earlier analyses spare a PhotoKit call per photo.
             let name = known[asset.localIdentifier]
-                ?? (recent ? PHAssetResource.assetResources(for: asset).first?.originalFilename : nil)
+                ?? PHAssetResource.assetResources(for: asset).first?.originalFilename
             assets.append(LibraryAsset(
                 id: asset.localIdentifier,
                 takenAt: asset.creationDate,

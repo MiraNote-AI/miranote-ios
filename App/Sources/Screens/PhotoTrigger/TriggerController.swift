@@ -4,8 +4,9 @@ import UIKit
 
 /// The photo trigger as the app holds it for its lifetime: the
 /// `PushScheduler` that plans the pushes whenever the app comes to the
-/// front, the steps of the current debug press, the fake-AI switch, and
-/// where pushes and photos are read back from.
+/// front, the repeat-theme finder that runs after it and while charging,
+/// the steps of the current debug press, the fake-AI switch, and where
+/// pushes and photos are read back from.
 @MainActor
 @Observable
 final class TriggerController {
@@ -46,6 +47,11 @@ final class TriggerController {
     let photos: TriggerPhotoProviding
     let records: PushRecordStore
     let scheduler: PushScheduler
+    /// The repeat-theme finder (`SchedulerDependencies.themeEngine`); nil
+    /// in a build that finds no themes.
+    @ObservationIgnored let themes: ThemeRunning?
+    /// Asks iOS for the next background theme run.
+    @ObservationIgnored private let themeTask: ThemeBackgroundTask
     @ObservationIgnored private let permissions: TriggerPermissions
     /// False under `-TRIGGER-NO-SCHEDULE` (UI tests of the debug buttons):
     /// coming to the front plans nothing, so every group is "outside".
@@ -75,7 +81,8 @@ final class TriggerController {
 
     init(photos: TriggerPhotoProviding, records: PushRecordStore, dependencies: (FakeAIFlag) -> SchedulerDependencies,
          permissions: TriggerPermissions, schedulesAutomatically: Bool = true, fakeAI: Bool, optedIn: Bool = false,
-         prefetchFonts: @escaping @Sendable () -> Void = DetailFont.prefetch) {
+         prefetchFonts: @escaping @Sendable () -> Void = DetailFont.prefetch,
+         themeTask: ThemeBackgroundTask = .live) {
         self.schedulesAutomatically = schedulesAutomatically
         self.prefetchFonts = prefetchFonts
         self.photos = photos
@@ -84,7 +91,10 @@ final class TriggerController {
         self.optedIn = optedIn
         self.permissions = permissions
         fakeAIFlag.value = fakeAI
-        scheduler = PushScheduler(dependencies(fakeAIFlag))
+        let deps = dependencies(fakeAIFlag)
+        scheduler = PushScheduler(deps)
+        themes = deps.themeEngine
+        self.themeTask = themeTask
         Task {
             // The zone is read afresh at each run; this drops the system's
             // cached one so a trip across zones shows up on the next return.
@@ -99,7 +109,10 @@ final class TriggerController {
     /// The app is in front (also its first appearance): first launch asks
     /// Photos, then notifications -- each only while undecided -- and the
     /// scheduler plans the nights, inside a stretch of background time so a
-    /// quick switch away does not freeze it half-way.
+    /// quick switch away does not freeze it half-way. Then the repeat
+    /// themes are looked for in the same stretch (V1 has planned by then),
+    /// and the next background run is asked for. When the stretch runs out
+    /// the theme run stops early; the next run goes on from there.
     func sceneBecameActive() async {
         guard schedulesAutomatically else { return }
         let sequence = nextPhase()
@@ -110,9 +123,38 @@ final class TriggerController {
         if await openGates()?.schedulesAutomatically == false { return }
         let time = BackgroundTime()
         background = time
-        time.begin { [scheduler] in await scheduler.backgroundTimeExpired() }
+        time.begin { [scheduler, themes] in
+            themes?.stopEarly()
+            await scheduler.backgroundTimeExpired()
+        }
         await scheduler.appBecameActive(sequence: sequence)
+        // The switch may have gone off while V1 planned.
+        if let themes, await openGates()?.schedulesAutomatically == true {
+            themeTask.submit()
+            _ = await themes.run(trigger: .foreground, deadline: nil)
+        }
         time.end()
+    }
+
+    /// iOS woke the app for the theme task (on power, online): one run,
+    /// only once this install's gates are open with the switch read in --
+    /// a background launch shows no Home, so they are resolved here.
+    func runThemesInBackground(_ task: ThemeProcessingTask) async {
+        guard let themes else { return task.setTaskCompleted(success: true) }
+        await themeTask.run(task, engine: themes) {
+            await self.resolveGates { await InstallSource.live() }
+                .applying(optedIn: self.optedIn).schedulesAutomatically
+        }
+    }
+
+    /// At launch, before it finishes: the theme task's handler, registered
+    /// only where the trigger may run (a development build, or a TestFlight
+    /// one whose switch is on; the handler checks the full gates).
+    static func registerBackgroundThemes() {
+        let mayRun = InstallSource.isDebugBuild || AppSettings.storeDefaults.bool(forKey: optedInKey)
+        ThemeBackgroundTask.live.register(mayRun: mayRun) { task in
+            Task { @MainActor in await TriggerController.shared.runThemesInBackground(task) }
+        }
     }
 
     func sceneEnteredBackground() {
@@ -177,14 +219,15 @@ final class TriggerController {
     }
 
     /// The switch turned: on, the scheduler may run again and the fonts
-    /// start downloading; off, the scheduler is turned off (`turnOff`). Each
+    /// start downloading; off, the scheduler is turned off (`turnOff`) and
+    /// a theme run in flight stops early (no more round photos go out). Each
     /// turn reaches the scheduler after the one before. Only a TestFlight
     /// install has the switch; gates not resolved yet, `resolveGates` acts
     /// on the switch as it then is.
     private func optInChanged() {
         guard let resolved, resolved.offersOptIn else { return }
         let on = optedIn
-        if on { prefetchFonts() }
+        if on { prefetchFonts() } else { themes?.stopEarly() }
         let previous = optInChange
         optInChange = Task { [scheduler] in
             await previous?.value

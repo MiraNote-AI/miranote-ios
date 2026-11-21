@@ -15,6 +15,9 @@ struct MiraNoteApp: App {
         PaywallPresenter.install(.shared, consent: .shared)
         // The detail sentence's Chinese serif is fetched once the install
         // gates say the trigger can show (TriggerController.resolveGates).
+        // The repeat-theme background task: iOS wants its handler before
+        // the app finishes launching.
+        TriggerController.registerBackgroundThemes()
     }
 
     var body: some Scene {

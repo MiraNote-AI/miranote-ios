@@ -49,6 +49,7 @@ public struct ThemeDependencies: Sendable {
 /// while one is in flight waits for it and then runs once more, and every
 /// caller that waited meanwhile shares that one follow-up (it runs with the
 /// first waiting caller's trigger and deadline, and they all get its report).
+/// `stopEarly` ends the runs already asked for as if at their deadline.
 public actor ThemeEngine {
     /// Clustering waits until the checkup has gone this far back (A2).
     static let clusterAfterDays = 60
@@ -58,6 +59,8 @@ public actor ThemeEngine {
     static let clusterReserve: TimeInterval = 60
 
     let deps: ThemeDependencies
+    /// Bumped by `stopEarly`; read off the actor by a run's clock.
+    let stops = StopCount()
     private var active: Task<ThemeRunReport, Never>?
     private var queued: Task<ThemeRunReport, Never>?
     /// Callers waiting on a follow-up run (for tests).
@@ -74,6 +77,7 @@ public actor ThemeEngine {
     }
 
     public func run(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+        let mark = stops.value
         if let queued {
             waitingCallers += 1
             defer { waitingCallers -= 1 }
@@ -84,26 +88,26 @@ public actor ThemeEngine {
             defer { waitingCallers -= 1 }
             let task = Task {
                 _ = await active.value
-                return await self.runQueued(trigger: trigger, deadline: deadline)
+                return await self.runQueued(trigger: trigger, deadline: deadline, mark: mark)
             }
             queued = task
             return await task.value
         }
-        let task = Task { await self.runActive(trigger: trigger, deadline: deadline) }
+        let task = Task { await self.runActive(trigger: trigger, deadline: deadline, mark: mark) }
         active = task
         return await task.value
     }
 
-    private func runActive(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
-        let report = await perform(trigger: trigger, deadline: deadline)
+    private func runActive(trigger: ThemeTrigger, deadline: Date?, mark: Int) async -> ThemeRunReport {
+        let report = await perform(trigger: trigger, deadline: deadline, mark: mark)
         active = nil
         return report
     }
 
-    private func runQueued(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+    private func runQueued(trigger: ThemeTrigger, deadline: Date?, mark: Int) async -> ThemeRunReport {
         active = queued
         queued = nil
-        let report = await perform(trigger: trigger, deadline: deadline)
+        let report = await perform(trigger: trigger, deadline: deadline, mark: mark)
         active = nil
         return report
     }
@@ -138,8 +142,13 @@ public actor ThemeEngine {
 
     // MARK: - One run
 
-    private func perform(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+    private func perform(trigger: ThemeTrigger, deadline asked: Date?, mark: Int) async -> ThemeRunReport {
         let now = deps.now()
+        // No deadline is one never reached -- unless `stopEarly` was called
+        // since the run was asked for: then every deadline has passed.
+        let deadline = RunDeadline(date: asked ?? .distantFuture) { [stops, deps] in
+            stops.value == mark ? deps.now() : .distantFuture
+        }
         let calendar = deps.calendar
         var report = ThemeRunReport(at: now, trigger: trigger, photos: 0, checkedNew: 0, moments: 0, piles: [],
                                     checkupMs: 0, clusterMs: 0, peakMemoryMB: nil, asked: 0, failures: [])
@@ -162,7 +171,7 @@ public actor ThemeEngine {
         // 2. The checkup, newest first.
         let checkupStart = ContinuousClock.now
         let checkup = await self.checkup(fetched, saved: saved, window: &window, now: now,
-                                         deadline: deadline?.addingTimeInterval(-Self.clusterReserve))
+                                         deadline: deadline.earlier(by: Self.clusterReserve))
         report.checkupMs = Self.milliseconds(since: checkupStart)
         report.checkedNew = checkup.count
         let records = deps.photos.loadAll()
@@ -170,7 +179,7 @@ public actor ThemeEngine {
             report.failures.append(stop)
             return finish(report)
         }
-        if let deadline, deps.now() >= deadline {
+        if deadline.reached {
             report.failures.append("Deadline reached before clustering")
             return finish(report)
         }
@@ -218,7 +227,7 @@ public actor ThemeEngine {
     /// Steps 4-6: old themes claim tonight's piles (the results go on the
     /// rows), then round 1 for new piles and grown themes only, while the
     /// deadline allows (the asks left are asked on the next run).
-    private func claimAndAsk(_ scene: Scene, rows stored: [ThemeRow], deadline: Date?,
+    private func claimAndAsk(_ scene: Scene, rows stored: [ThemeRow], deadline: RunDeadline,
                              report: inout ThemeRunReport) async {
         let inWindow = Set(scene.moments.values.flatMap(\.photoIds))
         let claim = ThemeClaim.claim(stored.filter { $0.kind == .big }, piles: scene.piles, moments: scene.moments,
@@ -231,7 +240,7 @@ public actor ThemeEngine {
 
         let asks = Self.asks(claim, rows: rows, scene: scene)
         for (index, ask) in asks.enumerated() {
-            if let deadline, deps.now() >= deadline {
+            if deadline.reached {
                 report.failures.append("Deadline reached: \(asks.count - index) asks left")
                 break
             }
@@ -285,7 +294,7 @@ public actor ThemeEngine {
     /// the window takes it and a second pass reads every older record again
     /// (A1). That change is only seen once some photo is read.
     private func checkup(_ assets: [LibraryAsset], saved: [String: PhotoAnalysis], window: inout ThemeWindow,
-                         now: Date, deadline: Date?) async -> (outcome: CheckupOutcome, count: Int) {
+                         now: Date, deadline: RunDeadline) async -> (outcome: CheckupOutcome, count: Int) {
         let watcher = CheckupWatcher(base: BoundedAnalyzer(base: deps.analyzer,
                                                            seconds: TriggerRanking.analysisTimeout))
         let undated = Set(assets.filter { $0.takenAt == nil }.map(\.id))
@@ -308,7 +317,7 @@ public actor ThemeEngine {
                     return revision.map { record.printRevision != $0 } ?? false
                 },
                 analyzer: watcher, analyses: deps.analyses, themes: deps.photos, now: now, calendar: deps.calendar,
-                deadline: deadline, clock: deps.now, report: { _ in })
+                deadline: deadline.date, clock: deadline.clock, report: { _ in })
             v1Done.formUnion(outcome.analyses.keys)
             noVision.formUnion(watcher.noVision)
             guard let seen = watcher.revision, seen != window.printRevision else { break }
