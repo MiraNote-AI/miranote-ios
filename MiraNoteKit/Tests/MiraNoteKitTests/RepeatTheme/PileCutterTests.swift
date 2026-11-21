@@ -177,4 +177,34 @@ final class PileCutterTests: XCTestCase {
                   + "\(piles.count) piles")
         }
     }
+
+    /// The case random vectors never reach: 50 tight themes of 100 moments
+    /// (one a day), so the cut walks deep into qualifying nodes and counts
+    /// each one's days (`qualifies` over all its leaves).
+    func testFiveThousandClusteredMomentsPerformance() {
+        var generator = SeededGenerator(seed: 50)
+        let centers = (0..<50).map { _ in randomUnitVector(dimension: 768, using: &generator) }
+        let moments = (0..<5000).map { index -> Moment in
+            let raw = centers[index / 100].map { $0 + Float.random(in: -0.02...0.02, using: &generator) }
+            let length = raw.reduce(Float(0)) { $0 + $1 * $1 }.squareRoot()
+            return moment("c\(index / 100)-\(index % 100)", day: index % 300, vector: raw.map { $0 / length })
+        }
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+        measure(options: options) {
+            let start = Date()
+            let tree = ThemeTree.build(moments.map(\.vector))
+            let built = Date()
+            let piles = PileCutter.cut(moments, tree: tree)
+            let end = Date()
+            print("PileCutterTests: 5000 clustered moments x 768-d, tree "
+                  + "\(String(format: "%.2f", built.timeIntervalSince(start))) s + cut "
+                  + "\(String(format: "%.3f", end.timeIntervalSince(built))) s, \(piles.count) piles")
+            XCTAssertFalse(piles.isEmpty)
+            for pile in piles {
+                let themes = Set(pile.momentIds.map { $0.split(separator: "-")[0] })
+                XCTAssertEqual(themes.count, 1, "a pile mixes themes")
+            }
+        }
+    }
 }
