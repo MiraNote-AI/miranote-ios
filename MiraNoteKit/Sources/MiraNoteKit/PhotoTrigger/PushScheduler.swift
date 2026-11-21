@@ -25,6 +25,8 @@ public struct SchedulerDependencies: Sendable {
     public var zh: @Sendable (String) -> String
     /// Receives each run's grouping as JSON (`GroupingReport`); nil keeps none.
     public var groupingReport: (@Sendable (Data) -> Void)?
+    /// Where the repeat-theme records go as photos are read; nil keeps none.
+    public var themes: ThemePhotoStore?
 
     public init(
         library: PhotoLibraryReading, analyzer: PhotoAnalyzing, places: PlaceNaming, client: ComposeClient,
@@ -41,7 +43,7 @@ public struct SchedulerDependencies: Sendable {
         now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
         fakeAI: @escaping @Sendable () -> Bool, zh: @escaping @Sendable (String) -> String,
-        groupingReport: (@Sendable (Data) -> Void)? = nil
+        groupingReport: (@Sendable (Data) -> Void)? = nil, themes: ThemePhotoStore? = nil
     ) {
         self.library = library
         self.analyzer = analyzer
@@ -62,6 +64,7 @@ public struct SchedulerDependencies: Sendable {
         self.fakeAI = fakeAI
         self.zh = zh
         self.groupingReport = groupingReport
+        self.themes = themes
     }
 }
 
@@ -288,7 +291,8 @@ public actor PushScheduler {
         let stale = state.needsThreshold(now: now)
         let ranking = await TriggerRanking.make(
             library: deps.library, analyzer: deps.analyzer, analyses: deps.analyses, now: now, calendar: calendar,
-            threshold: stale ? nil : state.threshold, groupingReport: deps.groupingReport, report: report)
+            threshold: stale ? nil : state.threshold, groupingReport: deps.groupingReport, themes: deps.themes,
+            report: report)
         if stale, mine == generation {
             try? deps.state.update {
                 $0.threshold = ranking.threshold

@@ -18,14 +18,41 @@ public protocol PhotoLibraryReading: Sendable {
     func uploadData(for id: String) async -> Data?
 }
 
+/// What the repeat-theme finder reads from a photo beside V1's analysis.
+public struct ThemeVision: Equatable, Sendable {
+    /// The Vision classification labels kept, with their confidences.
+    public let labels: [LabelScore]
+    /// The image feature print as Vision gave it (not yet unit length).
+    public let print: [Float]
+    /// The revision of the feature print algorithm that made `print`.
+    public let printRevision: Int
+
+    public init(labels: [LabelScore], print: [Float], printRevision: Int) {
+        self.labels = labels
+        self.print = print
+        self.printRevision = printRevision
+    }
+}
+
 /// On-device Vision.
 public protocol PhotoAnalyzing: Sendable {
     /// Nil when the photo cannot be read: it sits the run out and is tried
-    /// again a day later (`TriggerRanking.retryAfter`).
+    /// again a day later (`PhotoCheckupRunner.retryAfter`).
     func analyze(_ id: String) async -> PhotoAnalysis?
+    /// One read of the photo for both trigger modes: V1's analysis and the
+    /// repeat theme's vision (nil where it cannot be had, a simulator).
+    /// Nil when the photo cannot be read, as `analyze`.
+    func checkup(_ id: String) async -> (analysis: PhotoAnalysis, theme: ThemeVision?)?
     /// FeaturePrint distance between two photos' archived prints (the ids
     /// let an implementation keep the unarchived prints by photo).
     func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float?
+}
+
+public extension PhotoAnalyzing {
+    /// V1's analysis alone, no theme vision.
+    func checkup(_ id: String) async -> (analysis: PhotoAnalysis, theme: ThemeVision?)? {
+        await analyze(id).map { ($0, nil) }
+    }
 }
 
 /// Apple's reverse geocoder.
@@ -118,6 +145,8 @@ public struct TriggerDependencies: Sendable {
     public var zh: @Sendable (String) -> String
     /// Receives each press's grouping as JSON (`GroupingReport`); nil keeps none.
     public var groupingReport: (@Sendable (Data) -> Void)?
+    /// Where the repeat-theme records go as photos are read; nil keeps none.
+    public var themes: ThemePhotoStore?
 
     public init(
         library: PhotoLibraryReading, analyzer: PhotoAnalyzing, places: PlaceNaming, client: ComposeClient,
@@ -126,7 +155,7 @@ public struct TriggerDependencies: Sendable {
         now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
         fakeAI: @escaping @Sendable () -> Bool, zh: @escaping @Sendable (String) -> String,
-        groupingReport: (@Sendable (Data) -> Void)? = nil
+        groupingReport: (@Sendable (Data) -> Void)? = nil, themes: ThemePhotoStore? = nil
     ) {
         self.library = library
         self.analyzer = analyzer
@@ -141,5 +170,6 @@ public struct TriggerDependencies: Sendable {
         self.fakeAI = fakeAI
         self.zh = zh
         self.groupingReport = groupingReport
+        self.themes = themes
     }
 }

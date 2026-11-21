@@ -154,11 +154,6 @@ struct TriggerRanking: Sendable {
     static let thresholdDays: Double = 90
     /// Place novelty looks back three months (decision 11-04).
     static let placeDays: Double = 90
-    /// A photo whose analysis failed is tried again this long after.
-    static let retryAfter: TimeInterval = 86_400
-    /// Failures are written down every this many, so a run killed midway
-    /// still remembers most of them.
-    static let failuresBatch = 20
     /// One photo's analysis gets this long before it counts as a failure.
     static let analysisTimeout: TimeInterval = 10
 
@@ -193,14 +188,15 @@ struct TriggerRanking: Sendable {
 
     static func make(_ deps: TriggerDependencies, report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         await make(library: deps.library, analyzer: deps.analyzer, analyses: deps.analyses, now: deps.now(),
-                   calendar: deps.calendar, threshold: nil, groupingReport: deps.groupingReport, report: report)
+                   calendar: deps.calendar, threshold: nil, groupingReport: deps.groupingReport,
+                   themes: deps.themes, report: report)
     }
 
     // swiftlint:disable:next function_parameter_count
     static func make(library reader: PhotoLibraryReading, analyzer: PhotoAnalyzing, analyses store: AnalysisStore,
                      now: Date, calendar: Calendar, threshold stored: ThresholdResult?,
                      groupingReport: (@Sendable (Data) -> Void)?,
-                     analysisTimeout: TimeInterval = analysisTimeout,
+                     analysisTimeout: TimeInterval = analysisTimeout, themes: ThemePhotoStore? = nil,
                      report: (TriggerProgress) async -> Void) async -> TriggerRanking {
         let since = { (days: Double) in now.addingTimeInterval(-days * 86_400) }
         // The saved results are read once: their file names spare PhotoKit
@@ -211,7 +207,8 @@ struct TriggerRanking: Sendable {
         let eligible = fetched.filter { LibraryFilter.eligible($0, now: now) }
         let recent = eligible.filter { ($0.takenAt ?? .distantPast) >= since(groupingDays) }
         let bounded = BoundedAnalyzer(base: analyzer, seconds: analysisTimeout)
-        let all = await analyze(recent, saved: saved, analyzer: bounded, store: store, now: now, report: report)
+        let all = await analyze(recent, saved: saved, analyzer: bounded, store: store, themes: themes, now: now,
+                                calendar: calendar, report: report)
         // What the library no longer holds (deleted, or past the window)
         // goes. Callers run only with access; an empty fetch -- a PhotoKit
         // error, access just taken away -- is never read as an empty library.
@@ -277,48 +274,18 @@ struct TriggerRanking: Sendable {
     }
 
     // swiftlint:disable function_parameter_count
-    /// Every recent photo's analysis: saved ones from disk, the rest
-    /// analysed now and saved one by one, so an interrupted run resumes.
-    /// A photo that fails is written down and left alone for a day.
+    /// Every recent photo's analysis: saved ones from disk, the rest read
+    /// now (`PhotoCheckupRunner`, newest first, no deadline). With a theme
+    /// store the same read writes the repeat-theme records of the window.
     private static func analyze(_ assets: [LibraryAsset], saved: [String: PhotoAnalysis], analyzer: PhotoAnalyzing,
-                                store: AnalysisStore, now: Date,
+                                store: AnalysisStore, themes: ThemePhotoStore?, now: Date, calendar: Calendar,
                                 report: (TriggerProgress) async -> Void) async -> [String: PhotoAnalysis] {
-        var failures = store.failures()
-        var results: [String: PhotoAnalysis] = [:]
-        var todo: [String] = []
-        var waiting = 0
-        for asset in assets {
-            if let analysis = saved[asset.id] {
-                results[asset.id] = analysis
-            } else if let failed = failures[asset.id], (0..<retryAfter).contains(now.timeIntervalSince(failed)) {
-                waiting += 1
-            } else {
-                todo.append(asset.id)
-            }
-        }
-        var done = results.count + waiting
-        await report(.analyzing(done: done, total: assets.count))
-        let names = Dictionary(assets.map { ($0.id, $0.originalFilename) }, uniquingKeysWith: { first, _ in first })
-        var unsaved = 0
-        for id in todo {
-            if let analysis = await analyzer.analyze(id) {
-                // The file name goes with it: later presses need not ask PhotoKit.
-                let named = analysis.with(originalFilename: names[id] ?? nil)
-                try? store.save(named)
-                results[id] = named
-                if failures.removeValue(forKey: id) != nil { unsaved += 1 }
-            } else {
-                failures[id] = now
-                unsaved += 1
-            }
-            if unsaved >= failuresBatch {
-                try? store.saveFailures(failures)
-                unsaved = 0
-            }
-            done += 1
-            await report(.analyzing(done: done, total: assets.count))
-        }
-        if unsaved > 0 { try? store.saveFailures(failures) }
+        let themed = themes?.loadAll() ?? [:]
+        let outcome = await PhotoCheckupRunner.run(
+            assets, needsV1: { saved[$0] == nil }, needsTheme: { themed[$0] == nil }, analyzer: analyzer,
+            analyses: store, themes: themes, now: now, calendar: calendar, deadline: nil, report: report)
+        var results = outcome.analyses
+        for asset in assets { if let analysis = saved[asset.id] { results[asset.id] = analysis } }
         return results
     }
     // swiftlint:enable function_parameter_count
@@ -335,6 +302,11 @@ struct BoundedAnalyzer: PhotoAnalyzing {
     func analyze(_ id: String) async -> PhotoAnalysis? {
         let base = self.base
         return await TimeLimit.first(within: seconds) { await base.analyze(id) }
+    }
+
+    func checkup(_ id: String) async -> (analysis: PhotoAnalysis, theme: ThemeVision?)? {
+        let base = self.base
+        return await TimeLimit.first(within: seconds) { await base.checkup(id) }
     }
 
     func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? {
