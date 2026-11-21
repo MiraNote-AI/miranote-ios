@@ -65,8 +65,8 @@ public struct ThemeLibrary: Sendable {
         })
         let members = pile.momentIds.filter { !outside.contains($0) }.flatMap { moments[$0]?.photoIds ?? [] }
         let inherited = big?.status == .blocked || big?.status == .frozen ? big?.status : nil
-        let row = ThemeRow(id: bigId, kind: .big, parentId: nil,
-                           name: answer.pileName ?? big?.name ?? "", noun: answer.pileNoun ?? "", samePart: "",
+        let row = ThemeRow(id: bigId, kind: .big, parentId: nil, name: answer.pileName ?? big?.name ?? "",
+                           noun: answer.pileNoun ?? big?.noun ?? "", samePart: "",
                            split: answer.chosen, status: answer.sensitive ? .sensitive : inherited ?? .active,
                            center: pile.center, rule: nil, members: members, lastAskedCount: members.count,
                            flagged: big?.flagged ?? false, followRatio: big?.followRatio, where: big?.where)

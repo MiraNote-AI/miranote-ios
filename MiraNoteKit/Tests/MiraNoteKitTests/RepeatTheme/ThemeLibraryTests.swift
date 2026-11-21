@@ -95,6 +95,16 @@ final class ThemeLibraryTests: XCTestCase {
         XCTAssertEqual(smalls(later).map(\.status), [.retired, .retired])
     }
 
+    /// A re-ask answered without `pile_noun` keeps the noun the theme had.
+    func testReaskWithoutNounKeepsTheOldNoun() throws {
+        let earlier = apply(answerA())
+        XCTAssertEqual(earlier.first { $0.kind == .big }?.noun, "meal")
+        let later = apply(answer(#"{"pile_name":"Meals","chosen":"none","groups":[]}"#), existing: earlier)
+        XCTAssertEqual(later.first { $0.kind == .big }?.noun, "meal")
+        let renamed = apply(answer(#"{"pile_name":"Meals","pile_noun":"food","chosen":"none"}"#), existing: later)
+        XCTAssertEqual(renamed.first { $0.kind == .big }?.noun, "food")
+    }
+
     func testFirstAnswerBuildsBigAndSmallRows() throws {
         let rows = apply(answerA())
         let big = try XCTUnwrap(rows.first { $0.kind == .big })
