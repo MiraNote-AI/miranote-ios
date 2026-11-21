@@ -120,6 +120,17 @@ final class AccountDeletionTests: XCTestCase {
         XCTAssertTrue(account.isSignedIn)
     }
 
+    /// A connection dropped after the DELETE went out (#220): the server
+    /// may have deleted the account, so this is not "offline".
+    func testALostAnswerSaysTheAccountMayNotBeDeleted() async {
+        let api = FakeAccountsAPI()
+        api.deleteResult = .failure(BackendError.answerLost)
+        let (deletion, account) = deletion(store: InMemoryTokenStore(tokens(1)), api: api)
+        await deletion.delete()
+        XCTAssertEqual(deletion.state, .failed(.timedOut))
+        XCTAssertTrue(account.isSignedIn)
+    }
+
     func testAnEndedSignInForgetsTheDeadTokens() async {
         let store = InMemoryTokenStore(tokens(1))
         let api = FakeAccountsAPI()
@@ -137,7 +148,7 @@ final class AccountDeletionTests: XCTestCase {
     /// the account, and Try again then gets 401, from `DELETE /me` or from
     /// the refresh before it. That must not say nothing was deleted.
     func testAnEndedSignInAfterALostAnswerDoesNotSayNothingWasDeleted() async {
-        let lostAnswers: [Error] = [BackendError.timedOut, BackendError.unreachable,
+        let lostAnswers: [Error] = [BackendError.timedOut, BackendError.unreachable, BackendError.answerLost,
                                     BackendError.server(status: 504, detail: nil)]
         for lost in lostAnswers {
             let api = FakeAccountsAPI()

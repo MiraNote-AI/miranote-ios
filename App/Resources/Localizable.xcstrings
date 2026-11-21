@@ -2133,6 +2133,17 @@
         }
       }
     },
+    "Discard this sticker" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃这张贴纸"
+          }
+        }
+      }
+    },
     "Display Name" : {
       "comment" : "Profile field. Glossary: display name = 昵称; your name = 名字.",
       "extractionState" : "manual",
@@ -3143,6 +3154,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已存为草稿"
+          }
+        }
+      }
+    },
+    "Kept without your name" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading over what the server keeps but no longer links to the user.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名保留"
           }
         }
       }
@@ -7420,13 +7443,25 @@
       }
     },
     "This purchase belongs to another MiraNote account. Contact us to move it." : {
-      "comment" : "Restore error: the subscription is linked to another account.",
+      "comment" : "Purchase or Restore error: the subscription is linked to another account.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这笔购买属于另一个 MiraNote 账号。如需转移，请联系我们。"
+            "value" : "这笔购买属于另一个 MiraNote 账户。如需转移，请联系我们。"
+          }
+        }
+      }
+    },
+    "This purchase has moved between MiraNote accounts too often. Contact us to move it." : {
+      "comment" : "Purchase or Restore error: the server refused to move the subscription again so soon (relinked within 30 days, or too many links in a day).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这笔购买在 MiraNote 账户之间转移得太频繁。如需转移，请联系我们。"
           }
         }
       }
@@ -8297,14 +8332,26 @@
         }
       }
     },
-    "Your MiraNote account, your AI usage, and your Sign in with Apple link to MiraNote." : {
+    "Your AI usage records stop being linked to you." : {
+      "comment" : "Settings > Delete account (api #95 step 6): what the server keeps with user_id set to null (api #116).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 AI 使用记录将不再与你关联。"
+          }
+        }
+      }
+    },
+    "Your MiraNote account and your Sign in with Apple link to MiraNote." : {
       "comment" : "Settings > Delete account (api #95 step 6): what the server deletes.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的 MiraNote 账户、AI 使用记录，以及 MiraNote 与“通过 Apple 登录”的关联。"
+            "value" : "你的 MiraNote 账户，以及 MiraNote 与“通过 Apple 登录”的关联。"
           }
         }
       }
