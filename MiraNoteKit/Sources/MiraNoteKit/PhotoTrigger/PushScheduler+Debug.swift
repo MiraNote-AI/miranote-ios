@@ -118,17 +118,21 @@ extension PushScheduler {
 
     // swiftlint:disable function_parameter_count
     /// Saves a debug record, schedules it 10 s out, writes its ledger row --
-    /// unless `clearAll` ran since the press began (`generation`).
+    /// unless `clearAll` ran since the press began (`generation`). A repeat
+    /// theme's push (`theme`) is marked so on both.
     func pushDebug(memory: TriggerMemory, photoIds: [String: String], rank: Int, score: FragmentScore,
                    bucket: PushBucket, belongsTo: String, groupKey: String, groupPhotos: [String],
-                   place: String?, generation mine: Int) async -> DebugPush {
+                   place: String?, generation mine: Int, theme: RepeatPushInfo? = nil) async -> DebugPush {
         guard mine == generation else { return .cleared }
         let pushId = UUID().uuidString
         let now = deps.now()
         let record = PushRecord(pushId: pushId, memory: memory, photoIds: photoIds, createdAt: now, rank: rank,
                                 score: score.total, bucket: memory.bucket.isEmpty ? deps.zh(bucket.catalogKey)
                                     : memory.bucket,
-                                bucketId: bucket, belongsTo: belongsTo, isDebug: true)
+                                bucketId: bucket, belongsTo: belongsTo, isDebug: true,
+                                mode: theme.map { _ in RepeatComposeMeta.mode }, themeId: theme?.themeId,
+                                themeName: theme?.themeName, roundUsages: theme?.roundUsages,
+                                roundTwoTries: theme?.roundTwoTries)
         guard (try? deps.records.save(record)) != nil else { return .refused }
         let identifier = PushIdentifier.make(pushId)
         adding.insert(identifier)
@@ -144,10 +148,18 @@ extension PushScheduler {
             try? deps.records.remove(pushId)
             return .cleared
         }
-        try? deps.ledger.append(LedgerEntry(
+        var entry = LedgerEntry(
             pushId: pushId, isDebug: true, belongsTo: belongsTo, groupKey: groupKey, photoIds: groupPhotos,
             bucket: bucket, place: place, score: score, body: memory.push.body, question: memory.ending.question,
-            questionType: memory.ending.questionType, scheduledFor: now.addingTimeInterval(Self.debugDelay)))
+            questionType: memory.ending.questionType, scheduledFor: now.addingTimeInterval(Self.debugDelay))
+        if let theme {
+            entry.mode = RepeatComposeMeta.mode
+            entry.themeId = theme.themeId
+            entry.themeName = theme.themeName
+            entry.roundUsages = theme.roundUsages
+            entry.roundTwoTries = theme.roundTwoTries
+        }
+        try? deps.ledger.append(entry)
         return .pushed
     }
     // swiftlint:enable function_parameter_count
@@ -359,7 +371,7 @@ enum DebugPush {
     case cleared
 }
 
-private extension AsyncStream<TriggerProgress>.Continuation {
+extension AsyncStream<TriggerProgress>.Continuation {
     /// `yield` without its result, so a guard can `return` it.
     func step(_ progress: TriggerProgress) {
         yield(progress)

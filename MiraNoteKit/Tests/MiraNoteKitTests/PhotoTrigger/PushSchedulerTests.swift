@@ -46,7 +46,7 @@ class PushSchedulerTestCase: XCTestCase {
 
     /// `fakeAI` switches mid-test when given; else `fake` as the scheduler is made.
     func makeScheduler(client other: ComposeClient? = nil, notifications: PushNotificationCenter? = nil,
-                       fakeAI flag: FlagBox? = nil) -> PushScheduler {
+                       fakeAI flag: FlagBox? = nil, themeEngine: ThemeEngine? = nil) -> PushScheduler {
         let clock = self.clock!
         let sleeps = self.sleeps!
         let hook = self.hook!
@@ -70,7 +70,7 @@ class PushSchedulerTestCase: XCTestCase {
                 sleeps.record(seconds)
                 await hook.fire()
             },
-            fakeAI: { flag?.value ?? fake }, zh: { "[\($0)]" }))
+            fakeAI: { flag?.value ?? fake }, zh: { "[\($0)]" }, themeEngine: themeEngine))
     }
 
     /// The belongs-to day of group `prefix`.

@@ -4492,6 +4492,18 @@
         }
       }
     },
+    "Not pushed: %@" : {
+      "comment" : "Photo trigger progress, test-push a repeat theme: why it was not pushed (English, for testers).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有推送：%@"
+          }
+        }
+      }
+    },
     "Not sent to the AI" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -5857,6 +5869,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "玫瑰木"
+          }
+        }
+      }
+    },
+    "Round 2 try %lld did not pass (%@)" : {
+      "comment" : "Photo trigger progress, test-push a repeat theme: the try (1-3) and why it did not pass (English, for testers).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第二轮第 %lld 次没通过（%@）"
+          }
+        }
+      }
+    },
+    "Round 2 try %lld: checking %lld photos of %@..." : {
+      "comment" : "Photo trigger progress, test-push a repeat theme: the try (1-3), the number of photos sent, the theme's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第二轮第 %1$lld 次：核对「%3$@」的 %2$lld 张照片…"
           }
         }
       }
@@ -8131,6 +8167,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在记下…"
+          }
+        }
+      }
+    },
+    "Writing the push for %@ from %lld photos..." : {
+      "comment" : "Photo trigger progress, test-push a repeat theme: the theme's name and the number of photos.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在写「%1$@」的推送，%2$lld 张照片…"
           }
         }
       }

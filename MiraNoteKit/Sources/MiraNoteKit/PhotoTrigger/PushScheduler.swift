@@ -27,6 +27,8 @@ public struct SchedulerDependencies: Sendable {
     public var groupingReport: (@Sendable (Data) -> Void)?
     /// Where the repeat-theme records go as photos are read; nil keeps none.
     public var themes: ThemePhotoStore?
+    /// The repeat-theme finder, for "test-push this theme"; nil: no themes.
+    public var themeEngine: ThemeEngine?
 
     public init(
         library: PhotoLibraryReading, analyzer: PhotoAnalyzing, places: PlaceNaming, client: ComposeClient,
@@ -43,7 +45,8 @@ public struct SchedulerDependencies: Sendable {
         now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
         fakeAI: @escaping @Sendable () -> Bool, zh: @escaping @Sendable (String) -> String,
-        groupingReport: (@Sendable (Data) -> Void)? = nil, themes: ThemePhotoStore? = nil
+        groupingReport: (@Sendable (Data) -> Void)? = nil, themes: ThemePhotoStore? = nil,
+        themeEngine: ThemeEngine? = nil
     ) {
         self.library = library
         self.analyzer = analyzer
@@ -65,6 +68,7 @@ public struct SchedulerDependencies: Sendable {
         self.zh = zh
         self.groupingReport = groupingReport
         self.themes = themes
+        self.themeEngine = themeEngine
     }
 }
 
@@ -113,6 +117,9 @@ public actor PushScheduler {
     var outsideGeneration = 0
     /// The current press, cancelled by `turnOff`.
     var press: Task<Void, Never>?
+    /// A "test-push this theme" press runs (`tryTheme`); cancelled by `turnOff`.
+    var themePressing = false
+    var themePress: Task<Void, Never>?
     var lastReport: LastRunReport?
     var lastRanking: TriggerRanking?
     /// Notifications being added whose ledger row is not written yet: not

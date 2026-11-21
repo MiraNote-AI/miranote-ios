@@ -55,6 +55,7 @@ extension PushScheduler {
         pendingRerun = nil
         wave?.cancel()
         press?.cancel()
+        themePress?.cancel()
         // Turned on again within the hour, the next return still plans. No
         // run yet: nothing to write (the hourly gate is open anyway).
         let state = deps.state.load()

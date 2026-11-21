@@ -178,6 +178,10 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
     /// Every meta submitted, in order.
     private(set) var metas: [ComposeMeta] = []
     private(set) var lastPhotoNumbers: [String] = []
+    /// Every repeat-theme meta submitted, as sent; its job answers as the
+    /// group dated `repeatDate` (script it there).
+    private(set) var repeatMetas: [Data] = []
+    static let repeatDate = "repeat"
     private var polls: [String: Int] = [:]
     private var jobs: [String: ComposeMeta] = [:]
     private var eventList: [String] = []
@@ -195,6 +199,27 @@ final class FakeClient: ComposeClient, @unchecked Sendable {
             lastPhotoNumbers = photos.map(\.id)
             let job = "job-\(submitted.count)"
             jobs[job] = meta
+            return job
+        }
+    }
+
+    /// A life-fragment meta goes on as before; a repeat one is recorded.
+    func submit(metaJSON: Data, photos: [(id: String, jpeg: Data)]) async throws -> String {
+        if let meta = try? JSONDecoder().decode(ComposeMeta.self, from: metaJSON) {
+            return try await submit(meta, photos: photos)
+        }
+        let object = try JSONSerialization.jsonObject(with: metaJSON) as? [String: Any]
+        let stand = ComposeMeta(groupKey: object?["group_key"] as? String ?? "", date: Self.repeatDate, weekday: 1,
+                                startTime: "", endTime: "", place: nil, rawCount: photos.count, coversAll: true,
+                                recentQuestionTypes: [], bucket: "other", tz: "", photos: [])
+        return try lock.withLock {
+            if !submitErrors.isEmpty { throw submitErrors.removeFirst() }
+            submitted.append(Self.repeatDate)
+            eventList.append("submit \(Self.repeatDate)")
+            repeatMetas.append(metaJSON)
+            lastPhotoNumbers = photos.map(\.id)
+            let job = "job-\(submitted.count)"
+            jobs[job] = stand
             return job
         }
     }

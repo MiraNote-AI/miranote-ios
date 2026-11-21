@@ -50,6 +50,15 @@ final class FakeRoundClient: ThemeRoundClient, @unchecked Sendable {
     private var oneRequests: [RoundOneRequest] = []
     private var oneImages: [[(n: Int, jpeg: Data)]] = []
     private var shortenCalls: [[ShortenItem]] = []
+    private var twoRequests: [RoundTwoRequest] = []
+    private var twoImages: [[(n: Int, jpeg: Data)]] = []
+    /// Thrown by the next round-2 calls, one each.
+    var roundTwoErrors: [Error] = []
+    /// The reply text of round-2 call `number` (1-based). The default says
+    /// every photo belongs and nothing is alike.
+    var roundTwoReply: @Sendable (RoundTwoRequest, Int) -> String = { request, _ in
+        FakeRoundClient.roundTwoAnswer(request)
+    }
     /// Thrown by the next round-1 calls, one each.
     var roundOneErrors: [Error] = []
     /// The reply text of round-1 call `number` (1-based). The default names
@@ -65,6 +74,20 @@ final class FakeRoundClient: ThemeRoundClient, @unchecked Sendable {
     var roundOneRequests: [RoundOneRequest] { lock.withLock { oneRequests } }
     var roundOneImages: [[(n: Int, jpeg: Data)]] { lock.withLock { oneImages } }
     var shortenItems: [[ShortenItem]] { lock.withLock { shortenCalls } }
+    var roundTwoRequests: [RoundTwoRequest] { lock.withLock { twoRequests } }
+    var roundTwoImages: [[(n: Int, jpeg: Data)]] { lock.withLock { twoImages } }
+
+    /// A round-2 reply for `request`'s photos: those in `notBelonging` do
+    /// not belong, the rest do; `similar` names go in `similar_to`.
+    static func roundTwoAnswer(_ request: RoundTwoRequest, notBelonging: Set<Int> = [],
+                               similar: [String] = []) -> String {
+        let photos = request.photos.map {
+            #"{"id": \#($0.n), "belongs": \#(!notBelonging.contains($0.n)), "dup_of": null, "poor": false, "#
+                + #""sensitive": false}"#
+        }
+        let alike = similar.map { #"{"name": "\#($0)", "level": "same"}"# }
+        return #"{"photos": [\#(photos.joined(separator: ", "))], "similar_to": [\#(alike.joined(separator: ", "))]}"#
+    }
 
     func roundOne(_ request: RoundOneRequest, images: [(n: Int, jpeg: Data)]) async throws -> RoundReply {
         let number = try lock.withLock { () -> Int in
@@ -78,7 +101,13 @@ final class FakeRoundClient: ThemeRoundClient, @unchecked Sendable {
     }
 
     func roundTwo(_ request: RoundTwoRequest, images: [(n: Int, jpeg: Data)]) async throws -> RoundReply {
-        throw ThemeRoundError.server(500)
+        let number = try lock.withLock { () -> Int in
+            twoRequests.append(request)
+            twoImages.append(images)
+            if !roundTwoErrors.isEmpty { throw roundTwoErrors.removeFirst() }
+            return twoRequests.count
+        }
+        return RoundReply(reply: roundTwoReply(request, number), where: [:], usage: Self.usage)
     }
 
     func shorten(_ items: [ShortenItem]) async throws -> RoundReply {

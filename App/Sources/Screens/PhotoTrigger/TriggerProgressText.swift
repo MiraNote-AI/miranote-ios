@@ -15,7 +15,7 @@ struct TriggerProgressText: View {
 
     private var isFailure: Bool {
         switch step {
-        case .failed, .allFailed: return true
+        case .failed, .allFailed, .themeStopped: return true
         default: return false
         }
     }
@@ -50,6 +50,15 @@ struct TriggerProgressText: View {
             return Text("Tried \(tried) groups and none passed. You can press \"Try a group outside the schedule\" again")
         case .failed(let failure):
             return Self.text(for: failure)
+        case .checkingTheme(let attempt, let theme, let candidates):
+            return Text("Round 2 try \(attempt): checking \(candidates) photos of \(theme)...")
+        case .themeTryFailed(let attempt, let reason):
+            // The Kit's reason is English, for testers.
+            return Text("Round 2 try \(attempt) did not pass (\(reason))")
+        case .composingTheme(let theme, let photos):
+            return Text("Writing the push for \(theme) from \(photos) photos...")
+        case .themeStopped(let stop):
+            return Text("Not pushed: \(stop.text)")
         }
     }
 

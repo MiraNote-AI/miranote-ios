@@ -117,6 +117,16 @@ public enum TriggerProgress: Equatable, Sendable {
     /// were when fewer.
     case allFailed(tried: Int)
     case failed(TriggerFailure)
+    /// "Test-push this theme": round-2 try `attempt` (1-3) asks about
+    /// `theme` with `candidates` photos, one a day.
+    case checkingTheme(attempt: Int, theme: String, candidates: Int)
+    /// That try did not pass and another follows; `reason` is the English
+    /// line the ledger keeps (`roundTwoTries`).
+    case themeTryFailed(attempt: Int, reason: String)
+    /// Round 2 passed: the push is written from `photos` photos.
+    case composingTheme(theme: String, photos: Int)
+    /// The theme is not pushed, and nothing more is sent.
+    case themeStopped(ThemePushStop)
 }
 
 /// A pushable fragment and its place in the ranking.

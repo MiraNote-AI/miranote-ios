@@ -9,7 +9,8 @@ import Foundation
 /// connection, the app went to the background) is tried up to three times,
 /// as is a poll answered by a server error or a body that is not JSON.
 /// The budget counts the waits, so time spent suspended in the background
-/// does not use it up.
+/// does not use it up. A repeat theme's meta goes the same way
+/// (`ComposeRequest`), with its own fewest photos.
 struct ComposeSession {
     static let pollInterval: TimeInterval = 5
     static let rateLimitWait: TimeInterval = 10
@@ -20,6 +21,9 @@ struct ComposeSession {
     static let readTimeout: TimeInterval = 20
     /// The message of a group with too few readable photos (a catalog key).
     static let unreadableMessage = "Too few of its photos could be read"
+    /// A meta that cannot be encoded is never sent (it cannot happen with
+    /// the metas the Kit builds); it stops as the backend's 400 would.
+    static let unencodable = TriggerFailure.backend("HTTP 400")
 
     let library: PhotoLibraryReading
     let client: ComposeClient
@@ -66,10 +70,10 @@ struct ComposeSession {
 
     /// The meta's photos, read and prepared for upload (768 px, no
     /// metadata), keyed by their localIdentifiers.
-    private func uploads(_ meta: ComposeMeta, photoIds: [String: String]) async -> [String: Data] {
+    private func uploads(_ numbers: [String], photoIds: [String: String]) async -> [String: Data] {
         var prepared: [String: Data] = [:]
         let library = self.library
-        for number in meta.photos.map(\.id) {
+        for number in numbers {
             // Cancelled (the trigger turned off): no more photos are read.
             guard !Task.isCancelled else { break }
             guard let id = photoIds[number],
@@ -105,29 +109,50 @@ struct ComposeSession {
 
     /// The photos read and the meta renumbered; nil when under three could be read.
     func prepare(_ meta: ComposeMeta, photoIds: [String: String]) async -> Prepared? {
-        let prepared = await uploads(meta, photoIds: photoIds)
-        let sent = Self.keeping(meta, photoIds: photoIds, read: Set(prepared.keys))
-        guard sent.meta.photos.count >= FragmentGrouper.minimumUnique else { return nil }
-        let photos = sent.meta.photos.compactMap { photo in
-            sent.photoIds[photo.id].flatMap { prepared[$0] }.map { UploadPhoto(id: photo.id, jpeg: $0) }
-        }
-        return Prepared(meta: sent.meta, photoIds: sent.photoIds, photos: photos)
+        guard let sent = await prepared(meta, photoIds: photoIds) else { return nil }
+        return Prepared(meta: sent.meta, photoIds: sent.photoIds, photos: sent.photos)
     }
 
-    func run(_ meta: ComposeMeta, photoIds: [String: String]) async -> Result<Composed, TriggerAttemptBox> {
-        guard let sent = await prepare(meta, photoIds: photoIds) else {
+    /// Any meta ready to submit, as `Prepared`.
+    private struct Ready<Meta: ComposeRequest> {
+        let meta: Meta
+        let photoIds: [String: String]
+        let photos: [UploadPhoto]
+    }
+
+    /// The photos read and `meta` renumbered (P1... again); nil when fewer
+    /// than `Meta.minimumPhotos` could be read.
+    private func prepared<Meta: ComposeRequest>(_ meta: Meta, photoIds: [String: String]) async -> Ready<Meta>? {
+        let read = await uploads(meta.photoNumbers, photoIds: photoIds)
+        let kept = meta.keeping(Set(meta.photoNumbers.filter { photoIds[$0].map { read[$0] != nil } ?? false }))
+        guard kept.meta.photoNumbers.count >= Meta.minimumPhotos else { return nil }
+        var ids: [String: String] = [:]
+        var photos: [UploadPhoto] = []
+        for number in kept.meta.photoNumbers {
+            guard let old = kept.numbers[number], let id = photoIds[old], let jpeg = read[id] else { continue }
+            ids[number] = id
+            photos.append(UploadPhoto(id: number, jpeg: jpeg))
+        }
+        return Ready(meta: kept.meta, photoIds: ids, photos: photos)
+    }
+
+    func run<Meta: ComposeRequest>(_ meta: Meta, photoIds: [String: String]) async
+        -> Result<Composed, TriggerAttemptBox> {
+        guard let sent = await prepared(meta, photoIds: photoIds) else {
             return .failure(TriggerAttemptBox(.rejected(Self.unreadableMessage)))
         }
-        return await compose(sent.meta, photos: sent.uploads).map { Composed(memory: $0, photoIds: sent.photoIds) }
+        guard let json = try? sent.meta.encoded() else { return .failure(TriggerAttemptBox(.stop(Self.unencodable))) }
+        let uploads = sent.photos.map { (id: $0.id, jpeg: $0.jpeg) }
+        return await compose(metaJSON: json, photos: uploads).map { Composed(memory: $0, photoIds: sent.photoIds) }
     }
 
-    private func compose(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)])
+    private func compose(metaJSON: Data, photos: [(id: String, jpeg: Data)])
         async -> Result<TriggerMemory, TriggerAttemptBox> {
         var waited: TimeInterval = 0
         var resubmitted = false
         var transportFailures = 0
         var jobId: String
-        switch await submit(meta, photos: photos, waited: &waited) {
+        switch await submit(metaJSON: metaJSON, photos: photos, waited: &waited) {
         case .success(let id): jobId = id
         case .failure(let box): return .failure(box)
         }
@@ -143,7 +168,7 @@ struct ComposeSession {
             case .resubmit:
                 guard !resubmitted else { return .failure(TriggerAttemptBox(.stop(.aiTimeout))) }
                 resubmitted = true
-                switch await submit(meta, photos: photos, waited: &waited) {
+                switch await submit(metaJSON: metaJSON, photos: photos, waited: &waited) {
                 case .success(let id): jobId = id
                 case .failure(let box): return .failure(box)
                 }
@@ -184,11 +209,17 @@ struct ComposeSession {
     /// The job id. No connection is tried again, 5 s apart, three times in all.
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)], waited: inout TimeInterval)
         async -> Result<String, TriggerAttemptBox> {
+        guard let json = try? meta.encoded() else { return .failure(TriggerAttemptBox(.stop(Self.unencodable))) }
+        return await submit(metaJSON: json, photos: photos, waited: &waited)
+    }
+
+    private func submit(metaJSON: Data, photos: [(id: String, jpeg: Data)], waited: inout TimeInterval)
+        async -> Result<String, TriggerAttemptBox> {
         var transportFailures = 0
         // A cancelled task's sleeps return at once: stop instead of polling nonstop.
         while waited < Self.budget, !Task.isCancelled {
             do {
-                return .success(try await client.submit(meta, photos: photos))
+                return .success(try await client.submit(metaJSON: metaJSON, photos: photos))
             } catch ComposeError.rateLimited {
                 try? await sleep(Self.rateLimitWait)
                 waited += Self.rateLimitWait
@@ -239,6 +270,31 @@ struct ComposeSession {
         case .rateLimited: return .aiTimeout
         case .server(let status): return .backend("HTTP \(status)")
         }
+    }
+}
+
+/// A meta `ComposeSession` can send: its photo numbers, the fewest photos
+/// it may go with, and itself with only some photos, numbered P1... again.
+protocol ComposeRequest: Sendable {
+    /// "P1"..., in the order sent.
+    var photoNumbers: [String] { get }
+    /// Fewer photos read than this: the group does not pass.
+    static var minimumPhotos: Int { get }
+    /// Only the photos numbered in `read`, in the same order, numbered
+    /// P1... again; and each new number's old one.
+    func keeping(_ read: Set<String>) -> (meta: Self, numbers: [String: String])
+    /// The `meta` field as sent.
+    func encoded() throws -> Data
+}
+
+extension ComposeMeta: ComposeRequest {
+    var photoNumbers: [String] { photos.map(\.id) }
+    static var minimumPhotos: Int { FragmentGrouper.minimumUnique }
+
+    func keeping(_ read: Set<String>) -> (meta: ComposeMeta, numbers: [String: String]) {
+        let own = Dictionary(photoNumbers.map { ($0, $0) }, uniquingKeysWith: { first, _ in first })
+        let kept = ComposeSession.keeping(self, photoIds: own, read: read)
+        return (kept.meta, kept.photoIds)
     }
 }
 

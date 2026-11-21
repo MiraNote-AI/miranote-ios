@@ -29,13 +29,33 @@ public enum ComposeError: Error, Equatable, Sendable {
 }
 
 /// The photo-collections backend: submit a group, then poll its job.
+/// A client implements at least one of the two `submit`s; each defaults
+/// to the other.
 public protocol ComposeClient: Sendable {
-    /// The job id.
+    /// The job id. `metaJSON` is the `meta` field as sent: a life fragment's
+    /// (`ComposeMeta.encoded()`) or a repeat theme's (`RepeatComposeMeta`).
+    func submit(metaJSON: Data, photos: [(id: String, jpeg: Data)]) async throws -> String
+    /// A life fragment's meta, encoded and sent as `metaJSON` by default.
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String
     func poll(_ jobId: String) async throws -> ComposeJobStatus
     /// Every job in one request; an id the backend does not return reads
     /// `.expired`, an entry that does not decode `.failed("bad_response")`.
     func pollMany(_ jobIds: [String]) async throws -> [String: ComposeJobStatus]
+}
+
+public extension ComposeClient {
+    func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
+        try await submit(metaJSON: meta.encoded(), photos: photos)
+    }
+
+    /// For a client that takes a `ComposeMeta` only: a life fragment's meta
+    /// goes there; any other is refused, as a 400.
+    func submit(metaJSON: Data, photos: [(id: String, jpeg: Data)]) async throws -> String {
+        guard let meta = try? JSONDecoder().decode(ComposeMeta.self, from: metaJSON) else {
+            throw ComposeError.badRequest("")
+        }
+        return try await submit(meta, photos: photos)
+    }
 }
 
 /// `ComposeClient` over the app's `HTTPClient`, which adds the beta token.
@@ -54,7 +74,7 @@ public struct LiveComposeClient: ComposeClient {
         self.baseURL = baseURL
     }
 
-    public func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
+    public func submit(metaJSON: Data, photos: [(id: String, jpeg: Data)]) async throws -> String {
         let boundary = "MiraNote-\(UUID().uuidString)"
         var body = Data()
         func line(_ text: String) { body.append(Data("\(text)\r\n".utf8)) }
@@ -62,7 +82,7 @@ public struct LiveComposeClient: ComposeClient {
         line(#"Content-Disposition: form-data; name="meta""#)
         line("Content-Type: application/json; charset=utf-8")
         line("")
-        body.append(try meta.encoded())
+        body.append(metaJSON)
         line("")
         for photo in photos {
             line("--\(boundary)")
