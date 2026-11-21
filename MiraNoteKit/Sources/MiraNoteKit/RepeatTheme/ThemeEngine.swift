@@ -71,6 +71,11 @@ public actor ThemeEngine {
     private var noVision = Set<String>()
     private var lastPiles: [Pile] = []
     private var lastFollows: [String: Int] = [:]
+    /// Blocks and unblocks made while a run was in flight. Each is on disk
+    /// already; every library save of that run puts it again on the rows
+    /// the run read before, so the run cannot undo it. Cleared once no run
+    /// is in flight or waiting.
+    private var statusOverrides: [String: StatusChange] = [:]
 
     public init(_ deps: ThemeDependencies) {
         self.deps = deps
@@ -101,6 +106,7 @@ public actor ThemeEngine {
     private func runActive(trigger: ThemeTrigger, deadline: Date?, mark: Int) async -> ThemeRunReport {
         let report = await perform(trigger: trigger, deadline: deadline, mark: mark)
         active = nil
+        if queued == nil { statusOverrides = [:] }
         return report
     }
 
@@ -109,6 +115,7 @@ public actor ThemeEngine {
         queued = nil
         let report = await perform(trigger: trigger, deadline: deadline, mark: mark)
         active = nil
+        if queued == nil { statusOverrides = [:] }
         return report
     }
 
@@ -123,23 +130,41 @@ public actor ThemeEngine {
     /// Blocks a big or small theme (debug page, "Not this theme"): a blocked
     /// big theme is never asked about again. A blocked small theme's name
     /// still goes out among its big theme's old names on a re-ask, so the
-    /// row keeps its id and stays blocked. Waits for a run in flight, so the
-    /// run's save cannot undo it. A sensitive theme stays sensitive.
+    /// row keeps its id and stays blocked. Written at once, even while a run
+    /// is in flight (the app may be gone before it ends); that run keeps it
+    /// (`statusOverrides`). A sensitive theme stays sensitive.
     public func block(_ themeId: String) async {
-        await setStatus(themeId) { $0 == .sensitive ? nil : .blocked }
+        setStatus(themeId, .block)
     }
 
     /// Clears a block; the next run sets frozen where it applies.
     public func unblock(_ themeId: String) async {
-        await setStatus(themeId) { $0 == .blocked ? .active : nil }
+        setStatus(themeId, .unblock)
     }
 
-    private func setStatus(_ themeId: String, _ change: (ThemeStatus) -> ThemeStatus?) async {
-        while let task = queued ?? active { _ = await task.value }
+    private func setStatus(_ themeId: String, _ change: StatusChange) {
+        if active != nil || queued != nil { statusOverrides[themeId] = change }
         var rows = deps.themes.load()
         guard let index = rows.firstIndex(where: { $0.id == themeId }),
-              let status = change(rows[index].status) else { return }
+              let status = change.apply(to: rows[index].status) else { return }
         rows[index].status = status
+        try? deps.themes.save(rows)
+    }
+
+    /// `rows` with the blocks and unblocks made since the run read them.
+    private func overridden(_ rows: [ThemeRow]) -> [ThemeRow] {
+        guard !statusOverrides.isEmpty else { return rows }
+        return rows.map { row in
+            guard let status = statusOverrides[row.id]?.apply(to: row.status) else { return row }
+            var changed = row
+            changed.status = status
+            return changed
+        }
+    }
+
+    /// A run's save of the library: with the status changes made meanwhile.
+    private func save(_ rows: inout [ThemeRow]) {
+        rows = overridden(rows)
         try? deps.themes.save(rows)
     }
 
@@ -241,7 +266,7 @@ public actor ThemeEngine {
                                      window: inWindow)
         var rows = Self.writeBack(claim, to: stored, moments: scene.moments, photos: scene.photos,
                                   calendar: scene.calendar)
-        try? deps.themes.save(rows)
+        save(&rows)
         lastPiles = scene.piles
         lastFollows = claim.follows
 
@@ -251,12 +276,15 @@ public actor ThemeEngine {
                 report.failures.append("Deadline reached: \(asks.count - index) asks left")
                 break
             }
+            // Blocked since the asks were drawn up: not asked.
+            rows = overridden(rows)
+            if let big = ask.big, rows.contains(where: { $0.id == big.id && $0.status == .blocked }) { continue }
             let outcome = await self.ask(ask, rows: rows, scene: scene)
             if outcome.sent { report.asked += 1 }
             if let failure = outcome.failure { report.failures.append(failure) }
-            if let updated = outcome.rows {
+            if var updated = outcome.rows {
+                save(&updated)
                 rows = updated
-                try? deps.themes.save(rows)
             }
         }
     }
@@ -268,8 +296,8 @@ public actor ThemeEngine {
         let rows = deps.themes.load()
         let gone = Set(rows.flatMap(\.members)).subtracting(ids)
         guard !gone.isEmpty else { return rows }
-        let kept = ThemeLibrary.removing(gone, from: rows)
-        try? deps.themes.save(kept)
+        var kept = ThemeLibrary.removing(gone, from: rows)
+        save(&kept)
         return kept
     }
 
@@ -333,33 +361,18 @@ public actor ThemeEngine {
         } while passes < 2 && outcome.finished
         return (outcome, watcher.count)
     }
+}
 
-    // MARK: - Claim results on the rows
+/// A status change asked for from outside a run (`block`, `unblock`).
+enum StatusChange: Sendable {
+    case block, unblock
 
-    /// Tonight's claim on the rows: a big row takes its ratio, flag and list;
-    /// a small row its rule's list within its big row's (`SubThemeRule`).
-    /// Active and frozen rows go frozen or active with the claim (a small
-    /// one with its big one); blocked, sensitive and retired stay as they are.
-    static func writeBack(_ claim: ClaimResult, to rows: [ThemeRow], moments: [String: Moment],
-                          photos: [String: ThemePhoto], calendar: Calendar) -> [ThemeRow] {
-        let smallLists = SubThemeRule.membersTonight(of: rows.filter { $0.kind == .small }, claim: claim,
-                                                     moments: moments, photosById: photos, calendar: calendar)
-        return rows.map { original in
-            var row = original
-            let movable = row.status == .active || row.status == .frozen
-            switch row.kind {
-            case .big:
-                row.followRatio = claim.ratios[row.id]
-                row.flagged = claim.flagged.contains(row.id)
-                row.members = claim.members[row.id] ?? row.members
-                if movable { row.status = claim.frozen.contains(row.id) ? .frozen : .active }
-            case .small:
-                row.members = smallLists[row.id] ?? row.members
-                if movable, let parent = row.parentId {
-                    row.status = claim.frozen.contains(parent) ? .frozen : .active
-                }
-            }
-            return row
+    /// The new status, or nil when this one stays (a sensitive theme is
+    /// never blocked; only a blocked one is unblocked).
+    func apply(to status: ThemeStatus) -> ThemeStatus? {
+        switch self {
+        case .block: return status == .sensitive || status == .blocked ? nil : .blocked
+        case .unblock: return status == .blocked ? .active : nil
         }
     }
 }

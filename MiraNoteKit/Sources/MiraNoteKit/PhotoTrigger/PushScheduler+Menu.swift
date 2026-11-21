@@ -67,8 +67,8 @@ extension PushScheduler {
     /// Returns at once the block under way, or nil when there is nothing to
     /// block -- no theme on the push, or no theme engine in this build: then
     /// nothing changes, the row is left unmarked and the story says nothing
-    /// (it must not claim "won't be pushed again"). The block itself waits
-    /// for a theme run in flight, so the story does not wait for it.
+    /// (it must not claim "won't be pushed again"). The block is written at
+    /// once, a theme run in flight or not, and that run keeps it.
     public func notThisTheme(_ pushId: String) -> Task<Void, Never>? {
         let entry = deps.ledger.load().first { $0.pushId == pushId }
         guard let themeId = entry?.themeId ?? deps.records.load(pushId)?.themeId else {
