@@ -3124,18 +3124,6 @@
         }
       }
     },
-    "Kept without your name" : {
-      "comment" : "Settings > Delete account (api #95 step 6): heading over what the server keeps but no longer links to the user.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匿名保留"
-          }
-        }
-      }
-    },
     "Keyboard" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -7908,6 +7896,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "会删除什么"
+          }
+        }
+      }
+    },
+    "What is kept" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading of the point about what the server keeps after deletion.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会留存什么"
           }
         }
       }
