@@ -229,6 +229,24 @@ final class ThemeEngineTests: XCTestCase {
         XCTAssertEqual(harness.bigRow(with: "x-1")?.name, "Theme2")
     }
 
+    /// A 502 the model was paid for: its usage goes in the round log (the
+    /// cost report counts every round), and it is asked again next run.
+    func testModelFailureLogsItsUsage() async {
+        let spent = RoundUsage(promptTokens: 1978, completionTokens: 0, costCny: 0.0004, model: "qwen-test")
+        harness.client.roundOneErrors = [ThemeRoundError.model(reason: "timeout", usage: spent)]
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        let engine = harness.engine()
+        _ = await run(engine)
+        let logged = harness.rounds.load()
+        XCTAssertEqual(logged.map(\.kind), ["round1"])
+        XCTAssertEqual(logged.first?.usage, spent)
+        XCTAssertEqual(logged.first?.reply, "", "no answer to reuse")
+
+        _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 2, "asked again on the next run")
+        XCTAssertEqual(harness.bigRow(with: "x-1")?.name, "Theme2")
+    }
+
     func testBadAnswerIsLoggedAndAskedAgain() async {
         harness.client.roundOneReply = { _, number in
             number == 1 ? "no json here" : #"{"pile_name": "Fine", "chosen": "none"}"#

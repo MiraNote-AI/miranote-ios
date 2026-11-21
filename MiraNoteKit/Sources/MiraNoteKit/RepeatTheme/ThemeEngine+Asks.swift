@@ -185,7 +185,8 @@ extension ThemeEngine {
     /// before (D4) and that answer still passes tonight's checks, else from
     /// the backend. Every answer the backend gives is
     /// logged, with its problem when it is not usable (so it is never
-    /// reused); a failed call logs nothing and is simply asked again.
+    /// reused); a failed call is simply asked again, and logs only the
+    /// usage a model failure (502) reports, with no reply (never reused).
     private func roundOne(_ request: RoundOneRequest, key: String, offered: (a: [SplitGroup], b: [SplitGroup]),
                           themeId: String?, sent: inout Bool) async -> Result<RoundOneAnswer, AskFailure> {
         if let stored = deps.rounds.answer(for: key),
@@ -205,7 +206,12 @@ extension ThemeEngine {
         do {
             reply = try await deps.client.roundOne(request, images: images)
         } catch {
-            return .failure(.call(error as? ThemeRoundError ?? .unreachable))
+            let failure = error as? ThemeRoundError ?? .unreachable
+            if case .model(_, let spent) = failure {
+                try? deps.rounds.append(RoundLogEntry(at: deps.now(), kind: "round1", themeId: themeId, key: key,
+                                                      reply: "", usage: spent, problem: nil, where: [:]))
+            }
+            return .failure(.call(failure))
         }
         let result = Self.checked(reply.reply, offered: offered)
         try? deps.rounds.append(RoundLogEntry(at: deps.now(), kind: "round1", themeId: themeId, key: key,
