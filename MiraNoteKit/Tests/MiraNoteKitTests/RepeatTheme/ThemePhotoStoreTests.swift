@@ -109,6 +109,18 @@ final class ThemePhotoStoreTests: XCTestCase {
         XCTAssertEqual(Set(store.loadAll().keys), ["b"])
     }
 
+    func testFailuresRoundTripAndPruneWithThePhotos() throws {
+        let store = ThemePhotoStore(directory: directory)
+        XCTAssertEqual(store.failures(), [:])
+        let failed = date(2026, 11, 3, 12)
+        try store.saveFailures(["a": failed, "b": failed])
+        try store.upsert([photo("c", at: date(2026, 10, 5, 12))], calendar: calendar)
+        XCTAssertEqual(store.failures(), ["a": failed, "b": failed])
+        XCTAssertEqual(Set(store.loadAll().keys), ["c"], "the failures file is no month")
+        try store.prune(keeping: ["b", "c"])
+        XCTAssertEqual(store.failures(), ["b": failed])
+    }
+
     func testGarbageMonthLoadsEmptyAndOthersLoad() throws {
         let store = ThemePhotoStore(directory: directory)
         try store.upsert([photo("a", at: date(2026, 10, 5, 12)), photo("b", at: date(2026, 11, 5, 12))],

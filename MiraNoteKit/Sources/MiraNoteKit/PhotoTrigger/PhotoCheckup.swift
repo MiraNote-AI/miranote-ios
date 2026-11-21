@@ -18,7 +18,7 @@ struct CheckupOutcome: Sendable {
 /// fills V1's analysis and the repeat-theme record. Results are saved as
 /// they come, so a pass stopped by its deadline (or killed) resumes where
 /// it left off. A photo that fails is written down and left alone for a
-/// day.
+/// day: in V1's failures when V1 asked for it, else in the theme store's.
 struct PhotoCheckupRunner {
     /// A photo whose analysis failed is tried again this long after.
     static let retryAfter: TimeInterval = 86_400
@@ -42,7 +42,8 @@ struct PhotoCheckupRunner {
         let ordered = assets.sorted { ($0.takenAt ?? .distantPast, $0.id) > ($1.takenAt ?? .distantPast, $1.id) }
         var pass = Pass(store: store, themes: themes, calendar: calendar, now: now)
         let due = ordered.filter {
-            (needsV1($0.id) || (themes != nil && needsTheme($0.id))) && !pass.isWaiting($0.id)
+            let v1 = needsV1($0.id)
+            return (v1 || (themes != nil && needsTheme($0.id))) && !pass.isWaiting($0.id, v1: v1)
         }
         let todo = Set(due.map(\.id))
         var done = assets.count - due.count
@@ -74,15 +75,19 @@ struct PhotoCheckupRunner {
         let themes: ThemePhotoStore?
         let calendar: Calendar
         let now: Date
+        /// V1's failures.
         var failures: [String: Date]
+        /// The failures of photos read for their theme record alone.
+        var themeFailures: [String: Date]
         var results: [String: PhotoAnalysis] = [:]
         /// Theme records not yet written.
         var pending: [ThemePhoto] = []
         /// Where the stored theme records are: read at the pass's first
         /// write, then kept up to date by its writes.
         var index: ThemePhotoStore.MonthIndex?
-        /// Failure changes not yet written.
+        /// Failure changes not yet written, V1's and the theme store's.
         var unsaved = 0
+        var themeUnsaved = 0
 
         init(store: AnalysisStore, themes: ThemePhotoStore?, calendar: Calendar, now: Date) {
             self.store = store
@@ -90,11 +95,13 @@ struct PhotoCheckupRunner {
             self.calendar = calendar
             self.now = now
             failures = store.failures()
+            themeFailures = themes?.failures() ?? [:]
         }
 
-        /// Failed less than `retryAfter` ago: left alone this run.
-        func isWaiting(_ id: String) -> Bool {
-            guard let failed = failures[id] else { return false }
+        /// Failed less than `retryAfter` ago: left alone this run. A photo
+        /// V1 asks for goes by V1's failures, as it always has.
+        func isWaiting(_ id: String, v1: Bool) -> Bool {
+            guard let failed = v1 ? failures[id] : themeFailures[id] else { return false }
             return (0..<retryAfter).contains(now.timeIntervalSince(failed))
         }
 
@@ -115,9 +122,13 @@ struct PhotoCheckupRunner {
                     pending.append(photo)
                 }
                 if failures.removeValue(forKey: asset.id) != nil { unsaved += 1 }
-            } else {
+                if themeFailures.removeValue(forKey: asset.id) != nil { themeUnsaved += 1 }
+            } else if v1 {
                 failures[asset.id] = now
                 unsaved += 1
+            } else {
+                themeFailures[asset.id] = now
+                themeUnsaved += 1
             }
             flush()
         }
@@ -128,6 +139,10 @@ struct PhotoCheckupRunner {
             if unsaved >= (all ? 1 : failuresBatch) {
                 try? store.saveFailures(failures)
                 unsaved = 0
+            }
+            if themeUnsaved >= (all ? 1 : failuresBatch) {
+                try? themes?.saveFailures(themeFailures)
+                themeUnsaved = 0
             }
             if let themes, pending.count >= (all ? 1 : themeBatch) {
                 var known = index ?? themes.monthIndex()

@@ -197,6 +197,37 @@ final class PhotoCheckupTests: XCTestCase {
         XCTAssertNotNil(themes.loadAll()["d2.0"])
     }
 
+    /// A photo read only for its theme record keeps its failure in the
+    /// theme store: V1's prune (its 90-day fetch) cannot wipe it, so an old
+    /// photo that fails is not tried again on every theme run.
+    func testThemeOnlyFailuresStayOutOfV1sFile() async {
+        let assets = [asset(daysAgo: 200), asset(daysAgo: 201)]
+        let analyzer = CheckupAnalyzer(failing: ["d200.0"])
+        let (analyses, themes, calendar) = (analyses, themes, calendar)
+        let check = { (date: Date) -> CheckupOutcome in
+            let stored = themes.loadAll()
+            return await PhotoCheckupRunner.run(
+                assets, needsV1: { _ in false }, needsTheme: { stored[$0] == nil }, analyzer: analyzer,
+                analyses: analyses, themes: themes, now: date, calendar: calendar, deadline: nil, report: { _ in })
+        }
+        _ = await check(now)
+        XCTAssertEqual(analyses.failures(), [:], "V1's failures are V1's alone")
+        XCTAssertEqual(themes.failures(), ["d200.0": now])
+
+        // V1 prunes to its own window: the theme failure stays, and waits.
+        analyses.prune(keeping: [])
+        let outcome = await check(now.addingTimeInterval(3600))
+        XCTAssertEqual(analyzer.checkups.filter { $0 == "d200.0" }.count, 1)
+        XCTAssertTrue(outcome.finished)
+
+        // A day on it is tried again; the success clears it.
+        analyzer.failing = []
+        _ = await check(now.addingTimeInterval(PhotoCheckupRunner.retryAfter + 60))
+        XCTAssertEqual(analyzer.checkups.filter { $0 == "d200.0" }.count, 2)
+        XCTAssertEqual(themes.failures(), [:])
+        XCTAssertEqual(analyses.failures(), [:])
+    }
+
     func testFailuresAreWrittenDownInBatches() async {
         let assets = (1...25).map { asset(daysAgo: Double($0)) }
         let analyzer = CheckupAnalyzer(failing: Set(assets.map(\.id)))

@@ -90,9 +90,13 @@ public struct ThemePhotoStore: Sendable {
         try drop { ids.contains($0.id) }
     }
 
-    /// Drops every photo whose id is not in `ids` (deleted from the library).
+    /// Drops every photo, and every failure, whose id is not in `ids`
+    /// (deleted from the library).
     public func prune(keeping ids: Set<String>) throws {
         try drop { !ids.contains($0.id) }
+        let failed = failures()
+        let kept = failed.filter { ids.contains($0.key) }
+        if kept.count != failed.count { try saveFailures(kept) }
     }
 
     private func drop(where isDropped: (ThemePhoto) -> Bool) throws {
@@ -108,6 +112,22 @@ public struct ThemePhotoStore: Sendable {
             }
         }
     }
+
+    /// Photos whose checkup failed while only their theme record was due
+    /// (V1 needed nothing from them), by when they last failed. Kept apart
+    /// from V1's failures, which V1 prunes to its own 90 days; pruned here
+    /// with the theme records. Not `.json`, so never taken for a month.
+    public func failures() -> [String: Date] {
+        guard let data = try? Data(contentsOf: failuresFile) else { return [:] }
+        return (try? PropertyListDecoder().decode([String: Date].self, from: data)) ?? [:]
+    }
+
+    public func saveFailures(_ failures: [String: Date]) throws {
+        try PhotoTriggerPaths.prepare(directory)
+        try PropertyListEncoder().encode(failures).write(to: failuresFile, options: .atomic)
+    }
+
+    private var failuresFile: URL { directory.appendingPathComponent("failures.plist") }
 
     // MARK: - Files
 
