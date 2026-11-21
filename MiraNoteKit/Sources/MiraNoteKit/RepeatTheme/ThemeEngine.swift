@@ -52,6 +52,10 @@ public struct ThemeDependencies: Sendable {
 public actor ThemeEngine {
     /// Clustering waits until the checkup has gone this far back (A2).
     static let clusterAfterDays = 60
+    /// The checkup stops this long before the run's deadline, leaving the
+    /// time to cluster and ask (so a cut-short checkup that got 60 days
+    /// back can still find piles the same run).
+    static let clusterReserve: TimeInterval = 60
 
     let deps: ThemeDependencies
     private var active: Task<ThemeRunReport, Never>?
@@ -109,9 +113,11 @@ public actor ThemeEngine {
                       rounds: deps.rounds.load())
     }
 
-    /// Blocks a big or small theme (debug page, "Not this theme"): it is
-    /// never sent to Qwen again. Waits for a run in flight, so the run's
-    /// save cannot undo it. A sensitive theme stays sensitive.
+    /// Blocks a big or small theme (debug page, "Not this theme"): a blocked
+    /// big theme is never asked about again. A blocked small theme's name
+    /// still goes out among its big theme's old names on a re-ask, so the
+    /// row keeps its id and stays blocked. Waits for a run in flight, so the
+    /// run's save cannot undo it. A sensitive theme stays sensitive.
     public func block(_ themeId: String) async {
         await setStatus(themeId) { $0 == .sensitive ? nil : .blocked }
     }
@@ -151,29 +157,26 @@ public actor ThemeEngine {
             return finish(report)
         }
         let ids = Set(fetched.map(\.id))
-        try? deps.photos.prune(keeping: ids)
-        var rows = deps.themes.load()
-        let gone = Set(rows.flatMap(\.members)).subtracting(ids)
-        if !gone.isEmpty {
-            rows = ThemeLibrary.removing(gone, from: rows)
-            try? deps.themes.save(rows)
-        }
+        let rows = prune(keeping: ids)
 
         // 2. The checkup, newest first.
         let checkupStart = ContinuousClock.now
-        let checkup = await self.checkup(fetched, saved: saved, window: &window, now: now, deadline: deadline)
+        let checkup = await self.checkup(fetched, saved: saved, window: &window, now: now,
+                                         deadline: deadline?.addingTimeInterval(-Self.clusterReserve))
         report.checkupMs = Self.milliseconds(since: checkupStart)
         report.checkedNew = checkup.count
-        let sixtyBack = calendar.date(byAdding: .day, value: -Self.clusterAfterDays, to: now) ?? now
-        guard checkup.outcome.finished || (checkup.outcome.checkedThrough.map { $0 <= sixtyBack } ?? false) else {
-            let days = checkup.outcome.checkedThrough.map { Int(now.timeIntervalSince($0) / 86_400) } ?? 0
-            report.failures.append("Checked \(days) days back so far: piles wait for \(Self.clusterAfterDays)")
+        let records = deps.photos.loadAll()
+        if let stop = notReady(checkup.outcome, records: records, ids: ids, window: window, now: now) {
+            report.failures.append(stop)
+            return finish(report)
+        }
+        if let deadline, deps.now() >= deadline {
+            report.failures.append("Deadline reached before clustering")
             return finish(report)
         }
 
         // 3. Moments (the newest `momentsCap`), the tree, the piles.
         let clusterStart = ContinuousClock.now
-        let records = deps.photos.loadAll()
         let themePhotos = records.values.filter { photo in
             photo.isTheme && ids.contains(photo.id) && photo.takenAt >= window.start
                 && window.printRevision.map { photo.printRevision == $0 } ?? true
@@ -188,13 +191,35 @@ public actor ThemeEngine {
 
         let byId = Dictionary(moments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let scene = Scene(piles: piles, moments: byId, photos: records, calendar: calendar)
-        await claimAndAsk(scene, rows: rows, report: &report)
+        await claimAndAsk(scene, rows: rows, deadline: deadline, report: &report)
         return finish(report)
     }
 
+    /// Why the checkup is not far enough along to cluster on, or nil (A1,
+    /// A2): it must have finished, or got 60 days back. And while records of
+    /// an older print revision are left (the OS changed it and they are not
+    /// all read again), only a finished checkup will do: clustering on the
+    /// few re-read photos would freeze every old theme.
+    private func notReady(_ outcome: CheckupOutcome, records: [String: ThemePhoto], ids: Set<String>,
+                          window: ThemeWindow, now: Date) -> String? {
+        guard !outcome.finished else { return nil }
+        if let revision = window.printRevision,
+           records.values.contains(where: { $0.printRevision != revision && ids.contains($0.id) }) {
+            return "Print revision changed: re-reading older photos before piles"
+        }
+        let sixtyBack = deps.calendar.date(byAdding: .day, value: -Self.clusterAfterDays, to: now) ?? now
+        guard let through = outcome.checkedThrough, through <= sixtyBack else {
+            let days = outcome.checkedThrough.map { Int(now.timeIntervalSince($0) / 86_400) } ?? 0
+            return "Checked \(days) days back so far: piles wait for \(Self.clusterAfterDays)"
+        }
+        return nil
+    }
+
     /// Steps 4-6: old themes claim tonight's piles (the results go on the
-    /// rows), then round 1 for new piles and grown themes only.
-    private func claimAndAsk(_ scene: Scene, rows stored: [ThemeRow], report: inout ThemeRunReport) async {
+    /// rows), then round 1 for new piles and grown themes only, while the
+    /// deadline allows (the asks left are asked on the next run).
+    private func claimAndAsk(_ scene: Scene, rows stored: [ThemeRow], deadline: Date?,
+                             report: inout ThemeRunReport) async {
         let inWindow = Set(scene.moments.values.flatMap(\.photoIds))
         let claim = ThemeClaim.claim(stored.filter { $0.kind == .big }, piles: scene.piles, moments: scene.moments,
                                      window: inWindow)
@@ -204,7 +229,12 @@ public actor ThemeEngine {
         lastPiles = scene.piles
         lastFollows = claim.follows
 
-        for ask in Self.asks(claim, rows: rows, scene: scene) {
+        let asks = Self.asks(claim, rows: rows, scene: scene)
+        for (index, ask) in asks.enumerated() {
+            if let deadline, deps.now() >= deadline {
+                report.failures.append("Deadline reached: \(asks.count - index) asks left")
+                break
+            }
             let outcome = await self.ask(ask, rows: rows, scene: scene)
             if outcome.sent { report.asked += 1 }
             if let failure = outcome.failure { report.failures.append(failure) }
@@ -213,6 +243,18 @@ public actor ThemeEngine {
                 try? deps.themes.save(rows)
             }
         }
+    }
+
+    /// Drops what the library no longer holds (the fetch is not empty):
+    /// theme records, and photos on every theme list (D8). The library rows.
+    private func prune(keeping ids: Set<String>) -> [ThemeRow] {
+        try? deps.photos.prune(keeping: ids)
+        let rows = deps.themes.load()
+        let gone = Set(rows.flatMap(\.members)).subtracting(ids)
+        guard !gone.isEmpty else { return rows }
+        let kept = ThemeLibrary.removing(gone, from: rows)
+        try? deps.themes.save(kept)
+        return kept
     }
 
     /// The stored window, or (first run) a new one from today, kept.

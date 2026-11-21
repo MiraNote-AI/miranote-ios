@@ -87,7 +87,7 @@ extension ThemeEngine {
         let old = ask.big.flatMap { Self.oldNames($0, rows: rows) }
         let request = RoundOneRequest.make(pile: ask.pile, moments: scene.moments, a: groups.a, b: groups.b,
                                            photos: sample, old: old)
-        let key = Self.key(themeId: ask.big?.id, sample: sample, old: old)
+        let key = Self.key(themeId: ask.big?.id, sample: sample, old: old, offered: groups)
 
         var outcome = AskOutcome()
         let answer: RoundOneAnswer
@@ -133,10 +133,14 @@ extension ThemeEngine {
     }
 
     /// The re-ask key (decision 10): the same theme (or a new pile), the
-    /// same sampled moments and the same old names ask the same question.
-    static func key(themeId: String?, sample: [SampledPhoto], old: RoundOneRequest.Old?) -> String {
+    /// same sampled moments, the same old names and the same offered groups
+    /// (id, key and member moments) ask the same question.
+    static func key(themeId: String?, sample: [SampledPhoto], old: RoundOneRequest.Old?,
+                    offered: (a: [SplitGroup], b: [SplitGroup])) -> String {
         let names = old.map { ([$0.pileName] + $0.groups).joined(separator: "|") } ?? ""
-        let text = [themeId ?? "new", sample.map(\.momentId).joined(separator: ","), names].joined(separator: "\n")
+        let groups = (offered.a + offered.b).map { "\($0.id):\($0.key):\($0.momentIds.joined(separator: ","))" }
+        let text = [themeId ?? "new", sample.map(\.momentId).joined(separator: ","), names,
+                    groups.joined(separator: ";")].joined(separator: "\n")
         let digest = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
         return "round1-" + digest.prefix(16)
     }
@@ -170,13 +174,15 @@ extension ThemeEngine {
     }
 
     /// The checked answer: from the round log when this question was answered
-    /// before (D4), else from the backend. Every answer the backend gives is
+    /// before (D4) and that answer still passes tonight's checks, else from
+    /// the backend. Every answer the backend gives is
     /// logged, with its problem when it is not usable (so it is never
     /// reused); a failed call logs nothing and is simply asked again.
     private func roundOne(_ request: RoundOneRequest, key: String, offered: (a: [SplitGroup], b: [SplitGroup]),
                           themeId: String?, sent: inout Bool) async -> Result<RoundOneAnswer, AskFailure> {
-        if let stored = deps.rounds.answer(for: key) {
-            return Self.checked(stored.reply, offered: offered).mapError { .answer($0) }
+        if let stored = deps.rounds.answer(for: key),
+           case .success(let answer) = Self.checked(stored.reply, offered: offered) {
+            return .success(answer)
         }
         var images: [(n: Int, jpeg: Data)] = []
         for number in request.photoIds.keys.sorted() {

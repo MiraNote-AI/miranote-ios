@@ -136,6 +136,19 @@ final class ThemeRoundClientTests: XCTestCase {
         }
     }
 
+    func testEndedSignInMapsToUnauthorized() async {
+        _ = respond(200, Self.okBody)
+        let signedOut = LiveThemeRoundClient(
+            baseURL: base, http: HTTPClient(session: StubURLProtocol.makeSession(), betaToken: "token",
+                                            userTokens: EndedSignIn()))
+        do {
+            _ = try await signedOut.shorten([ShortenItem(key: "pile", name: "x", samePart: "")])
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? ThemeRoundError, .unauthorized)
+        }
+    }
+
     /// The engine's images as they reach the backend: a 2000 x 1500 photo with
     /// GPS, EXIF and TIFF goes out 336 px on its long side and bare.
     func testImagesAre336AndCarryNoMetadata() async throws {
@@ -187,6 +200,13 @@ final class ThemeRoundClientTests: XCTestCase {
         }
         return parts
     }
+}
+
+/// A sign-in whose tokens are gone.
+private struct EndedSignIn: UserTokenSource {
+    func accessTokenIfSignedIn() async throws -> String? { throw AccountError.signedOut }
+    func renewAccessToken(after rejected: String) async throws -> String { throw AccountError.signedOut }
+    func endSignIn(refused token: String) {}
 }
 
 private final class RequestBox: @unchecked Sendable {

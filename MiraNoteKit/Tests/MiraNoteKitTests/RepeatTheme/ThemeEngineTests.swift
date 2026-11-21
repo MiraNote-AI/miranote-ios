@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 @testable import MiraNoteKit
 
+// swiftlint:disable type_body_length
 /// Which piles and themes the engine asks Qwen about, and what it keeps
 /// (D1, D4, D5, C5, spec 6.5-6.7).
 final class ThemeEngineTests: XCTestCase {
@@ -63,6 +64,39 @@ final class ThemeEngineTests: XCTestCase {
         XCTAssertEqual(harness.client.roundOneRequests.count, 1, "the stored answer is used")
         XCTAssertEqual(report.asked, 0)
         XCTAssertEqual(harness.bigRow(with: "x-1")?.name, name)
+    }
+
+    func testChangedGroupsAreAskedAgain() async throws {
+        harness.addTheme("x", base: 0, days: [1, 2, 3, 4], labels: [LabelScore(id: "soup", confidence: 0.9)])
+        harness.addTheme("x", base: 0, days: [5, 6, 7, 8], labels: [LabelScore(id: "noodle", confidence: 0.9)])
+        harness.client.roundOneReply = { request, _ in
+            request.splitA.count == 2
+                ? #"{"pile_name": "Meals", "chosen": "A", "groups": [{"from": ["A1"], "name": "Noodles"},"#
+                    + #" {"from": ["A2"], "name": "Soup"}]}"#
+                : #"{"pile_name": "Soup days", "chosen": "none"}"#
+        }
+        let engine = harness.engine()
+        let library = harness.directory.appendingPathComponent("library.json")
+        _ = await run(engine)
+        XCTAssertEqual(harness.themes.load().filter { $0.kind == .small }.count, 2)
+
+        // Same groups: the stored answer is used (D4).
+        try FileManager.default.removeItem(at: library)
+        _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 1)
+        XCTAssertEqual(harness.themes.load().filter { $0.kind == .small }.count, 2)
+
+        // The noodle label is gone: split A is one group now, a new question.
+        try FileManager.default.removeItem(at: library)
+        let changed = harness.photos.loadAll().values.filter { ["x-5", "x-6", "x-7", "x-8"].contains($0.id) }.map {
+            ThemePhoto(id: $0.id, takenAt: $0.takenAt, location: $0.location, labels: [], aesthetics: $0.aesthetics,
+                       faces: $0.faces, isTheme: $0.isTheme, print: $0.print, printRevision: $0.printRevision)
+        }
+        try harness.photos.upsert(changed, calendar: harness.calendar)
+        _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 2, "exactly one new call")
+        XCTAssertEqual(harness.client.roundOneRequests.last?.splitA.count, 1)
+        XCTAssertEqual(harness.bigRow(with: "x-1")?.name, "Soup days")
     }
 
     func testGrowthAtOnePointFiveReasks() async {
@@ -264,3 +298,4 @@ final class ThemeEngineTests: XCTestCase {
         XCTAssertEqual(harness.client.roundOneImages.first?.map(\.n), request.photos.map(\.n))
     }
 }
+// swiftlint:enable type_body_length

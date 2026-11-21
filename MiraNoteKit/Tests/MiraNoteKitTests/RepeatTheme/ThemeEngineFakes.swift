@@ -58,6 +58,8 @@ final class FakeRoundClient: ThemeRoundClient, @unchecked Sendable {
         #"{"sensitive": false, "pile_name": "Theme\#(number)", "chosen": "none", "groups": []}"#
     }
     var shortenReply: @Sendable ([ShortenItem]) -> String = { _ in #"{"items": []}"# }
+    /// Runs inside each round-1 call (a slow answer).
+    var onRoundOne: (@Sendable () -> Void)?
     static let usage = RoundUsage(promptTokens: 100, completionTokens: 20, costCny: 0.0006, model: "qwen-test")
 
     var roundOneRequests: [RoundOneRequest] { lock.withLock { oneRequests } }
@@ -71,6 +73,7 @@ final class FakeRoundClient: ThemeRoundClient, @unchecked Sendable {
             if !roundOneErrors.isEmpty { throw roundOneErrors.removeFirst() }
             return oneRequests.count
         }
+        onRoundOne?()
         return RoundReply(reply: roundOneReply(request, number), where: ["A1": "evening"], usage: Self.usage)
     }
 

@@ -174,6 +174,10 @@ public struct LiveThemeRoundClient: ThemeRoundClient {
             data = try await http.send(request)
         } catch let error as BackendError {
             throw Self.roundError(error)
+        } catch {
+            // The sign-in ended (`AccountError.signedOut`) or its tokens
+            // could not be read: the request never went out with a token.
+            throw ThemeRoundError.unauthorized
         }
         guard let body = try? JSONDecoder().decode(Body.self, from: data), let reply = body.reply,
               let usage = body.usage else { throw ThemeRoundError.server(200) }

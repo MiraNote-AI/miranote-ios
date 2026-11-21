@@ -47,19 +47,49 @@ final class ThemeEngineRunTests: XCTestCase {
         harness.analyzer.onCheckup = { _ in clock.advance(60) }
         let engine = harness.engine()
 
-        // 30 photos (30 days back): not yet 60 days, so no piles.
-        var report = await run(engine, deadline: clock.now.addingTimeInterval(30 * 60))
+        // 30 photos (30 days back): not yet 60 days, so no piles. The
+        // checkup stops a minute before the deadline (time to cluster).
+        let reserve = ThemeEngine.clusterReserve
+        var report = await run(engine, deadline: clock.now.addingTimeInterval(30 * 60 + reserve))
         XCTAssertEqual(report.checkedNew, 30)
         XCTAssertTrue(report.piles.isEmpty)
         XCTAssertEqual(report.asked, 0)
         XCTAssertEqual(report.moments, 0)
 
         // 40 more, newest first: 70 days back is enough to cluster.
-        report = await run(engine, deadline: clock.now.addingTimeInterval(40 * 60))
+        report = await run(engine, deadline: clock.now.addingTimeInterval(40 * 60 + reserve))
         XCTAssertEqual(report.checkedNew, 40)
         XCTAssertEqual(harness.analyzer.checked.last, "f-70")
         XCTAssertEqual(report.piles.count, 1)
         XCTAssertEqual(report.asked, 1)
+    }
+
+    func testDeadlineStopsBeforeClustering() async {
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        let clock = harness.clock
+        harness.analyzer.onCheckup = { id in if id == "x-6" { clock.advance(3600) } }
+        let report = await run(harness.engine(), deadline: clock.now.addingTimeInterval(120))
+        XCTAssertEqual(report.checkedNew, 6, "the checkup itself finished")
+        XCTAssertTrue(report.failures.contains("Deadline reached before clustering"))
+        XCTAssertTrue(report.piles.isEmpty)
+        XCTAssertEqual(report.asked, 0)
+    }
+
+    func testDeadlineStopsTheAsksLeft() async {
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        harness.addTheme("y", base: 1, days: Array(1...6))
+        let clock = harness.clock
+        harness.client.onRoundOne = { clock.advance(7200) }
+        let engine = harness.engine()
+        let report = await run(engine, deadline: clock.now.addingTimeInterval(3600))
+        XCTAssertEqual(report.piles.count, 2)
+        XCTAssertEqual(report.asked, 1)
+        XCTAssertTrue(report.failures.contains("Deadline reached: 1 asks left"))
+        XCTAssertEqual(harness.themes.load().count, 1)
+
+        _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 2, "the pile left is asked next run")
+        XCTAssertEqual(harness.themes.load().count, 2)
     }
 
     func testMomentsOverCapDropOldest() async {
@@ -94,6 +124,34 @@ final class ThemeEngineRunTests: XCTestCase {
         XCTAssertEqual(harness.window.load()?.printRevision, 2)
         XCTAssertTrue(harness.photos.loadAll().values.allSatisfy { $0.printRevision == 2 })
         XCTAssertEqual(report.piles.count, 1)
+    }
+
+    func testRevisionChangeCutShortDoesNotCluster() async {
+        // A theme 70-75 days back: re-reading two of it already gets the
+        // checkup past 60 days.
+        harness.addTheme("x", base: 0, days: Array(70...75))
+        let engine = harness.engine()
+        _ = await run(engine)
+        let before = harness.bigRow(with: "x-70")
+        XCTAssertEqual(before?.members.count, 6)
+
+        // New revision; time for 3 reads: the new n-1, then x-70 and x-71 again.
+        harness.analyzer.revision = 2
+        harness.add("n-1", at: harness.day(1))
+        harness.analyzer.utility.insert("n-1")
+        let clock = harness.clock
+        harness.analyzer.onCheckup = { _ in clock.advance(60) }
+        let cut = await run(engine, deadline: clock.now.addingTimeInterval(3 * 60 + ThemeEngine.clusterReserve))
+        XCTAssertEqual(cut.checkedNew, 3)
+        XCTAssertTrue(cut.piles.isEmpty, "no piles from 2 re-read photos")
+        XCTAssertTrue(cut.failures.contains { $0.hasPrefix("Print revision changed") })
+        XCTAssertEqual(harness.bigRow(with: "x-70"), before, "the old theme is not frozen")
+
+        let done = await run(engine)
+        XCTAssertEqual(done.piles.count, 1)
+        XCTAssertEqual(harness.bigRow(with: "x-70")?.status, .active)
+        XCTAssertEqual(harness.bigRow(with: "x-70")?.members.count, 6)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 1)
     }
 
     func testNoVisionPhotosAreNotRecheckedEveryRun() async {
