@@ -84,6 +84,8 @@ final class TextChatBoxUITests: TextToolUITestCase {
                       "the block shows the rewrite: \(fieldValue())")
         let original = app.buttons["style.ai.original"]
         XCTAssertTrue(original.waitForExistence(timeout: 3), "the Polish row shows")
+        XCTAssertTrue(app.buttons["text.row.back"].exists, "in the text row's place, with its own Back")
+        XCTAssertFalse(app.buttons["style.font"].exists, "never stacked over the text row")
         for choice in ["original", "clean", "expand"] {
             XCTAssertFalse(app.buttons["style.ai.\(choice)"].isSelected, "no chip is selected (\(choice))")
         }

@@ -37,8 +37,10 @@ struct CanvasScene: View {
     @State var recorderNotice: String?
     /// The take Stop just put on the page, while its result sheet shows.
     @State var attachedSound: AttachedSound?
-    /// The text tool whose row is open (screen 11: Aa when writing starts).
-    @State var textTool: TextTool = .font
+    /// The tool whose row is in the text slot; nil shows the text row.
+    @State var textRow: TextTool?
+    /// The last level change went deeper: its row rises (D7A).
+    @State var textRowDeeper = true
     @State var rewrite: RewriteState?
     /// The words typed in the chat box while writing (F6B).
     @State var writingAsk = ""
@@ -55,9 +57,6 @@ struct CanvasScene: View {
     /// edge as one block (#162: they popped up over the tool bar ~140 ms
     /// before the keyboard came).
     @State private var textToolsShown = false
-    /// The tools are on their way up: they sit on the keyboard's own edge
-    /// and the font row rides as a still copy.
-    @State var textToolsRiding = false
     /// This open's wait for a keyboard that may never come.
     @State private var textToolsWait: Task<Void, Never>?
     /// The chat-box mic's press in progress.
@@ -275,10 +274,7 @@ struct CanvasScene: View {
         } else {
             var still = Transaction()
             still.disablesAnimations = true
-            withTransaction(still) {
-                textToolsShown = true
-                textToolsRiding = false
-            }
+            withTransaction(still) { textToolsShown = true }
         }
         TextOpenTiming.markToolsVisible()
     }
@@ -335,7 +331,6 @@ struct CanvasScene: View {
                     if editor.editingTextItemID != nil, colorRequest == nil { endTextEditing() }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-                    if textToolsRiding && !TextKeyboard.holdsRiding { textToolsRiding = false }
                     // After this redraw, which would put the default back.
                     if editor.editingTextItemID != nil { DispatchQueue.main.async { WritingKeyboard.keepDark() } }
                 }
@@ -580,9 +575,7 @@ struct CanvasScene: View {
             textToolsWait = nil
             if editing == nil {
                 textToolsShown = false
-                textToolsRiding = false
             } else if !textToolsShown {
-                textToolsRiding = true
                 // A keyboard already up brings no new rise.
                 if TextKeyboard.up {
                     showTextTools(rising: false)
@@ -596,6 +589,9 @@ struct CanvasScene: View {
             // Back keeps them, each its own step.
             if let ended, ended != editing {
                 finishRewrite()
+                // The next block, even one opened straight from this one
+                // ("Edit text"), starts on the text row (S7).
+                textRow = nil
                 if let request = colorRequest {
                     editor.commitPreview(of: request.original)
                     colorRequest = nil
@@ -1673,18 +1669,21 @@ extension CanvasScene {
     }
 
     private static func debugElement(_ item: CanvasItem) -> [String: Any] {
-        var kind = "sound", text = "", color = ""
+        var kind = "sound", text = ""
+        var style: [String: Any] = [:]
         switch item.content {
         case .text(let block):
             kind = "text"
             text = String(block.text.prefix(24))
-            color = block.colorName
+            style = ["font": block.fontName, "pointSize": block.pointSize, "color": block.colorName,
+                     "fill": block.backgroundColorName]
         case .image: kind = "image"
         case .sticker: kind = "sticker"
         case .sound: break
         }
-        return ["id": item.id.uuidString, "kind": kind, "text": text, "color": color,
+        return ["id": item.id.uuidString, "kind": kind, "text": text,
                 "x": item.position.x, "y": item.position.y, "w": item.size.width, "h": item.size.height]
+            .merging(style) { old, _ in old }
     }
 }
 #endif
@@ -1722,15 +1721,5 @@ enum TextKeyboard {
         if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
         #endif
         return .milliseconds(300)
-    }
-
-    /// Tests only: the tools stay riding once the keyboard has landed, so a
-    /// tap can reach the font row's still copy.
-    static var holdsRiding: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("-HOLD_TOOLS_RIDING")
-        #else
-        return false
-        #endif
     }
 }

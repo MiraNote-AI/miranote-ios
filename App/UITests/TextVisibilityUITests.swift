@@ -40,12 +40,12 @@ final class TextVisibilityUITests: XCTestCase {
     /// The block's frame lies below the header and above every text tool.
     private func assertClearOfTheTools(_ when: String) {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["style.sizes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textSlotRows.firstMatch.waitForExistence(timeout: 5))
         // The scroll into view animates.
         Thread.sleep(forTimeInterval: 1)
         let tools = app.buttons.matching(NSPredicate(
-            format: "identifier == 'style.sizes' OR identifier BEGINSWITH 'style.font.' OR identifier BEGINSWITH 'style.size.'"
-        )).allElementsBoundByIndex.map(\.frame.minY) + [any("style.mic").frame.minY]
+            format: "identifier BEGINSWITH 'style.' OR identifier IN {'keyboard.done', 'text.row.back'}"
+        )).allElementsBoundByIndex.map(\.frame.minY)
         let toolsTop = tools.min() ?? 0
         let headerBottom = app.buttons["nav.trailing"].frame.maxY
         XCTAssertLessThanOrEqual(field.frame.maxY, toolsTop + 0.5,
@@ -269,11 +269,12 @@ final class TextVisibilityUITests: XCTestCase {
         field.typeText("lunch by the river, then a long walk home")
         assertClearOfTheTools("a new block")
         let whileWriting = photo.frame.minY
-        for row in ["style.colors", "style.highlight", "style.ai"] { app.buttons[row].tap() }
-        app.buttons["style.colors"].tap()
+        for row in ["style.colors", "style.highlight", "style.ai"] { app.openTextRow(row) }
+        app.openTextRow("style.colors")
         app.buttons["style.color.custom"].tap()
         XCTAssertTrue(app.buttons["colorSheet.apply"].waitForExistence(timeout: 5))
         app.buttons["colorSheet.apply"].tap()
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         Thread.sleep(forTimeInterval: 1.2)
         let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'lunch by the river'")).firstMatch

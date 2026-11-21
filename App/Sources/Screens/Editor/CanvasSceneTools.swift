@@ -61,24 +61,14 @@ extension CanvasScene {
     }
 
     /// The accessory above the keyboard (screens 11-20, #205), bottom to
-    /// top: the Mira chat box with its mic (T1, T2), Back and the tool bar,
-    /// the active tool's row, and a caption line when the mic has news.
-    /// The tool bar never moves; rows crossfade under the finger. One
-    /// layer, so all of it rides up on the keyboard together (#162).
+    /// top: the Mira chat box with its mic (T1, T2), the one row of the
+    /// text slot, and a caption line when the mic has news. The slot holds
+    /// one level at a time: Back and the text row, or a tool's row with its
+    /// own Back in the text row's place -- never two stacked. One layer, so
+    /// all of it rides up on the keyboard together (#162).
     @ViewBuilder var textAccessory: some View {
         VStack(spacing: 0) {
-            if textTool.hasRow {
-                textToolRow
-                    .id(textTool)
-                    .transition(.opacity)
-                    .padding(.bottom, textTool.rowGap)
-            }
-            HStack(spacing: 8) {
-                TextBackKey(onBack: endTextEditing)
-                TextToolBar(active: textTool, alignment: editingBlock?.alignment ?? .leading,
-                            onSelect: selectTextTool)
-            }
-            .padding(.horizontal, Metrics.chromeInset)
+            textSlot
             WritingChatBox(
                 ask: $writingAsk,
                 focus: $writingAskFocus,
@@ -115,7 +105,6 @@ extension CanvasScene {
         }
         // 4 above the keyboard.
         .padding(.bottom, 4)
-        .animation(.easeOut(duration: 0.15), value: textTool)
         .animation(.easeOut(duration: 0.15), value: dictationCaption)
         // VoiceOver's two-finger scrub ends the writing, as Back does.
         .accessibilityAction(.escape) { endTextEditing() }
@@ -134,78 +123,6 @@ extension CanvasScene {
     /// chat box itself says "Listening...".
     private var dictationCaption: String? {
         writingDown ? String(appCopy: "Writing it down...") : dictationHint
-    }
-
-    @ViewBuilder private var textToolRow: some View {
-        let block = editingBlock
-        switch textTool {
-        case .font:
-            FontChipRow(
-                fontName: block?.fontName ?? "",
-                pointSize: block?.pointSize ?? TextFace.newBlockSize,
-                riding: textToolsRiding,
-                onFont: { name in
-                    guard let id = editor.editingTextItemID else { return }
-                    editor.setTextFont(itemID: id, to: name)
-                    remeasureEditedText(id)
-                },
-                onSize: { choice in
-                    guard let id = editor.editingTextItemID else { return }
-                    editor.setTextPointSize(itemID: id, to: choice.pointSize)
-                    remeasureEditedText(id)
-                }
-            )
-        case .color:
-            let current = block?.colorName ?? ""
-            ColorSwatchRow(
-                current: current,
-                isCustom: current.hasPrefix("#") && current != TextFace.newBlockColor
-                    && !Palette.textSwatches.contains { $0.hex == current },
-                onSwatch: { hex in
-                    if let id = editor.editingTextItemID { editor.setTextColorName(itemID: id, to: hex) }
-                },
-                onCustom: { openColorSheet(.text) }
-            )
-        case .ai:
-            RewriteRow(
-                selected: rewrite.map(\.session.selected) ?? .original,
-                pending: rewrite?.session.pending,
-                enabled: rewriteAsk == nil
-                    && !(block?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
-                onSelect: pickRewrite
-            )
-            .padding(.horizontal, Metrics.chromeInset)
-        case .background:
-            let current = block?.backgroundColorName ?? ""
-            TextBackgroundRow(
-                current: current,
-                isCustom: !current.isEmpty && !Palette.textBackgroundSwatches.contains { $0.hex == current },
-                onPick: { hex in
-                    if let id = editor.editingTextItemID { editor.setTextBackground(itemID: id, to: hex) }
-                },
-                onCustom: { openColorSheet(.background) }
-            )
-            .padding(.horizontal, Metrics.chromeInset)
-        case .align:
-            EmptyView()
-        }
-    }
-
-    /// Exactly one tool is active. Align has no row: each tap makes it the
-    /// active tool and steps the alignment (screens 16-17).
-    func selectTextTool(_ tool: TextTool) {
-        if tool != .ai { finishRewrite() }
-        switch tool {
-        case .align:
-            if let id = editor.editingTextItemID, let block = editingBlock {
-                editor.setTextAlignment(itemID: id, to: block.alignment.next)
-            }
-        case .ai:
-            if textTool != .ai { startRewrite() }
-        case .font, .color, .background:
-            break
-        }
-        textTool = tool
     }
 
     // MARK: Ending a session
@@ -242,9 +159,9 @@ extension CanvasScene {
         }
     }
 
-    /// The next session opens on the font row (screen 11).
+    /// The next session opens on the text row (S7).
     func resetTextTools() {
-        textTool = .font
+        textRow = nil
         rewrite = nil
         rewriteAsk?.cancel()
         rewriteAsk = nil
@@ -265,12 +182,12 @@ extension CanvasScene {
             if previewing { return }
         }
         editor.undo()
-        if textTool == .ai, editor.editingTextItemID != nil { startRewrite() }
+        if textRow == .ai, editor.editingTextItemID != nil { startRewrite() }
     }
 
     // MARK: AI rewrite in place (screen 15)
 
-    private func startRewrite() {
+    func startRewrite() {
         guard let id = editor.editingTextItemID, let item = editor.item(id),
               case .text(let block) = item.content else { return }
         rewrite = RewriteState(session: TextRewriteSession(original: block.text), original: item)
@@ -283,7 +200,7 @@ extension CanvasScene {
         editor.commitPreview(of: state.original)
     }
 
-    private func pickRewrite(_ choice: TextRewriteSession.Choice) {
+    func pickRewrite(_ choice: TextRewriteSession.Choice) {
         guard var state = rewrite, let id = editor.editingTextItemID else { return }
         dictationHint = nil
         if let text = state.session.select(choice) {
@@ -319,7 +236,7 @@ extension CanvasScene {
     private func askToRewrite() {
         let words = writingAsk.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty, rewriteAsk == nil, let id = editor.editingTextItemID else { return }
-        if textTool != .ai { selectTextTool(.ai) }
+        if textRow != .ai { selectTextTool(.ai) }
         guard let source = rewrite?.session.original,
               !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         dictationHint = nil

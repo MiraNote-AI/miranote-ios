@@ -40,7 +40,7 @@ final class PaywallUITests: XCTestCase {
     }
 
     private func expand() {
-        if !app.buttons["style.ai.expand"].exists { app.buttons["style.ai"].tap() }
+        if !app.buttons["style.ai.expand"].exists { app.openTextRow("style.ai") }
         app.buttons["style.ai.expand"].tap()
     }
 
@@ -157,6 +157,8 @@ final class PaywallUITests: XCTestCase {
         )).firstMatch
         XCTAssertTrue(failed.waitForExistence(timeout: 5), "the 429 came back and the action failed")
         XCTAssertFalse(paywall.waitForExistence(timeout: 2), "no paywall")
+
+        app.backToTextRow()
 
         app.buttons["keyboard.done"].tap()
         app.buttons["Save"].tap()

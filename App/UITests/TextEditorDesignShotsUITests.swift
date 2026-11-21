@@ -49,11 +49,23 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         let field = app.descendants(matching: .any)["canvas.textEditor"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.typeText("Sunny afternoon, there was a I walked into a noodle shop by the bridge.")
-        XCTAssertTrue(app.buttons["style.font.Josefin"].isSelected, "Aa is open and Josefin is the face")
+        // Writing starts on the text row (S7); each tool's row then takes
+        // its place (#205 PR 4).
+        XCTAssertTrue(app.buttons["style.font"].exists, "the text row is up")
         settle()
         shot("11")
 
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.font")
+        XCTAssertTrue(app.buttons["style.font.Josefin"].isSelected, "Josefin is the face")
+        settle()
+        shot("11-font")
+
+        app.openTextRow("style.size")
+        XCTAssertTrue(app.buttons["style.size.M"].isSelected, "M is the new block's size")
+        settle()
+        shot("11-size")
+
+        app.openTextRow("style.colors")
         app.buttons["style.color.#F1EBDD"].tap()
         settle()
         shot("12")
@@ -81,11 +93,12 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "the keyboard comes back")
         summonKeyboard(field)
 
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.clean"].tap()
         settle()
         shot("15")
 
+        app.backToTextRow()
         let align = app.buttons["style.align"]
         align.tap()
         align.tap()
@@ -100,7 +113,7 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         align.tap()
         align.tap()
 
-        app.buttons["style.highlight"].tap()
+        app.openTextRow("style.highlight")
         app.buttons["style.highlight.#171914"].tap()
         settle()
         shot("18")
@@ -116,6 +129,7 @@ final class TextEditorDesignShotsUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "the keyboard comes back")
 
         // Done leaves the block selected: the arrange state.
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         let block = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "noodle shop")).firstMatch
         XCTAssertTrue(block.waitForExistence(timeout: 5))
