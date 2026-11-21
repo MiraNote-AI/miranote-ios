@@ -279,13 +279,15 @@ struct TriggerRanking: Sendable {
     /// store the same read writes those photos' repeat-theme records too.
     /// A photo V1 has already is never read again here for its theme record
     /// alone: the theme engine's own run does that backfill (it knows which
-    /// photos give no vision), so V1's planning never waits on it.
+    /// photos give no vision), so V1's planning never waits on it. So a
+    /// photo needs its theme record exactly when V1 reads it: the theme
+    /// store is not loaded to spare the few re-writes of a record already
+    /// there (an upsert replaces it).
     private static func analyze(_ assets: [LibraryAsset], saved: [String: PhotoAnalysis], analyzer: PhotoAnalyzing,
                                 store: AnalysisStore, themes: ThemePhotoStore?, now: Date, calendar: Calendar,
                                 report: (TriggerProgress) async -> Void) async -> [String: PhotoAnalysis] {
-        let themed = themes?.loadAll() ?? [:]
         let outcome = await PhotoCheckupRunner.run(
-            assets, needsV1: { saved[$0] == nil }, needsTheme: { saved[$0] == nil && themed[$0] == nil },
+            assets, needsV1: { saved[$0] == nil }, needsTheme: { saved[$0] == nil },
             analyzer: analyzer,
             analyses: store, themes: themes, now: now, calendar: calendar, deadline: nil, report: report)
         var results = outcome.analyses
