@@ -36,7 +36,7 @@ final class DeleteAccountUITests: XCTestCase {
         XCTAssertTrue(delete.waitForExistence(timeout: 5))
         delete.tap()
         XCTAssertTrue(app.staticTexts["What is deleted"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Kept without your name"].exists, "AI usage is kept unlinked, not deleted")
+        XCTAssertTrue(app.staticTexts["What is kept"].exists, "AI usage is kept unlinked, not deleted")
         XCTAssertTrue(app.staticTexts["What stays"].exists)
         XCTAssertTrue(app.staticTexts["Your subscription"].exists)
         XCTAssertTrue(app.links["deleteAccount.manageSubscriptions"].exists
