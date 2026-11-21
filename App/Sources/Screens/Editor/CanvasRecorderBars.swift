@@ -149,6 +149,9 @@ struct RecorderCircle<Glyph: View>: View {
 /// designed shape and silence settles to 4 pt ticks.
 struct LiveWaveform: View {
     let recorder: AudioRecording
+    var tint = Palette.onInk.opacity(0.85)
+    /// The bars' heights at this fraction of the drawn pattern.
+    var scale: CGFloat = 1
 
     static let pattern: [CGFloat] = [20, 30, 42, 24, 16, 34, 22, 38, 20, 28, 32, 18]
 
@@ -158,11 +161,11 @@ struct LiveWaveform: View {
         HStack(alignment: .center, spacing: 6) {
             ForEach(Self.pattern.indices, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Palette.onInk.opacity(0.85))
-                    .frame(width: 4, height: max(4, Self.pattern[index] * CGFloat(levels[index])))
+                    .fill(tint)
+                    .frame(width: 4, height: max(4, Self.pattern[index] * scale * CGFloat(levels[index])))
             }
         }
-        .frame(height: 42)
+        .frame(height: 42 * scale)
         .animation(.linear(duration: 0.1), value: levels)
         .accessibilityHidden(true)
         .task {

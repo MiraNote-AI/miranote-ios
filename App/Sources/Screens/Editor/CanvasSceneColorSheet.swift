@@ -4,8 +4,8 @@ import SwiftUI
 // MARK: - Custom color sheet while writing (screens 14 and 20)
 
 extension CanvasScene {
-    /// Opens the sheet over the scrim: the keyboard goes down, editing (and
-    /// with it the scrim and the live preview) stays.
+    /// Opens the sheet over the page: the keyboard goes down, editing (and
+    /// with it the live preview) stays.
     func openColorSheet(_ target: ColorRequest.Target) {
         guard let id = editor.editingTextItemID, let item = editor.item(id),
               case .text(let block) = item.content else { return }

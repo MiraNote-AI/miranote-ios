@@ -186,14 +186,15 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 12), .completed, "the second hold's words land too")
     }
 
-    /// A take of a cancelled session still being written down (held 20 s)
-    /// never holds back the next session's take.
-    func testACancelledSessionsSlowTakeNeverDelaysTheNext() {
+    /// A take of an ended session still being written down (held 20 s)
+    /// never holds back the next session's take. Back waits for the words
+    /// at most 10 s (`doneWaitCap`), then ends the writing without them.
+    func testAnEndedSessionsSlowTakeNeverDelaysTheNext() {
         startAMemory(["-TRANSCRIBE_FIRST_DELAY", "20000"])
         write("Lunch")
         strip.press(forDuration: 0.8)
-        app.buttons["text.cancel"].tap()
-        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 14))
         write("Dinner")
         strip.press(forDuration: 0.8)
         let landed = XCTNSPredicateExpectation(
@@ -202,10 +203,11 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the new take waited for the old one")
     }
 
-    /// The same block reopened while a cancelled session's take is still
-    /// on its way: only the new session's take lands in it.
-    func testACancelledTakeNeverLandsInTheSameBlockReopened() {
-        startAMemory(["-TRANSCRIBE_DELAY", "3000"])
+    /// The same block reopened while an ended session's take is still on
+    /// its way (14 s, past Back's 10 s wait): only the new session's take
+    /// lands in it.
+    func testAnAbandonedTakeNeverLandsInTheSameBlockReopened() {
+        startAMemory(["-TRANSCRIBE_FIRST_DELAY", "14000"])
         write("Lunch")
         app.buttons["keyboard.done"].tap()
         waitGone(app.buttons["keyboard.done"], "writing ended")
@@ -216,25 +218,27 @@ final class DictationOwnershipUITests: XCTestCase {
             XCTAssertTrue(field.waitForExistence(timeout: 5), "the block reopens (\(take))")
             strip.press(forDuration: 0.8)
             if take == 0 {
-                app.buttons["text.cancel"].tap()
-                XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+                app.buttons["keyboard.done"].tap()
+                XCTAssertTrue(field.waitForNonExistence(timeout: 14), "Back stops waiting after 10 s")
             }
         }
         app.buttons["keyboard.done"].tap()
         let once = app.staticTexts["Lunch Transcribed voice note (mock)"]
         XCTAssertTrue(once.waitForExistence(timeout: 8), "the new take lands, once")
-        sleep(2)
-        XCTAssertTrue(once.exists, "the cancelled take landed too")
+        // Past the first take's return.
+        sleep(4)
+        XCTAssertTrue(once.exists, "the abandoned take landed too")
     }
 
-    /// Meng's probe: a hold across a cancelled take's return, then Done --
+    /// Meng's probe: a hold across an abandoned take's return, then Back --
     /// the new words land and no mic is left on.
     func testAHoldAcrossAnOldTakesReturnThenDoneLeavesNoMicOn() {
-        startAMemory(["-TRANSCRIBE_DELAY", "6000"])
+        // The first take comes back after 16 s, past Back's 10 s wait.
+        startAMemory(["-TRANSCRIBE_DELAY", "6000", "-TRANSCRIBE_FIRST_DELAY", "10000"])
         write("Lunch")
         strip.press(forDuration: 0.8)
-        app.buttons["text.cancel"].tap()
-        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 14))
         write("Dinner")
         // Typing took a few seconds: the old take returns during the hold.
         strip.press(forDuration: 6)
@@ -288,7 +292,8 @@ final class DictationOwnershipUITests: XCTestCase {
         strip.press(forDuration: 0.8)
         app.buttons["keyboard.done"].tap()
         let home = app.buttons["nav.leading"]
-        let homeShows = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Home'"), object: home)
+        // Home is greyed while writing (#205): it comes back as the wait ends.
+        let homeShows = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: home)
         XCTAssertEqual(XCTWaiter().wait(for: [homeShows], timeout: 13), .completed, "the wait ends at its cap")
         XCTAssertTrue(app.staticTexts["Couldn't catch those words."].exists, "the page says why")
         XCTAssertFalse(field.exists, "the empty block went")
@@ -322,11 +327,12 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertFalse(app.buttons["toast.undo"].exists)
     }
 
-    /// Cancel while "Writing it down...": the words are dropped with the
-    /// session. An existing block, reopened: it stays on the page, so only
-    /// the session's guard keeps the late words out of it.
-    func testCancelWhileTranscribingDropsTheWords() {
-        startAMemory(["-TRANSCRIBE_DELAY", "1500"])
+    /// Back while "Writing it down..." and the words take longer than its
+    /// 10 s wait: they are dropped with the session. An existing block,
+    /// reopened: it stays on the page, so only the session's guard keeps the
+    /// late words out of it.
+    func testWordsPastBacksWaitAreDropped() {
+        startAMemory(["-TRANSCRIBE_DELAY", "14000"])
         write("Lunch")
         app.buttons["keyboard.done"].tap()
         waitGone(app.buttons["keyboard.done"], "writing ended")
@@ -335,9 +341,11 @@ final class DictationOwnershipUITests: XCTestCase {
         if !field.waitForExistence(timeout: 2) { lunch.tap() }
         XCTAssertTrue(field.waitForExistence(timeout: 5), "the block reopens")
         strip.press(forDuration: 0.8)
-        app.buttons["text.cancel"].tap()
-        sleep(3)
-        XCTAssertFalse(dictatedWords.exists, "Cancel keeps nothing of the session")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 14), "Back stops waiting after 10 s")
+        // Past the take's return.
+        sleep(6)
+        XCTAssertFalse(dictatedWords.exists, "the late words landed after the session")
         XCTAssertTrue(lunch.exists, "the block keeps its words")
         XCTAssertFalse(field.exists, "and no writing session opens for them")
     }
@@ -356,6 +364,6 @@ final class DictationOwnershipUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         sleep(1)
         XCTAssertFalse(field.exists, "no writing session on return")
-        XCTAssertFalse(app.buttons["text.cancel"].exists, "the header is not in writing mode")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "the text row is not up")
     }
 }

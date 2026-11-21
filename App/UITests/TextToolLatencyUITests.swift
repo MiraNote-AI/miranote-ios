@@ -25,7 +25,7 @@ final class TextToolLatencyUITests: TextToolUITestCase {
             XCTAssertGreaterThanOrEqual(row["keyboardShows"] as? Int ?? 0, 1, "open \(open): \(row)")
             XCTAssertGreaterThanOrEqual(row["accessoryMs"] as? Int ?? -1, 0, "open \(open): \(row)")
             rows.append(row)
-            cancelText()
+            leaveText()
         }
         let warm = rows.dropFirst().map { $0["ms"] as? Int ?? -1 }
         let line = "text-open-ms cold=\(rows[0]) warm=\(Array(rows.dropFirst())) warmMedian=\(Self.median(warm))"
@@ -54,7 +54,7 @@ final class TextToolLatencyUITests: TextToolUITestCase {
             XCTAssertGreaterThanOrEqual(rise, 0, "open \(open): no keyboard rise heard: \(row)")
             XCTAssertGreaterThanOrEqual(shown, rise - 20, "open \(open): tools before the keyboard: \(row)")
             XCTAssertLessThanOrEqual(shown, rise + 40, "open \(open): tools after the keyboard: \(row)")
-            cancelText()
+            leaveText()
         }
     }
 
@@ -101,11 +101,17 @@ final class TextToolLatencyUITests: TextToolUITestCase {
         XCTAssertTrue(block.waitForExistence(timeout: 5))
         // One open and out, then the next as soon as the keyboard is down.
         block.tap()
-        XCTAssertTrue(app.buttons["keyboard.done"].waitForExistence(timeout: 5))
-        app.buttons["keyboard.done"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        if !field.waitForExistence(timeout: 2) { block.tap() }
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        // Out before the tools (and their Back) show: a tap on the bare page.
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 200, dy: 160)).tap()
         let down = NSPredicate(format: "exists == false")
         expectation(for: down, evaluatedWith: app.keyboards.firstMatch)
         waitForExpectations(timeout: 5)
+        // The page tap let go of the block: one tap selects it again, the
+        // timed one opens it.
+        block.tap()
         let start = Date()
         block.tap()
         var shownAfter = -1.0
@@ -137,12 +143,12 @@ final class TextToolLatencyUITests: TextToolUITestCase {
         let origin = app.coordinate(withNormalizedOffset: .zero)
         origin.withOffset(CGVector(dx: frame.maxX + 3, dy: frame.midY)).tap()
         sleep(1)
-        XCTAssertTrue(app.buttons["text.cancel"].exists, "a tap between two chips ended the writing")
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "a tap between two chips ended the writing")
         origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
         let selected = NSPredicate(format: "isSelected == true")
         expectation(for: selected, evaluatedWith: futura)
         waitForExpectations(timeout: 3)
-        XCTAssertTrue(app.buttons["text.cancel"].exists, "a tap on a chip ended the writing")
+        XCTAssertTrue(app.buttons["keyboard.done"].exists, "a tap on a chip ended the writing")
     }
 
     // MARK: Fast taps

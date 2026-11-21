@@ -24,15 +24,10 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
     var onTrailing: () -> Void = {}
     var onUndo: (() -> Void)?
     var undoEnabled = true
-    var leadingMuted = true
-    var leadingID: String?
-    var trailingID: String?
+    /// Dims and disables the leading pill (Home while writing, #205).
+    var leadingEnabled = true
     var trailingEnabled = true
     var trailingFill = Palette.ink
-    /// The text editing scrim (screens 11-20) over the margins around the
-    /// page; the header and the bottom cluster stay above it. The page
-    /// draws its own scrim around the block being written.
-    var dimmed = false
     /// While a panel (photo editing, Sticker) is open the page shows as it
     /// is -- no blur, no tint (#205: the page stays visible as context) --
     /// but takes no touches of its own.
@@ -56,9 +51,7 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
                 onTrailing: onTrailing,
                 onUndo: onUndo,
                 undoEnabled: undoEnabled,
-                leadingMuted: leadingMuted,
-                leadingID: leadingID,
-                trailingID: trailingID,
+                leadingEnabled: leadingEnabled,
                 trailingEnabled: trailingEnabled,
                 trailingFill: trailingFill
             )
@@ -90,16 +83,6 @@ struct EditorScaffold<Page: View, Sheet: View, Bottom: View>: View {
             .padding(.bottom, Metrics.bottomGap(safeAreaBottom: bottomInset))
         }
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { bottomInset = $0 }
-        // Beside and around the card the text scrim tints the paper; the
-        // page draws its own around the block being written.
-        .background {
-            if dimmed {
-                Palette.scrim
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-            }
-        }
-        .animation(.easeOut(duration: 0.2), value: dimmed)
         .screenBackground()
     }
 }

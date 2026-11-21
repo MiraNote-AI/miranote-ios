@@ -16,12 +16,10 @@ struct TopBar: View {
     var onUndo: (() -> Void)?
     /// Dims and disables the undo icon when there is nothing to undo.
     var undoEnabled = true
-    /// The way-back label is muted on editor scenes; text editing's
-    /// "Cancel" is drawn in ink (screens 10-20).
-    var leadingMuted = true
-    var leadingID: String?
-    var trailingID: String?
-    /// Dims and disables the trailing pill (Add while picks import).
+    /// Dims and disables the leading pill (Home while writing).
+    var leadingEnabled = true
+    /// Dims and disables the trailing pill (Add while picks import, Save
+    /// while writing).
     var trailingEnabled = true
     /// The leading pill over the Mira chat's frosted scrim (screen 06):
     /// white@0.54 with a white rim and an ink label.
@@ -69,12 +67,14 @@ struct TopBar: View {
                         }
                     }
                     .buttonStyle(NavPill(
-                        prominent: false, muted: leadingMuted && !leadingOnGlass,
+                        prominent: false, muted: !leadingOnGlass,
                         surface: leadingOnGlass ? .scrim : .paper, width: NavPill.leadingWidth
                     ))
+                    .disabled(!leadingEnabled)
+                    .opacity(leadingEnabled ? 1 : 0.35)
                     // Tool pages repeat the pill's word in the composer
                     // (Add, Done); tests reach the header by position.
-                    .accessibilityIdentifier(leadingID ?? "nav.leading")
+                    .accessibilityIdentifier("nav.leading")
                 }
 
                 Spacer()
@@ -84,7 +84,7 @@ struct TopBar: View {
                         .buttonStyle(NavPill(prominent: true, fill: trailingFill, width: NavPill.trailingWidth))
                         .disabled(!trailingEnabled)
                         .opacity(trailingEnabled ? 1 : 0.35)
-                        .accessibilityIdentifier(trailingID ?? "nav.trailing")
+                        .accessibilityIdentifier("nav.trailing")
                 }
             }
         }
