@@ -77,7 +77,7 @@ extension TriggerController {
             dependencies: { flag in
                 var deps = SchedulerDependencies(
                     library: synthetic, analyzer: synthetic, places: UITestPlaces(), client: UITestComposeClient(),
-                    notifications: UITestNotifier(),
+                    notifications: UITestPushLog(base: UITestNotifier()),
                     analyses: AnalysisStore(directory: folder.appendingPathComponent("analysis")),
                     records: records,
                     ledger: PushLedgerStore(file: folder.appendingPathComponent("ledger.json")),
@@ -102,27 +102,30 @@ extension TriggerController {
         if arguments.contains("-TRIGGER-TRY-THEME") { Task { await controller.tryFirstTheme(engine) } }
         if arguments.contains("-TRIGGER-FIND-THEMES") {
             let library = ThemeLibrary(file: folder.appendingPathComponent("themes/library.json"))
-            Task { await findThemes(engine, flag: arguments.contains("-TRIGGER-FLAG-THEME") ? library : nil) }
+            let share = arguments.firstIndex(of: "-TRIGGER-FLAG-THEME").flatMap { index in
+                arguments.indices.contains(index + 1) ? Double(arguments[index + 1]) : nil
+            }
+            Task { await findThemes(engine, library: library, share: share) }
         }
         return controller
     }
 
     /// `-TRIGGER-FIND-THEMES` (UI tests of the Themes page): the themes are
     /// found, then claimed on a second run as the next night's would be, so
-    /// each follows its pile. Nothing is pushed. With `-TRIGGER-FLAG-THEME`
-    /// the first big theme then reads as followed at 40% (`flag`, its
-    /// library), as one half gone from its pile would: the synthetic piles
-    /// hold all of a theme's photos, and two piles cannot give a share under
-    /// a half.
-    private static func findThemes(_ engine: ThemeEngine, flag: ThemeLibrary?) async {
+    /// each follows its pile. Nothing is pushed. With `-TRIGGER-FLAG-THEME
+    /// <share>` the first big theme then reads as followed at that share,
+    /// flagged by the claim's own rule, as one partly gone from its pile
+    /// would: the synthetic piles hold all of a theme's photos, and two
+    /// piles cannot give a share under a half.
+    private static func findThemes(_ engine: ThemeEngine, library: ThemeLibrary, share: Double?) async {
         _ = await engine.run(trigger: .foreground, deadline: nil)
         _ = await engine.run(trigger: .foreground, deadline: nil)
-        guard let flag else { return }
-        var rows = flag.load()
+        guard let share else { return }
+        var rows = library.load()
         guard let index = rows.firstIndex(where: { $0.kind == .big }) else { return }
-        rows[index].followRatio = 0.4
-        rows[index].flagged = true
-        try? flag.save(rows)
+        rows[index].followRatio = share
+        rows[index].flagged = ThemeRow.flags(ratio: share)
+        try? library.save(rows)
     }
 
     /// `-TRIGGER-TRY-THEME` (UI tests of repeat pushes): the themes are found

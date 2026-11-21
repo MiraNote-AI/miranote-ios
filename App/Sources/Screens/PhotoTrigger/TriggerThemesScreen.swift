@@ -138,10 +138,11 @@ struct TriggerThemeFacts: View {
     }
 
     /// The pile followed tonight and the share of the theme's old photos in
-    /// it, marked at 20-50% (followed, but much of the theme is elsewhere).
+    /// it, marked when the claim flagged it (20% up to 50%: followed, but
+    /// much of the theme is elsewhere) -- the Kit's rule, read off the row.
     @ViewBuilder private var follow: some View {
         let ratio = row.followRatio
-        let flagged = ratio.map { (0.2...0.5).contains($0) } ?? false
+        let flagged = row.flagged && ratio != nil
         Group {
             if let ratio, let pile = snapshot.follows[row.id] {
                 Text("Follows pile \(pile + 1), \(Self.percent(ratio))")
@@ -173,8 +174,12 @@ struct TriggerThemeFacts: View {
         .accessibilityIdentifier("themes.groupWhere")
     }
 
+    /// Rounded down to a tenth, so a share under 50% never reads "50%"
+    /// ("49.9%"); a whole number shows no decimal ("100%").
     static func percent(_ value: Double) -> String {
-        "\(Int((value * 100).rounded()))%"
+        // The nudge keeps 0.29 (289.99999...) from flooring to 28.9.
+        let tenths = Int((value * 1000 + 1e-9).rounded(.down))
+        return tenths % 10 == 0 ? "\(tenths / 10)%" : "\(tenths / 10).\(tenths % 10)%"
     }
 }
 

@@ -64,6 +64,48 @@ final class ThemeSnapshotTests: XCTestCase {
         XCTAssertEqual(broken.whereLines(of: weekday), [])
     }
 
+    /// Two big themes named alike: an answer with no theme id goes to
+    /// neither; one with an id goes to its own theme only.
+    func testSameNamedBigThemesShareNoAnswerByName() {
+        let twin = ThemeHarness.row("b2", name: "Dinner", members: [], lastAsked: 5, center: [])
+        let reply = #"{"pile_name": "Dinner", "chosen": "none"}"#
+        let rounds = [Self.entry("old", themeId: nil, reply: reply, minute: 1),
+                      Self.entry("own", themeId: "b2", reply: reply, minute: 2)]
+        let snapshot = ThemeSnapshot(runs: [], piles: [], follows: [:], themes: [dinner, twin], rounds: rounds)
+        XCTAssertEqual(snapshot.entries(of: dinner).map(\.key), [])
+        XCTAssertEqual(snapshot.entries(of: twin).map(\.key), ["own"])
+    }
+
+    /// Two small themes of one big theme named alike: no answer and no
+    /// "where" line is given to either by name.
+    func testSameNamedSmallThemesShowNoWhereLine() {
+        let twin = Self.small("s2", parent: "b", name: "Weekday dinner")
+        var shared = snapshot
+        shared.themes.append(twin)
+        XCTAssertEqual(shared.whereLines(of: weekday), [])
+        XCTAssertEqual(shared.whereLines(of: twin), [])
+        XCTAssertEqual(shared.entries(of: weekday).map(\.key), ["r2-s"], "only its own calls")
+        XCTAssertEqual(shared.entries(of: twin).map(\.key), [])
+    }
+
+    /// A new pile's answer carries the theme it made; when the library is
+    /// lost and the stored answer is used again, the theme gets that id back.
+    func testNewPileAnswerCarriesTheNewThemesId() async throws {
+        let harness = ThemeHarness()
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        let engine = harness.engine()
+        _ = await engine.run(trigger: .foreground, deadline: nil)
+        let big = try XCTUnwrap(harness.bigRow(with: "x-1"))
+        XCTAssertEqual(harness.rounds.load().map(\.themeId), [big.id])
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(snapshot.entries(of: big).count, 1)
+
+        try FileManager.default.removeItem(at: harness.directory.appendingPathComponent("library.json"))
+        _ = await engine.run(trigger: .foreground, deadline: nil)
+        XCTAssertEqual(harness.rounds.load().count, 1, "the stored answer is used")
+        XCTAssertEqual(harness.bigRow(with: "x-1")?.id, big.id)
+    }
+
     func testSnapshotCountsEachThemesDays() async throws {
         let harness = ThemeHarness()
         harness.addTheme("x", base: 0, days: Array(1...6))

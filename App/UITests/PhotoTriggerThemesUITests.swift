@@ -5,9 +5,9 @@ import XCTest
 /// launch the themes are found and claimed on a second run
 /// (`-TRIGGER-FIND-THEMES`): two big themes, home dinner (8 days) and the
 /// morning light (6 days), and one small theme, weekday dinner.
-/// `-TRIGGER-FLAG-THEME` then sets home dinner's claim to 40%, as an old
-/// theme half gone from its pile would have it. Chinese is written as
-/// escapes (org rule 3).
+/// `-TRIGGER-FLAG-THEME <share>` then sets home dinner's claim to that
+/// share (flagged by the claim's rule), as an old theme partly gone from
+/// its pile would have it. Chinese is written as escapes (org rule 3).
 ///
 /// `TRIGGER_SHOTS=<dir>` (TEST_RUNNER_TRIGGER_SHOTS for xcodebuild) saves
 /// screenshots there.
@@ -68,12 +68,21 @@ final class PhotoTriggerThemesUITests: XCTestCase {
         shot("themes-detail")
     }
 
+    /// Just under a half: flagged, and never shown as "50%".
     func testFlaggedRatioShowsYellow() {
-        openThemes(["-TRIGGER-FLAG-THEME"], until: "Follows pile 1, 40%")
+        openThemes(["-TRIGGER-FLAG-THEME", "0.499"], until: "Follows pile 1, 49.9%")
         let follows = app.staticTexts.matching(identifier: "themes.follow")
         XCTAssertEqual(follows.element(boundBy: 0).value as? String, "flagged")
         XCTAssertNotEqual(follows.element(boundBy: 1).value as? String, "flagged", "100% is not flagged")
         shot("themes-flagged")
+    }
+
+    /// Exactly a half follows unflagged (spec C2): no yellow.
+    func testHalfRatioIsNotYellow() {
+        openThemes(["-TRIGGER-FLAG-THEME", "0.5"], until: "Follows pile 1, 50%")
+        let follows = app.staticTexts.matching(identifier: "themes.follow")
+        XCTAssertNotEqual(follows.element(boundBy: 0).value as? String, "flagged")
+        shot("themes-half")
     }
 
     func testGroupNameBesideWhereLine() {
@@ -88,10 +97,13 @@ final class PhotoTriggerThemesUITests: XCTestCase {
 
     // MARK: F2 -- test-push a theme
 
-    /// The push comes in 10 s as a debug push: the ledger row says debug.
+    /// The push is handed to the notification centre to fire 10 s later,
+    /// as a debug push: the ledger row says debug. (A delivered system
+    /// notification is a device check: the synthetic centre never shows one.)
     func testTestPushSchedulesDebugPush() {
         openThemes()
         let button = app.buttons.matching(identifier: "themes.tryTheme").element(boundBy: 0)
+        let pressed = Date().timeIntervalSince1970
         button.tap()
         let scheduled = app.staticTexts.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Scheduled, the push comes in 10 s")).firstMatch
@@ -108,6 +120,18 @@ final class PhotoTriggerThemesUITests: XCTestCase {
         while !ledger.label.hasSuffix(":debug"), Date() < deadline { Thread.sleep(forTimeInterval: 0.3) }
         XCTAssertEqual(ledger.label.components(separatedBy: ";").count, 1, ledger.label)
         XCTAssertTrue(ledger.label.hasSuffix(":none:debug"), ledger.label)
+
+        // The same push, handed over with a trigger 10 s out.
+        let pushId = ledger.label.replacingOccurrences(of: ":none:debug", with: "")
+        let handed = app.descendants(matching: .any)["debug.triggerNotifier"].firstMatch
+        XCTAssertTrue(handed.waitForExistence(timeout: 4))
+        let requests = handed.label.components(separatedBy: ";")
+        XCTAssertEqual(requests.count, 1, handed.label)
+        let parts = requests[0].components(separatedBy: "@")
+        XCTAssertEqual(parts.first, "pt.\(pushId):10s", handed.label)
+        let at = Double(parts.last ?? "") ?? 0
+        XCTAssertGreaterThan(at, pressed, "handed over after the press")
+        print("theme push handed over \(at - pressed) s after the press")
     }
 
     // MARK: F3 -- blocked themes

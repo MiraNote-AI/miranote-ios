@@ -111,7 +111,7 @@ enum ThemeClaim {
             result.ratios[theme.id] = ratio
             if let best, ratio >= flagRatio {
                 result.follows[theme.id] = best
-                if ratio < followRatio { result.flagged.insert(theme.id) }
+                if ThemeRow.flags(ratio: ratio) { result.flagged.insert(theme.id) }
             } else {
                 result.frozen.insert(theme.id)
                 result.members[theme.id] = theme.members
@@ -176,5 +176,14 @@ enum ThemeClaim {
             if let nearest { shares[nearest.id, default: []].append(photoId) }
         }
         return shares
+    }
+}
+
+extension ThemeRow {
+    /// A followed theme whose share of old photos in its pile is 20% up to,
+    /// not including, 50% is flagged (spec C2: 50% and up follows, under 20%
+    /// freezes). The debug page reads `flagged`, set by this rule.
+    public static func flags(ratio: Double) -> Bool {
+        ratio >= ThemeClaim.flagRatio && ratio < ThemeClaim.followRatio
     }
 }

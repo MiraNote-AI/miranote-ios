@@ -355,6 +355,7 @@ struct TriggerScheduleProbe: View {
                 .frame(width: 1, height: 1)
                 .accessibilityIdentifier("debug.triggerSchedule")
                 .background { TriggerLedgerProbe(controller: controller) }
+                .overlay { TriggerNotifierProbe() }
                 .task {
                     while !Task.isCancelled {
                         let snapshot = await controller.scheduler.snapshot()

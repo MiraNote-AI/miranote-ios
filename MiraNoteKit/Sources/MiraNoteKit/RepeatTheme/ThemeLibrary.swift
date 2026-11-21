@@ -55,10 +55,11 @@ public struct ThemeLibrary: Sendable {
     /// - A changed split retires every old small row (new ones get new ids),
     ///   except a name that was already retired, which comes back with its old id.
     /// - Images the judge put in `notInPile` leave the big row's members.
+    /// - A new big row takes `newId` (the id its answer was logged with), or a new UUID.
     static func apply(_ answer: RoundOneAnswer, to big: ThemeRow?, pile: Pile, moments: [String: Moment],
                       groups: (a: [SplitGroup], b: [SplitGroup]), sample: [SampledPhoto],
-                      existing: [ThemeRow]) -> [ThemeRow] {
-        let bigId = big?.id ?? UUID().uuidString
+                      existing: [ThemeRow], newId: String? = nil) -> [ThemeRow] {
+        let bigId = big?.id ?? newId ?? UUID().uuidString
         let outside = Set(answer.notInPile.compactMap { number in
             sample.indices.contains(number - 1) ? sample[number - 1].momentId : nil
         })

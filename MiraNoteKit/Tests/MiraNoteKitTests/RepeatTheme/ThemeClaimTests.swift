@@ -76,6 +76,15 @@ final class ThemeClaimTests: XCTestCase {
         XCTAssertEqual(result.newPiles, [0])
     }
 
+    /// The page and the claim share one rule: 20% up to, not including, 50%.
+    func testFlagRuleBoundaries() {
+        XCTAssertFalse(ThemeRow.flags(ratio: 0.199))
+        XCTAssertTrue(ThemeRow.flags(ratio: 0.2))
+        XCTAssertTrue(ThemeRow.flags(ratio: 0.499))
+        XCTAssertFalse(ThemeRow.flags(ratio: 0.5), "50% follows unflagged")
+        XCTAssertFalse(ThemeRow.flags(ratio: 1))
+    }
+
     func testFiftyPercentFollows() {
         let old = moments("o", 10)
         let tonight = Array(old.prefix(5)) + moments("n", 3, firstDay: 20)

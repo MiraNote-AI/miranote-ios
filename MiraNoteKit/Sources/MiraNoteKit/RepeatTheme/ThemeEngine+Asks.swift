@@ -88,30 +88,31 @@ extension ThemeEngine {
         let request = RoundOneRequest.make(pile: ask.pile, moments: scene.moments, a: groups.a, b: groups.b,
                                            photos: sample, old: old)
         let key = Self.key(themeId: ask.big?.id, sample: sample, old: old, offered: groups)
+        // The theme the answer is about, logged with it: a new pile's is made
+        // now (or kept from its stored answer), so the debug page links by id.
+        let themeId = ask.big?.id ?? Self.newThemeId(stored: deps.rounds.answer(for: key)?.themeId, rows: rows)
 
         var outcome = AskOutcome()
         let answer: RoundOneAnswer
-        switch await roundOne(request, key: key, offered: groups, themeId: ask.big?.id, sent: &outcome.sent) {
+        switch await roundOne(request, key: key, offered: groups, themeId: themeId, sent: &outcome.sent) {
         case .success(let valid): answer = valid
         case .failure(let reason):
             outcome.failure = "\(ask.label): \(reason.text)"
             return outcome
         }
         let named: RoundOneAnswer
-        switch await shortened(answer, key: key, themeId: ask.big?.id) {
+        switch await shortened(answer, key: key, themeId: themeId) {
         case .success(let short): named = short
         case .failure(let reason):
             outcome.failure = "\(ask.label): \(reason.text)"
             return outcome
         }
 
-        let before = Set(rows.map(\.id))
         var updated = ThemeLibrary.apply(named, to: ask.big, pile: ask.pile, moments: scene.moments, groups: groups,
-                                         sample: sample, existing: rows)
-        let parentId = ask.big?.id ?? updated.first { $0.kind == .big && !before.contains($0.id) }?.id
-        if let parentId, let parent = updated.first(where: { $0.id == parentId }) {
+                                         sample: sample, existing: rows, newId: themeId)
+        if let parent = updated.first(where: { $0.id == themeId }) {
             // Small lists by their rule, as every later run will make them.
-            for index in updated.indices where updated[index].parentId == parentId
+            for index in updated.indices where updated[index].parentId == themeId
                 && updated[index].status != .retired {
                 guard let rule = updated[index].rule else { continue }
                 updated[index].members = SubThemeRule.members(rule, in: parent.members, moments: scene.moments,
@@ -120,6 +121,13 @@ extension ThemeEngine {
         }
         outcome.rows = updated
         return outcome
+    }
+
+    /// A new pile's theme id: the one its stored answer was logged with,
+    /// while no row holds it (the library was lost), else a new UUID.
+    static func newThemeId(stored: String?, rows: [ThemeRow]) -> String {
+        guard let stored, !rows.contains(where: { $0.id == stored }) else { return UUID().uuidString }
+        return stored
     }
 
     /// The names Qwen gave last time (spec 6.5): the big row's and its small
