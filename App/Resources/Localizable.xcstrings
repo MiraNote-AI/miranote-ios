@@ -7225,6 +7225,18 @@
         }
       }
     },
+    "This block is too long for Mira to rewrite." : {
+      "comment" : "Caption above the text rows: the block is over the 3000 characters the rewrite service takes, so Go sent nothing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这段文字太长，Mira 无法改写。"
+          }
+        }
+      }
+    },
     "This build cannot get into the beta -- its access was never set up, or has since been replaced. Ask the team for an updated build; reinstalling this one will not help." : {
       "comment" : "Server error 401: the build's beta access.",
       "extractionState" : "manual",

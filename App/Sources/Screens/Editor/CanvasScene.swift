@@ -598,6 +598,10 @@ struct CanvasScene: View {
                     colorRequest = nil
                 }
                 splitWrittenParagraphs(ended)
+                // A block opened straight from this one ("Edit text") is a
+                // new session: the chat box's words and a Go still running
+                // were this block's, and the next starts on its own rows.
+                if editing != nil { resetTextTools() }
             }
             // Words on their way belong to the session that asked for them:
             // never landed after it ends or moves on -- the page says so.

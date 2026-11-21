@@ -123,6 +123,37 @@ final class TextSlotUITests: TextToolUITestCase {
         XCTAssertEqual(block()["font"] as? String, "Josefin Sans", "and scrolling back applied nothing")
     }
 
+    /// iOS 17 has no scroll phases: a row settles a moment after its
+    /// centered chip last changed. Forced here on the iOS 26 simulator,
+    /// opening still applies nothing, and a swipe back to the face the row
+    /// opened on applies it, one step each way (it used to stay on the
+    /// other face: the opening chip never applied again).
+    func testOnTheIOS17SettleASwipeBackToTheOpeningFaceApplies() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-SNAP_SETTLE_IOS17"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        startWriting("back again")
+        let before = undoDepth()
+        app.openTextRow("style.font")
+        let josefin = app.buttons["style.font.Josefin"]
+        XCTAssertTrue(josefin.waitForExistence(timeout: 3))
+        sleep(1)
+        XCTAssertEqual(undoDepth(), before, "opening the row applies nothing")
+
+        let start = josefin.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -71, dy: 0)),
+                    withVelocity: 80, thenHoldForDuration: 0.3)
+        waitForBlock("font", "Optima", "the next face applies")
+        sleep(1)
+        let back = app.buttons["style.font.Optima"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        back.press(forDuration: 0.05, thenDragTo: back.withOffset(CGVector(dx: 71, dy: 0)),
+                   withVelocity: 80, thenHoldForDuration: 0.3)
+        waitForBlock("font", "Josefin Sans", "the face the row opened on applies again")
+        XCTAssertEqual(undoDepth(), before + 2, "one undo step each way")
+    }
+
     /// The color row is a snap row too (P7A): a tapped dot applies.
     func testColorAndHighlightDotsApply() {
         startWriting("dots")

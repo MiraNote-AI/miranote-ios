@@ -179,12 +179,16 @@ final class TextEditorUITests: XCTestCase {
     }
 
     /// Undo while writing takes the session's edits to an existing block
-    /// back in one step.
+    /// back one step at a time, newest first: words typed after a color are
+    /// a step of their own, then the color. Both come back, as Cancel's
+    /// revert-all did.
     func testUndoRevertsAnEditToAnExistingBlock() {
         startWriting("kept")
         app.buttons["keyboard.done"].tap()
         let block = app.staticTexts["kept"]
         XCTAssertTrue(block.waitForExistence(timeout: 5))
+        let original = textBlock()
+        XCTAssertEqual(original["text"] as? String, "kept")
 
         // Done leaves the block selected: one tap writes again.
         block.tap()
@@ -192,12 +196,34 @@ final class TextEditorUITests: XCTestCase {
         app.openTextRow("style.colors")
         app.buttons["style.color.#FFFFFF"].tap()
         field.typeText(" more")
+        XCTAssertEqual(textBlock()["color"] as? String, "#FFFFFF")
+
         app.buttons["editor.undo"].tap()
+        let afterOne = textBlock()
+        XCTAssertEqual(afterOne["text"] as? String, "kept", "the first Undo takes the words back")
+        XCTAssertEqual(afterOne["color"] as? String, "#FFFFFF", "and leaves the color, a step of its own")
+        app.buttons["editor.undo"].tap()
+        let afterTwo = textBlock()
+        XCTAssertEqual(afterTwo["color"] as? String, original["color"] as? String, "the second takes the color back")
         app.backToTextRow()
         app.buttons["keyboard.done"].tap()
 
-        XCTAssertTrue(app.staticTexts["kept"].waitForExistence(timeout: 5), "the words as they were")
-        let changed = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "more")).firstMatch
-        XCTAssertFalse(changed.exists)
+        waitUntilGone(field, "Back ends the writing")
+        let ended = textBlock()
+        XCTAssertEqual(ended["text"] as? String, "kept", "the words as they were")
+        XCTAssertEqual(ended["color"] as? String, original["color"] as? String, "in the color they were")
+    }
+
+    /// The page's one text block as the -UITEST probe reads it.
+    private func textBlock() -> [String: Any] {
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        // The probe refreshes every 0.25 s.
+        Thread.sleep(forTimeInterval: 0.6)
+        let state = (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8)) as? [String: Any]) ?? [:]
+        let texts = (state["elements"] as? [[String: Any]] ?? []).filter { $0["kind"] as? String == "text" }
+        XCTAssertEqual(texts.count, 1, "one text block on the page")
+        return texts.first ?? [:]
     }
 }
