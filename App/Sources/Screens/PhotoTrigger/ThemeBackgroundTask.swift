@@ -81,7 +81,8 @@ struct ThemeBackgroundTask {
     /// run goes on) and the task is completed at once, as iOS requires.
     /// Gates closed (the switch went off since the request): nothing runs
     /// and a request still pending is taken back. The report, or nil when
-    /// nothing ran (also when the task expired while the gates resolved).
+    /// nothing ran (also when the task expired while the gates resolved:
+    /// then nothing is asked for again, as the gates may be closed).
     @discardableResult
     func run(_ task: ThemeProcessingTask, engine: ThemeRunning,
              gatesOpen: () async -> Bool) async -> ThemeRunReport? {
@@ -89,7 +90,7 @@ struct ThemeBackgroundTask {
         let completion = TaskCompletion(task)
         task.expirationHandler = { [self] in
             engine.stopEarly()
-            submit()
+            if completion.hasStarted { submit() }
             completion.finish(success: false)
         }
         guard await gatesOpen() else {
@@ -97,7 +98,7 @@ struct ThemeBackgroundTask {
             completion.finish(success: true)
             return nil
         }
-        guard !completion.isFinished else { return nil }
+        guard completion.start() else { return nil }
         let report = await engine.run(trigger: .background, deadline: deadline)
         if completion.finish(success: true) { submit() }
         return report
@@ -109,12 +110,23 @@ struct ThemeBackgroundTask {
 private final class TaskCompletion: @unchecked Sendable {
     private let lock = NSLock()
     private var task: ThemeProcessingTask?
+    private var started = false
 
     init(_ task: ThemeProcessingTask) {
         self.task = task
     }
 
-    var isFinished: Bool { lock.withLock { task == nil } }
+    /// A run started: the gates resolved open before the task was completed.
+    var hasStarted: Bool { lock.withLock { started } }
+
+    /// Marks the run started; false when the task was completed already.
+    func start() -> Bool {
+        lock.withLock {
+            guard task != nil else { return false }
+            started = true
+            return true
+        }
+    }
 
     /// False when the task was completed already.
     @discardableResult

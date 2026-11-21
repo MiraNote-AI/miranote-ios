@@ -72,6 +72,9 @@ final class ThemeBackgroundTaskTests: XCTestCase {
         XCTAssertNil(report)
         XCTAssertTrue(runner.runs.isEmpty)
         XCTAssertEqual(task.completions, [false])
+        // Nothing ran, and the gates might have come back closed (an App
+        // Store build that inherited a request): nothing is asked for again.
+        XCTAssertTrue(scheduler.submitted.isEmpty)
     }
 
     func testBackgroundRunStopsAtExpiration() async throws {
