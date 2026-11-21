@@ -70,6 +70,8 @@ extension TriggerController {
         let synthetic = SyntheticTriggerLibrary()
         let records = PushRecordStore(directory: folder.appendingPathComponent("pushes"))
         let clock = debugClock(arguments)
+        let themePhotos = ThemePhotoStore(directory: folder.appendingPathComponent("themes/photos"))
+        let engine = syntheticThemeEngine(library: synthetic, folder: folder, photos: themePhotos, clock: clock)
         return TriggerController(
             photos: synthetic, records: records,
             dependencies: { flag in
@@ -85,7 +87,8 @@ extension TriggerController {
                     state: SchedulerStateStore(file: folder.appendingPathComponent("state.json")),
                     lastRun: LastRunStore(file: folder.appendingPathComponent("last-run.json")),
                     calendar: { Calendar.autoupdatingCurrent },
-                    fakeAI: { flag.value }, zh: TriggerContent.zh
+                    fakeAI: { flag.value }, zh: TriggerContent.zh,
+                    themes: themePhotos, themeEngine: engine
                 )
                 if let clock { deps.now = clock }
                 return deps
@@ -96,6 +99,24 @@ extension TriggerController {
             fakeAI: arguments.contains("-TRIGGER-FAKE-AI"),
             optedIn: AppSettings.storeDefaults.bool(forKey: optedInKey)
         )
+    }
+
+    /// The repeat-theme finder over the synthetic library (two themes with
+    /// made-up prints), the scripted round client and stores under the
+    /// test's folder.
+    private static func syntheticThemeEngine(library: SyntheticTriggerLibrary, folder: URL, photos: ThemePhotoStore,
+                                             clock: (@Sendable () -> Date)?) -> ThemeEngine {
+        let themes = folder.appendingPathComponent("themes", isDirectory: true)
+        return ThemeEngine(ThemeDependencies(
+            library: library, analyzer: library,
+            analyses: AnalysisStore(directory: folder.appendingPathComponent("analysis")), photos: photos,
+            themes: ThemeLibrary(file: themes.appendingPathComponent("library.json")),
+            rounds: RoundLog(file: themes.appendingPathComponent("rounds.json")),
+            window: ThemeWindowStore(file: themes.appendingPathComponent("window.json")),
+            runs: ThemeRunLog(file: themes.appendingPathComponent("runs.json")), client: UITestThemeRoundClient(),
+            imageData: { await library.uploadData(for: $0) }, now: clock ?? { Date() },
+            calendar: .autoupdatingCurrent
+        ))
     }
     #endif
 
@@ -112,3 +133,57 @@ extension TriggerController {
         #endif
     }
 }
+
+#if DEBUG
+/// `-UITEST-TRIGGER`: the judge rounds answered by script, as a valid
+/// reply to any pile. Round 1: the eight-day pile (theme 1) is named and
+/// split by time and place (B, its first offered group); any other pile is
+/// named and left whole (`none`). Round 2: every photo belongs.
+struct UITestThemeRoundClient: ThemeRoundClient {
+    private static let usage = RoundUsage(promptTokens: 1978, completionTokens: 248, costCny: 0.00059,
+                                          model: "qwen3.7-flash")
+
+    func roundOne(_ request: RoundOneRequest, images: [(n: Int, jpeg: Data)]) async throws -> RoundReply {
+        let dinner = request.dayCount >= 7
+        var answer: [String: Any] = [
+            // Home dinner / the morning light outside the window.
+            "pile_name": dinner ? "\u{5BB6}\u{91CC}\u{7684}\u{665A}\u{996D}"
+                : "\u{7A97}\u{5916}\u{7684}\u{6668}\u{5149}",
+            "pile_noun": dinner ? "\u{665A}\u{996D}" : "\u{6668}\u{5149}",
+            "sensitive": false, "drop_groups": [String](), "not_in_pile": [Int](), "two_kinds": false
+        ]
+        if dinner, let first = request.splitB.first {
+            answer["chosen"] = "B"
+            answer["groups"] = [[
+                "from": [first.id], "name": "\u{5DE5}\u{4F5C}\u{65E5}\u{665A}\u{996D}",
+                "noun": "\u{665A}\u{996D}", "same_part": "\u{540C}\u{4E00}\u{5F20}\u{9910}\u{684C}"
+            ] as [String: Any]]
+        } else {
+            answer["chosen"] = "none"
+            answer["groups"] = [[String: Any]]()
+        }
+        let lines = Dictionary(uniqueKeysWithValues: (request.splitA + request.splitB).map {
+            ($0.id, "\u{4E3B}\u{8981}\u{5728}\u{540C}\u{4E00}\u{4E2A}\u{5730}\u{65B9}")
+        })
+        return RoundReply(reply: try Self.json(answer), where: lines, usage: Self.usage)
+    }
+
+    func roundTwo(_ request: RoundTwoRequest, images: [(n: Int, jpeg: Data)]) async throws -> RoundReply {
+        let photos = request.photos.map {
+            ["id": $0.n, "belongs": true, "dup_of": NSNull(), "poor": false, "sensitive": false] as [String: Any]
+        }
+        let answer: [String: Any] = ["photos": photos, "similar_to": [Any]()]
+        return RoundReply(reply: try Self.json(answer), where: [:], usage: Self.usage)
+    }
+
+    func shorten(_ items: [ShortenItem]) async throws -> RoundReply {
+        let echoed = items.map { ["key": $0.key, "name": $0.name, "same_part": $0.samePart] }
+        return RoundReply(reply: try Self.json(["items": echoed]), where: [:], usage: Self.usage)
+    }
+
+    private static func json(_ object: Any) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        return String(bytes: data, encoding: .utf8) ?? "{}"
+    }
+}
+#endif

@@ -14,6 +14,11 @@ import UIKit
 /// D, whose photos are art: the `other` bucket). For the story:
 /// `-TRIGGER-SLOW-PHOTOS <s>` (each photo takes that long to arrive) and
 /// `-TRIGGER-UNREADABLE <n>` (the first n photos of a group never arrive).
+///
+/// Beside the fragments, two repeat themes (T1: eight weekday evenings of one
+/// look at one place; T2: six weekday mornings of another look elsewhere),
+/// one photo a day, 64 to ~110 days back (beyond V1's 61-day grouping window, so the
+/// fragments and their photo counts are as they were), with seeded fake feature prints.
 struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, PhotoAnalyzing {
     struct Group {
         let name: String
@@ -41,6 +46,35 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     private static let everyGroup = groups + extraGroups
 
+    /// One repeat theme of the library: a look (the print's direction), a
+    /// time of day and a place; one photo on each of its days.
+    struct Theme {
+        let name: String
+        let hue: CGFloat
+        let hour: Int
+        let place: GeoPoint
+        let labels: [LabelScore]
+        let broad: Set<BroadCategory>
+        /// Seeds the theme's look.
+        let seed: UInt64
+        let firstDaysAgo: Int
+        let step: Int
+        let count: Int
+    }
+
+    static let themes = [
+        Theme(name: "T1", hue: 0.07, hour: 18, place: GeoPoint(lat: 31.2304, lon: 121.4737),
+              labels: [LabelScore(id: "food", confidence: 0.9), LabelScore(id: "bowl", confidence: 0.6)],
+              broad: [.food_drink, .tableware], seed: 1001, firstDaysAgo: 64, step: 6, count: 8),
+        Theme(name: "T2", hue: 0.58, hour: 7, place: GeoPoint(lat: 39.9042, lon: 116.4074),
+              labels: [LabelScore(id: "sky", confidence: 0.85), LabelScore(id: "cloud", confidence: 0.7)],
+              broad: [.sky], seed: 2002, firstDaysAgo: 66, step: 8, count: 6)
+    ]
+
+    /// The length of a fake feature print.
+    static let printSize = 768
+    static let printRevision = 2
+
     /// The groups this launch's library holds.
     private var active: [Group] {
         if arguments.contains("-TRIGGER-OTHER-ONLY") { return Array(Self.extraGroups.prefix(1)) }
@@ -64,7 +98,11 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     var all: [LibraryAsset] {
         guard !arguments.contains("-TRIGGER-EMPTY") else { return [] }
-        return active.flatMap { group -> [LibraryAsset] in
+        return fragmentAssets + themeAssets
+    }
+
+    private var fragmentAssets: [LibraryAsset] {
+        active.flatMap { group -> [LibraryAsset] in
             let day = calendar.date(byAdding: .day, value: -group.daysAgo, to: calendar.startOfDay(for: now)) ?? now
             let start = calendar.date(bySettingHour: group.hour, minute: 0, second: 0, of: day) ?? day
             return (0..<group.count).map { index in
@@ -73,6 +111,33 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
                              location: nil, isFavorite: false, isEdited: false, isScreenshot: false, isHidden: false,
                              isVideo: false, originalFilename: "IMG_\(group.name)\(index).HEIC", burstId: nil)
             }
+        }
+    }
+
+    /// Theme photos, only with the default fragments (not under
+    /// `-TRIGGER-OTHER-ONLY`).
+    private var themeAssets: [LibraryAsset] {
+        guard !arguments.contains("-TRIGGER-OTHER-ONLY") else { return [] }
+        return Self.themes.flatMap { theme in
+            Self.dayOffsets(theme, now: now, calendar: calendar).enumerated().map { index, daysAgo in
+                let day = calendar.date(byAdding: .day, value: -daysAgo, to: calendar.startOfDay(for: now)) ?? now
+                let taken = calendar.date(bySettingHour: theme.hour, minute: 10, second: 0, of: day) ?? day
+                return LibraryAsset(id: "synthetic-\(theme.name)-\(index)", takenAt: taken,
+                                    location: theme.place, isFavorite: false, isEdited: false, isScreenshot: false,
+                                    isHidden: false, isVideo: false, originalFilename: "IMG_\(theme.name)\(index).HEIC",
+                                    burstId: nil)
+            }
+        }
+    }
+
+    /// How many days back each of the theme's photos is: evenly spread, each
+    /// moved on to a weekday (so one weekday group holds every day).
+    static func dayOffsets(_ theme: Theme, now: Date, calendar: Calendar) -> [Int] {
+        (0..<theme.count).map { index in
+            var daysAgo = theme.firstDaysAgo + index * theme.step
+            while let date = calendar.date(byAdding: .day, value: -daysAgo, to: now),
+                  calendar.isDateInWeekend(date) { daysAgo += 1 }
+            return daysAgo
         }
     }
 
@@ -115,6 +180,10 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     func analyze(_ id: String) async -> PhotoAnalysis? {
         let parts = id.split(separator: "-")
+        if parts.count == 3, let theme = Self.themes.first(where: { $0.name == parts[1] }) {
+            return PhotoAnalysis(id: id, labels: theme.labels.map(\.id), broad: theme.broad, faces: 0,
+                                 aesthetics: parts[2] == "3" ? 0.9 : nil, isUtility: false, featurePrint: nil)
+        }
         guard parts.count == 3, let group = Self.everyGroup.first(where: { $0.name == parts[1] }) else { return nil }
         // Photo 5 of each group is the best: the fake AI's peak.
         let best = parts[2] == "5" || (group.count <= 5 && parts[2] == "1")
@@ -124,6 +193,34 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
 
     func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? { nil }
 
+    /// The fragments' analysis; a theme photo also has its made-up vision
+    /// (the simulator's Vision limitation does not apply to synthetic data).
+    func checkup(_ id: String) async -> (analysis: PhotoAnalysis, theme: ThemeVision?)? {
+        guard let analysis = await analyze(id) else { return nil }
+        return (analysis, Self.vision(of: id))
+    }
+
+    /// Labels and a seeded 768-d print: the theme's look (one random unit
+    /// direction) plus a little noise of the photo's own, so photos of one
+    /// theme are about 0.1 apart (cosine) and photos of two themes about 1.
+    static func vision(of id: String) -> ThemeVision? {
+        let parts = id.split(separator: "-")
+        guard parts.count == 3, let theme = themes.first(where: { $0.name == parts[1] }),
+              let index = UInt64(parts[2]) else { return nil }
+        var look = SeededGenerator(seed: theme.seed)
+        var own = SeededGenerator(seed: theme.seed &* 7919 &+ index &+ 1)
+        let base = (0..<printSize).map { _ in look.next() }
+        let noise = (0..<printSize).map { _ in own.next() }
+        // Unit-length directions; noise of 1/3 gives 1 - cos = 0.1 between two photos.
+        let print = zip(unit(base), unit(noise)).map { Float($0 + $1 / 3) }
+        return ThemeVision(labels: theme.labels, print: print, printRevision: printRevision)
+    }
+
+    private static func unit(_ values: [Double]) -> [Double] {
+        let length = values.reduce(0) { $0 + $1 * $1 }.squareRoot()
+        return values.map { $0 / max(length, 1e-9) }
+    }
+
     /// A colour block with the photo's number: landscape on odd numbers,
     /// a 3:4 portrait on even ones and a 9:16 one on every fourth, so the
     /// story shows both the whole-photo and the fill-screen layouts (a 3:4
@@ -131,6 +228,9 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
     static func paint(_ id: String, side: CGFloat) -> UIImage {
         let parts = id.split(separator: "-")
         let group = everyGroup.first { parts.count == 3 && $0.name == parts[1] } ?? groups[0]
+        let theme = themes.first { parts.count == 3 && $0.name == parts[1] }
+        let name = theme?.name ?? group.name
+        let hue = theme?.hue ?? group.hue
         let index = order(id)
         let size = index.isMultiple(of: 4) ? CGSize(width: side * 0.5625, height: side)
             : index.isMultiple(of: 2) ? CGSize(width: side * 0.75, height: side)
@@ -138,10 +238,10 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
-            UIColor(hue: group.hue, saturation: 0.35 + 0.05 * CGFloat(index % 5),
+            UIColor(hue: hue, saturation: 0.35 + 0.05 * CGFloat(index % 5),
                     brightness: 0.95 - 0.06 * CGFloat(index % 6), alpha: 1).setFill()
             context.fill(CGRect(origin: .zero, size: size))
-            let text = "\(group.name)\(index)" as NSString
+            let text = "\(name)\(index)" as NSString
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: size.width * 0.25, weight: .bold),
                 .foregroundColor: UIColor.white.withAlphaComponent(0.85)
@@ -150,6 +250,25 @@ struct SyntheticTriggerLibrary: PhotoLibraryReading, TriggerPhotoProviding, Phot
             text.draw(at: CGPoint(x: (size.width - textSize.width) / 2, y: (size.height - textSize.height) / 2),
                       withAttributes: attributes)
         }
+    }
+}
+
+/// A seeded generator (SplitMix64) of values in -1...1: the same seed always
+/// gives the same fake prints.
+struct SeededGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed
+    }
+
+    mutating func next() -> Double {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var mixed = state
+        mixed = (mixed ^ (mixed >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        mixed = (mixed ^ (mixed >> 27)) &* 0x94D0_49BB_1331_11EB
+        mixed ^= mixed >> 31
+        return Double(mixed >> 11) / Double(1 << 52) - 1
     }
 }
 
@@ -184,10 +303,25 @@ struct UITestComposeClient: ComposeClient {
     }
 
     func submit(_ meta: ComposeMeta, photos: [(id: String, jpeg: Data)]) async throws -> String {
+        try jobId(for: JSONEncoder().encode(meta))
+    }
+
+    /// A repeat theme's meta is kept as sent; a life fragment's goes the way
+    /// it always did.
+    func submit(metaJSON: Data, photos: [(id: String, jpeg: Data)]) async throws -> String {
+        if (try? JSONDecoder().decode(RepeatMeta.self, from: metaJSON)) != nil {
+            return try jobId(for: metaJSON)
+        }
+        guard let meta = try? JSONDecoder().decode(ComposeMeta.self, from: metaJSON) else {
+            throw ComposeError.badRequest("")
+        }
+        return try await submit(meta, photos: photos)
+    }
+
+    /// The job id carries the meta and when it was submitted.
+    private func jobId(for meta: Data) throws -> String {
         if arguments.contains("-TRIGGER-BACKEND-DOWN") { throw ComposeError.unreachable }
-        let data = try JSONEncoder().encode(meta)
-        // The job id carries the meta and when it was submitted.
-        return "\(Int(Date().timeIntervalSince1970))|" + data.base64EncodedString()
+        return "\(Int(Date().timeIntervalSince1970))|" + meta.base64EncodedString()
     }
 
     private var slowSeconds: Double {
@@ -204,8 +338,16 @@ struct UITestComposeClient: ComposeClient {
 
     func poll(_ jobId: String) async throws -> ComposeJobStatus {
         let parts = jobId.split(separator: "|", maxSplits: 1).map(String.init)
-        guard parts.count == 2, let submitted = Double(parts[0]), let data = Data(base64Encoded: parts[1]),
-              let meta = try? JSONDecoder().decode(ComposeMeta.self, from: data) else { return .expired }
+        guard parts.count == 2, let submitted = Double(parts[0]), let data = Data(base64Encoded: parts[1])
+        else { return .expired }
+        if let repeated = try? JSONDecoder().decode(RepeatMeta.self, from: data) {
+            if Date().timeIntervalSince1970 - submitted < slowSeconds { return .running }
+            if arguments.contains("-TRIGGER-REJECT") {
+                return .rejected(reason: "too_few_selected", message: "Too few photos for \(repeated.theme.name)")
+            }
+            return .ok(repeated.memory)
+        }
+        guard let meta = try? JSONDecoder().decode(ComposeMeta.self, from: data) else { return .expired }
         if Date().timeIntervalSince1970 - submitted < slowSeconds { return .running }
         if arguments.contains("-TRIGGER-REJECT") {
             return .rejected(reason: "too_few_selected", message: "Too few photos for \(meta.date)")
