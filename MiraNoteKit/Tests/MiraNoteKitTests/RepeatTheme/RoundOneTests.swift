@@ -51,6 +51,13 @@ final class RoundOneTests: XCTestCase {
         XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"from":["A0"],"name":"x"}]}"#), .unknownGroup)
     }
 
+    func testEmptyFromOrBlankNameFails() {
+        XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"from":[],"name":"x"}]}"#), .unknownGroup)
+        XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"name":"x"}]}"#), .unknownGroup)
+        XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"from":["A1"],"name":" "}]}"#), .unknownGroup)
+        XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"from":["A1"]}]}"#), .unknownGroup)
+    }
+
     func testValidAnswerPasses() throws {
         let json = #"{"chosen":"B","groups":[{"from":["B1"],"name":"x"},{"from":["B2"],"name":"y"}]}"#
         XCTAssertEqual(try validate(json).get().groups.count, 2)
@@ -147,15 +154,15 @@ final class RoundOneTests: XCTestCase {
         SampledPhoto(momentId: "m\(index)", photoId: "p\(index)", a: groupA, b: groupB)
     }
 
-    private func moment(_ id: String, labels: [(String, Float)]) -> Moment {
-        Moment(id: id, photoIds: [id], day: "2027-01-04", start: Date(timeIntervalSince1970: 0), vector: [1],
+    private func moment(_ id: String, photos: Int = 1, labels: [(String, Float)]) -> Moment {
+        Moment(id: id, photoIds: (0..<photos).map { "\(id)-\($0)" }, day: "2027-01-04", start: Date(timeIntervalSince1970: 0), vector: [1],
                labels: labels.map { LabelScore(id: $0.0, confidence: $0.1) }, location: center)
     }
 
     private func request(old: RoundOneRequest.Old? = nil) -> RoundOneRequest {
         let pile = Pile(momentIds: ["m1", "m2", "m3"], days: 3, maxDayShare: 0.4, height: 0.3, center: [1])
         let labels: [(String, Float)] = (0..<10).map { ("l\($0)", Float(10 - $0) / 10) } + [("weak", 0.1)]
-        let moments = ["m1": moment("m1", labels: labels), "m2": moment("m2", labels: [("soup", 0.5)])]
+        let moments = ["m1": moment("m1", photos: 3, labels: labels), "m2": moment("m2", labels: [("soup", 0.5)])]
         return RoundOneRequest.make(pile: pile, moments: moments, a: offered.a, b: offered.b,
                                     photos: [sampled(1, groupA: "A1", groupB: "B1"),
                                              sampled(2, groupA: "A0", groupB: "B2")],
@@ -171,7 +178,7 @@ final class RoundOneTests: XCTestCase {
         let json = try encoded(request())
         XCTAssertEqual(Set(json.keys), ["pile", "split_a", "split_b", "photos", "old"])
         XCTAssertTrue(json["old"] is NSNull)
-        XCTAssertEqual(json["pile"] as? [String: Int], ["photo_count": 3, "day_count": 3])
+        XCTAssertEqual(json["pile"] as? [String: Int], ["photo_count": 5, "day_count": 3])
         let splitA = try XCTUnwrap(json["split_a"] as? [[String: Any]])
         XCTAssertEqual(splitA.map { $0["id"] as? String }, ["A1", "A2"])
         XCTAssertEqual(Set(splitA[0].keys), ["id", "days", "where"])

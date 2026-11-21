@@ -80,7 +80,9 @@ public struct RoundOneRequest: Encodable, Equatable, Sendable {
                 .prefix(maxLabels).map(\.id)
             return Photo(n: offset + 1, a: photo.a, b: photo.b, labels: Array(present))
         }
-        return RoundOneRequest(photoCount: pile.momentIds.count, dayCount: pile.days, splitA: entries(a),
+        // Photos, not moments: the prompt says "N photos on D different days".
+        let photoCount = pile.momentIds.reduce(0) { $0 + (moments[$1]?.photoIds.count ?? 1) }
+        return RoundOneRequest(photoCount: photoCount, dayCount: pile.days, splitA: entries(a),
                                splitB: entries(b), photos: rows, old: old, photoIds: ids)
     }
 
@@ -251,6 +253,7 @@ enum RoundOneValidator {
     /// The answer ready to use, or why it is not.
     /// - A sensitive answer is returned as is (no groups are expected).
     /// - `chosen == "none"`: no groups are expected, so any groups (and drops) are ignored.
+    /// - A group with no `from` or a blank name is `.unknownGroup`.
     /// - With `chosen == "B"` the evidence is emptied; unknown `dropGroups` are removed.
     static func validate(_ answer: RoundOneAnswer,
                          offered: (a: [SplitGroup], b: [SplitGroup])) -> Result<RoundOneAnswer, RoundOneProblem> {
@@ -274,6 +277,9 @@ enum RoundOneValidator {
         }
         var used = Set<String>()
         for group in answer.groups {
+            if group.from.isEmpty || group.name.trimmingCharacters(in: .whitespaces).isEmpty {
+                return .failure(.unknownGroup)
+            }
             for id in group.from {
                 if isImageNumber(id) { return .failure(.imageNumberInFrom) }
                 if other.contains(id) { return .failure(.groupFromOtherSplit) }
