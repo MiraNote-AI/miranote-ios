@@ -6,7 +6,8 @@ import XCTest
 /// the user's own food ticks, on the user's B7 photo set. The data stays on
 /// that one Mac: set `MIRANOTE_B7_VISION` (the Vision records, one JSON
 /// object per line) and `MIRANOTE_B7_TRUTH` (the ticked food truth) to run;
-/// everywhere else the tests skip.
+/// everywhere else the tests skip. Output and failure messages give counts
+/// only, never a file name or an id from those photos.
 final class ThemeB7Tests: XCTestCase {
     private struct Library {
         let kept: [ThemePhoto]
@@ -111,8 +112,9 @@ final class ThemeB7Tests: XCTestCase {
         print("ThemeB7Tests: \(covered) of \(withDish.count) ticked-dish photos are in the food pile "
               + "(\(String(format: "%.1f", coverage * 100))%); the pile has \(photos.count) photos, "
               + "\(photos.filter(withDish.contains).count) with a ticked dish")
-        let notMeals = photos.filter { library.truth[$0]?.contains(notAMeal) == true }
-        print("ThemeB7Tests: food-pile photos ticked not a meal: \(notMeals)")
+        // Counts only: the ids are file names from a personal library.
+        let notMeals = photos.filter { library.truth[$0]?.contains(notAMeal) == true }.count
+        print("ThemeB7Tests: \(notMeals) food-pile photos ticked not a meal")
         XCTAssertGreaterThanOrEqual(coverage, 0.70)
 
         // No photo of people without any food label (confidence >= 0.3).
@@ -122,7 +124,7 @@ final class ThemeB7Tests: XCTestCase {
             let strong = Set((byId[id]?.labels ?? []).filter { $0.confidence >= 0.3 }.map(\.id))
             return !strong.isDisjoint(with: ["people", "adult"]) && strong.isDisjoint(with: foodLabels)
         }
-        XCTAssertEqual(peopleNoFood, [])
+        XCTAssertEqual(peopleNoFood.count, 0, "photos of people without a food label")
 
         // The 2026-11-11 event did not form a pile or flood another one.
         for pile in library.piles {
