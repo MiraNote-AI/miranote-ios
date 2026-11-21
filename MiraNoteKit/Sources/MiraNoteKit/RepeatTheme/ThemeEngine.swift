@@ -1,0 +1,345 @@
+import Foundation
+
+/// Everything a theme run talks to, injectable for tests.
+public struct ThemeDependencies: Sendable {
+    public static let defaultMomentsCap = 5000
+
+    public var library: PhotoLibraryReading
+    public var analyzer: PhotoAnalyzing
+    /// V1's per-photo analyses: the shared checkup fills them for the
+    /// photos V1 groups (its last 61 days), so V1 does not read them again.
+    public var analyses: AnalysisStore
+    public var photos: ThemePhotoStore
+    public var themes: ThemeLibrary
+    public var rounds: RoundLog
+    public var window: ThemeWindowStore
+    /// `themes/runs.json`.
+    public var runs: ThemeRunLog
+    public var client: ThemeRoundClient
+    /// A photo's bytes for a round image (any size; prepared to 336 px).
+    public var imageData: @Sendable (String) async -> Data?
+    public var now: @Sendable () -> Date
+    public var calendar: Calendar
+    /// At most this many moments are clustered: the newest (spec 6.2, I2).
+    public var momentsCap: Int
+
+    public init(library: PhotoLibraryReading, analyzer: PhotoAnalyzing, analyses: AnalysisStore,
+                photos: ThemePhotoStore, themes: ThemeLibrary, rounds: RoundLog, window: ThemeWindowStore,
+                runs: ThemeRunLog, client: ThemeRoundClient, imageData: @escaping @Sendable (String) async -> Data?,
+                now: @escaping @Sendable () -> Date = { Date() }, calendar: Calendar = .current,
+                momentsCap: Int = ThemeDependencies.defaultMomentsCap) {
+        self.library = library
+        self.analyzer = analyzer
+        self.analyses = analyses
+        self.photos = photos
+        self.themes = themes
+        self.rounds = rounds
+        self.window = window
+        self.runs = runs
+        self.client = client
+        self.imageData = imageData
+        self.now = now
+        self.calendar = calendar
+        self.momentsCap = momentsCap
+    }
+}
+
+/// Finds the repeat themes (spec section 4, steps 1-6): checkup, moments,
+/// piles, claim, round-1 asks, library. One run at a time: a run asked for
+/// while one is in flight waits for it and then runs once more, and every
+/// caller that waited meanwhile shares that one follow-up (it runs with the
+/// first waiting caller's trigger and deadline, and they all get its report).
+public actor ThemeEngine {
+    /// Clustering waits until the checkup has gone this far back (A2).
+    static let clusterAfterDays = 60
+
+    let deps: ThemeDependencies
+    private var active: Task<ThemeRunReport, Never>?
+    private var queued: Task<ThemeRunReport, Never>?
+    /// Callers waiting on a follow-up run (for tests).
+    private(set) var waitingCallers = 0
+    /// Photos whose checkup gave no theme vision (a simulator): not read
+    /// again for a theme record while this engine lives. Kept in memory
+    /// only, so a new process tries them once more.
+    private var noVision = Set<String>()
+    private var lastPiles: [Pile] = []
+    private var lastFollows: [String: Int] = [:]
+
+    public init(_ deps: ThemeDependencies) {
+        self.deps = deps
+    }
+
+    public func run(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+        if let queued {
+            waitingCallers += 1
+            defer { waitingCallers -= 1 }
+            return await queued.value
+        }
+        if let active {
+            waitingCallers += 1
+            defer { waitingCallers -= 1 }
+            let task = Task {
+                _ = await active.value
+                return await self.runQueued(trigger: trigger, deadline: deadline)
+            }
+            queued = task
+            return await task.value
+        }
+        let task = Task { await self.runActive(trigger: trigger, deadline: deadline) }
+        active = task
+        return await task.value
+    }
+
+    private func runActive(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+        let report = await perform(trigger: trigger, deadline: deadline)
+        active = nil
+        return report
+    }
+
+    private func runQueued(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+        active = queued
+        queued = nil
+        let report = await perform(trigger: trigger, deadline: deadline)
+        active = nil
+        return report
+    }
+
+    public func snapshot() -> ThemeSnapshot {
+        ThemeSnapshot(runs: deps.runs.load(), piles: lastPiles, follows: lastFollows, themes: deps.themes.load(),
+                      rounds: deps.rounds.load())
+    }
+
+    /// Blocks a big or small theme (debug page, "Not this theme"): it is
+    /// never sent to Qwen again. Waits for a run in flight, so the run's
+    /// save cannot undo it. A sensitive theme stays sensitive.
+    public func block(_ themeId: String) async {
+        await setStatus(themeId) { $0 == .sensitive ? nil : .blocked }
+    }
+
+    /// Clears a block; the next run sets frozen where it applies.
+    public func unblock(_ themeId: String) async {
+        await setStatus(themeId) { $0 == .blocked ? .active : nil }
+    }
+
+    private func setStatus(_ themeId: String, _ change: (ThemeStatus) -> ThemeStatus?) async {
+        while let task = queued ?? active { _ = await task.value }
+        var rows = deps.themes.load()
+        guard let index = rows.firstIndex(where: { $0.id == themeId }),
+              let status = change(rows[index].status) else { return }
+        rows[index].status = status
+        try? deps.themes.save(rows)
+    }
+
+    // MARK: - One run
+
+    private func perform(trigger: ThemeTrigger, deadline: Date?) async -> ThemeRunReport {
+        let now = deps.now()
+        let calendar = deps.calendar
+        var report = ThemeRunReport(at: now, trigger: trigger, photos: 0, checkedNew: 0, moments: 0, piles: [],
+                                    checkupMs: 0, clusterMs: 0, peakMemoryMB: nil, asked: 0, failures: [])
+
+        // 1. The window and the library in it.
+        var window = windowAnchor(now: now)
+        let saved = deps.analyses.loadAll()
+        let fetched = await deps.library.assets(since: window.start,
+                                                knownFilenames: saved.compactMapValues(\.originalFilename))
+        report.photos = fetched.count
+        // An empty fetch (access taken away, a PhotoKit error) is never read
+        // as an empty library: nothing is pruned, nothing is asked.
+        guard !fetched.isEmpty else {
+            report.failures.append("The library gave no photos: nothing changed")
+            return finish(report)
+        }
+        let ids = Set(fetched.map(\.id))
+        try? deps.photos.prune(keeping: ids)
+        var rows = deps.themes.load()
+        let gone = Set(rows.flatMap(\.members)).subtracting(ids)
+        if !gone.isEmpty {
+            rows = ThemeLibrary.removing(gone, from: rows)
+            try? deps.themes.save(rows)
+        }
+
+        // 2. The checkup, newest first.
+        let checkupStart = ContinuousClock.now
+        let checkup = await self.checkup(fetched, saved: saved, window: &window, now: now, deadline: deadline)
+        report.checkupMs = Self.milliseconds(since: checkupStart)
+        report.checkedNew = checkup.count
+        let sixtyBack = calendar.date(byAdding: .day, value: -Self.clusterAfterDays, to: now) ?? now
+        guard checkup.outcome.finished || (checkup.outcome.checkedThrough.map { $0 <= sixtyBack } ?? false) else {
+            let days = checkup.outcome.checkedThrough.map { Int(now.timeIntervalSince($0) / 86_400) } ?? 0
+            report.failures.append("Checked \(days) days back so far: piles wait for \(Self.clusterAfterDays)")
+            return finish(report)
+        }
+
+        // 3. Moments (the newest `momentsCap`), the tree, the piles.
+        let clusterStart = ContinuousClock.now
+        let records = deps.photos.loadAll()
+        let themePhotos = records.values.filter { photo in
+            photo.isTheme && ids.contains(photo.id) && photo.takenAt >= window.start
+                && window.printRevision.map { photo.printRevision == $0 } ?? true
+        }
+        var moments = MomentBuilder.build(Array(themePhotos), calendar: calendar)
+        if moments.count > deps.momentsCap { moments = Array(moments.suffix(max(0, deps.momentsCap))) }
+        let piles = PileCutter.cut(moments, tree: ThemeTree.build(moments.map(\.vector)))
+        report.clusterMs = Self.milliseconds(since: clusterStart)
+        report.peakMemoryMB = ThemeRunReport.peakMemoryMB()
+        report.moments = moments.count
+        report.piles = piles
+
+        let byId = Dictionary(moments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let scene = Scene(piles: piles, moments: byId, photos: records, calendar: calendar)
+        await claimAndAsk(scene, rows: rows, report: &report)
+        return finish(report)
+    }
+
+    /// Steps 4-6: old themes claim tonight's piles (the results go on the
+    /// rows), then round 1 for new piles and grown themes only.
+    private func claimAndAsk(_ scene: Scene, rows stored: [ThemeRow], report: inout ThemeRunReport) async {
+        let inWindow = Set(scene.moments.values.flatMap(\.photoIds))
+        let claim = ThemeClaim.claim(stored.filter { $0.kind == .big }, piles: scene.piles, moments: scene.moments,
+                                     window: inWindow)
+        var rows = Self.writeBack(claim, to: stored, moments: scene.moments, photos: scene.photos,
+                                  calendar: scene.calendar)
+        try? deps.themes.save(rows)
+        lastPiles = scene.piles
+        lastFollows = claim.follows
+
+        for ask in Self.asks(claim, rows: rows, scene: scene) {
+            let outcome = await self.ask(ask, rows: rows, scene: scene)
+            if outcome.sent { report.asked += 1 }
+            if let failure = outcome.failure { report.failures.append(failure) }
+            if let updated = outcome.rows {
+                rows = updated
+                try? deps.themes.save(rows)
+            }
+        }
+    }
+
+    /// The stored window, or (first run) a new one from today, kept.
+    private func windowAnchor(now: Date) -> ThemeWindow {
+        if let stored = deps.window.load() { return stored }
+        let first = ThemeWindow.first(now: now, calendar: deps.calendar)
+        try? deps.window.save(first)
+        return first
+    }
+
+    private func finish(_ report: ThemeRunReport) -> ThemeRunReport {
+        try? deps.runs.append(report)
+        return report
+    }
+
+    static func milliseconds(since start: ContinuousClock.Instant) -> Int {
+        let elapsed = ContinuousClock.now - start
+        return Int(elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000)
+    }
+
+    // MARK: - Checkup
+
+    /// One checkup pass over `assets` (`PhotoCheckupRunner`, newest first).
+    /// A photo needs a theme record when it has none, or one of another
+    /// print revision than the window's; an undated photo never does (it
+    /// can have no record), nor one whose checkup gave no vision. When the
+    /// pass meets a revision other than the window's (the OS changed it),
+    /// the window takes it and a second pass reads every older record again
+    /// (A1). That change is only seen once some photo is read.
+    private func checkup(_ assets: [LibraryAsset], saved: [String: PhotoAnalysis], window: inout ThemeWindow,
+                         now: Date, deadline: Date?) async -> (outcome: CheckupOutcome, count: Int) {
+        let watcher = CheckupWatcher(base: BoundedAnalyzer(base: deps.analyzer,
+                                                           seconds: TriggerRanking.analysisTimeout))
+        let undated = Set(assets.filter { $0.takenAt == nil }.map(\.id))
+        // V1 groups its last 61 days; older analyses it would prune again.
+        let v1Since = now.addingTimeInterval(-TriggerRanking.groupingDays * 86_400)
+        let v1Wanted = Set(assets.filter { ($0.takenAt ?? .distantPast) >= v1Since && saved[$0.id] == nil }.map(\.id))
+        var v1Done = Set<String>()
+        var outcome: CheckupOutcome
+        var passes = 0
+        repeat {
+            passes += 1
+            let records = deps.photos.loadAll()
+            let revision = window.printRevision
+            let skipped = undated.union(noVision)
+            outcome = await PhotoCheckupRunner.run(
+                assets, needsV1: { v1Wanted.contains($0) && !v1Done.contains($0) },
+                needsTheme: { id in
+                    guard !skipped.contains(id) else { return false }
+                    guard let record = records[id] else { return true }
+                    return revision.map { record.printRevision != $0 } ?? false
+                },
+                analyzer: watcher, analyses: deps.analyses, themes: deps.photos, now: now, calendar: deps.calendar,
+                deadline: deadline, clock: deps.now, report: { _ in })
+            v1Done.formUnion(outcome.analyses.keys)
+            noVision.formUnion(watcher.noVision)
+            guard let seen = watcher.revision, seen != window.printRevision else { break }
+            window.printRevision = seen
+            try? deps.window.save(window)
+        } while passes < 2 && outcome.finished
+        return (outcome, watcher.count)
+    }
+
+    // MARK: - Claim results on the rows
+
+    /// Tonight's claim on the rows: a big row takes its ratio, flag and list;
+    /// a small row its rule's list within its big row's (`SubThemeRule`).
+    /// Active and frozen rows go frozen or active with the claim (a small
+    /// one with its big one); blocked, sensitive and retired stay as they are.
+    static func writeBack(_ claim: ClaimResult, to rows: [ThemeRow], moments: [String: Moment],
+                          photos: [String: ThemePhoto], calendar: Calendar) -> [ThemeRow] {
+        let smallLists = SubThemeRule.membersTonight(of: rows.filter { $0.kind == .small }, claim: claim,
+                                                     moments: moments, photosById: photos, calendar: calendar)
+        return rows.map { original in
+            var row = original
+            let movable = row.status == .active || row.status == .frozen
+            switch row.kind {
+            case .big:
+                row.followRatio = claim.ratios[row.id]
+                row.flagged = claim.flagged.contains(row.id)
+                row.members = claim.members[row.id] ?? row.members
+                if movable { row.status = claim.frozen.contains(row.id) ? .frozen : .active }
+            case .small:
+                row.members = smallLists[row.id] ?? row.members
+                if movable, let parent = row.parentId {
+                    row.status = claim.frozen.contains(parent) ? .frozen : .active
+                }
+            }
+            return row
+        }
+    }
+}
+
+/// Watches the checkups of one run: how many, the print revision they
+/// came with, and which photos gave no theme vision.
+final class CheckupWatcher: PhotoAnalyzing, @unchecked Sendable {
+    private let base: PhotoAnalyzing
+    private let lock = NSLock()
+    private var checkups = 0
+    private var lastRevision: Int?
+    private var withoutVision = Set<String>()
+
+    init(base: PhotoAnalyzing) {
+        self.base = base
+    }
+
+    var count: Int { lock.withLock { checkups } }
+    /// The revision of the latest checkup that had vision.
+    var revision: Int? { lock.withLock { lastRevision } }
+    var noVision: Set<String> { lock.withLock { withoutVision } }
+
+    func analyze(_ id: String) async -> PhotoAnalysis? {
+        await base.analyze(id)
+    }
+
+    func checkup(_ id: String) async -> (analysis: PhotoAnalysis, theme: ThemeVision?)? {
+        let checked = await base.checkup(id)
+        lock.withLock {
+            checkups += 1
+            if let checked {
+                if let theme = checked.theme { lastRevision = theme.printRevision } else { withoutVision.insert(id) }
+            }
+        }
+        return checked
+    }
+
+    func distance(_ first: (id: String, print: Data), _ second: (id: String, print: Data)) -> Float? {
+        base.distance(first, second)
+    }
+}
