@@ -124,7 +124,7 @@ enum PileSplits {
     }
 
     /// Weekend is Saturday and Sunday.
-    private static func weekpart(of moments: [Moment], calendar: Calendar) -> String {
+    static func weekpart(of moments: [Moment], calendar: Calendar) -> String {
         let weekend = moments.filter {
             let weekday = calendar.component(.weekday, from: $0.start)
             return weekday == 1 || weekday == 7
