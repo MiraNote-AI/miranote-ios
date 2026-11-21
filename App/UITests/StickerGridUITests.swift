@@ -48,15 +48,14 @@ final class StickerGridUITests: XCTestCase {
     /// past that, hidden. Five across, the photo sits under the sticker,
     /// and a tap low on the sticker places the sticker, never the photo.
     func testATapLowOnAFavoriteNeverPlacesTheTallPhotoUnderIt() {
-        app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         app.buttons["mode.image"].tap()
         let samples = app.buttons["image.library.samples"]
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
         XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the Image tool closed on them")
         sleep(1)
         let tall = photos.allElementsBoundByIndex.first { $0.frame.height > $0.frame.width * 1.2 }
         guard let tall else { return XCTFail("one of the sample photos is tall") }
@@ -71,8 +70,9 @@ final class StickerGridUITests: XCTestCase {
         app.buttons["mode.sticker"].tap()
         favoriteAMadeSticker()
         // Cancel lets the made sticker go; its favorite stays.
+        XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
         app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         sleep(1)
         let photosBefore = photos.count
 
@@ -85,7 +85,7 @@ final class StickerGridUITests: XCTestCase {
                        "the photo sits under the sticker")
         app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: sticker.midX, dy: sticker.maxY - 8)).tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5), "back on the canvas")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "back on the canvas")
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "the sticker landed")
         XCTAssertEqual(photos.count, photosBefore, "not the photo under it")
     }

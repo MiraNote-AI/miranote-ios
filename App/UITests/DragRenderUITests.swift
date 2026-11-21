@@ -39,7 +39,7 @@ final class DragRenderUITests: XCTestCase {
         any("image.library.photo.0").tap()
         any("image.library.photo.1").tap()
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the tool")
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         // Let the probe settle after placing.
@@ -99,7 +99,7 @@ final class DragRenderUITests: XCTestCase {
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
         any("image.library.photo.0").tap()
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the tool")
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
@@ -136,7 +136,7 @@ final class DragRenderUITests: XCTestCase {
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
         any("image.library.photo.0").tap()
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the tool")
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
@@ -164,7 +164,7 @@ final class DragRenderUITests: XCTestCase {
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
         any("image.library.photo.0").tap()
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the tool")
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)

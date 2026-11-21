@@ -176,7 +176,7 @@ final class TextToolLatencyUITests: TextToolUITestCase {
         sticker.tap()
         sleep(2)
         if app.buttons["sticker.tab.make"].exists {
-            app.buttons["nav.leading"].tap()
+            app.buttons["mode.sticker"].tap()
             XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
             sleep(1)
         }

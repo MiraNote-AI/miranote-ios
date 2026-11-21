@@ -28,7 +28,7 @@ final class PhotoDragTracker {
 }
 
 /// Where the Image tool stands. It opens in place over the live canvas
-/// (handoff screens 23-29), so placed photos land on the page the user is
+/// (handoff screens 23-28), so placed photos land on the page the user is
 /// looking at and stay editable there.
 enum ImagePhase: Equatable {
     /// "Choose photos": Photo Library / Camera / AI Image (screen 23).
@@ -37,14 +37,11 @@ enum ImagePhase: Equatable {
     case library
     /// AI Image: the composer takes words, the sheet shows the paintings.
     case generate
-    /// Photos placed with the tool still open (screens 25, 29): Cancel takes
-    /// them back, Add keeps them.
-    case placed
 }
 
 /// Saves picked or captured photos and puts them on the page: aspect-true
-/// boxes that sway left-center-right as they stack, each one a step of its
-/// own, each looked at once by vision in the background.
+/// boxes that sway left-center-right as they stack, one undo step per Add,
+/// each looked at once by vision in the background.
 @MainActor
 struct PhotoPlacer {
     let editor: CanvasViewModel
@@ -86,9 +83,12 @@ struct PhotoPlacer {
         return id
     }
 
-    /// Library photos in pick order; the ids of those that landed.
+    /// Library photos in pick order, one undo step (#205 G8); the ids of
+    /// those that landed.
     func place(_ photos: [Data]) -> [CanvasItem.ID] {
-        photos.compactMap { place($0, name: "Library photo") }
+        let ids = photos.compactMap { place($0, name: "Library photo") }
+        editor.joinLastSteps(ids.count)
+        return ids
     }
 
     /// The system picker's picks' bytes, downscaled for the canvas, in pick

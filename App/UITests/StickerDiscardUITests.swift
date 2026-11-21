@@ -84,7 +84,8 @@ final class StickerDiscardUITests: XCTestCase {
         XCTAssertEqual(draftCount, 0)
         XCTAssertFalse(discard.exists, "Make is back at its start")
         XCTAssertTrue(app.staticTexts["Describe a sticker below -- Mira makes a couple to pick from."].exists)
-        XCTAssertEqual(app.buttons["nav.trailing"].label, "Add", "nothing waits: the header Add is back")
+        XCTAssertEqual(app.buttons["nav.leading"].label, "Home", "nothing waits: Cancel gives way to Home")
+        XCTAssertFalse(app.buttons["nav.leading"].isEnabled, "greyed while the panel is open (#229)")
         XCTAssertFalse(any("element.sticker").exists, "nothing landed on the page")
     }
 

@@ -1,10 +1,11 @@
 import XCTest
 
-/// The Image tool in place over the canvas (handoff screens 23-26, 29):
-/// Choose photos, the Recents grid with ordered picks, Add that stays in
-/// Image mode, Cancel that takes the visit's photos back, and "Editing"
-/// for a single pick. -UITEST reads 120 painted samples instead of the
-/// photo library.
+/// The Image tool in place over the canvas (handoff screens 23-26, #205):
+/// Choose photos, the Recents grid with ordered picks, the composer's Add
+/// that lands them and closes the tool, one Undo for the batch, and
+/// "Editing" for a single pick. The header is Home (greyed) / Undo / Save
+/// (greyed) while the tool is open. -UITEST reads 120 painted samples
+/// instead of the photo library.
 final class ImageToolUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -38,19 +39,26 @@ final class ImageToolUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "element.image")
     }
 
+    /// E3A, F1A: Home and Save greyed while the Image tool is open, Undo
+    /// live; no Add in the header.
+    private func assertToolHeader(_ context: String) {
+        XCTAssertEqual(app.buttons["nav.leading"].label, "Home", context)
+        XCTAssertFalse(app.buttons["nav.leading"].isEnabled, context)
+        XCTAssertEqual(app.buttons["nav.trailing"].label, "Save", context)
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled, context)
+    }
+
     private func openRecents() {
         let library = app.buttons["image.library.open"]
         XCTAssertTrue(library.waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["nav.leading"].label, "Canvas")
-        XCTAssertEqual(app.buttons["nav.trailing"].label, "Save")
+        assertToolHeader("Choose photos")
         library.tap()
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
     }
 
-    func testPicksAreCountedInOrderAndAddStaysInImage() {
+    func testPicksAreCountedInOrderAndAddClosesTheTool() {
         openRecents()
-        XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
-        XCTAssertEqual(app.buttons["nav.trailing"].label, "Add")
+        assertToolHeader("Recents")
         XCTAssertFalse(app.buttons["image.composer.add"].isEnabled, "Add waits for a pick")
 
         any("image.library.photo.0").tap()
@@ -66,24 +74,30 @@ final class ImageToolUITests: XCTestCase {
         app.buttons["image.composer.add"].tap()
         let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 2"), object: photos)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 5), .completed, "both picks landed")
+        // F10A: the tool closes, back on the page with the last one selected.
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the tool")
         XCTAssertFalse(any("image.library.grid").exists, "the sheet folds away")
-        XCTAssertEqual(app.buttons["nav.trailing"].label, "Add", "still in Image mode (screen 25)")
-        XCTAssertTrue(app.buttons["mode.image"].isSelected)
-
-        app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add keeps them and leaves")
+        XCTAssertFalse(app.buttons["mode.image"].isSelected)
+        XCTAssertTrue(app.buttons["nav.leading"].isEnabled, "Home is live again")
+        XCTAssertTrue(app.buttons["nav.trailing"].isEnabled, "Save is live again")
         XCTAssertEqual(photos.count, 2)
+        let state = canvasState()
+        let images = (state["elements"] as? [[String: Any]] ?? []).filter { $0["kind"] as? String == "image" }
+        XCTAssertEqual(state["selected"] as? String, images.last?["id"] as? String, "the last photo is selected")
     }
 
-    /// #167: Cancel in the library goes straight back to the canvas (the
-    /// header reads Home again), dropping the picks; nothing lands.
-    func testCancelInTheLibraryGoesBackToTheCanvas() {
+    /// Leaving without adding: the lit Image tool goes back to Choose photos,
+    /// dropping the picks, then shuts; nothing lands.
+    func testTheImageToolAgainLeavesTheLibraryWithoutAdding() {
         openRecents()
         any("image.library.photo.0").tap()
-        app.buttons["nav.leading"].tap()
+        app.buttons["mode.image"].tap()
         XCTAssertTrue(any("image.library.grid").waitForNonExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["image.library.open"].exists, "not back on Choose photos")
+        XCTAssertTrue(app.buttons["image.library.open"].waitForExistence(timeout: 5), "back on Choose photos")
+        app.buttons["mode.image"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["nav.leading"].label, "Home", "the bare canvas")
+        XCTAssertTrue(app.buttons["nav.leading"].isEnabled)
         XCTAssertFalse(app.buttons["mode.image"].isSelected)
         XCTAssertEqual(photos.count, 0, "the pick was let go")
     }
@@ -136,8 +150,10 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertTrue(grid.exists, "Recents stays open for the next one")
         XCTAssertFalse(cell.isSelected, "dragging is not picking")
 
-        app.buttons["nav.leading"].tap()
-        XCTAssertEqual(photos.count, 1, "Cancel shows the placed photo, still on the page")
+        XCTAssertTrue(app.buttons["editor.undo"].isEnabled, "the header Undo takes a drop back")
+        app.buttons["editor.undo"].tap()
+        XCTAssertEqual(photos.count, 0, "Undo took the dropped photo back")
+        XCTAssertTrue(grid.exists, "and Recents stays open")
     }
 
     /// #178 review: an import landing while a photo is carried closes
@@ -167,7 +183,7 @@ final class ImageToolUITests: XCTestCase {
                        "the carried photo stayed over the canvas")
     }
 
-    /// A slow import (held 4 s): the header Add tapped twice lands the
+    /// A slow import (held 4 s): the composer Add tapped twice lands the
     /// picks once, and Add / Editing wait out the import.
     func testASecondAddDuringASlowImportAddsNothingTwice() {
         app.terminate()
@@ -179,9 +195,10 @@ final class ImageToolUITests: XCTestCase {
         openRecents()
         any("image.library.photo.0").tap()
         any("image.library.photo.1").tap()
-        app.buttons["nav.trailing"].tap()
-        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled, "Add waits while the picks import")
-        app.buttons["nav.trailing"].tap()
+        let add = app.buttons["image.composer.add"]
+        add.tap()
+        XCTAssertFalse(add.isEnabled, "Add waits while the picks import")
+        add.tap()
         let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 2"), object: photos)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed)
         sleep(5)
@@ -206,20 +223,20 @@ final class ImageToolUITests: XCTestCase {
         XCTAssertEqual(photos.count, 1, "the pick landed twice")
     }
 
-    func testCancelTakesThisVisitsPhotosBackInOneUndoableStep() {
+    /// G8: one Undo takes back the whole batch one Add placed.
+    func testOneUndoTakesBackTheWholeAdd() {
         openRecents()
         any("image.library.photo.0").tap()
         any("image.library.photo.1").tap()
-        app.buttons["nav.trailing"].tap()
-        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 2"), object: photos)
+        any("image.library.photo.2").tap()
+        app.buttons["image.composer.add"].tap()
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 3"), object: photos)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 5), .completed)
-
-        app.buttons["nav.leading"].tap()
         XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
-        XCTAssertEqual(photos.count, 0, "Cancel took them back")
+        XCTAssertEqual(canvasState()["undoDepth"] as? Int, 1, "one step for the batch")
 
-        app.buttons["Undo"].tap()
-        XCTAssertEqual(photos.count, 2, "one undo returns them")
+        app.buttons["editor.undo"].tap()
+        XCTAssertEqual(photos.count, 0, "one undo took all three back")
     }
 
     // Limited library access: the grid shows the photos the user shared,
@@ -281,6 +298,7 @@ extension ImageToolUITests {
         XCTAssertTrue(prompt.waitForExistence(timeout: 5), "the composer takes words")
         XCTAssertEqual(prompt.placeholderValue, "Describe an image")
         XCTAssertFalse(app.buttons["image.generate.run"].isEnabled, "nothing to generate yet")
+        assertToolHeader("AI Image, nothing waiting")
         prompt.tap()
         prompt.typeText(words)
         app.buttons["image.generate.run"].tap()
@@ -301,19 +319,21 @@ extension ImageToolUITests {
         first.tap()
         XCTAssertTrue(waitForPhotos(1), "the pick is on the page")
         XCTAssertFalse(app.buttons["image.result.1"].exists, "the other candidate goes")
-        XCTAssertEqual(app.buttons["nav.trailing"].label, "Add", "placed, as a library photo (screen 25)")
-
-        app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add keeps it and leaves")
+        // G9: the pick closes the tool, like a sticker.
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the pick closes the tool")
         XCTAssertEqual(photos.count, 1)
         app.buttons["Undo"].tap()
         XCTAssertEqual(photos.count, 0, "one undo step takes it back")
     }
 
+    /// Candidates waiting: as a made sticker waiting (H2), the leading
+    /// pill is Cancel and lets them go; Save stays greyed.
     func testCancelLetsTheCandidatesGo() {
         generate("a lighthouse at dawn")
         XCTAssertTrue(app.buttons["image.result.0"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
+        XCTAssertTrue(app.buttons["nav.leading"].isEnabled)
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled, "Save stays greyed")
         app.buttons["nav.leading"].tap()
         XCTAssertFalse(app.buttons["image.result.0"].exists, "the candidates are gone")
         XCTAssertTrue(app.buttons["image.library.open"].waitForExistence(timeout: 5), "back on Choose photos")
@@ -341,17 +361,18 @@ extension ImageToolUITests {
         XCTAssertEqual(photos.count, 1, "the pick landed twice")
     }
 
-    /// The header Add while a painting waits: it says so and stays, the
-    /// painting is not dropped.
-    func testAddWhileAPaintingWaitsSaysSoAndStays() {
+    /// The Image tool again while a painting is on its way or waits: it
+    /// says so and stays, the painting is not dropped; Save stays greyed.
+    func testTheImageToolAgainWhileAPaintingWaitsSaysSoAndStays() {
         relaunch(["-GENERATE_DELAY", "3000"])
         generate("a lighthouse at dawn")
         XCTAssertTrue(any("image.generating").waitForExistence(timeout: 3))
-        app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "Add says why it waits")
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled, "no Save over a painting on its way")
+        app.buttons["mode.image"].tap()
+        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "the tool says why it waits")
         XCTAssertTrue(app.buttons["image.result.0"].waitForExistence(timeout: 8), "the painting still arrives")
-        app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "a waiting pick holds Add too")
+        app.buttons["mode.image"].tap()
+        XCTAssertTrue(app.staticTexts["image.notice"].waitForExistence(timeout: 3), "a waiting pick holds it too")
         XCTAssertTrue(app.buttons["image.result.0"].exists, "the candidates stay")
         XCTAssertEqual(photos.count, 0)
     }
@@ -365,9 +386,9 @@ extension ImageToolUITests {
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
         any("image.library.photo.0").tap()
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
         let photo = photos.firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closed the tool")
         app.buttons["mode.image"].tap()
         generate("a lighthouse at dawn")
         XCTAssertTrue(any("image.generating").waitForExistence(timeout: 3))
@@ -442,8 +463,9 @@ extension ImageToolUITests {
         XCTAssertEqual(photos.count, 1)
 
         app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.buttons["image.composer.add"].waitForExistence(timeout: 5),
-                      "Done returns to Image mode with the photo placed (screen 29)")
-        XCTAssertEqual(app.buttons["nav.trailing"].label, "Add")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Done returns to the page (F10A)")
+        XCTAssertEqual(app.buttons["nav.trailing"].label, "Save")
+        XCTAssertTrue(app.buttons["nav.trailing"].isEnabled)
+        XCTAssertEqual(photos.count, 1)
     }
 }

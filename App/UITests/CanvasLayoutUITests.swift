@@ -32,7 +32,7 @@ final class CanvasLayoutUITests: XCTestCase {
         app.buttons["image.composer.add"].tap()
         let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 3"), object: photos)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 5), .completed)
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the Image tool")
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
     }
 
@@ -229,7 +229,7 @@ final class CanvasLayoutUITests: XCTestCase {
         cell.tap()
         app.buttons["image.composer.add"].tap()
         XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the Image tool")
         let entry = app.buttons["mode.layout"]
         XCTAssertTrue(entry.waitForExistence(timeout: 5))
         XCTAssertFalse(entry.isEnabled)

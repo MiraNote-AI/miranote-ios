@@ -7,7 +7,9 @@ import SwiftUI
 /// composer.
 /// A made sticker shows large, restyles (Outline / Cutout / B&W) with its
 /// own undo and redo; "Add to page" under it (or a tap on it) hops it onto a
-/// free spot of the page in view. Favorites and presets place on a tap.
+/// free spot of the page in view. Favorites and presets place on a tap,
+/// selected (E2B). The header is Home / Undo / Save, all greyed (E1A, F1A,
+/// F2A): the Sticker tool again or a tap on the page leaves (H1A).
 struct StickerPanelScene: View {
     @Bindable var editor: CanvasViewModel
     var studio: ImageStudioService = MockImageStudioService()
@@ -65,18 +67,18 @@ struct StickerPanelScene: View {
 
     var body: some View {
         EditorScaffold(
-            leading: "Cancel",
-            // The sheet's "Add to page" is the way a made sticker goes in
-            // (owner, 2026-10-19): no second Add while one shows or is on
-            // its way. With none, the header Add returns to the page.
-            trailing: generating || !drafts.isEmpty ? nil : "Add",
+            // While a sticker is being made or waits, the leading pill is
+            // Cancel and lets it go (H2, today); otherwise a greyed Home.
+            leading: placingWouldDropWork ? "Cancel" : "Home",
+            trailing: "Save",
             onLeading: actions.leading,
-            onTrailing: actions.leading,
             // The panel records no step of its own (presets and favorites
             // leave it as they place; a made sticker has its own undo): the
             // header Undo has nothing here, never a change on the inert page.
             onUndo: {},
             undoEnabled: false,
+            leadingEnabled: placingWouldDropWork,
+            trailingEnabled: false,
             // While a sticker hops in, its own layer takes every touch.
             pageInert: flight == nil,
             onPageTap: {
@@ -113,12 +115,13 @@ struct StickerPanelScene: View {
             let layoutHint = CanvasScene.layoutHint(for: editor.items)
             InputModeBar(active: .sticker, layoutEnabled: layoutHint == nil, layoutHint: layoutHint,
                          onDimmedLayout: { notice = layoutHint }, onSelect: { mode in
-                // Another tool leaves the panel: same rule as the presets.
-                guard mode == .sticker || !placingWouldDropWork else {
+                // Another tool, or Sticker again (H1A), leaves the panel:
+                // same rule as the presets.
+                guard !placingWouldDropWork else {
                     notice = String(appCopy: "Add the sticker you made first, or Cancel to let it go.")
                     return
                 }
-                actions.selectMode(mode)
+                if mode == .sticker { actions.leading() } else { actions.selectMode(mode) }
             })
             ToolComposer(
                 placeholder: "Describe a sticker",
@@ -902,8 +905,8 @@ struct StickerPanelScene: View {
         let centerX = MiraNoteConfig.pageWidth / 2
         switch favorite.kind {
         case .sticker:
-            let position = CGPoint(x: centerX, y: min(editor.contentBottom + 80, 4000))
-            editor.addSticker(favorite, at: position)
+            // On a free spot of the page in view, as a made sticker (E2B).
+            editor.select(editor.addSticker(favorite, at: landingSpot))
         case .image:
             // Re-adopt the photo's aspect so a saved original comes back the
             // shape it went in, not center-cropped into the default box.
@@ -914,26 +917,25 @@ struct StickerPanelScene: View {
                 box = CanvasImageCache.aspectBox(for: image)
             }
             let position = CGPoint(x: centerX, y: min(editor.contentBottom + 60 + box.height / 2, 4000))
-            editor.addImages(
+            editor.select(editor.addImages(
                 [ImageRef(displayName: favorite.prompt, fileName: favorite.fileName)],
                 around: position, size: box
-            )
+            ).first)
         }
         actions.leading()
     }
 
     /// A preset sticker: its bundled pixels are stored like a made one (at
-    /// least `StickerSet.minPlacedSide` on the short side), then it lands
-    /// centred below the page's content.
+    /// least `StickerSet.minPlacedSide` on the short side), then it lands on
+    /// a free spot of the page in view, selected (E2B).
     private func place(_ name: String, from set: StickerSet) {
         guard !placingWouldDropWork, let data = set.placeableData(name),
               let fileName = try? imageStore.save(data, id: UUID()) else { return }
-        let position = CGPoint(x: MiraNoteConfig.pageWidth / 2, y: min(editor.contentBottom + 80, 4000))
-        editor.addSticker(
+        editor.select(editor.addSticker(
             GeneratedSticker(prompt: name.replacingOccurrences(of: "-", with: " "),
                              symbolName: "sparkles", fileName: fileName),
-            at: position
-        )
+            at: landingSpot
+        ))
         actions.leading()
     }
 
