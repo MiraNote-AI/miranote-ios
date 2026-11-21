@@ -147,12 +147,11 @@ final class TriggerController {
         }
     }
 
-    /// At launch, before it finishes: the theme task's handler, registered
-    /// only where the trigger may run (a development build, or a TestFlight
-    /// one whose switch is on; the handler checks the full gates).
+    /// At every launch, before it finishes: the theme task's handler. It
+    /// asks for no run (only an open-gated foreground or background run
+    /// does), and the handler checks the full gates before running.
     static func registerBackgroundThemes() {
-        let mayRun = InstallSource.isDebugBuild || AppSettings.storeDefaults.bool(forKey: optedInKey)
-        ThemeBackgroundTask.live.register(mayRun: mayRun) { task in
+        ThemeBackgroundTask.live.register { task in
             Task { @MainActor in await TriggerController.shared.runThemesInBackground(task) }
         }
     }

@@ -22,23 +22,24 @@ final class ThemeBackgroundTaskTests: XCTestCase {
 
     // MARK: - The background task
 
-    func testBackgroundTaskRegisteredOnlyWhenGateOpen() async {
-        let closed = FakeTaskScheduler()
-        ThemeBackgroundTask(scheduler: closed).register(mayRun: false) { _ in }
-        XCTAssertEqual(closed.registered, [], "an install where the trigger cannot run registers nothing")
-
+    func testBackgroundTaskRunsOnlyWhenGateOpen() async {
+        // Registered at every launch, whatever the gates: a request left by
+        // an earlier launch must find a handler. Registering asks for no run.
         let open = FakeTaskScheduler()
-        ThemeBackgroundTask(scheduler: open).register(mayRun: true) { _ in }
+        ThemeBackgroundTask(scheduler: open).register { _ in }
         XCTAssertEqual(open.registered, ["app.miranote.photo-trigger.themes"])
+        XCTAssertTrue(open.submitted.isEmpty)
 
         // Woken with the gates closed (the switch went off since): nothing
-        // runs, nothing is asked for again, the task is done.
+        // runs, nothing is asked for again, a pending request is taken
+        // back, the task is done.
         let runner = FakeThemeRunner()
         let task = FakeProcessingTask()
         let report = await ThemeBackgroundTask(scheduler: open).run(task, engine: runner, gatesOpen: { false })
         XCTAssertNil(report)
         XCTAssertTrue(runner.runs.isEmpty)
         XCTAssertTrue(open.submitted.isEmpty)
+        XCTAssertEqual(open.cancelled, ["app.miranote.photo-trigger.themes"])
         XCTAssertEqual(task.completions, [true])
 
         // Gates open: one background run, until start + 4 minutes, then the
@@ -56,6 +57,21 @@ final class ThemeBackgroundTaskTests: XCTestCase {
         XCTAssertEqual(request?.identifier, "app.miranote.photo-trigger.themes")
         XCTAssertEqual(request?.requiresExternalPower, true)
         XCTAssertEqual(request?.requiresNetworkConnectivity, true)
+        XCTAssertEqual(open.cancelled.count, 1, "an open run takes nothing back")
+    }
+
+    func testNoRunStartsAfterTheTaskExpired() async {
+        let scheduler = FakeTaskScheduler()
+        let runner = FakeThemeRunner()
+        let task = FakeProcessingTask()
+        // iOS takes the time back while the gates are still resolving.
+        let report = await ThemeBackgroundTask(scheduler: scheduler).run(task, engine: runner, gatesOpen: {
+            task.expire()
+            return true
+        })
+        XCTAssertNil(report)
+        XCTAssertTrue(runner.runs.isEmpty)
+        XCTAssertEqual(task.completions, [false])
     }
 
     func testBackgroundRunStopsAtExpiration() async throws {
@@ -139,9 +155,11 @@ private final class FakeTaskScheduler: ThemeTaskScheduling, @unchecked Sendable 
     private let lock = NSLock()
     private var identifiers: [String] = []
     private var requests: [BGTaskRequest] = []
+    private var cancels: [String] = []
 
     var registered: [String] { lock.withLock { identifiers } }
     var submitted: [BGTaskRequest] { lock.withLock { requests } }
+    var cancelled: [String] { lock.withLock { cancels } }
 
     func register(_ identifier: String, launchHandler: @escaping (ThemeProcessingTask) -> Void) -> Bool {
         lock.withLock { identifiers.append(identifier) }
@@ -150,6 +168,10 @@ private final class FakeTaskScheduler: ThemeTaskScheduling, @unchecked Sendable 
 
     func submit(_ request: BGTaskRequest) throws {
         lock.withLock { requests.append(request) }
+    }
+
+    func cancel(_ identifier: String) {
+        lock.withLock { cancels.append(identifier) }
     }
 }
 

@@ -6,6 +6,8 @@ protocol ThemeTaskScheduling: Sendable {
     /// False when iOS refuses (the identifier is not in Info.plist).
     func register(_ identifier: String, launchHandler: @escaping (ThemeProcessingTask) -> Void) -> Bool
     func submit(_ request: BGTaskRequest) throws
+    /// Takes back a request not run yet.
+    func cancel(_ identifier: String)
 }
 
 /// The task iOS hands the app when it wakes it, as a run uses it.
@@ -32,13 +34,19 @@ struct LiveThemeTaskScheduler: ThemeTaskScheduling {
     func submit(_ request: BGTaskRequest) throws {
         try BGTaskScheduler.shared.submit(request)
     }
+
+    func cancel(_ identifier: String) {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+    }
 }
 
 /// Finds repeat themes while the phone charges (spec section 4): a
 /// `BGProcessingTask` that iOS runs when the phone is on power and online,
-/// asked for again after every run. Its handler is registered at launch,
-/// only where the trigger may run; a run starts only once the install's
-/// gates are open, and stops when iOS takes the time back.
+/// asked for again after every run, and only while the install's gates are
+/// open. Its handler is registered at every launch (a request left from an
+/// earlier launch is delivered only to a launch that registered one); a
+/// run starts only once the gates are open, and stops when iOS takes the
+/// time back.
 struct ThemeBackgroundTask {
     static let identifier = "app.miranote.photo-trigger.themes"
     /// A processing task is given no known expiry time: a run asks for this
@@ -51,11 +59,10 @@ struct ThemeBackgroundTask {
     let scheduler: ThemeTaskScheduling
     var now: @Sendable () -> Date = { Date() }
 
-    /// At launch, before the app finishes launching (iOS requires it).
-    /// `mayRun` false -- an install where the trigger can never run --
-    /// registers nothing, so iOS never wakes the app for it.
-    func register(mayRun: Bool, handler: @escaping (ThemeProcessingTask) -> Void) {
-        guard mayRun else { return }
+    /// At every launch, before the app finishes launching (iOS requires
+    /// it, and raises for a pending request with no handler). Registering
+    /// asks for no run.
+    func register(handler: @escaping (ThemeProcessingTask) -> Void) {
         _ = scheduler.register(Self.identifier, launchHandler: handler)
     }
 
@@ -72,8 +79,9 @@ struct ThemeBackgroundTask {
     /// One woken run: until `budget` from now, or until iOS says the time
     /// is up -- then the engine stops early (what it saved stays, the next
     /// run goes on) and the task is completed at once, as iOS requires.
-    /// Gates closed: nothing runs and no next run is asked for. The report,
-    /// or nil when nothing ran.
+    /// Gates closed (the switch went off since the request): nothing runs
+    /// and a request still pending is taken back. The report, or nil when
+    /// nothing ran (also when the task expired while the gates resolved).
     @discardableResult
     func run(_ task: ThemeProcessingTask, engine: ThemeRunning,
              gatesOpen: () async -> Bool) async -> ThemeRunReport? {
@@ -85,9 +93,11 @@ struct ThemeBackgroundTask {
             completion.finish(success: false)
         }
         guard await gatesOpen() else {
+            scheduler.cancel(Self.identifier)
             completion.finish(success: true)
             return nil
         }
+        guard !completion.isFinished else { return nil }
         let report = await engine.run(trigger: .background, deadline: deadline)
         if completion.finish(success: true) { submit() }
         return report
@@ -103,6 +113,8 @@ private final class TaskCompletion: @unchecked Sendable {
     init(_ task: ThemeProcessingTask) {
         self.task = task
     }
+
+    var isFinished: Bool { lock.withLock { task == nil } }
 
     /// False when the task was completed already.
     @discardableResult

@@ -231,6 +231,32 @@ final class PhotoCheckupTests: XCTestCase {
         XCTAssertEqual(analyzer.checkups.count, 33, "nothing read twice")
     }
 
+    func testRankingNeverChecksAPhotoOnlyForItsThemeRecord() async {
+        let library = FakeLibrary(now: now)
+        let analyzer = CheckupAnalyzer()
+        // V1's analyses saved earlier, before there was a theme store.
+        _ = await TriggerRanking.make(library: library, analyzer: analyzer, analyses: analyses, now: now,
+                                      calendar: calendar, threshold: nil, groupingReport: nil, report: { _ in })
+        XCTAssertEqual(analyzer.checkups.count, 33)
+
+        // With the store: those photos are left to the theme engine's run.
+        _ = await TriggerRanking.make(library: library, analyzer: analyzer, analyses: analyses, now: now,
+                                      calendar: calendar, threshold: nil, groupingReport: nil,
+                                      themes: themes, report: { _ in })
+        XCTAssertEqual(analyzer.checkups.count, 33, "no checkup for a theme record alone")
+        XCTAssertEqual(themes.loadAll(), [:])
+
+        // A new photo V1 needs is read once, and both records are written.
+        library.assetsList.append(asset(daysAgo: 0.1))
+        _ = await TriggerRanking.make(library: library, analyzer: analyzer, analyses: analyses, now: now,
+                                      calendar: calendar, threshold: nil, groupingReport: nil,
+                                      themes: themes, report: { _ in })
+        XCTAssertEqual(analyzer.checkups.count, 34)
+        XCTAssertEqual(analyzer.checkups.last, "d0.1")
+        XCTAssertEqual(Array(themes.loadAll().keys), ["d0.1"])
+        XCTAssertNotNil(analyses.loadAll()["d0.1"])
+    }
+
     func testRankingWithoutAThemeStoreWritesNone() async {
         let library = FakeLibrary(now: now)
         let analyzer = CheckupAnalyzer()
