@@ -21,7 +21,7 @@ extension CanvasScene {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("text.row.\(textRow.map { "\($0)" } ?? "tools")")
             .id(textRow)
-            .transition(levelTransition)
+            .transition(slotLevelTransition)
         }
         .frame(height: 36)
         .padding(.horizontal, Metrics.chromeInset)
@@ -29,16 +29,17 @@ extension CanvasScene {
         .contentShape(Rectangle())
     }
 
-    /// A level change (D7A, G26): the new row fades in rising from 6 below
-    /// (deeper) or settling from 6 above (back). Opacity under Reduce Motion.
-    private var levelTransition: AnyTransition {
+    /// A level change in the tool slot (D7A, G26), Text and Background
+    /// alike: the new row fades in rising from 6 below (deeper) or settling
+    /// from 6 above (back). Opacity under Reduce Motion.
+    var slotLevelTransition: AnyTransition {
         reduceMotion ? .opacity : .asymmetric(
-            insertion: .offset(y: textRowDeeper ? 6 : -6).combined(with: .opacity), removal: .opacity)
+            insertion: .offset(y: slotDeeper ? 6 : -6).combined(with: .opacity), removal: .opacity)
     }
 
     /// `tool`'s row in the slot, or the text row for nil.
     private func showTextRow(_ tool: TextTool?) {
-        textRowDeeper = tool != nil
+        slotDeeper = tool != nil
         withAnimation(.easeOut(duration: 0.22)) { textRow = tool }
     }
 
@@ -117,5 +118,23 @@ extension CanvasScene {
         guard let id = editor.editingTextItemID else { return }
         change(id)
         remeasureEditedText(id)
+    }
+}
+
+/// A row coming into the tool slot across a swap of the dock's whole bottom
+/// cluster (the tool bar and Background's row, each with its own
+/// composer): it waits hidden for a moment, then fades in rising from 6
+/// below (deeper) or settling from 6 above (back), as `slotLevelTransition`
+/// does. A transition would keep the outgoing row and composer in the
+/// layout while it plays -- two rows stacked and the card squeezed.
+struct SlotEntrance: ViewModifier {
+    let deeper: Bool
+    let waiting: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(waiting ? 0 : 1)
+            .offset(y: waiting && !reduceMotion ? (deeper ? 6 : -6) : 0)
     }
 }

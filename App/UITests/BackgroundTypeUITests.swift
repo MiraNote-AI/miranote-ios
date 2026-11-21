@@ -27,22 +27,33 @@ final class BackgroundTypeUITests: XCTestCase {
         app.buttons["keyboard.done"].tap()
     }
 
-    private var previewColor: String { app.staticTexts["background.preview.color"].label }
+    private var probe: XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+    }
+
+    /// The page wears `hex` ("" for the default backdrop).
+    private func pageColorIs(_ hex: String) -> Bool {
+        let shows = NSPredicate(format: "label CONTAINS %@", "\"pageColor\":\"\(hex)\"")
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shows, object: probe)],
+                                timeout: 5) == .completed
+    }
 
     // A set reads as chosen only while every text block wears its faces and
     // color and the page its color -- so "selected" proves all four landed.
     func testACuratedSetDressesThePageAndUndoTakesItOff() {
         addText("noodles by the bridge")
 
-        app.buttons["mode.background"].tap()
+        app.openBackground()
+        XCTAssertFalse(app.buttons["background.tool.tidy"].isEnabled, "one element has nothing to arrange")
+        app.openBackgroundRow("sets")
         let didot = app.buttons["background.set.didot-cardo"]
         XCTAssertTrue(didot.waitForExistence(timeout: 5))
         XCTAssertFalse(didot.isSelected)
-        XCTAssertFalse(app.buttons["background.layout"].isEnabled, "one element has nothing to arrange")
 
         didot.tap()
         XCTAssertTrue(didot.isSelected, "the page now wears the set")
-        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  #FCD766", "and its page color")
+        XCTAssertTrue(pageColorIs("#FCD766"), "and its page color: \(probe.label)")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "curated set"
         shot.lifetime = .keepAlways
@@ -50,7 +61,7 @@ final class BackgroundTypeUITests: XCTestCase {
 
         app.buttons["Undo"].tap()
         XCTAssertFalse(didot.isSelected, "one undo takes the whole set off")
-        XCTAssertEqual(previewColor, "PREVIEW COLOR  \u{00B7}  DEFAULT")
+        XCTAssertTrue(pageColorIs(""), "and the page color: \(probe.label)")
     }
 
     // The two Montserrat / Open Sans sets share their faces: the tile tapped
@@ -58,7 +69,7 @@ final class BackgroundTypeUITests: XCTestCase {
     func testOnlyTheTappedSetReadsAsChosen() {
         addText("a quiet afternoon")
 
-        app.buttons["mode.background"].tap()
+        app.openBackgroundRow("sets")
         let rose = app.buttons["background.set.montserrat-opensans-rose"]
         XCTAssertTrue(rose.waitForExistence(timeout: 5))
         rose.tap()

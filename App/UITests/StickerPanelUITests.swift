@@ -285,7 +285,8 @@ final class StickerPanelUITests: XCTestCase {
         app.buttons["mode.background"].tap()
         // Either the tap is refused (still in the panel) or the sticker
         // survives the round trip.
-        if app.buttons["mode.sticker"].waitForExistence(timeout: 2), !any("sticker.result.0").exists {
+        if app.buttons["background.back"].waitForExistence(timeout: 2) {
+            app.closeBackground()
             app.buttons["mode.sticker"].tap()
         }
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 5), "the made coffee cup still waits")

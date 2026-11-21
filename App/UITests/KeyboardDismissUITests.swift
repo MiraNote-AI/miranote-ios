@@ -116,15 +116,20 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(app.miraComposer.label, "a picnic", "the draft waits in the composer")
     }
 
-    func testATapOnTheBackgroundSheetLowersTheApplyKeyboard() {
+    /// The first tap on the page only lowers Apply's keyboard: the tool
+    /// stays open with the words; the next one closes the tool.
+    func testATapOnThePageLowersTheApplyKeyboardFirst() {
         startMemory()
-        app.buttons["mode.background"].tap()
+        app.openBackground()
         let field = app.textFields["background.apply.input"]
         type("a sunset", into: field)
-        app.staticTexts["background.title"].tap()
-        waitUntilGone(keyboard, "a tap on the Background sheet lowers the keyboard")
+        point(app.frame.midX, app.frame.height * 0.3).tap()
+        waitUntilGone(keyboard, "a tap on the page lowers the keyboard")
         XCTAssertEqual(field.value as? String, "a sunset", "the words stay")
-        XCTAssertTrue(app.staticTexts["background.title"].exists, "the sheet stays open")
+        let row = app.descendants(matching: .any)["background.row.tools"]
+        XCTAssertTrue(row.exists, "the tool stays open")
+        point(app.frame.midX, app.frame.height * 0.3).tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5), "the next tap closes the tool")
     }
 
     /// The Sticker sheet lowers the keyboard; the page does too while it is

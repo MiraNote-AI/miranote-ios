@@ -45,8 +45,23 @@ struct InputModeBar: View {
     }
 
     private func item(_ mode: EditorMode) -> some View {
-        let isActive = mode == active
-        return icon(mode)
+        ToolCapsule(isActive: mode == active) {
+            Image(mode.iconAsset)
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
+        }
+    }
+}
+
+/// One icon-only capsule of the tool bar, 40 tall, sharing the row's width
+/// with its neighbors. Background's second level is drawn in it too (P1A).
+struct ToolCapsule<Icon: View>: View {
+    var isActive = false
+    @ViewBuilder let icon: () -> Icon
+
+    var body: some View {
+        icon()
             .foregroundStyle(isActive ? Palette.onInk : Palette.toolIcon)
             .frame(maxWidth: .infinity)
             .frame(height: 40)
@@ -58,13 +73,6 @@ struct InputModeBar: View {
                     .shadow(color: Palette.ink.opacity(isActive ? 0.10 : 0), radius: 6, y: 12)
             )
             .minimumHitTarget()
-    }
-
-    private func icon(_ mode: EditorMode) -> some View {
-        Image(mode.iconAsset)
-            .renderingMode(.template)
-            .resizable()
-            .frame(width: 20, height: 20)
     }
 }
 

@@ -488,18 +488,6 @@
         }
       }
     },
-    "A small moment worth keeping." : {
-      "comment" : "Background preview: sample line.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "值得留住的小小瞬间。"
-          }
-        }
-      }
-    },
     "A4 pages" : {
       "comment" : "PDF layout.",
       "extractionState" : "manual",
@@ -1170,17 +1158,6 @@
         }
       }
     },
-    "Background color" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "背景颜色"
-          }
-        }
-      }
-    },
     "Before" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1644,6 +1621,18 @@
         }
       }
     },
+    "Color" : {
+      "comment" : "Background tool: the page color row.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "颜色"
+          }
+        }
+      }
+    },
     "Compare with the original" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1826,17 +1815,6 @@
         }
       }
     },
-    "Curated sets · %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "精选搭配 · %lld"
-          }
-        }
-      }
-    },
     "Current" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1922,17 +1900,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在抠出贴纸…"
-          }
-        }
-      }
-    },
-    "DEFAULT" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "默认"
           }
         }
       }
@@ -4826,18 +4793,6 @@
         }
       }
     },
-    "PAINTED" : {
-      "comment" : "Preview label: the page has a painted background.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已绘制"
-          }
-        }
-      }
-    },
     "PLUS" : {
       "comment" : "Settings section: the subscription.",
       "extractionState" : "manual",
@@ -4857,29 +4812,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "偏好设置"
-          }
-        }
-      }
-    },
-    "PREVIEW COLOR  ·  %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "预览颜色  ·  %@"
-          }
-        }
-      }
-    },
-    "Page color hex" : {
-      "comment" : "VoiceOver.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "页面颜色色值"
           }
         }
       }
@@ -4949,17 +4881,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "纸白"
-          }
-        }
-      }
-    },
-    "Paper, color & curated type" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "纸张、颜色与精选字体"
           }
         }
       }
@@ -5953,17 +5874,6 @@
         }
       }
     },
-    "SWIPE →" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "滑动 →"
-          }
-        }
-      }
-    },
     "Sage" : {
       "comment" : "Color swatch.",
       "extractionState" : "manual",
@@ -6283,6 +6193,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已设置页面背景。"
+          }
+        }
+      }
+    },
+    "Sets" : {
+      "comment" : "Background tool: the curated sets row.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搭配"
           }
         }
       }
