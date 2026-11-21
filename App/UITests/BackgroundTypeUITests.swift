@@ -39,8 +39,9 @@ final class BackgroundTypeUITests: XCTestCase {
                                 timeout: 5) == .completed
     }
 
-    // A set reads as chosen only while every text block wears its faces and
-    // color and the page its color -- so "selected" proves all four landed.
+    // A set reads as chosen only while every title wears its face, every
+    // block its color and the page its color -- so "selected" proves they
+    // landed. Body text keeps its own face (R4A).
     func testACuratedSetDressesThePageAndUndoTakesItOff() {
         addText("noodles by the bridge")
 
@@ -50,10 +51,13 @@ final class BackgroundTypeUITests: XCTestCase {
         let didot = app.buttons["background.set.didot-cardo"]
         XCTAssertTrue(didot.waitForExistence(timeout: 5))
         XCTAssertFalse(didot.isSelected)
+        XCTAssertEqual(didot.frame.width, 44, accuracy: 0.5, "a full tap target")
 
         didot.tap()
         XCTAssertTrue(didot.isSelected, "the page now wears the set")
         XCTAssertTrue(pageColorIs("#FCD766"), "and its page color: \(probe.label)")
+        XCTAssertTrue(probe.label.contains("\"font\":\"Josefin Sans\""), "body text keeps its face: \(probe.label)")
+        XCTAssertFalse(probe.label.contains("\"font\":\"Didot\""), "no title here to re-font: \(probe.label)")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "curated set"
         shot.lifetime = .keepAlways

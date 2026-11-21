@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The text slot's snap rows (R6B).
+// The tool slot's snap rows: Text (R6B) and Background (Q5A).
 
 /// A snap row (R6B): the cells scroll under a center marker between faded
 /// edges. The value cell that comes to rest under the marker applies, as

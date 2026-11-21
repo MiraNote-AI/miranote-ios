@@ -42,6 +42,27 @@ extension XCUIApplication {
                       file: file, line: line)
     }
 
+    /// The canvas's debug probe.
+    var canvasProbe: XCUIElement {
+        descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+    }
+
+    /// The undo steps the page has, from the probe.
+    var undoDepth: Int {
+        let label = canvasProbe.label
+        guard let range = label.range(of: #""undoDepth":(\d+)"#, options: .regularExpression),
+              let depth = Int(label[range].drop { !$0.isNumber }) else { return -1 }
+        return depth
+    }
+
+    /// The painting's file name the page wears ("" for none), from the probe.
+    var backdrop: String {
+        let label = canvasProbe.label
+        guard let range = label.range(of: #""backdrop":"[^"]*""#, options: .regularExpression) else { return "" }
+        return String(label[range].dropFirst(12).dropLast())
+    }
+
     /// The rows in the Background slot now: one, except mid level change.
     var backgroundSlotRows: XCUIElementQuery {
         descendants(matching: .any).matching(NSPredicate(
@@ -51,6 +72,12 @@ extension XCUIApplication {
 }
 
 extension XCUIElement {
+    /// Waits for the element to read as chosen.
+    func waitForSelection(timeout: TimeInterval = 5) -> Bool {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: self)
+        return XCTWaiter().wait(for: [selected], timeout: timeout) == .completed
+    }
+
     /// Something is drawn in the element's frame: its darkest and lightest
     /// pixels differ, as a tool's icon on its capsule does. An element
     /// faded to nothing shows only the plain screen behind it.

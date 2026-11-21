@@ -86,25 +86,29 @@ final class BackgroundSlotUITests: XCTestCase {
         XCTAssertTrue(save.isEnabled, "Save is back")
     }
 
-    // The sets row (102) and paper row (63) are taller than the slot: they
-    // rise over the card's foot, which keeps its size, and their cells take
-    // taps there. A tap on the blank page goes back to the tool bar.
+    // The sets tray (64) and paper tray (48) are taller than the slot and
+    // stay centered on its line. The set cards rise over the card's foot,
+    // which keeps its size, and take taps there. A tap on the blank page
+    // goes back to the tool bar.
     func testTallerRowsRiseOverTheCardFootAndAPageTapCloses() {
         startMemory()
         let composer = app.buttons["mira.go"]
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         let toolBarTop = app.buttons["mode.background"].frame.minY
+        let toolBarLine = app.buttons["mode.background"].frame.midY
 
         app.openBackgroundRow("sets")
         let didot = app.buttons["background.set.didot-cardo"]
         XCTAssertTrue(didot.waitForExistence(timeout: 5))
-        XCTAssertLessThan(didot.frame.minY, toolBarTop - 40, "the set cards rise over the card's foot")
-        didot.tap()
+        XCTAssertLessThan(didot.frame.minY, toolBarTop, "the set cards rise over the card's foot")
+        XCTAssertEqual(didot.frame.midY, toolBarLine, accuracy: 1, "centered on the tool bar's line")
+        // Its top edge, above the slot, over the card's foot.
+        didot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)).tap()
         XCTAssertTrue(didot.isSelected, "a card over the page takes the tap")
 
         app.openBackgroundRow("paper")
         let grid = app.buttons["background.paper.grid"]
-        XCTAssertLessThan(grid.frame.minY, toolBarTop, "the paper tiles rise over the card's foot")
+        XCTAssertEqual(grid.frame.midY, toolBarLine, accuracy: 1, "centered on the tool bar's line")
         grid.tap()
         XCTAssertTrue(grid.isSelected)
 

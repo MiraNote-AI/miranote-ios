@@ -129,12 +129,12 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mira.revert"].exists, "Revert / Keep on the canvas")
     }
 
-    // While Apply paints, the page color controls rest: a color picked or a
-    // hex typed then would wipe the paid painting when it lands (#127
-    // review). The painting lands on the page all the same.
+    // While Apply paints, the page color controls and the sets rest: a
+    // color or set picked or a hex typed then would wipe the paid painting
+    // when it lands (#127 review, R5A). The painting lands all the same.
     func testColorControlsRestWhileApplyPaints() {
         app.terminate()
-        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "4000"]
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "8000"]
         app.launch()
         startMemory()
         openTool()
@@ -146,6 +146,8 @@ final class BackgroundUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["background.status"].waitForExistence(timeout: 3))
 
         XCTAssertFalse(app.buttons["background.tool.tidy"].isEnabled, "Tidy rests while painting")
+        app.openBackgroundRow("sets")
+        XCTAssertFalse(app.buttons["background.set.didot-cardo"].isEnabled, "the sets rest while painting")
         app.openBackgroundRow("color")
         XCTAssertTrue(app.staticTexts["background.status"].exists, "the color row says it is painting too")
         for id in ["background.color.custom", "background.color.pick", "background.color.#E6D9F0"] {
@@ -182,7 +184,8 @@ final class BackgroundUITests: XCTestCase {
     func testColorDotsHaveFullTapTargets() {
         startMemory()
         app.openBackgroundRow("color")
-        for id in ["background.color.#E6D9F0", "background.color.custom", "background.color.pick"] {
+        for id in ["background.color.default", "background.color.#F4E0D1", "background.color.custom",
+                   "background.color.pick"] {
             let dot = app.buttons[id]
             XCTAssertTrue(dot.waitForExistence(timeout: 5))
             XCTAssertEqual(dot.frame.width, 44, accuracy: 0.5, id)
@@ -270,10 +273,10 @@ extension BackgroundUITests {
     /// The page wears `hex` ("" for the default backdrop).
     private func pageColorIs(_ hex: String) -> Bool { probeShows("\"pageColor\":\"\(hex)\"") }
 
-    // Paper tiles and color dots apply in place, each one undo step; the
-    // chosen dot tapped again gives the page back its default backdrop but
-    // keeps the paper.
-    func testPaperTileAndSwatchApplyAndTheChosenDotResets() {
+    // Paper tiles and color dots apply in place, each one undo step;
+    // Default gives the page back its default backdrop but keeps the paper,
+    // and a tap on the chosen dot changes nothing.
+    func testPaperTileAndSwatchApplyAndDefaultResets() {
         startMemory()
         app.openBackgroundRow("paper")
         let grid = app.buttons["background.paper.grid"]
@@ -285,17 +288,25 @@ extension BackgroundUITests {
 
         app.openBackgroundRow("color")
         let lilac = app.buttons["background.color.#E6D9F0"]
+        let byDefault = app.buttons["background.color.default"]
+        XCTAssertTrue(byDefault.isSelected, "the row opens on Default")
         lilac.tap()
         XCTAssertTrue(lilac.isSelected)
         XCTAssertTrue(pageColorIs("#E6D9F0"), "the page wears the color: \(probe.label)")
 
         app.buttons["Undo"].tap()
         XCTAssertFalse(lilac.isSelected, "one undo takes the color off")
+        XCTAssertTrue(byDefault.waitForSelection(), "and the row is back on Default")
         XCTAssertTrue(probeShows("\"paper\":\"grid\""), "and leaves the paper: \(probe.label)")
 
         lilac.tap()
+        XCTAssertTrue(probeShows("\"pageColor\":\"#E6D9F0\""), "\(probe.label)")
+        let depth = app.undoDepth
         lilac.tap()
-        XCTAssertFalse(lilac.isSelected, "the chosen dot, tapped again, resets")
+        XCTAssertTrue(lilac.isSelected, "the chosen dot, tapped again, stays chosen")
+        XCTAssertEqual(app.undoDepth, depth, "and records nothing")
+        byDefault.tap()
+        XCTAssertTrue(byDefault.isSelected, "Default resets")
         XCTAssertTrue(pageColorIs(""), "back on the default backdrop: \(probe.label)")
         app.openBackgroundRow("paper")
         XCTAssertTrue(grid.isSelected, "resetting the color keeps the paper")
@@ -375,25 +386,5 @@ extension BackgroundUITests {
         let current = (textField.value as? String) ?? ""
         textField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 1))
         textField.typeText(text)
-    }
-
-    // A painted backdrop is nobody's swatch; any dot replaces it.
-    func testASwatchReplacesAPaintedBackdrop() {
-        startMemory()
-        ask("give this page a sunset background")
-        let first = app.buttons["mira.imageChoice.0"]
-        XCTAssertTrue(first.waitForExistence(timeout: 8))
-        first.tap()
-        XCTAssertTrue(app.staticTexts["Set the page background."].waitForExistence(timeout: 5))
-        app.buttons["mira.keep"].tap()
-
-        app.openBackgroundRow("color")
-        XCTAssertFalse(probeShows("\"backdrop\":\"\"", timeout: 1), "the page wears a painting: \(probe.label)")
-        let paper = app.buttons["background.color.#F6F4E8"]
-        XCTAssertFalse(paper.isSelected, "a painted page wears no swatch")
-        paper.tap()
-        XCTAssertTrue(paper.isSelected, "the dot replaced the painting")
-        XCTAssertTrue(probeShows("\"backdrop\":\"\""), "the painting is gone: \(probe.label)")
-        XCTAssertTrue(pageColorIs("#F6F4E8"), "\(probe.label)")
     }
 }

@@ -61,18 +61,6 @@
         }
       }
     },
-    "%@ and %@" : {
-      "comment" : "VoiceOver: a display font and a body font.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ 搭配 %2$@"
-          }
-        }
-      }
-    },
     "%@ paper" : {
       "comment" : "VoiceOver: a paper type, e.g. 'Grid paper'.",
       "extractionState" : "manual",
@@ -1935,6 +1923,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "装点你的回忆"
+          }
+        }
+      }
+    },
+    "Default backdrop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认背景"
           }
         }
       }
@@ -3847,6 +3846,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mira 的 AI 在我们的服务器上运行，所以需要一个账户。在这台手机上用 Apple 登录一次即可。"
+          }
+        }
+      }
+    },
+    "Mira's painting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 画的背景"
           }
         }
       }
@@ -5799,18 +5809,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在调整照片风格…"
-          }
-        }
-      }
-    },
-    "Returns the page to its default backdrop" : {
-      "comment" : "VoiceOver hint.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "让页面回到默认背景"
           }
         }
       }

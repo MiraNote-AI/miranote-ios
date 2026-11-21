@@ -3,7 +3,7 @@ import XCTest
 @testable import MiraNoteKit
 
 /// The Background tool's pure pieces (handoff screen 05): the set cards'
-/// CSS band gradients and photos.
+/// CSS band gradients.
 @MainActor
 final class BackgroundToolTests: XCTestCase {
     /// Stops past the box are cut at its edges, the colors there
@@ -17,10 +17,11 @@ final class BackgroundToolTests: XCTestCase {
 
     func testEveryCuratedSetHasACard() {
         for set in CuratedSet.all {
-            XCTAssertNotNil(UIImage(named: "curated.\(set.id)"), "\(set.id) has its photo")
             let look = CuratedSetLook.look(for: set)
             XCTAssertFalse(look.displayLabel.isEmpty)
-            XCTAssertFalse(look.bodyLabel.isEmpty)
+            if case .image(let name) = look.band {
+                XCTAssertNotNil(UIImage(named: name), "\(set.id) has its band")
+            }
         }
     }
 }
