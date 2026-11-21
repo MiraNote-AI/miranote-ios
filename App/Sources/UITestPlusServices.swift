@@ -9,9 +9,19 @@ struct UITestLimitedText: TextTransformService {
     private let mock = MockTextTransformService()
 
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
-        guard await Self.limited else { return try await mock.transform(text, mode: mode) }
-        let live = LiveTextTransformService(baseURL: Self.invalidURL, client: Self.quotaClient)
+        guard let live = await limitedLive() else { return try await mock.transform(text, mode: mode) }
         return try await live.transform(text, mode: mode)
+    }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        guard let live = await limitedLive() else { return try await mock.rewrite(text, instruction: instruction) }
+        return try await live.rewrite(text, instruction: instruction)
+    }
+
+    /// The live client answered by the quota 429, while the limit applies.
+    private func limitedLive() async -> LiveTextTransformService? {
+        guard await Self.limited else { return nil }
+        return LiveTextTransformService(baseURL: Self.invalidURL, client: Self.quotaClient)
     }
 
     /// `-AI-LIMIT-REACHED` and no Plus yet.

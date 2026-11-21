@@ -18,6 +18,9 @@ public enum TextTransformMode: String, CaseIterable, Identifiable, Sendable {
 
 public protocol TextTransformService: Sendable {
     func transform(_ text: String, mode: TextTransformMode) async throws -> String
+    /// `text` rewritten as the writer's own words ask (`/rewrite`, #205
+    /// F6B: the chat box while writing).
+    func rewrite(_ text: String, instruction: String) async throws -> String
 }
 
 /// Voice dictation entry (sketch 2.1 "voice", Home pill glyph).
@@ -64,6 +67,11 @@ public struct MockTextTransformService: TextTransformService {
         case .shorten:
             return "(shortened -- mock) " + trimmed
         }
+    }
+
+    public func rewrite(_ text: String, instruction: String) async throws -> String {
+        try await Task.sleep(for: .milliseconds(300))
+        return "(rewritten -- mock) " + text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

@@ -11,6 +11,9 @@ final class AILimitPaywallTests: XCTestCase {
         func transform(_ text: String, mode: TextTransformMode) async throws -> String {
             throw BackendError.limitReached(limit)
         }
+        func rewrite(_ text: String, instruction: String) async throws -> String {
+            throw BackendError.limitReached(limit)
+        }
     }
 
     private func consent() -> AIConsent {
@@ -58,6 +61,9 @@ final class AILimitPaywallTests: XCTestCase {
             tries += 1
             guard synced else { throw BackendError.limitReached(AILimit(feature: "expand", plan: "free")) }
             return "expanded"
+        }
+        func rewrite(_ text: String, instruction: String) async throws -> String {
+            try await transform(text, mode: .expand)
         }
     }
 

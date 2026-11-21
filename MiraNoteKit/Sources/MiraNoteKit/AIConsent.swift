@@ -206,6 +206,10 @@ struct AskingTextTransform: TextTransformService {
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
         try await consent.send { try await base.transform(text, mode: mode) }
     }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        try await consent.send { try await base.rewrite(text, instruction: instruction) }
+    }
 }
 
 struct AskingTranscription: VoiceTranscriptionService {
