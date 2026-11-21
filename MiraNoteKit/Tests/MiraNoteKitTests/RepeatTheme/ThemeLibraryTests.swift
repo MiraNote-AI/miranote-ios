@@ -86,6 +86,12 @@ final class ThemeLibraryTests: XCTestCase {
         XCTAssertEqual(rows[0].kind, .big)
         XCTAssertEqual(rows[0].status, .sensitive)
         XCTAssertTrue(smalls(rows).isEmpty)
+        // a theme that was fine before keeps its small rows, retired, same ids
+        let earlier = apply(answerA())
+        let later = apply(sensitive, existing: earlier)
+        XCTAssertEqual(later.first { $0.kind == .big }?.status, .sensitive)
+        XCTAssertEqual(Set(later.map(\.id)), Set(earlier.map(\.id)))
+        XCTAssertEqual(smalls(later).map(\.status), [.retired, .retired])
     }
 
     func testFirstAnswerBuildsBigAndSmallRows() throws {

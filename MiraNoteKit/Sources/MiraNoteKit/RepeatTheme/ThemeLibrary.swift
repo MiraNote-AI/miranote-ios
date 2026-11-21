@@ -49,7 +49,7 @@ public struct ThemeLibrary: Sendable {
     /// round-1 answer (spec 6.5, D5, D7). Returns the whole library: `existing`
     /// with this pile's rows replaced.
     ///
-    /// - A sensitive answer marks the big row `sensitive` and drops its small rows.
+    /// - A sensitive answer marks the big row `sensitive` and retires its small rows (they stay).
     /// - Same-name small rows keep their id and take the new rule; new names get
     ///   new ids; missing ones become `retired`.
     /// - A changed split retires every old small row (new ones get new ids),
@@ -70,19 +70,24 @@ public struct ThemeLibrary: Sendable {
                            center: pile.center, rule: nil, members: members, lastAskedCount: members.count,
                            flagged: big?.flagged ?? false, followRatio: big?.followRatio, where: big?.where)
         let others = existing.filter { $0.id != bigId && $0.parentId != bigId }
-        if answer.sensitive { return others + [row] }
-
         let old = existing.filter { $0.kind == .small && $0.parentId == bigId }
+        if answer.sensitive { return others + [row] + retiredCopies(of: old) }
+
         let splitChanged = big?.split.map { $0 != answer.chosen } ?? false
         let fresh = smallRows(answer, parent: row, groups: groups, moments: moments, old: old,
                               splitChanged: splitChanged)
         let used = Set(fresh.map(\.id))
-        let missing = old.filter { !used.contains($0.id) }.map { small -> ThemeRow in
+        let missing = retiredCopies(of: old.filter { !used.contains($0.id) })
+        return others + [row] + fresh + missing
+    }
+
+    /// Every theme that ever appeared stays; it is only marked `retired`.
+    private static func retiredCopies(of rows: [ThemeRow]) -> [ThemeRow] {
+        rows.map { small in
             var retired = small
             if retired.status != .blocked { retired.status = .retired }
             return retired
         }
-        return others + [row] + fresh + missing
     }
 
     private static func smallRows(_ answer: RoundOneAnswer, parent: ThemeRow,
