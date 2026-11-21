@@ -212,6 +212,35 @@ final class PhotoCheckupTests: XCTestCase {
         XCTAssertEqual(analyses.failures().count, 25)
     }
 
+    /// A long first pass reads each month it does not write once (to know
+    /// where every stored photo is), not again for every batch of theme
+    /// records it writes.
+    func testThemeBatchesDoNotReadOtherMonthsAgain() async throws {
+        let reads = ReadLog()
+        var store = themes
+        let old = [150.0, 120, 90].map { days in
+            ThemePhoto(id: "old\(Int(days))", takenAt: now.addingTimeInterval(-days * 86_400), location: nil,
+                       labels: [], aesthetics: 0.5, faces: 0, isTheme: true,
+                       print: ThemePhoto.normalized([1, 0, 0]), printRevision: 2)
+        }
+        try store.upsert(old, calendar: calendar)
+        let otherMonths = Set(try FileManager.default.contentsOfDirectory(
+            atPath: folder.appendingPathComponent("themes").path))
+        XCTAssertEqual(otherMonths.count, 3)
+        store.onRead = { reads.add($0) }
+
+        // 300 photos of the last three days: many batches, all in October.
+        let assets = (1...300).map { asset(daysAgo: Double($0) / 100) }
+        _ = await PhotoCheckupRunner.run(
+            assets, needsV1: { _ in true }, needsTheme: { _ in true }, analyzer: CheckupAnalyzer(),
+            analyses: analyses, themes: store, now: now, calendar: calendar, deadline: nil, report: { _ in })
+
+        XCTAssertEqual(themes.loadAll().count, 303)
+        for name in otherMonths {
+            XCTAssertLessThanOrEqual(reads.count(of: name), 1, "\(name) read again per batch")
+        }
+    }
+
     // MARK: V1's ranking
 
     func testRankingWithAThemeStoreWritesThemeRecords() async {
@@ -266,4 +295,13 @@ final class PhotoCheckupTests: XCTestCase {
         XCTAssertEqual(ranking.analyses.count, 33)
         XCTAssertEqual(themes.loadAll(), [:])
     }
+}
+
+/// Which files were read, from any task.
+final class ReadLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var names: [String] = []
+
+    func add(_ name: String) { lock.withLock { names.append(name) } }
+    func count(of name: String) -> Int { lock.withLock { names.filter { $0 == name }.count } }
 }

@@ -64,6 +64,32 @@ final class ThemePhotoStoreTests: XCTestCase {
         XCTAssertFalse(text.contains("\"id\":\"a\""))
     }
 
+    func testUpsertWithIndexReadsOnlyMonthsItTouches() throws {
+        var store = ThemePhotoStore(directory: directory)
+        try store.upsert([photo("a", at: date(2026, 9, 5, 12)), photo("b", at: date(2026, 10, 5, 12))],
+                         calendar: calendar)
+        var index = store.monthIndex()
+        let reads = ReadLog()
+        store.onRead = { reads.add($0) }
+
+        try store.upsert([photo("c", at: date(2026, 11, 1, 12))], calendar: calendar, index: &index)
+        XCTAssertEqual(reads.count(of: "2026-09.json") + reads.count(of: "2026-10.json"), 0)
+
+        // c (written above) moves to October, a from September to November.
+        try store.upsert([photo("c", at: date(2026, 10, 7, 12)), photo("a", at: date(2026, 11, 2, 12))],
+                         calendar: calendar, index: &index)
+        let loaded = store.loadAll()
+        XCTAssertEqual(Set(loaded.keys), ["a", "b", "c"])
+        XCTAssertEqual(loaded["c"]?.takenAt, date(2026, 10, 7, 12))
+        XCTAssertEqual(loaded["a"]?.takenAt, date(2026, 11, 2, 12))
+        let september = try String(bytes: Data(contentsOf: directory.appendingPathComponent("2026-09.json")),
+                                   encoding: .utf8)
+        XCTAssertFalse(september?.contains("\"id\":\"a\"") ?? true)
+        let november = try String(bytes: Data(contentsOf: directory.appendingPathComponent("2026-11.json")),
+                                  encoding: .utf8)
+        XCTAssertFalse(november?.contains("\"id\":\"c\"") ?? true)
+    }
+
     func testRemoveRewritesOnlyThatMonth() throws {
         let store = ThemePhotoStore(directory: directory)
         try store.upsert([photo("a", at: date(2026, 10, 5, 12)), photo("b", at: date(2026, 11, 5, 12)),

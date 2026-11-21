@@ -7,6 +7,8 @@ import Foundation
 /// Local only, and excluded from backup like the rest of the trigger's files.
 public struct ThemePhotoStore: Sendable {
     private let directory: URL
+    /// Told the name of every month file read (tests count the reads).
+    var onRead: (@Sendable (String) -> Void)?
 
     public init(directory: URL) {
         self.directory = directory
@@ -28,25 +30,58 @@ public struct ThemePhotoStore: Sendable {
         return result
     }
 
+    /// Which month file holds each stored photo, by id. A checkup pass
+    /// builds it once (`monthIndex()`) and hands it to each of its upserts,
+    /// so a batch reads only the months it writes: reading every other month
+    /// per batch made a first checkup of thousands of photos quadratic.
+    public struct MonthIndex: Sendable {
+        fileprivate var months: [String: String]
+    }
+
+    /// Reads every month file once.
+    public func monthIndex() -> MonthIndex {
+        var months: [String: String] = [:]
+        for name in monthFileNames() {
+            for photo in read(directory.appendingPathComponent(name)) ?? [] { months[photo.id] = name }
+        }
+        return MonthIndex(months: months)
+    }
+
     /// Adds or replaces `photos`, rewriting only the months they land in. A
     /// photo already stored in another month (its date moved) is taken out of
     /// that file.
     public func upsert(_ photos: [ThemePhoto], calendar: Calendar) throws {
         guard !photos.isEmpty else { return }
+        var index = monthIndex()
+        try upsert(photos, calendar: calendar, index: &index)
+    }
+
+    /// `upsert(_:calendar:)` with the month index of this store, kept up to
+    /// date here: another month is read only when the index puts one of
+    /// `photos` there.
+    public func upsert(_ photos: [ThemePhoto], calendar: Calendar, index: inout MonthIndex) throws {
+        guard !photos.isEmpty else { return }
         try PhotoTriggerPaths.prepare(directory)
         let incoming = Set(photos.map(\.id))
         var byMonth: [String: [ThemePhoto]] = [:]
         for photo in photos { byMonth[Self.monthName(photo.takenAt, calendar), default: []].append(photo) }
-        for name in monthFileNames() where byMonth[name] == nil {
+        var moved: [String: Set<String>] = [:]
+        for (name, added) in byMonth {
+            for photo in added {
+                if let held = index.months[photo.id], held != name { moved[held, default: []].insert(photo.id) }
+            }
+        }
+        for (name, ids) in moved where byMonth[name] == nil {
             let url = directory.appendingPathComponent(name)
             guard let stored = read(url) else { continue }
-            let kept = stored.filter { !incoming.contains($0.id) }
+            let kept = stored.filter { !ids.contains($0.id) }
             if kept.count != stored.count { try write(kept, to: url) }
         }
         for (name, added) in byMonth {
             let url = directory.appendingPathComponent(name)
             let kept = (existing(url)).filter { !incoming.contains($0.id) }
             try write(kept + added, to: url)
+            for photo in added { index.months[photo.id] = name }
         }
     }
 
@@ -101,6 +136,7 @@ public struct ThemePhotoStore: Sendable {
 
     /// The rows of a month file; nil when it is missing or does not decode.
     private func read(_ url: URL) -> [ThemePhoto]? {
+        onRead?(url.lastPathComponent)
         guard let data = try? Data(contentsOf: url) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

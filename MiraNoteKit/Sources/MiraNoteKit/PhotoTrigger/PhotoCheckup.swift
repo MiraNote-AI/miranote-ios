@@ -22,9 +22,13 @@ struct CheckupOutcome: Sendable {
 struct PhotoCheckupRunner {
     /// A photo whose analysis failed is tried again this long after.
     static let retryAfter: TimeInterval = 86_400
-    /// Failures and theme records are written down every this many, so a
-    /// run killed midway still remembers most of them.
+    /// Failures are written down every this many, so a run killed midway
+    /// still remembers most of them.
     static let failuresBatch = 20
+    /// Theme records are written down every this many: each write rewrites
+    /// the month it lands in, so a first checkup of thousands of photos
+    /// writes in larger steps (a killed run reads at most these again).
+    static let themeBatch = 100
 
     // swiftlint:disable function_parameter_count
     /// Checks up every photo of `assets` that `needsV1` or `needsTheme`
@@ -59,7 +63,7 @@ struct PhotoCheckupRunner {
             }
             if let takenAt = asset.takenAt { checkedThrough = takenAt }
         }
-        pass.flush(every: 1)
+        pass.flush(all: true)
         return CheckupOutcome(analyses: pass.results, checkedThrough: checkedThrough, finished: finished)
     }
     // swiftlint:enable function_parameter_count
@@ -74,6 +78,9 @@ struct PhotoCheckupRunner {
         var results: [String: PhotoAnalysis] = [:]
         /// Theme records not yet written.
         var pending: [ThemePhoto] = []
+        /// Where the stored theme records are: read at the pass's first
+        /// write, then kept up to date by its writes.
+        var index: ThemePhotoStore.MonthIndex?
         /// Failure changes not yet written.
         var unsaved = 0
 
@@ -112,18 +119,20 @@ struct PhotoCheckupRunner {
                 failures[asset.id] = now
                 unsaved += 1
             }
-            flush(every: failuresBatch)
+            flush()
         }
 
-        /// Writes the failures and theme records down once `count` have
-        /// gathered of either.
-        mutating func flush(every count: Int) {
-            if unsaved >= count {
+        /// Writes the failures down once `failuresBatch` have gathered, the
+        /// theme records once `themeBatch` have; `all`: whatever is left.
+        mutating func flush(all: Bool = false) {
+            if unsaved >= (all ? 1 : failuresBatch) {
                 try? store.saveFailures(failures)
                 unsaved = 0
             }
-            if pending.count >= count {
-                try? themes?.upsert(pending, calendar: calendar)
+            if let themes, pending.count >= (all ? 1 : themeBatch) {
+                var known = index ?? themes.monthIndex()
+                try? themes.upsert(pending, calendar: calendar, index: &known)
+                index = known
                 pending = []
             }
         }
