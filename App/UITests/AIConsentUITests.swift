@@ -140,12 +140,12 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
         XCTAssertTrue(consentLine.waitForExistence(timeout: 3), "the caption says why")
         XCTAssertEqual(aiSent, 0, "Not now: nothing was sent")
-        XCTAssertFalse(fieldValueContains("(polished -- mock)", timeout: 1))
+        XCTAssertFalse(fieldValueContains("(rewritten -- mock)", timeout: 1))
 
         app.buttons["writing.go"].tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
         app.buttons["aiConsent.continue"].tap()
-        XCTAssertTrue(fieldValueContains("(polished -- mock) noodle shop"), "Continue: the block is rewritten")
+        XCTAssertTrue(fieldValueContains("(rewritten -- mock) noodle shop"), "Continue: the block is rewritten")
         XCTAssertEqual(aiSent, 1)
     }
 
