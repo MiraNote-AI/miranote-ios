@@ -125,6 +125,30 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertFalse(sheet.exists)
     }
 
+    /// #205 F6B: Go in the chat box while writing asks first, as the Polish
+    /// row does: Not now sends nothing and says why; Continue rewrites.
+    func testGoInTheChatBoxAsksFirst() {
+        launch(asking: true)
+        startWriting("noodle shop")
+        let ask = app.descendants(matching: .any)["writing.ask"]
+        ask.tap()
+        ask.typeText("make it warmer")
+        app.buttons["writing.go"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "Go asks first")
+
+        app.buttons["aiConsent.notNow"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(consentLine.waitForExistence(timeout: 3), "the caption says why")
+        XCTAssertEqual(aiSent, 0, "Not now: nothing was sent")
+        XCTAssertFalse(fieldValueContains("(rewritten -- mock)", timeout: 1))
+
+        app.buttons["writing.go"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        app.buttons["aiConsent.continue"].tap()
+        XCTAssertTrue(fieldValueContains("(rewritten -- mock) noodle shop"), "Continue: the block is rewritten")
+        XCTAssertEqual(aiSent, 1)
+    }
+
     /// #206: a page's star is made on the phone, so a Save before consent
     /// neither asks nor sends.
     func testASaveNeitherAsksNorSends() {

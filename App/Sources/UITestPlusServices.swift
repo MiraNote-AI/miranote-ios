@@ -9,15 +9,25 @@ struct UITestLimitedText: TextTransformService {
     private let mock = MockTextTransformService()
 
     func transform(_ text: String, mode: TextTransformMode) async throws -> String {
+        guard let live = await limitedLive() else { return try await mock.transform(text, mode: mode) }
+        return try await live.transform(text, mode: mode)
+    }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        guard let live = await limitedLive() else { return try await mock.rewrite(text, instruction: instruction) }
+        return try await live.rewrite(text, instruction: instruction)
+    }
+
+    /// The live client answered by the quota 429, while the limit applies.
+    private func limitedLive() async -> LiveTextTransformService? {
         let limited = ProcessInfo.processInfo.arguments.contains("-AI-LIMIT-REACHED")
-        guard limited, !(await PlusStore.shared.isPlus) else { return try await mock.transform(text, mode: mode) }
+        guard limited, !(await PlusStore.shared.isPlus) else { return nil }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [QuotaAnswer.self]
-        let live = LiveTextTransformService(
+        return LiveTextTransformService(
             baseURL: URL(string: "http://uitest.invalid")!,
             client: HTTPClient(session: URLSession(configuration: configuration), betaToken: nil)
         )
-        return try await live.transform(text, mode: mode)
     }
 
     private final class QuotaAnswer: URLProtocol {

@@ -194,15 +194,24 @@ struct TextBackKey: View {
 }
 
 /// The Mira chat box while words are written (T1, T2): the composer's glass
-/// reading "Ask Mira to refine...", and the mic that dictates into the block
-/// (D2A, F8A) -- hold to talk, or tap to start and tap again to end. While
-/// the mic is live the box shows a waveform and "Listening...".
+/// reading "Ask Mira to refine...". Its trailing button is the mic while
+/// the box is empty, Go once there are words (F7A). The mic dictates into
+/// the block (D2A, F8A) -- hold to talk, or tap to start and tap again to
+/// end; while it is live the box shows a waveform and "Listening...". Go
+/// asks Mira to rewrite the block (F6B).
 struct WritingChatBox: View {
+    @Binding var ask: String
+    var focus: FocusState<Bool>.Binding
     let listening: Bool
     /// The live take's recorder, for the waveform.
     let recorder: AudioRecording?
     /// What the mic is doing or why nothing landed, for VoiceOver and tests.
     let status: String
+    /// The block has words for Mira to rewrite.
+    let canGo: Bool
+    /// Mira is rewriting the block as asked.
+    let asking: Bool
+    var onGo: () -> Void
     var onPress: () -> Void
     var onRelease: () -> Void
     var onCancel: () -> Void
@@ -210,6 +219,8 @@ struct WritingChatBox: View {
     var onToggle: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var hasWords: Bool { !ask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -221,22 +232,66 @@ struct WritingChatBox: View {
                     .lineLimit(1)
                     // The mic's value says so.
                     .accessibilityHidden(true)
+                Spacer(minLength: 0)
             } else {
-                // Typing here comes with Go (#205 PR 3); until then the
-                // words are only the box's look.
-                Text(copy: "Ask Mira to refine...")
-                    .font(.miraComposer)
-                    .foregroundStyle(Palette.muted)
+                // The block's kind of field, so the block's dark keyboard
+                // stays dark as the caret moves here (#162: never swapped).
+                // One line: Return sends, as Go does, and keeps the caret.
+                TextField("", text: $ask, prompt: Text(copy: "Ask Mira to refine...").foregroundStyle(Palette.muted),
+                          axis: .vertical)
                     .lineLimit(1)
-                    .accessibilityHidden(true)
+                    .font(.miraComposer)
+                    .foregroundStyle(Palette.ink)
+                    .tint(Palette.forest)
+                    .submitLabel(.go)
+                    .focused(focus)
+                    .onChange(of: ask) { _, words in
+                        guard words.contains("\n") else { return }
+                        ask = words.replacingOccurrences(of: "\n", with: "")
+                        if hasWords, canGo, !asking { onGo() }
+                    }
+                    .environment(\.colorScheme, .dark)
+                    .accessibilityLabel(Text(copy: "Ask Mira to refine..."))
+                    .accessibilityIdentifier("writing.ask")
             }
-            Spacer(minLength: 0)
-            mic
+            if hasWords, !listening {
+                go
+            } else {
+                mic
+            }
         }
         .padding(.leading, 17)
         .padding(.trailing, 10)
         .frame(height: 54)
         .background(GlassCapsule())
+    }
+
+    /// The composer's ink Go pill; a spinner while Mira rewrites.
+    private var go: some View {
+        Button(action: onGo) {
+            ZStack {
+                if asking {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Palette.onInk)
+                } else {
+                    Text(copy: "Go")
+                        .font(.miraComposerAction)
+                        .foregroundStyle(Palette.onInk)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(minWidth: 52)
+            .frame(height: 34)
+            .background(Capsule().fill(Palette.ink))
+            .minimumHitTarget()
+        }
+        .buttonStyle(.plain)
+        .disabled(!canGo || asking)
+        // As the Polish row with nothing to rewrite.
+        .opacity(canGo ? 1 : 0.6)
+        .accessibilityLabel(Text(copy: "Go"))
+        .accessibilityIdentifier("writing.go")
     }
 
     private var mic: some View {
@@ -527,7 +582,8 @@ enum RowColor {
 /// segmented glass control. The chip of the version on the canvas is
 /// forest; one being fetched spins.
 struct RewriteRow: View {
-    let selected: TextRewriteSession.Choice
+    /// nil while the rewrite asked for in the chat box is shown (H3A).
+    let selected: TextRewriteSession.Choice?
     let pending: TextRewriteSession.Choice?
     let enabled: Bool
     let onSelect: (TextRewriteSession.Choice) -> Void

@@ -198,6 +198,11 @@ private actor CountingTextTransform: TextTransformService {
         calls += 1
         return text
     }
+
+    func rewrite(_ text: String, instruction: String) async throws -> String {
+        calls += 1
+        return text
+    }
 }
 
 private extension ServiceContainer {
