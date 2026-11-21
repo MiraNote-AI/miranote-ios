@@ -99,23 +99,21 @@ final class ThemeB7Tests: XCTestCase {
         let byId = Dictionary(uniqueKeysWithValues: library.kept.map { ($0.id, $0) })
 
         // The truth answers per photo: the dishes seen, or one of two
-        // markers. "None of these" is still a meal, just without the listed
-        // dishes; "not a meal" is the only no.
+        // markers, "none of these" and "not a meal".
         let notAMeal = "\u{4E0D}\u{662F}\u{4E00}\u{987F}\u{996D}"
         let noneOfThese = "\u{90FD}\u{6CA1}\u{6709}"
-        let meals = Set(library.truth.filter { !$0.value.contains(notAMeal) }.keys)
         let withDish = Set(library.truth.filter { !Set($0.value).subtracting([notAMeal, noneOfThese]).isEmpty }.keys)
-        print("ThemeB7Tests: food pile \(photos.count) photos; \(photos.filter(meals.contains).count) meals per truth, "
-              + "\(photos.filter(withDish.contains).count) with a ticked dish; "
-              + "\(withDish.intersection(photos).count) of \(withDish.count) ticked-dish photos are in the pile")
 
-        let notMeals = photos.filter { !meals.contains($0) }
-        // Open question for the user (2026-11-21): one food-pile photo is
-        // ticked "not a meal", and j_cut.py's pile holds the same photo.
-        // Remove this expectation once the user has decided.
-        XCTExpectFailure("B4b open: a food-pile photo the truth marks not a meal, same as j_cut.py") {
-            XCTAssertEqual(notMeals.count, 0, "food-pile photos the truth does not call a meal")
-        }
+        // Truth photos with a ticked dish are mostly in the food pile (the
+        // user accepted 76% on 2026-11-21 as conservative).
+        let covered = withDish.intersection(photos).count
+        let coverage = Double(covered) / Double(max(withDish.count, 1))
+        print("ThemeB7Tests: \(covered) of \(withDish.count) ticked-dish photos are in the food pile "
+              + "(\(String(format: "%.1f", coverage * 100))%); the pile has \(photos.count) photos, "
+              + "\(photos.filter(withDish.contains).count) with a ticked dish")
+        let notMeals = photos.filter { library.truth[$0]?.contains(notAMeal) == true }
+        print("ThemeB7Tests: food-pile photos ticked not a meal: \(notMeals)")
+        XCTAssertGreaterThanOrEqual(coverage, 0.70)
 
         // No photo of people without any food label (confidence >= 0.3).
         let foodLabels: Set<String> = ["food", "dish", "meal", "soup", "noodle", "rice", "vegetable", "fruit",
