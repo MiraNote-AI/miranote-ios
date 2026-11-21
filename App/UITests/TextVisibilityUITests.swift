@@ -204,6 +204,29 @@ final class TextVisibilityUITests: XCTestCase {
         assertOneSlideBack("the block opened again")
     }
 
+    /// #217: under Reduce Motion the page jumps where it would slide: the
+    /// keep-clear scroll as a new block below the fold opens, and the way
+    /// back after Done.
+    func testUnderReduceMotionThePageJumpsInsteadOfSliding() throws {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-REDUCE_MOTION"]
+        app.launch()
+        fillThePage()
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        try XCTSkipUnless(softwareKeyboardRose(), "hardware keyboard connected: no keyboard to scroll clear of")
+        field.typeText("lunch by the river")
+        assertClearOfTheTools("a new block")
+        let open = textOpen()
+        XCTAssertGreaterThanOrEqual(open["clearScrolls"] as? Int ?? 0, 1, "the block scrolled clear: \(open)")
+        // One frame for a jump (a slide moves on about 12).
+        XCTAssertTrue((1...2).contains(open["clearFrames"] as? Int ?? 0), "the keep-clear scroll jumps: \(open)")
+        app.buttons["keyboard.done"].tap()
+        Thread.sleep(forTimeInterval: 1.6)
+        let trace = textOpen()["exitTrace"] as? String ?? ""
+        XCTAssertEqual(trace.split(separator: " ").count, 1, "Done jumps the page back (ms:offset \(trace))")
+    }
+
     /// The -UITEST probe's `textOpen` entry.
     private func textOpen() -> [String: Any] {
         let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
