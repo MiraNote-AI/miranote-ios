@@ -16,6 +16,9 @@ enum MenuNote: Equatable {
         }
     }
 
+    /// "Fewer like this" lets the story carry on; the others close it.
+    var closesStory: Bool { self != .fewerLikeThis }
+
     /// How long the note stays.
     static let duration: TimeInterval = 2
 }

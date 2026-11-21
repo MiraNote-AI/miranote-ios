@@ -182,7 +182,9 @@ final class PushSchedulerThemeTests: PushSchedulerTestCase {
         guard case .scheduled = steps.last else { return XCTFail("\(steps)") }
         let pushId = try XCTUnwrap(ledger.load().first(where: \.isDebug)?.pushId)
 
-        await scheduler.menu(.notThisTheme, pushId: pushId)
+        let blocking = await scheduler.notThisTheme(pushId)
+        XCTAssertNotNil(blocking, "there is a theme to block")
+        await blocking?.value
         XCTAssertEqual(themeLibrary.load().map(\.status), [.blocked, .active])
         let entry = try XCTUnwrap(ledger.load().first { $0.pushId == pushId })
         XCTAssertEqual(entry.menuAction, .notThisTheme)
@@ -203,6 +205,42 @@ final class PushSchedulerThemeTests: PushSchedulerTestCase {
         try ledger.clear()
         await scheduler.menu(.notThisTheme, pushId: pushId)
         XCTAssertEqual(themeLibrary.load().map(\.status), [.blocked])
+    }
+
+    /// Neither a ledger row nor a record names a theme: nothing is blocked,
+    /// the answer says so (no "won't be pushed again" note), no row is marked.
+    func testNotThisThemeWithNeitherRowNorRecordBlocksNothing() async throws {
+        let ids = try seed("t", days: Array(10...19))
+        try themeLibrary.save([big(members: ids)])
+        let scheduler = scheduler()
+        _ = await press(scheduler, "big")
+        let pushId = try XCTUnwrap(ledger.load().first?.pushId)
+        try ledger.clear()
+        try records.remove(pushId)
+        let blocking = await scheduler.notThisTheme(pushId)
+        XCTAssertNil(blocking)
+        await scheduler.menu(.notThisTheme, pushId: pushId)
+        XCTAssertEqual(themeLibrary.load().map(\.status), [.active])
+        XCTAssertTrue(ledger.load().isEmpty)
+
+        // An id nothing knows of: the same.
+        let unknown = await scheduler.notThisTheme("nope")
+        XCTAssertNil(unknown)
+    }
+
+    /// A build with no theme engine cannot block: the row stays unmarked.
+    func testNotThisThemeWithoutAThemeEngineBlocksNothing() async throws {
+        let ids = try seed("t", days: Array(10...19))
+        try themeLibrary.save([big(members: ids)])
+        _ = await press(scheduler(), "big")
+        let pushId = try XCTUnwrap(ledger.load().first?.pushId)
+        let without = makeScheduler()
+        let blocking = await without.notThisTheme(pushId)
+        XCTAssertNil(blocking)
+        await without.menu(.notThisTheme, pushId: pushId)
+        XCTAssertNil(ledger.load().first?.menuAction)
+        XCTAssertNil(ledger.load().first?.menuActionAt)
+        XCTAssertEqual(themeLibrary.load().map(\.status), [.active])
     }
 }
 

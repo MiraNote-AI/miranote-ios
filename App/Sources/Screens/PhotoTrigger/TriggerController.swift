@@ -249,6 +249,13 @@ final class TriggerController {
         }
     }
 
+    /// The story's "Not this theme": true when the push names a theme this
+    /// build can block (the block goes on after); false, nothing changed and
+    /// the story closes quietly. Phase 1 has no plan to redo.
+    func notThisTheme(_ pushId: String) async -> Bool {
+        await scheduler.notThisTheme(pushId) != nil
+    }
+
     /// The switch went off with the app open: the scheduler takes back what
     /// the fake AI wrote and runs at once -- only where this install
     /// schedules automatically (decision 8), as coming to the front does.

@@ -1,4 +1,8 @@
 import Foundation
+import os
+
+/// "Not this theme" that found nothing to block (no ids or photos logged).
+private let menuLog = Logger(subsystem: "ai.miranote.app", category: "PhotoTrigger")
 
 extension PushScheduler {
     // MARK: The story's "..." menu
@@ -11,9 +15,12 @@ extension PushScheduler {
     /// from the memory's date; "fewer" needs a bucket and does nothing then.
     /// `replan` false (an install that may not schedule, decision 8) does
     /// all of that but leaves the nights unfilled: no run, no upload.
-    /// "Not this theme" (a repeat push) blocks the theme instead (`blockTheme`).
+    /// "Not this theme" (a repeat push) blocks the theme instead (`notThisTheme`).
     public func menu(_ action: MenuAction, pushId: String, replan: Bool = true) async {
-        if action == .notThisTheme { return await blockTheme(of: pushId) }
+        guard action != .notThisTheme else {
+            await notThisTheme(pushId)?.value
+            return
+        }
         await blockDayOrBucket(action, pushId: pushId, replan: replan)
     }
 
@@ -36,7 +43,7 @@ extension PushScheduler {
         case .fewerLikeThis:
             guard let bucket, bucket != .other else { return }
             try? deps.preferences.update { $0.fewer[bucket] = now }
-        case .notThisTheme: return // `blockTheme`
+        case .notThisTheme: return // `notThisTheme`
         }
         try? deps.ledger.update(pushId) {
             $0.menuAction = action
@@ -53,17 +60,32 @@ extension PushScheduler {
     }
 
     /// "Not this theme": the theme the push carries (its ledger row, or its
-    /// record) is blocked for good (`ThemeEngine.block`) and the row records
-    /// the choice. Phase 1 schedules no repeat push, so none is taken back
-    /// and the nights are left as they are.
-    private func blockTheme(of pushId: String) async {
+    /// record) is blocked for good (`ThemeEngine.block`), then the row
+    /// records the choice. Phase 1 schedules no repeat push, so none is
+    /// taken back and the nights are left as they are.
+    ///
+    /// Returns at once the block under way, or nil when there is nothing to
+    /// block -- no theme on the push, or no theme engine in this build: then
+    /// nothing changes, the row is left unmarked and the story says nothing
+    /// (it must not claim "won't be pushed again"). The block itself waits
+    /// for a theme run in flight, so the story does not wait for it.
+    public func notThisTheme(_ pushId: String) -> Task<Void, Never>? {
         let entry = deps.ledger.load().first { $0.pushId == pushId }
-        guard let themeId = entry?.themeId ?? deps.records.load(pushId)?.themeId else { return }
-        await deps.themeEngine?.block(themeId)
-        let now = deps.now()
-        try? deps.ledger.update(pushId) {
-            $0.menuAction = .notThisTheme
-            $0.menuActionAt = now
+        guard let themeId = entry?.themeId ?? deps.records.load(pushId)?.themeId else {
+            menuLog.notice("Not this theme: the push names no theme; nothing blocked")
+            return nil
+        }
+        guard let engine = deps.themeEngine else {
+            menuLog.notice("Not this theme: no theme engine in this build; nothing blocked")
+            return nil
+        }
+        return Task {
+            await engine.block(themeId)
+            let now = deps.now()
+            try? deps.ledger.update(pushId) {
+                $0.menuAction = .notThisTheme
+                $0.menuActionAt = now
+            }
         }
     }
 

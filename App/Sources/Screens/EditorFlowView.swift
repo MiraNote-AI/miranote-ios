@@ -679,6 +679,7 @@ extension HomeFlow {
                          library: trigger.photos, onClose: { route = nil },
                          onKeep: { keepTrigger($0, opening: opening) },
                          onMenu: { trigger.menu($0, pushId: opening.pushId) },
+                         onNotThisTheme: { await trigger.notThisTheme(opening.pushId) },
                          onFinished: { trigger.storyFinished(opening.pushId) })
             .onAppear { if let request = opening.request { finishPending(request) } }
     }

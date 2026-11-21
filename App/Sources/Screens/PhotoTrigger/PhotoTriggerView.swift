@@ -23,6 +23,8 @@ struct PhotoTriggerView: View {
     var onKeep: (TriggerMemory) -> Void
     /// The menu's choice, for the scheduler.
     var onMenu: (MenuAction) -> Void = { _ in }
+    /// "Not this theme": true when a theme is being blocked; false, the story closes quietly.
+    var onNotThisTheme: () async -> Bool = { false }
     /// The story reached its ending.
     var onFinished: () -> Void = {}
 
@@ -69,8 +71,7 @@ struct PhotoTriggerView: View {
             if menuShown { clock.pause() } else { clock.resume() }
         }
         .confirmationDialog("", isPresented: $menuShown, titleVisibility: .hidden) {
-            // A repeat push has no day or bucket of its own: only its theme.
-            if memory.isRepeat { Button("Not this theme") { show(.notThisTheme) } }
+            if memory.isRepeat { Button("Not this theme") { notThisTheme() } }
             if allowsFewer, !memory.isRepeat { Button("Fewer like this") { show(.fewerLikeThis) } }
             if !memory.isRepeat { Button("Not this day") { show(.notThisDay) } }
             Button("Cancel", role: .cancel) {}
@@ -228,7 +229,6 @@ struct PhotoTriggerView: View {
         .accessibilityLabel(label)
         .accessibilityIdentifier(id)
     }
-
 }
 
 /// Playback, the menu and the gestures.
@@ -350,10 +350,14 @@ extension PhotoTriggerView {
 
     // MARK: The menu
 
-    private func show(_ choice: MenuNote) {
-        onMenu(choice.action)
+    private func show(_ choice: MenuNote, notify: Bool = true) {
+        if notify { onMenu(choice.action) }
         if phase == .story { clock.pause() }
         withAnimation(.easeOut(duration: 0.2)) { note = choice }
+    }
+
+    private func notThisTheme() {
+        Task { if await onNotThisTheme() { show(.notThisTheme, notify: false) } else { onClose() } }
     }
 
     /// "Fewer like this" shows for 2 s, then the story carries on; "not
@@ -362,13 +366,9 @@ extension PhotoTriggerView {
         guard let shown = note else { return }
         try? await Task.sleep(for: .seconds(MenuNote.duration))
         guard !Task.isCancelled else { return }
-        switch shown {
-        case .fewerLikeThis:
-            withAnimation(.easeIn(duration: 0.2)) { note = nil }
-            if phase == .story { clock.resume() }
-        case .notThisDay, .notThisTheme:
-            onClose()
-        }
+        if shown.closesStory { return onClose() }
+        withAnimation(.easeIn(duration: 0.2)) { note = nil }
+        if phase == .story { clock.resume() }
     }
 
     // MARK: Gestures
