@@ -8,6 +8,10 @@ public enum BackendError: Error, Equatable {
     case unreachable
     /// The server accepted the connection but never answered in time.
     case timedOut
+    /// The request went out, but its answer was lost: the connection
+    /// dropped, or what came back could not be read. The server may have
+    /// acted on it.
+    case answerLost
     /// Server returned a non-2xx status. `detail` is the response body, if any.
     case server(status: Int, detail: String?)
     /// Response body could not be decoded into the expected shape.
@@ -44,7 +48,7 @@ public struct AILimit: Equatable, Sendable {
 extension BackendError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .unreachable:
+        case .unreachable, .answerLost:
             return String(appCopy: """
                 Couldn't reach MiraNote's AI server. Check your connection -- \
                 if that is fine, the server is offline and the team needs to know.
@@ -185,8 +189,8 @@ public struct HTTPClient: Sendable {
     /// `X-Request-ID`, which the AI services meter by. A 401 renews the
     /// token once (one refresh for all requests that got it) and sends the
     /// request again with the same id: the 401 came before anything was
-    /// counted. Signed out, or in a build that offers no sign-in, the beta
-    /// token goes as before.
+    /// counted; a second 401 ends the sign-in. Signed out, or
+    /// in a build that offers no sign-in, the beta token goes as before.
     public func send(_ request: URLRequest) async throws -> Data {
         var request = request
         guard let userTokens, let token = try await userTokens.accessTokenIfSignedIn() else {
@@ -201,7 +205,15 @@ public struct HTTPClient: Sendable {
         guard response.statusCode == 401 else { return try checked((data, response)) }
         let renewed = try await userTokens.renewAccessToken(after: token)
         request.setValue("Bearer \(renewed)", forHTTPHeaderField: "Authorization")
-        return try checked(await exchange(request))
+        let retried = try await exchange(request)
+        // Refused with a token just renewed: the server no longer takes
+        // this sign-in, which ends here, so the next action offers sign-in.
+        // It is not the beta token's 401.
+        guard retried.1.statusCode != 401 else {
+            await userTokens.endSignIn(refused: renewed)
+            throw AccountError.signedOut
+        }
+        return try checked(retried)
     }
 
     private func exchange(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
@@ -210,10 +222,13 @@ public struct HTTPClient: Sendable {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            if (error as? URLError)?.code == .timedOut {
-                throw BackendError.timedOut
+            switch (error as? URLError)?.code {
+            case .timedOut: throw BackendError.timedOut
+            case .networkConnectionLost, .badServerResponse, .cannotParseResponse,
+                 .cannotDecodeContentData, .cannotDecodeRawData:
+                throw BackendError.answerLost
+            default: throw BackendError.unreachable
             }
-            throw BackendError.unreachable
         }
         guard let http = response as? HTTPURLResponse else {
             throw BackendError.unreachable
