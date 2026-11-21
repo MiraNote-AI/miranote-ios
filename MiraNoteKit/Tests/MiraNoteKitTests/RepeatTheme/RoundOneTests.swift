@@ -155,14 +155,16 @@ final class RoundOneTests: XCTestCase {
     }
 
     private func moment(_ id: String, photos: Int = 1, labels: [(String, Float)]) -> Moment {
-        Moment(id: id, photoIds: (0..<photos).map { "\(id)-\($0)" }, day: "2027-01-04", start: Date(timeIntervalSince1970: 0), vector: [1],
+        Moment(id: id, photoIds: (0..<photos).map { "\(id)-\($0)" }, day: "2027-01-04",
+               start: Date(timeIntervalSince1970: 0), vector: [1],
                labels: labels.map { LabelScore(id: $0.0, confidence: $0.1) }, location: center)
     }
 
     private func request(old: RoundOneRequest.Old? = nil) -> RoundOneRequest {
         let pile = Pile(momentIds: ["m1", "m2", "m3"], days: 3, maxDayShare: 0.4, height: 0.3, center: [1])
         let labels: [(String, Float)] = (0..<10).map { ("l\($0)", Float(10 - $0) / 10) } + [("weak", 0.1)]
-        let moments = ["m1": moment("m1", photos: 3, labels: labels), "m2": moment("m2", labels: [("soup", 0.5)])]
+        let moments = ["m1": moment("m1", photos: 3, labels: labels),
+                       "m2": moment("m2", labels: [("soup", 0.5)])]
         return RoundOneRequest.make(pile: pile, moments: moments, a: offered.a, b: offered.b,
                                     photos: [sampled(1, groupA: "A1", groupB: "B1"),
                                              sampled(2, groupA: "A0", groupB: "B2")],
