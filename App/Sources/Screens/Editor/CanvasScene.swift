@@ -1673,16 +1673,17 @@ extension CanvasScene {
     }
 
     private static func debugElement(_ item: CanvasItem) -> [String: Any] {
-        var kind = "sound", text = ""
+        var kind = "sound", text = "", color = ""
         switch item.content {
         case .text(let block):
             kind = "text"
             text = String(block.text.prefix(24))
+            color = block.colorName
         case .image: kind = "image"
         case .sticker: kind = "sticker"
         case .sound: break
         }
-        return ["id": item.id.uuidString, "kind": kind, "text": text,
+        return ["id": item.id.uuidString, "kind": kind, "text": text, "color": color,
                 "x": item.position.x, "y": item.position.y, "w": item.size.width, "h": item.size.height]
     }
 }
