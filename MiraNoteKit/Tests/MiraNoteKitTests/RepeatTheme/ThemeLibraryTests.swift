@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 @testable import MiraNoteKit
 
+// swiftlint:disable:next type_body_length
 final class ThemeLibraryTests: XCTestCase {
     private var directory: URL!
     private let facts = WhereFacts(daypart: "evening", daypartShare: 0.8, hourFrom: 18, hourTo: 20,
