@@ -42,6 +42,15 @@ extension XCUIApplication {
                       file: file, line: line)
     }
 
+    /// Types words into the Background tool's Apply and sends them.
+    func paintBackground(_ words: String, file: StaticString = #filePath, line: UInt = #line) {
+        let field = textFields["background.apply.input"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5), file: file, line: line)
+        field.tap()
+        field.typeText(words)
+        buttons["background.apply"].tap()
+    }
+
     /// The canvas's debug probe.
     var canvasProbe: XCUIElement {
         descendants(matching: .any).matching(identifier: "debug.state")

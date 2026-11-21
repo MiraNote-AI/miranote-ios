@@ -26,11 +26,18 @@ struct UITestScriptedStudio: ImageStudioService {
     private let mock = MockImageStudioService()
 
     /// Slower by `-GENERATE_DELAY <ms>`: a picture or backdrop being painted.
-    /// A prompt with "fail" throws, as an unreachable backend does.
+    /// A prompt with "fail" throws, as an unreachable backend does. Under
+    /// `-AI-LIMIT-REACHED` a backdrop gets the quota 429, as the text
+    /// transforms do (UITestLimitedText).
     func generate(kind: GeneratedImageKind, prompt: String) async throws -> [Data] {
         let delay = UserDefaults.standard.integer(forKey: "GENERATE_DELAY")
         if delay > 0 { try await Task.sleep(for: .milliseconds(delay)) }
         if prompt.lowercased().contains("fail") { throw URLError(.notConnectedToInternet) }
+        if kind == .background, await UITestLimitedText.limited {
+            let live = LiveImageStudioService(baseURL: UITestLimitedText.invalidURL,
+                                              client: UITestLimitedText.quotaClient)
+            return try await live.generate(kind: kind, prompt: prompt)
+        }
         return try await mock.generate(kind: kind, prompt: prompt)
     }
 

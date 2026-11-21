@@ -200,6 +200,28 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertEqual(aiSent, 0)
     }
 
+    /// #205 R5A: Apply's painting asks first; Not now paints nothing, and
+    /// the caption over the Background row says why.
+    func testNotNowOnAPaintingSaysWhyOverTheRow() {
+        launch(asking: true)
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
+        app.openBackground()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        app.buttons["aiConsent.notNow"].tap()
+        let notice = app.staticTexts["background.notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the row says why")
+        XCTAssertTrue(notice.label.contains("needs your OK"), notice.label)
+        XCTAssertEqual(app.buttons["background.apply"].label, "Apply")
+        XCTAssertEqual(words.value as? String, "a soft sunset glow", "the words are back")
+        XCTAssertEqual(aiSent, 0)
+    }
+
     func testWithdrawShowsTheSheetAgain() {
         launch(asking: false)
         openSettings()

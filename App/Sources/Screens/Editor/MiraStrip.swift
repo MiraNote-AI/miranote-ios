@@ -266,7 +266,7 @@ struct MiraBar: View {
     var body: some View {
         Group {
             if case .working(let verb) = coordinator.phase {
-                workingBar(verb)
+                MiraWorkingBar(verb: verb, stopID: "mira.stop", onStop: coordinator.stop)
             } else {
                 inputBar
             }
@@ -302,7 +302,24 @@ struct MiraBar: View {
         !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !coordinator.isWorking
     }
 
-    private func workingBar(_ verb: String) -> some View {
+    private func submit() {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        prompt = ""
+        coordinator.ask(trimmed, editor: editor)
+    }
+}
+
+/// Mira at work in the composer's place: the verb and Stop, which gives
+/// the words back and applies nothing. The canvas strip and the
+/// Background tool's painting (R5A) both show it.
+struct MiraWorkingBar: View {
+    let verb: String
+    let stopID: String
+    let onStop: () -> Void
+    var verbID = ""
+
+    var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
                 .font(.system(size: 13))
@@ -311,15 +328,16 @@ struct MiraBar: View {
             Text(verb)
                 .font(.miraLabel)
                 .foregroundStyle(Palette.onInk)
+                .accessibilityIdentifier(verbID)
             Spacer()
-            Button("Stop") { coordinator.stop() }
+            Button("Stop", action: onStop)
                 .font(.miraLabel.weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(Capsule().fill(Palette.onInk))
                 .buttonStyle(.plain)
-                .accessibilityIdentifier("mira.stop")
+                .accessibilityIdentifier(stopID)
         }
         .padding(.horizontal, 14)
         // The composer's 54 pt: a shorter working bar moved the tool bar
@@ -327,12 +345,5 @@ struct MiraBar: View {
         .frame(minHeight: 54)
         .background(Capsule().fill(Palette.ink))
         .padding(.horizontal, Metrics.chromeInset)
-    }
-
-    private func submit() {
-        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        prompt = ""
-        coordinator.ask(trimmed, editor: editor)
     }
 }

@@ -20,14 +20,25 @@ struct UITestLimitedText: TextTransformService {
 
     /// The live client answered by the quota 429, while the limit applies.
     private func limitedLive() async -> LiveTextTransformService? {
-        let limited = ProcessInfo.processInfo.arguments.contains("-AI-LIMIT-REACHED")
-        guard limited, !(await PlusStore.shared.isPlus) else { return nil }
+        guard await Self.limited else { return nil }
+        return LiveTextTransformService(baseURL: Self.invalidURL, client: Self.quotaClient)
+    }
+
+    /// `-AI-LIMIT-REACHED` and no Plus yet.
+    static var limited: Bool {
+        get async {
+            guard ProcessInfo.processInfo.arguments.contains("-AI-LIMIT-REACHED") else { return false }
+            return !(await PlusStore.shared.isPlus)
+        }
+    }
+
+    static let invalidURL = URL(string: "http://uitest.invalid")!
+
+    /// A client every request of which the server answers with the quota 429.
+    static var quotaClient: HTTPClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [QuotaAnswer.self]
-        return LiveTextTransformService(
-            baseURL: URL(string: "http://uitest.invalid")!,
-            client: HTTPClient(session: URLSession(configuration: configuration), betaToken: nil)
-        )
+        return HTTPClient(session: URLSession(configuration: configuration), betaToken: nil)
     }
 
     private final class QuotaAnswer: URLProtocol {

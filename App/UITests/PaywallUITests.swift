@@ -141,6 +141,36 @@ final class PaywallUITests: XCTestCase {
         XCTAssertEqual(ask.value as? String, "make it warmer", "the ask stays, to send again")
     }
 
+    /// #205 R5A: Mira painting a page meets a used-up allowance. The paywall
+    /// opens; once it closes the painting's glow and Stop are gone, the
+    /// composer is Apply again with the words back, and the caption over
+    /// the row says the limit (G25). The page is untouched.
+    func testALimitMidPaintingOpensThePaywallAndTheCaptionSaysIt() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
+        app.openBackground()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
+
+        XCTAssertTrue(paywall.waitForExistence(timeout: 8), "the used-up allowance opens the paywall")
+        app.buttons["paywall.close"].tap()
+        XCTAssertTrue(paywall.waitForNonExistence(timeout: 5))
+        let notice = app.staticTexts["background.notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 3), "the caption over the row")
+        XCTAssertTrue(notice.label.hasPrefix("You've reached the free limit for this."), notice.label)
+        XCTAssertLessThanOrEqual(notice.frame.maxY, app.buttons["background.back"].frame.minY, "above the row")
+        XCTAssertEqual(app.buttons["background.apply"].label, "Apply", "the composer is back to Apply")
+        XCTAssertEqual(words.value as? String, "a soft sunset glow", "the words are back")
+        XCTAssertFalse(app.staticTexts["background.status"].exists, "no longer painting")
+        let probe = app.canvasProbe
+        XCTAssertTrue(probe.label.contains("\"paintGlow\":\"\""), "the glow ended: \(probe.label)")
+        XCTAssertTrue(probe.label.contains("\"backdrop\":\"\""), "the page is untouched: \(probe.label)")
+        XCTAssertFalse(app.buttons["mira.keep"].exists, "no receipt")
+    }
+
     /// A build that names no accounts service (Config/App.xcconfig as
     /// shipped): the same answer opens no paywall, and Settings has no PLUS
     /// card.

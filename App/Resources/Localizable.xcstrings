@@ -4848,17 +4848,6 @@
         }
       }
     },
-    "Painting a background for this page..." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在为这一页绘制背景…"
-          }
-        }
-      }
-    },
     "Painting the backdrop..." : {
       "comment" : "Mira working line.",
       "extractionState" : "manual",

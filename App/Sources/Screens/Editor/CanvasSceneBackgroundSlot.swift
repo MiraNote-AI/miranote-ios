@@ -15,8 +15,8 @@ extension CanvasScene {
     /// the chosen item's row with its own Back in their place -- never two
     /// stacked. The slot keeps the tool bar's 40; a taller row stays
     /// centered on its line, rising over the card's foot, and the card
-    /// never resizes. The painting's status, or why it did not come, shows
-    /// one line above the row (G25).
+    /// never resizes. Why a painting did not come shows one line above the
+    /// row (G25). A tap on any item keeps a painting's waiting receipt (F4A).
     var backgroundSlot: some View {
         ZStack {
             HStack(spacing: 8) {
@@ -26,14 +26,19 @@ extension CanvasScene {
                         row: row,
                         editor: editor,
                         painting: applyingBackground,
+                        onKeep: keepPaintReceipt,
                         onCustomColor: openPageColorSheet
                     )
                 } else {
                     TextBackKey(identifier: "background.back", size: 40, onBack: closeBackground)
                     BackgroundTools(
+                        painting: applyingBackground,
                         // Mira is busy painting: the tidy would be dropped.
                         tidyEnabled: editor.items.count >= 2 && !applyingBackground,
-                        onSelect: showBackgroundRow,
+                        onSelect: { row in
+                            keepPaintReceipt()
+                            showBackgroundRow(row)
+                        },
                         onTidy: tidyFromBackground
                     )
                 }
@@ -58,11 +63,7 @@ extension CanvasScene {
     /// One line above the row, taking no room (G25).
     @ViewBuilder private var backgroundCaption: some View {
         Group {
-            if applyingBackground {
-                Text("Painting a background for this page...")
-                    .foregroundStyle(Palette.forest)
-                    .accessibilityIdentifier("background.status")
-            } else if let backgroundNotice {
+            if let backgroundNotice {
                 Text(backgroundNotice)
                     .foregroundStyle(Color(hex: 0x8C4A3A))
                     .accessibilityIdentifier("background.notice")
@@ -77,9 +78,15 @@ extension CanvasScene {
         .allowsHitTesting(false)
     }
 
+    /// The painting's receipt waits on the card's foot while the row stays:
+    /// a tap on any of the row's items is Keep (F4A, Q1A).
+    func keepPaintReceipt() {
+        if receipt != nil { mira.dismiss() }
+    }
+
     /// An item's row in the slot, or the four items for nil.
     func showBackgroundRow(_ row: BackgroundRow?) {
-        // A tall row would crowd a card shrunk by Apply's keyboard.
+        // A row is picked by hand: the keyboard has nothing to type there.
         applyFocus = false
         slotDeeper = row != nil
         withAnimation(.easeOut(duration: 0.22)) { backgroundRow = row }
@@ -113,15 +120,21 @@ extension CanvasScene {
 // MARK: - Second level
 
 /// Sets, Color, Paper and Tidy: icon-only capsules like the tool bar's (P1A).
+/// While Mira paints, Sets and Color rest and Paper stays usable (R5A).
 private struct BackgroundTools: View {
+    let painting: Bool
     let tidyEnabled: Bool
     let onSelect: (BackgroundRow) -> Void
     let onTidy: () -> Void
 
     var body: some View {
         HStack(spacing: 4) {
-            item(String(appCopy: "Sets"), id: "sets", icon: Image(systemName: "swatchpalette")) { onSelect(.sets) }
-            item(String(appCopy: "Color"), id: "color", icon: Image(systemName: "drop")) { onSelect(.color) }
+            Group {
+                item(String(appCopy: "Sets"), id: "sets", icon: Image(systemName: "swatchpalette")) { onSelect(.sets) }
+                item(String(appCopy: "Color"), id: "color", icon: Image(systemName: "drop")) { onSelect(.color) }
+            }
+            .disabled(painting)
+            .opacity(painting ? 0.4 : 1)
             item(String(appCopy: "Page type"), id: "paper", icon: Image(systemName: "doc.plaintext")) {
                 onSelect(.paper)
             }
@@ -158,6 +171,8 @@ private struct BackgroundRowView: View {
     /// While Apply paints the color controls rest: a color set now would
     /// wipe the paid painting when it lands.
     let painting: Bool
+    /// Keep for a waiting paint receipt, before any item acts.
+    let onKeep: () -> Void
     let onCustomColor: (PageColorRequest) -> Void
 
     /// The handoff's page colors (screen 05), stored as "#RRGGBB".
@@ -169,7 +184,7 @@ private struct BackgroundRowView: View {
     var body: some View {
         switch row {
         case .sets: setsRow
-        case .color: PageColorRow(editor: editor, painting: painting, onCustomColor: onCustomColor)
+        case .color: PageColorRow(editor: editor, painting: painting, onKeep: onKeep, onCustomColor: onCustomColor)
         case .paper: paperRow
         }
     }
@@ -185,6 +200,7 @@ private struct BackgroundRowView: View {
             ids: sets.map(\.id), selected: worn, cellWidth: 44, spacing: 8,
             identifier: { "background.set.\($0)" },
             onApply: { id in
+                onKeep()
                 if let set = sets.first(where: { $0.id == id }) { editor.applyCuratedSet(set) }
             },
             cell: { id in
@@ -211,6 +227,7 @@ private struct BackgroundRowView: View {
             ForEach(PaperKind.allCases, id: \.self) { kind in
                 let selected = editor.memory.paper == kind
                 Button {
+                    onKeep()
                     editor.setPaper(kind)
                 } label: {
                     PageTypeTile(kind: kind, selected: selected)
@@ -235,15 +252,18 @@ private struct BackgroundRowView: View {
 private struct PageColorRow: View {
     @Bindable var editor: CanvasViewModel
     let painting: Bool
+    let onKeep: () -> Void
     let onCustomColor: (PageColorRequest) -> Void
 
     /// The latest painting the page wore since the row opened: a color that
     /// replaces it leaves its cell in the row, to bring it back (final 45).
     @State private var latest: (fileName: String, describes: String)?
 
-    init(editor: CanvasViewModel, painting: Bool, onCustomColor: @escaping (PageColorRequest) -> Void) {
+    init(editor: CanvasViewModel, painting: Bool, onKeep: @escaping () -> Void,
+         onCustomColor: @escaping (PageColorRequest) -> Void) {
         self.editor = editor
         self.painting = painting
+        self.onKeep = onKeep
         self.onCustomColor = onCustomColor
         let memory = editor.memory
         _latest = State(initialValue: memory.backgroundFileName.isEmpty
@@ -261,7 +281,10 @@ private struct PageColorRow: View {
             identifier: { "background.color.\($0)" },
             onApply: apply,
             isAction: { $0 == Self.pick || $0 == Self.custom },
-            onAction: { onCustomColor($0 == Self.pick ? .pick : .custom) },
+            onAction: {
+                onKeep()
+                onCustomColor($0 == Self.pick ? .pick : .custom)
+            },
             cell: cell
         )
         .frame(height: 48)
@@ -295,6 +318,7 @@ private struct PageColorRow: View {
     }
 
     private func apply(_ id: String) {
+        onKeep()
         withAnimation(.easeInOut(duration: 0.3)) {
             switch id {
             case Self.defaultID:
@@ -337,4 +361,27 @@ private struct PageColorRow: View {
 enum PageColorRequest: String, Identifiable {
     case custom, pick
     var id: String { rawValue }
+}
+
+/// Mira painting the page (R5A): a soft light breathes over the card, no
+/// progress bar. Under Reduce Motion it is a still tint.
+struct PaintingGlow: View {
+    let reduceMotion: Bool
+    @State private var bright = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Metrics.canvasCorner)
+            .fill(LinearGradient(
+                colors: [Color.white.opacity(0.7), Color(hex: 0xFFF3DC).opacity(0.25), Color.white.opacity(0.6)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            ))
+            .opacity(reduceMotion ? 0.5 : (bright ? 0.75 : 0.2))
+            .padding(.horizontal, Metrics.canvasInset)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .onChange(of: reduceMotion, initial: true) { _, still in
+                guard !still else { return }
+                withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { bright = true }
+            }
+    }
 }
