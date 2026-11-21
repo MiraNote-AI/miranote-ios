@@ -78,20 +78,23 @@ public enum MomentBuilder {
     }
 
     /// `1 - cosine similarity`, normalising both vectors. A zero vector, or
-    /// vectors of different lengths, are at distance 1.
+    /// vectors of different lengths, are at distance 1. Summed in Double, as
+    /// the tree and the desktop reference do.
     public static func cosineDistance(_ left: [Float], _ right: [Float]) -> Float {
         guard left.count == right.count, !left.isEmpty else { return 1 }
-        var dot: Float = 0
-        var leftLength: Float = 0
-        var rightLength: Float = 0
+        var dot = 0.0
+        var leftLength = 0.0
+        var rightLength = 0.0
         for index in left.indices {
-            dot += left[index] * right[index]
-            leftLength += left[index] * left[index]
-            rightLength += right[index] * right[index]
+            let leftValue = Double(left[index])
+            let rightValue = Double(right[index])
+            dot += leftValue * rightValue
+            leftLength += leftValue * leftValue
+            rightLength += rightValue * rightValue
         }
         let denominator = leftLength.squareRoot() * rightLength.squareRoot()
         guard denominator > 0 else { return 1 }
-        return 1 - dot / denominator
+        return Float(1 - dot / denominator)
     }
 
     private static func moment(_ group: [ThemePhoto], day: String) -> Moment {
