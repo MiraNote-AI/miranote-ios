@@ -628,6 +628,10 @@ struct CanvasScene: View {
                     colorRequest = nil
                 }
                 splitWrittenParagraphs(ended)
+                // A block opened straight from this one ("Edit text") is a
+                // new session: the chat box's words and a Go still running
+                // were this block's, and the next starts on its own rows.
+                if editing != nil { resetTextTools() }
             }
             // Words on their way belong to the session that asked for them:
             // never landed after it ends or moves on -- the page says so.
@@ -1066,9 +1070,16 @@ struct CanvasScene: View {
         // Only a stop or a failure gives the words back.
         applyWords = mira.refillPrompt ?? applyWords
         mira.refillPrompt = nil
-        if case .failure(let failure) = mira.phase {
+        switch mira.phase {
+        case .failure(let failure):
             backgroundNotice = failure.message
             mira.dismiss()
+        case .idle, .receipt:
+            // Stopped, or landed: the receipt floats over the row (F4A).
+            break
+        default:
+            // Anything else waits in the Mira strip, which the tool covers.
+            closeBackground()
         }
     }
 
