@@ -66,7 +66,7 @@ final class SubThemeRuleTests: XCTestCase {
             moment("late", hour: 20, location: home),
             moment("nowhere")
         ]
-        let rule = SubRule.occasion([OccasionKey(place: home, daypart: "evening", weekpart: "weekday")])
+        let rule = SubRule.occasion(keys: [OccasionKey(place: home, daypart: "evening", weekpart: "weekday")])
         XCTAssertEqual(members(rule, moments), ["home", "near"])
     }
 
@@ -78,7 +78,7 @@ final class SubThemeRuleTests: XCTestCase {
             moment("sunday-lunch", dayOffset: 6, hour: 12),
             moment("evening-home", dayOffset: 1, hour: 18, location: home)
         ]
-        let rule = SubRule.occasion([
+        let rule = SubRule.occasion(keys: [
             OccasionKey(place: nil, daypart: "noon", weekpart: "weekday"),
             OccasionKey(place: home, daypart: "evening", weekpart: "weekday")
         ])
@@ -118,9 +118,27 @@ final class SubThemeRuleTests: XCTestCase {
     func testThemeRowRoundTrips() throws {
         let row = ThemeRow(id: "x", kind: .small, parentId: "p", name: "n", noun: "n", samePart: "s",
                            split: nil, status: .frozen, center: nil,
-                           rule: .occasion([OccasionKey(place: home, daypart: "night", weekpart: "weekend")]),
+                           rule: .occasion(keys: [OccasionKey(place: home, daypart: "night", weekpart: "weekend")]),
                            members: ["a"], lastAskedCount: 1, flagged: true, followRatio: 0.3, where: nil)
         let data = try JSONEncoder().encode(row)
         XCTAssertEqual(try JSONDecoder().decode(ThemeRow.self, from: data), row)
+    }
+
+    func testSubRuleJSONShapeIsPinned() throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let content = SubRule.content(evidence: ["soup", "dumpling"])
+        let occasion = SubRule.occasion(keys: [
+            OccasionKey(place: GeoPoint(lat: 1.5, lon: 2.5), daypart: "evening", weekpart: "weekday"),
+            OccasionKey(place: nil, daypart: "noon", weekpart: "weekend")
+        ])
+        XCTAssertEqual(String(bytes: try encoder.encode(content), encoding: .utf8),
+                       #"{"content":{"evidence":["soup","dumpling"]}}"#)
+        XCTAssertEqual(String(bytes: try encoder.encode(occasion), encoding: .utf8),
+                       #"{"occasion":{"keys":[{"daypart":"evening","place":{"lat":1.5,"lon":2.5},"#
+                           + #""weekpart":"weekday"},{"daypart":"noon","weekpart":"weekend"}]}}"#)
+        for rule in [content, occasion] {
+            XCTAssertEqual(try JSONDecoder().decode(SubRule.self, from: try encoder.encode(rule)), rule)
+        }
     }
 }

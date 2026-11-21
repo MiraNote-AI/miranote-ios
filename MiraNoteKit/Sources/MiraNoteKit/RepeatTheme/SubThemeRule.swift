@@ -22,7 +22,7 @@ public enum SubRule: Codable, Equatable, Sendable {
     /// Any of these Vision labels present.
     case content(evidence: [String])
     /// Any of these occasions.
-    case occasion([OccasionKey])
+    case occasion(keys: [OccasionKey])
 }
 
 /// Small themes are not claimed: every run their rule is applied again to
