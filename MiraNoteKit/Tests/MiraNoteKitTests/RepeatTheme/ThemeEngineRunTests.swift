@@ -202,6 +202,36 @@ final class ThemeEngineRunTests: XCTestCase {
         XCTAssertEqual(harness.client.roundOneRequests.count, 1)
     }
 
+    /// Under "Select Photos" a photo missing from the fetch may only be
+    /// hidden from the app: nothing is pruned, so a blocked theme stays
+    /// blocked with its photos and none of them is read or sent again.
+    func testLimitedAccessPrunesNothing() async throws {
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        harness.addTheme("y", base: 1, days: Array(1...6))
+        let engine = harness.engine()
+        _ = await run(engine)
+        let blocked = try XCTUnwrap(harness.bigRow(with: "x-1")?.id)
+        await engine.block(blocked)
+        let all = harness.library.assetsList
+        let checked = harness.analyzer.checked.count
+
+        harness.library.access = .limited
+        harness.library.assetsList = all.filter { $0.id.hasPrefix("y-") }
+        _ = await run(engine)
+        XCTAssertEqual(harness.photos.loadAll().count, 12, "no theme record dropped")
+        let row = try XCTUnwrap(harness.themes.load().first { $0.id == blocked })
+        XCTAssertEqual(row.status, .blocked)
+        XCTAssertEqual(row.members.count, 6)
+
+        // Full access is back: the photos were there all along.
+        harness.library.access = .full
+        harness.library.assetsList = all
+        _ = await run(engine)
+        XCTAssertEqual(harness.analyzer.checked.count, checked, "nothing read again")
+        XCTAssertEqual(harness.themes.load().first { $0.id == blocked }?.status, .blocked)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 2, "the blocked pile is not sent again")
+    }
+
     func testOverlappingThemeRunsCoalesce() async throws {
         harness.addTheme("x", base: 0, days: Array(1...6))
         let gate = CheckupGate()

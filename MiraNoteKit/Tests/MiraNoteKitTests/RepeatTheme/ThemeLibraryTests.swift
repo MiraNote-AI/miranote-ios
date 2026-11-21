@@ -224,6 +224,21 @@ final class ThemeLibraryTests: XCTestCase {
         XCTAssertNotNil(result.first { $0.kind == .big })
     }
 
+    /// A sensitive or blocked row is the phone's memory of "never again":
+    /// it is never removed, and keeps its photo ids, whatever the fetch.
+    func testSensitiveAndBlockedRowsKeepTheirMembers() throws {
+        var rows = apply(answerA())
+        let big = try XCTUnwrap(rows.firstIndex { $0.kind == .big })
+        rows[big].status = .sensitive
+        let desk = try XCTUnwrap(rows.firstIndex { $0.name == "Desk" })
+        rows[desk].status = .blocked
+        let deleted = Set(rows[big].members)
+        let result = ThemeLibrary.removing(deleted, from: rows)
+        XCTAssertEqual(result.first { $0.kind == .big }?.members, rows[big].members)
+        XCTAssertEqual(small(result, "Desk")?.members, rows[desk].members)
+        XCTAssertNil(small(result, "Dinner"), "an active small row still goes with its photos")
+    }
+
     func testEmptyRowNotRemovedWhenNothingWasDeletedFromIt() throws {
         var rows = apply(answerA())
         let index = try XCTUnwrap(rows.firstIndex { $0.name == "Desk" })

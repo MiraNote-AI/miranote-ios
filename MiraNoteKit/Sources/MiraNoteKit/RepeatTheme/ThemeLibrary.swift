@@ -146,11 +146,16 @@ public struct ThemeLibrary: Sendable {
     /// Drops `deleted` photo ids from every row. A row is removed only when
     /// it had members and all of them were deleted (D8); a small row that is
     /// empty because tonight's rule matched nothing stays. A small row whose
-    /// big row is removed goes with it.
+    /// big row is removed goes with it. A sensitive or blocked row is never
+    /// touched (D5, F7): it is what keeps its pile from being sent again.
     static func removing(_ deleted: Set<String>, from rows: [ThemeRow]) -> [ThemeRow] {
         var removed = Set<String>()
         var kept: [ThemeRow] = []
         for var row in rows {
+            if row.status == .sensitive || row.status == .blocked {
+                kept.append(row)
+                continue
+            }
             let remaining = row.members.filter { !deleted.contains($0) }
             if !row.members.isEmpty, remaining.isEmpty {
                 removed.insert(row.id)
