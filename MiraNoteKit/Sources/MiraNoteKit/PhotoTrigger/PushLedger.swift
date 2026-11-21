@@ -48,6 +48,16 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
     public var removedReason: RemovalReason?
     public var removedAt: Date?
     public var notOpened: Bool
+    /// `"life_fragment"` (V1) or `"repeat"`; rows written before push modes
+    /// decode as `"life_fragment"`.
+    public var mode: String
+    /// Repeat pushes only: the theme's id and name (never its members).
+    public var themeId: String?
+    public var themeName: String?
+    /// Repeat pushes only: what each judge call cost.
+    public var roundUsages: [RoundUsage]?
+    /// Repeat pushes only: why round 2 tries failed.
+    public var roundTwoTries: [String]?
 
     public init(pushId: String, isDebug: Bool = false, belongsTo: String, groupKey: String, photoIds: [String],
                 bucket: PushBucket, place: String?, score: FragmentScore, body: String, question: String,
@@ -66,6 +76,39 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
         self.questionType = questionType
         self.scheduledFor = scheduledFor
         self.notOpened = false
+        self.mode = "life_fragment"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+        pushId = try box.decode(String.self, forKey: .pushId)
+        identifier = try box.decode(String.self, forKey: .identifier)
+        isDebug = try box.decode(Bool.self, forKey: .isDebug)
+        belongsTo = try box.decode(String.self, forKey: .belongsTo)
+        groupKey = try box.decode(String.self, forKey: .groupKey)
+        photoIds = try box.decode([String].self, forKey: .photoIds)
+        bucket = try box.decode(PushBucket.self, forKey: .bucket)
+        place = try box.decodeIfPresent(String.self, forKey: .place)
+        score = try box.decode(FragmentScore.self, forKey: .score)
+        body = try box.decode(String.self, forKey: .body)
+        question = try box.decodeIfPresent(String.self, forKey: .question)
+        questionType = try box.decodeIfPresent(String.self, forKey: .questionType)
+        scheduledFor = try box.decode(Date.self, forKey: .scheduledFor)
+        deliveredAt = try box.decodeIfPresent(Date.self, forKey: .deliveredAt)
+        notDeliveredReason = try box.decodeIfPresent(String.self, forKey: .notDeliveredReason)
+        openedAt = try box.decodeIfPresent(Date.self, forKey: .openedAt)
+        storyFinishedAt = try box.decodeIfPresent(Date.self, forKey: .storyFinishedAt)
+        madePageAt = try box.decodeIfPresent(Date.self, forKey: .madePageAt)
+        menuAction = try box.decodeIfPresent(MenuAction.self, forKey: .menuAction)
+        menuActionAt = try box.decodeIfPresent(Date.self, forKey: .menuActionAt)
+        removedReason = try box.decodeIfPresent(RemovalReason.self, forKey: .removedReason)
+        removedAt = try box.decodeIfPresent(Date.self, forKey: .removedAt)
+        notOpened = try box.decode(Bool.self, forKey: .notOpened)
+        mode = try box.decodeIfPresent(String.self, forKey: .mode) ?? "life_fragment"
+        themeId = try box.decodeIfPresent(String.self, forKey: .themeId)
+        themeName = try box.decodeIfPresent(String.self, forKey: .themeName)
+        roundUsages = try box.decodeIfPresent([RoundUsage].self, forKey: .roundUsages)
+        roundTwoTries = try box.decodeIfPresent([String].self, forKey: .roundTwoTries)
     }
 
     /// Scheduled and still waiting: not removed, not delivered, not dropped

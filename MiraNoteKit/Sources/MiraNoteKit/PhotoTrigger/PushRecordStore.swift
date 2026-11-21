@@ -20,10 +20,20 @@ public struct PushRecord: Codable, Equatable, Sendable {
     public let belongsTo: String?
     /// Pushed from a debug press; nil in older records.
     public let isDebug: Bool?
+    /// `"life_fragment"` or `"repeat"`; nil in records saved before push modes.
+    public let mode: String?
+    /// Repeat pushes only: the theme's id and name.
+    public let themeId: String?
+    public let themeName: String?
+    /// Repeat pushes only: what each judge call cost.
+    public let roundUsages: [RoundUsage]?
+    /// Repeat pushes only: why round 2 tries failed.
+    public let roundTwoTries: [String]?
 
     public init(pushId: String, memory: TriggerMemory, photoIds: [String: String], createdAt: Date, rank: Int,
                 score: Double, bucket: String, bucketId: PushBucket? = nil, belongsTo: String? = nil,
-                isDebug: Bool? = nil) {
+                isDebug: Bool? = nil, mode: String? = nil, themeId: String? = nil, themeName: String? = nil,
+                roundUsages: [RoundUsage]? = nil, roundTwoTries: [String]? = nil) {
         self.pushId = pushId
         self.memory = memory
         self.photoIds = photoIds
@@ -34,6 +44,11 @@ public struct PushRecord: Codable, Equatable, Sendable {
         self.bucketId = bucketId
         self.belongsTo = belongsTo
         self.isDebug = isDebug
+        self.mode = mode
+        self.themeId = themeId
+        self.themeName = themeName
+        self.roundUsages = roundUsages
+        self.roundTwoTries = roundTwoTries
     }
 }
 

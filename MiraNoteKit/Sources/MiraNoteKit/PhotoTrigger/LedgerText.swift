@@ -22,9 +22,29 @@ public enum LedgerText {
         if let removed = entry.removedReason { actions.append("removed: \(removed.rawValue)") }
         if entry.isDebug { actions.append("debug") }
         let score = String(format: "%.2f", entry.score.total)
+        if entry.mode == "repeat" { return repeatLine(entry, actions: actions, score: score) }
         return [entry.belongsTo, stamp(entry.scheduledFor), entry.bucket.rawValue, entry.place ?? "-", score,
                 "question \(entry.questionType ?? "-")",
                 actions.isEmpty ? "scheduled" : actions.joined(separator: ", ")].joined(separator: " | ")
+    }
+
+    /// A repeat push: its theme (id cut to 8 characters), the usage totals
+    /// and round 2's failed tries. No photo ids, group key or members.
+    private static func repeatLine(_ entry: LedgerEntry, actions: [String], score: String) -> String {
+        let themeId = entry.themeId.map { String($0.prefix(8)) } ?? "-"
+        let theme = "repeat | \(entry.themeName ?? "-") | \(themeId)"
+        var parts = [entry.belongsTo, stamp(entry.scheduledFor), theme, score]
+        if let usages = entry.roundUsages, !usages.isEmpty {
+            let cost = usages.reduce(0) { $0 + $1.costCny }
+            let prompt = usages.reduce(0) { $0 + $1.promptTokens }
+            let completion = usages.reduce(0) { $0 + $1.completionTokens }
+            parts.append("cost \(String(format: "%.4f", cost)) | tokens \(prompt)/\(completion)")
+        }
+        if let tries = entry.roundTwoTries, !tries.isEmpty {
+            parts.append("round 2 tries: " + tries.map(safe).joined(separator: ", "))
+        }
+        parts.append(actions.isEmpty ? "scheduled" : actions.joined(separator: ", "))
+        return parts.joined(separator: " | ")
     }
 
     private static func runLine(_ run: ScheduleRun) -> String {
