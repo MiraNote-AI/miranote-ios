@@ -59,19 +59,20 @@ final class RoundOneTests: XCTestCase {
     }
 
     func testValidAnswerPasses() throws {
-        let json = #"{"chosen":"B","groups":[{"from":["B1"],"name":"x"},{"from":["B2"],"name":"y"}]}"#
+        let json = #"{"pile_name":"p","chosen":"B","groups":[{"from":["B1"],"name":"x"},{"from":["B2"],"name":"y"}]}"#
         XCTAssertEqual(try validate(json).get().groups.count, 2)
     }
 
     func testEvidenceIgnoredWhenChosenB() throws {
-        let json = #"{"chosen":"B","groups":[{"from":["B1"],"name":"x","evidence":["soup"]}]}"#
+        let json = #"{"pile_name":"p","chosen":"B","groups":[{"from":["B1"],"name":"x","evidence":["soup"]}]}"#
         XCTAssertEqual(try validate(json).get().groups[0].evidence, [])
-        let keep = #"{"chosen":"A","groups":[{"from":["A1"],"name":"x","evidence":["soup"]}]}"#
+        let keep = #"{"pile_name":"p","chosen":"A","groups":[{"from":["A1"],"name":"x","evidence":["soup"]}]}"#
         XCTAssertEqual(try validate(keep).get().groups[0].evidence, ["soup"])
     }
 
     func testUnknownDropGroupsIgnored() throws {
-        let json = #"{"chosen":"A","groups":[{"from":["A1"],"name":"x"}],"drop_groups":["A0","B2","A2","A7"]}"#
+        let json = #"{"pile_name":"p","chosen":"A","groups":[{"from":["A1"],"name":"x"}],"#
+            + #""drop_groups":["A0","B2","A2","A7"]}"#
         XCTAssertEqual(try validate(json).get().dropGroups, ["A2"])
     }
 
@@ -81,10 +82,20 @@ final class RoundOneTests: XCTestCase {
     }
 
     func testChosenNoneIgnoresGroups() throws {
-        let json = #"{"chosen":"none","groups":[{"from":["7"],"name":"x"}],"drop_groups":["A1"]}"#
+        let json = #"{"pile_name":"p","chosen":"none","groups":[{"from":["7"],"name":"x"}],"drop_groups":["A1"]}"#
         let result = try validate(json).get()
         XCTAssertEqual(result.groups, [])
         XCTAssertEqual(result.dropGroups, [])
+    }
+
+    /// Every answer that is not sensitive names its pile: one without a
+    /// name would make an unnamed theme.
+    func testBlankPileNameFails() {
+        XCTAssertEqual(problem(#"{"chosen":"none","groups":[]}"#), .blankPileName)
+        XCTAssertEqual(problem(#"{"pile_name":" ","chosen":"none","groups":[]}"#), .blankPileName)
+        XCTAssertEqual(problem(#"{"pile_name":"","chosen":"A","groups":[{"from":["A1"],"name":"x"}]}"#),
+                       .blankPileName)
+        XCTAssertNil(problem(#"{"sensitive":true,"chosen":"none","groups":[]}"#), "sensitive needs no name")
     }
 
     func testUnknownChosenFails() {

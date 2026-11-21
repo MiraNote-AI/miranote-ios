@@ -223,6 +223,8 @@ public enum RoundOneProblem: String, Codable, Error, Sendable {
     case imageNumberInFrom
     case groupUsedTwice
     case tooLong
+    /// Not sensitive, yet no `pile_name`.
+    case blankPileName
 }
 
 /// One name to shorten (the backend shorten body's `items`).
@@ -249,15 +251,24 @@ enum RoundOneValidator {
     static let maxNameCharacters = 10
     static let maxSamePartCharacters = 20
 
-    // swiftlint:disable cyclomatic_complexity
     /// The answer ready to use, or why it is not.
-    /// - A sensitive answer is returned as is (no groups are expected).
+    /// - A sensitive answer is returned as is (no groups or name are expected).
     /// - `chosen == "none"`: no groups are expected, so any groups (and drops) are ignored.
     /// - A group with no `from` or a blank name is `.unknownGroup`.
     /// - With `chosen == "B"` the evidence is emptied; unknown `dropGroups` are removed.
+    /// - Groups that pass, but no `pile_name`, is `.blankPileName`.
     static func validate(_ answer: RoundOneAnswer,
                          offered: (a: [SplitGroup], b: [SplitGroup])) -> Result<RoundOneAnswer, RoundOneProblem> {
         if answer.sensitive { return .success(answer) }
+        return checkedGroups(answer, offered: offered).flatMap { valid in
+            let name = valid.pileName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return name.isEmpty ? .failure(.blankPileName) : .success(valid)
+        }
+    }
+
+    // swiftlint:disable cyclomatic_complexity
+    private static func checkedGroups(_ answer: RoundOneAnswer, offered: (a: [SplitGroup], b: [SplitGroup]))
+        -> Result<RoundOneAnswer, RoundOneProblem> {
         var result = answer
         let own: Set<String>
         let other: Set<String>
