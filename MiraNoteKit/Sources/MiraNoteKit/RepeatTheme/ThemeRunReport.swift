@@ -164,14 +164,19 @@ public struct ThemeSnapshot: Equatable, Sendable {
     /// Big theme id -> the index in `piles` of the pile it follows.
     public var follows: [String: Int]
     public var themes: [ThemeRow]
+    /// Oldest first.
     public var rounds: [RoundLogEntry]
+    /// Theme id -> how many different local days its members (with a theme
+    /// record) were taken on.
+    public var days: [String: Int]
 
     public init(runs: [ThemeRunReport], piles: [Pile], follows: [String: Int], themes: [ThemeRow],
-                rounds: [RoundLogEntry]) {
+                rounds: [RoundLogEntry], days: [String: Int] = [:]) {
         self.runs = runs
         self.piles = piles
         self.follows = follows
         self.themes = themes
         self.rounds = rounds
+        self.days = days
     }
 }

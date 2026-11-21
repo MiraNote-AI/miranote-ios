@@ -100,7 +100,29 @@ extension TriggerController {
             optedIn: AppSettings.storeDefaults.bool(forKey: optedInKey)
         )
         if arguments.contains("-TRIGGER-TRY-THEME") { Task { await controller.tryFirstTheme(engine) } }
+        if arguments.contains("-TRIGGER-FIND-THEMES") {
+            let library = ThemeLibrary(file: folder.appendingPathComponent("themes/library.json"))
+            Task { await findThemes(engine, flag: arguments.contains("-TRIGGER-FLAG-THEME") ? library : nil) }
+        }
         return controller
+    }
+
+    /// `-TRIGGER-FIND-THEMES` (UI tests of the Themes page): the themes are
+    /// found, then claimed on a second run as the next night's would be, so
+    /// each follows its pile. Nothing is pushed. With `-TRIGGER-FLAG-THEME`
+    /// the first big theme then reads as followed at 40% (`flag`, its
+    /// library), as one half gone from its pile would: the synthetic piles
+    /// hold all of a theme's photos, and two piles cannot give a share under
+    /// a half.
+    private static func findThemes(_ engine: ThemeEngine, flag: ThemeLibrary?) async {
+        _ = await engine.run(trigger: .foreground, deadline: nil)
+        _ = await engine.run(trigger: .foreground, deadline: nil)
+        guard let flag else { return }
+        var rows = flag.load()
+        guard let index = rows.firstIndex(where: { $0.kind == .big }) else { return }
+        rows[index].followRatio = 0.4
+        rows[index].flagged = true
+        try? flag.save(rows)
     }
 
     /// `-TRIGGER-TRY-THEME` (UI tests of repeat pushes): the themes are found

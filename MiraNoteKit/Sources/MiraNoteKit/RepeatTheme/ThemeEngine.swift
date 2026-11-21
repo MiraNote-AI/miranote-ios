@@ -112,9 +112,12 @@ public actor ThemeEngine {
         return report
     }
 
+    /// Reads every theme record (for the days): for the debug page, not a loop.
     public func snapshot() -> ThemeSnapshot {
-        ThemeSnapshot(runs: deps.runs.load(), piles: lastPiles, follows: lastFollows, themes: deps.themes.load(),
-                      rounds: deps.rounds.load())
+        let rows = deps.themes.load()
+        return ThemeSnapshot(runs: deps.runs.load(), piles: lastPiles, follows: lastFollows, themes: rows,
+                             rounds: deps.rounds.load(),
+                             days: ThemeSnapshot.days(of: rows, photos: deps.photos.loadAll(), calendar: deps.calendar))
     }
 
     /// Blocks a big or small theme (debug page, "Not this theme"): a blocked

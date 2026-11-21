@@ -1181,6 +1181,18 @@
         }
       }
     },
+    "Big theme" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大主题"
+          }
+        }
+      }
+    },
     "Blank" : {
       "comment" : "Paper type.",
       "extractionState" : "manual",
@@ -1193,6 +1205,18 @@
         }
       }
     },
+    "Block this theme" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽这个主题"
+          }
+        }
+      }
+    },
     "Blocked days and fewer buckets" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -1201,6 +1225,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不想看的日子与少推的类别"
+          }
+        }
+      }
+    },
+    "Blocked themes" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽的主题"
           }
         }
       }
@@ -1387,6 +1423,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已更改照片效果。"
+          }
+        }
+      }
+    },
+    "Checkup %lld ms, cluster %lld ms" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体检 %lld 毫秒，分堆 %lld 毫秒"
           }
         }
       }
@@ -1589,6 +1637,18 @@
         }
       }
     },
+    "Clear the block" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消屏蔽"
+          }
+        }
+      }
+    },
     "Cleared the backdrop." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1664,6 +1724,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "继续"
+          }
+        }
+      }
+    },
+    "Cooldown: -" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Phase 1 has no cooldown yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冷却：-"
           }
         }
       }
@@ -2550,6 +2622,42 @@
         }
       }
     },
+    "Followed by %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The names of the themes that follow the pile.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟它的主题：%@"
+          }
+        }
+      }
+    },
+    "Follows no pile, %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The theme follows no pile tonight; its best share (a percentage).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没跟任何堆，%@"
+          }
+        }
+      }
+    },
+    "Follows pile %lld, %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The pile the theme follows tonight and the share of its old photos in it (a percentage).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟第 %lld 堆，%@"
+          }
+        }
+      }
+    },
     "Font" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3195,6 +3303,18 @@
         }
       }
     },
+    "Last runs" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近几次"
+          }
+        }
+      }
+    },
     "Layout" : {
       "comment" : "Button: arrange the page with a template.",
       "extractionState" : "manual",
@@ -3641,6 +3761,18 @@
         }
       }
     },
+    "Memory %@, asked %lld" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Peak memory (like 210 MB) and round-1 calls sent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内存 %@，问千问 %lld 次"
+          }
+        }
+      }
+    },
     "Memory date" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3988,6 +4120,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MiraNote 的登录服务暂时没有响应，请稍后再试。"
+          }
+        }
+      }
+    },
+    "Moments %lld, piles %lld" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时刻 %lld，大堆 %lld"
           }
         }
       }
@@ -4421,6 +4565,18 @@
         }
       }
     },
+    "No piles in this launch yet" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次打开还没分出大堆"
+          }
+        }
+      }
+    },
     "No place" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -4441,6 +4597,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有报告。再打开一次应用，或按“重新排”。"
+          }
+        }
+      }
+    },
+    "No round answer is logged for this theme" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个主题还没有千问回答记录"
           }
         }
       }
@@ -4492,6 +4660,42 @@
         }
       }
     },
+    "No theme is blocked" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有屏蔽的主题"
+          }
+        }
+      }
+    },
+    "No theme run yet" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没跑过主题"
+          }
+        }
+      }
+    },
+    "No theme yet" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有主题"
+          }
+        }
+      }
+    },
     "None" : {
       "comment" : "Photo frame.",
       "extractionState" : "manual",
@@ -4512,6 +4716,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "中午"
+          }
+        }
+      }
+    },
+    "Not claimed yet" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). No run has claimed piles for this theme yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没认领过"
           }
         }
       }
@@ -4600,6 +4816,18 @@
         }
       }
     },
+    "Not used: %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Why the answer was not used (a code, English).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没采用：%@"
+          }
+        }
+      }
+    },
     "Nothing is blocked" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -4643,6 +4871,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知没开"
+          }
+        }
+      }
+    },
+    "Noun: %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The theme's short noun (Chinese, from Qwen).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短名词：%@"
           }
         }
       }
@@ -5026,6 +5266,18 @@
         }
       }
     },
+    "Phone: %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The phone's line about where and when the group's photos are concentrated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手机：%@"
+          }
+        }
+      }
+    },
     "Photo %lld" : {
       "comment" : "VoiceOver.",
       "extractionState" : "manual",
@@ -5191,6 +5443,30 @@
         }
       }
     },
+    "Photos %lld, checked %lld" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Photos in the window, and how many were checked this run.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片 %lld，新体检 %lld"
+          }
+        }
+      }
+    },
+    "Photos %lld, days %lld" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Photos on the theme's list and the different days they were taken on.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 张，%lld 天"
+          }
+        }
+      }
+    },
     "Photos on a page" : {
       "comment" : "AI consent Details list (#151): feature.",
       "extractionState" : "manual",
@@ -5232,6 +5508,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取色"
+          }
+        }
+      }
+    },
+    "Pile %lld: %lld days, %lld moments, top day %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The pile's number, days, moments, and the busiest day's share (a percentage).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 堆：%lld 天，%lld 个时刻，最多的一天占 %@"
           }
         }
       }
@@ -5517,6 +5805,18 @@
         }
       }
     },
+    "Qwen: %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The group name Qwen gave.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "千问：%@"
+          }
+        }
+      }
+    },
     "Rank %lld did not pass (%@), trying rank %lld..." : {
       "comment" : "Photo trigger progress: rank, the backend's reason, the next rank.",
       "extractionState" : "manual",
@@ -5793,6 +6093,18 @@
         }
       }
     },
+    "Repeat themes are not set up in this build" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个版本没有接入重复主题"
+          }
+        }
+      }
+    },
     "Rephrase" : {
       "comment" : "Mira failure chip.",
       "extractionState" : "manual",
@@ -5969,6 +6281,30 @@
         }
       }
     },
+    "Round answers" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "千问回答"
+          }
+        }
+      }
+    },
+    "Round answers (%lld)" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Opens the theme's judge calls; the argument is how many.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "千问回答（%lld）"
+          }
+        }
+      }
+    },
     "Sage" : {
       "comment" : "Color swatch.",
       "extractionState" : "manual",
@@ -5977,6 +6313,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "鼠尾草绿"
+          }
+        }
+      }
+    },
+    "Same every time: %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). What is the same every time (Chinese, from Qwen).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每次都一样的：%@"
           }
         }
       }
@@ -6516,6 +6864,18 @@
         }
       }
     },
+    "Small theme" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小主题"
+          }
+        }
+      }
+    },
     "Some features need AI that does not run on your phone. When you use one, MiraNote sends what it needs to our server, which passes it to the AI providers we use." : {
       "comment" : "AI consent sheet (#151): first paragraph, also in Settings.",
       "extractionState" : "manual",
@@ -6628,6 +6988,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从相册、相机或 AI 开始。"
+          }
+        }
+      }
+    },
+    "Status: %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). The library status code (active, frozen, retired, blocked, sensitive), shown as is.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "状态：%@"
           }
         }
       }
@@ -6882,6 +7254,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用条款"
+          }
+        }
+      }
+    },
+    "Test-push this theme" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Runs round 2 and the writing now, and pushes to this phone in 10 s.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试推这个主题"
           }
         }
       }
@@ -7265,6 +7649,18 @@
         }
       }
     },
+    "The theme is no longer in the library" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个主题已经不在主题库里了"
+          }
+        }
+      }
+    },
     "The words on your page, photos you choose, and your voice when you dictate." : {
       "comment" : "AI consent: what is sent.",
       "extractionState" : "manual",
@@ -7273,6 +7669,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "页面上的文字、你选择的照片，以及你口述时的语音。"
+          }
+        }
+      }
+    },
+    "Themes" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主题"
           }
         }
       }
@@ -7641,6 +8049,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "如需同时从“通过 Apple 登录”中移除 MiraNote，请打开“设置”App，轻点你的名字，然后依次轻点“登录与安全性”和“通过 Apple 登录”。"
+          }
+        }
+      }
+    },
+    "Tokens %lld + %lld, %@ CNY, %@" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Prompt and completion tokens, the cost in yuan, the model.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token %lld + %lld，%@ 元，%@"
+          }
+        }
+      }
+    },
+    "Tonight's piles" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今晚的大堆"
           }
         }
       }
@@ -8821,6 +9253,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已展开"
+          }
+        }
+      }
+    },
+    "flagged" : {
+      "comment" : "Photo trigger debug screen, Themes page (testers only). Accessibility value of a share between 20% and 50%.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标黄"
           }
         }
       }

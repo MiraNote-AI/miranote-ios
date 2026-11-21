@@ -369,7 +369,8 @@ struct TriggerScheduleProbe: View {
 }
 
 /// -UITEST-TRIGGER only: the ledger as text ("pushId:made" or "pushId:none"
-/// per row, ";"-joined), for a test to see whether a page was made.
+/// per row, then ":debug" for a debug push, ";"-joined), for a test to see
+/// whether a page was made and how the push was counted.
 struct TriggerLedgerProbe: View {
     let controller: TriggerController
     @State private var text = ""
@@ -384,8 +385,9 @@ struct TriggerLedgerProbe: View {
                 .task {
                     while !Task.isCancelled {
                         let rows = await controller.scheduler.ledgerEntries()
-                        text = rows.map { "\($0.pushId):\($0.madePageAt == nil ? "none" : "made")" }
-                            .joined(separator: ";")
+                        text = rows.map {
+                            "\($0.pushId):\($0.madePageAt == nil ? "none" : "made")\($0.isDebug ? ":debug" : "")"
+                        }.joined(separator: ";")
                         try? await Task.sleep(for: .milliseconds(500))
                     }
                 }

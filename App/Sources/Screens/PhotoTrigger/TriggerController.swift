@@ -50,6 +50,8 @@ final class TriggerController {
     /// The repeat-theme finder (`SchedulerDependencies.themeEngine`); nil
     /// in a build that finds no themes.
     @ObservationIgnored let themes: ThemeRunning?
+    /// The same finder, as the debug page "Themes" reads and blocks it.
+    @ObservationIgnored let themeEngine: ThemeEngine?
     /// Asks iOS for the next background theme run.
     @ObservationIgnored private let themeTask: ThemeBackgroundTask
     @ObservationIgnored private let permissions: TriggerPermissions
@@ -94,6 +96,7 @@ final class TriggerController {
         let deps = dependencies(fakeAIFlag)
         scheduler = PushScheduler(deps)
         themes = deps.themeEngine
+        themeEngine = deps.themeEngine
         self.themeTask = themeTask
         Task {
             // The zone is read afresh at each run; this drops the system's

@@ -12,7 +12,8 @@ struct TriggerDebugScreen: View {
 
     init(controller: TriggerController) {
         self.controller = controller
-        _model = State(initialValue: TriggerDebugModel(scheduler: controller.scheduler))
+        _model = State(initialValue: TriggerDebugModel(scheduler: controller.scheduler,
+                                                       themeEngine: controller.themeEngine))
     }
 
     var body: some View {
@@ -23,6 +24,7 @@ struct TriggerDebugScreen: View {
                 TriggerScheduledSection(snapshot: model.snapshot)
                 TriggerLogSection(snapshot: model.snapshot)
                 groupingLink
+                themesLink
                 TriggerBlockedSection(model: model)
                 actionsSection
                 categoryLink
@@ -111,6 +113,16 @@ struct TriggerDebugScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("debug.section.grouping")
+    }
+
+    private var themesLink: some View {
+        NavigationLink {
+            TriggerThemesScreen(controller: controller, model: model)
+        } label: {
+            TriggerDebugLinkRow(title: "Themes", detail: nil)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("debug.section.themes")
     }
 
     private var categoryLink: some View {
