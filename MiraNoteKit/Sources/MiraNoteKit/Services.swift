@@ -23,6 +23,35 @@ public protocol TextTransformService: Sendable {
     func rewrite(_ text: String, instruction: String) async throws -> String
 }
 
+/// A block longer than `/rewrite` takes (miranote-api #126: 3000 code
+/// points), so it was not sent: the service would refuse it on every try,
+/// and "try again" would never help.
+public struct RewriteTooLong: Error, LocalizedError, Equatable {
+    public var errorDescription: String? {
+        String(appCopy: "This block is too long for Mira to rewrite.")
+    }
+}
+
+extension String {
+    /// The leading whole Characters whose code points come to at most
+    /// `limit`, the way a Python service counts a string's length. Only a
+    /// first Character longer than `limit` on its own is cut inside.
+    func wholeCharacters(upTo limit: Int) -> String {
+        var used = 0
+        var end = startIndex
+        for character in self {
+            let size = character.unicodeScalars.count
+            guard used + size <= limit else { break }
+            used += size
+            end = index(after: end)
+        }
+        if end == startIndex, !isEmpty {
+            return String(String.UnicodeScalarView(unicodeScalars.prefix(limit)))
+        }
+        return String(self[..<end])
+    }
+}
+
 /// Voice dictation entry (sketch 2.1 "voice", Home pill glyph).
 /// Backend mapping: voice-to-text POC (:8005).
 public protocol VoiceTranscriptionService: Sendable {

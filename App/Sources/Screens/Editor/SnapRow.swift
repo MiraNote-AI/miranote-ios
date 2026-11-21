@@ -101,7 +101,11 @@ struct SnapRow<ID: Hashable, Cell: View>: View {
     }
 
     private func settle() {
-        guard let id = centered, id != resting, !isAction(id) else { return }
+        guard let id = centered, id != resting else { return }
+        // Moved off where code put it: coming back there applies too. iOS 17
+        // has no touch to clear it (`SettleWatch`), so the settle does.
+        resting = nil
+        guard !isAction(id) else { return }
         apply(id)
     }
 
@@ -126,7 +130,9 @@ private struct SettleWatch<ID: Hashable>: ViewModifier {
     @State private var touched = false
 
     func body(content: Content) -> some View {
-        if #available(iOS 18, *) {
+        if Self.waitsAsOnIOS17 {
+            waited(content)
+        } else if #available(iOS 18, *) {
             content.onScrollPhaseChange { _, phase in
                 if phase == .interacting {
                     touched = true
@@ -138,14 +144,28 @@ private struct SettleWatch<ID: Hashable>: ViewModifier {
                 }
             }
         } else {
-            content.onChange(of: centered) {
-                wait?.cancel()
-                wait = Task {
-                    try? await Task.sleep(for: .milliseconds(350))
-                    if !Task.isCancelled { onSettle() }
-                }
+            waited(content)
+        }
+    }
+
+    private func waited(_ content: Content) -> some View {
+        content.onChange(of: centered) {
+            wait?.cancel()
+            wait = Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                if !Task.isCancelled { onSettle() }
             }
         }
+    }
+
+    /// Tests only: the iOS 17 settle on a newer system, which the
+    /// simulators run (`-SNAP_SETTLE_IOS17`).
+    private static var waitsAsOnIOS17: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-SNAP_SETTLE_IOS17")
+        #else
+        return false
+        #endif
     }
 }
 
