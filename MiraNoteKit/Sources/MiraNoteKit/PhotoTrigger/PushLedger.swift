@@ -1,7 +1,8 @@
 import Foundation
 
-/// What the story's "..." menu did to a push.
-public enum MenuAction: String, Codable, Sendable { case notThisDay, fewerLikeThis }
+/// What the story's "..." menu did to a push: a life fragment's day or
+/// bucket, a repeat push's theme.
+public enum MenuAction: String, Codable, Sendable { case notThisDay, fewerLikeThis, notThisTheme }
 
 /// Why a scheduled push was taken back.
 public enum RemovalReason: String, Codable, Sendable {
@@ -99,7 +100,8 @@ public struct LedgerEntry: Codable, Equatable, Sendable {
         openedAt = try box.decodeIfPresent(Date.self, forKey: .openedAt)
         storyFinishedAt = try box.decodeIfPresent(Date.self, forKey: .storyFinishedAt)
         madePageAt = try box.decodeIfPresent(Date.self, forKey: .madePageAt)
-        menuAction = try box.decodeIfPresent(MenuAction.self, forKey: .menuAction)
+        // A newer build's choice loses only the choice, not the row.
+        menuAction = (try? box.decodeIfPresent(MenuAction.self, forKey: .menuAction)) ?? nil
         menuActionAt = try box.decodeIfPresent(Date.self, forKey: .menuActionAt)
         removedReason = try box.decodeIfPresent(RemovalReason.self, forKey: .removedReason)
         removedAt = try box.decodeIfPresent(Date.self, forKey: .removedAt)

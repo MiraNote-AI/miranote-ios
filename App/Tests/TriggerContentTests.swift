@@ -15,6 +15,19 @@ final class TriggerContentTests: XCTestCase {
         }
     }
 
+    /// A repeat push's words too (`RepeatContentKey`): the fake AI's repeat
+    /// memory reads in Chinese.
+    func testEveryRepeatContentKeyResolvesToChinese() {
+        for key in RepeatContentKey.all {
+            let value = TriggerContent.zh(key)
+            XCTAssertNotEqual(value, key, "\(key) has no zh-Hans entry in the built app")
+            XCTAssertEqual(value.components(separatedBy: "%").count, key.components(separatedBy: "%").count, key)
+            // Months across years are numbers only ("2025.12-2026.2").
+            guard key != RepeatContentKey.monthYears else { continue }
+            XCTAssertTrue(value.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) }, key)
+        }
+    }
+
     /// Whatever language the app is set to, the content stays Chinese.
     func testContentIgnoresTheAppLanguage() {
         let settings = AppSettings.shared

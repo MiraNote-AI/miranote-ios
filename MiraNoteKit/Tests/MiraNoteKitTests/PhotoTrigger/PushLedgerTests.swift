@@ -143,6 +143,23 @@ final class PushLedgerTests: XCTestCase {
         XCTAssertNil(loaded.first?.questionType)
     }
 
+    /// "Not this theme" is kept; a menu choice this build does not know (a
+    /// newer build's) loses only the choice, never the row.
+    func testMenuActionsLoadLeniently() throws {
+        var theme = Self.entry("A", at: now)
+        theme.menuAction = .notThisTheme
+        let file = tempFile()
+        let store = PushLedgerStore(file: file)
+        try store.save([theme, Self.entry("B", at: now)])
+        XCTAssertEqual(store.load().first?.menuAction, .notThisTheme)
+        var rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [[String: Any]])
+        rows[1]["menuAction"] = "someFutureChoice"
+        try JSONSerialization.data(withJSONObject: rows).write(to: file)
+        let loaded = store.load()
+        XCTAssertEqual(loaded.map(\.pushId), ["A", "B"])
+        XCTAssertEqual(loaded.map(\.menuAction), [.notThisTheme, nil])
+    }
+
     func testLedgerLoadsEmptyFromGarbage() throws {
         let file = tempFile()
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)

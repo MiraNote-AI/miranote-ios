@@ -3,11 +3,12 @@ import XCTest
 
 /// The canvas draft (handoff 7.8, acceptance F1-F4).
 final class TriggerDraftBuilderTests: XCTestCase {
-    private func memory(count: Int, detail: String) -> TriggerMemory {
+    private func memory(count: Int, detail: String, mode: String = "life_fragment") -> TriggerMemory {
         let ids = (1...count).map { "P\($0)" }
         let base = TriggerMemoryTests.memory(ids: ids, peak: "P3")
         return TriggerMemory(
-            id: "m", date: "2026-10-18", daypart: .afternoon, bucket: "b", push: base.push, story: base.story,
+            id: "m", mode: mode, date: "2026-10-18", daypart: .afternoon, bucket: "b", push: base.push,
+            story: base.story,
             ending: .init(factLine: "10.18 \u{00B7} Arboretum", detail: detail,
                           questions: [.init(text: "What else?", type: "zoom", source: "llm")], ctaLabel: "Keep"),
             facts: ["P1": "a bench", "P3": "the arch"]
@@ -90,6 +91,41 @@ final class TriggerDraftBuilderTests: XCTestCase {
                                              detailFont: "Lora")
         let parts = Calendar.current.dateComponents([.year, .month, .day], from: page.memoryDate)
         XCTAssertEqual([parts.year, parts.month, parts.day], [2026, 10, 18])
+    }
+
+    /// A repeat theme's page is dated the day it is made (spec 6.9, E5),
+    /// not its photos' last day.
+    func testRepeatCanvasDateIsDayMade() {
+        let made = Date(timeIntervalSince1970: 1_795_280_400) // 2026-11-21, afternoon
+        let page = TriggerDraftBuilder.build(memory: memory(count: 9, detail: "", mode: "repeat"),
+                                             imageFiles: files(9), detailFont: "Lora", now: made)
+        XCTAssertEqual(page.memoryDate, made)
+        XCTAssertEqual(images(page).count, 9)
+    }
+
+    /// A life fragment keeps its shooting day, whenever the page is made.
+    func testLifeFragmentCanvasDateUnchanged() {
+        let made = Date(timeIntervalSince1970: 1_795_280_400)
+        let page = TriggerDraftBuilder.build(memory: memory(count: 3, detail: ""), imageFiles: files(3),
+                                             detailFont: "Lora", now: made)
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: page.memoryDate)
+        XCTAssertEqual([parts.year, parts.month, parts.day], [2026, 10, 18])
+    }
+
+    /// Nine photos (a repeat theme's most): the peak's wide cell, then two
+    /// rows of four -- three rows in all; nine small photos would go in
+    /// three rows of three, not four, four and one.
+    func testNinePhotoGridIsThreeRows() {
+        XCTAssertEqual(TriggerGridLayout.rows(forSmallCount: 8), [4, 4])
+        XCTAssertEqual(TriggerGridLayout.rows(forSmallCount: 9), [3, 3, 3])
+        let page = TriggerDraftBuilder.build(memory: memory(count: 9, detail: "", mode: "repeat"),
+                                             imageFiles: files(9), detailFont: "Lora")
+        let rows = Set(images(page).map { ($0.item.position.y - $0.item.size.height / 2).rounded() })
+        XCTAssertEqual(rows.count, 3)
+        for image in images(page) {
+            XCTAssertGreaterThanOrEqual(image.item.position.x - image.item.size.width / 2, 0)
+            XCTAssertLessThanOrEqual(image.item.position.x + image.item.size.width / 2, MiraNoteConfig.pageWidth)
+        }
     }
 
     func testQuestionIsThePagesOnlyPrompt() throws {

@@ -69,8 +69,10 @@ struct PhotoTriggerView: View {
             if menuShown { clock.pause() } else { clock.resume() }
         }
         .confirmationDialog("", isPresented: $menuShown, titleVisibility: .hidden) {
-            if allowsFewer { Button("Fewer like this") { show(.fewerLikeThis) } }
-            Button("Not this day") { show(.notThisDay) }
+            // A repeat push has no day or bucket of its own: only its theme.
+            if memory.isRepeat { Button("Not this theme") { show(.notThisTheme) } }
+            if allowsFewer, !memory.isRepeat { Button("Fewer like this") { show(.fewerLikeThis) } }
+            if !memory.isRepeat { Button("Not this day") { show(.notThisDay) } }
             Button("Cancel", role: .cancel) {}
         }
         .task(id: note) { await holdNote() }
@@ -355,7 +357,7 @@ extension PhotoTriggerView {
     }
 
     /// "Fewer like this" shows for 2 s, then the story carries on; "not
-    /// this day" shows, then the story closes.
+    /// this day" and "not this theme" show, then the story closes.
     private func holdNote() async {
         guard let shown = note else { return }
         try? await Task.sleep(for: .seconds(MenuNote.duration))
@@ -364,7 +366,7 @@ extension PhotoTriggerView {
         case .fewerLikeThis:
             withAnimation(.easeIn(duration: 0.2)) { note = nil }
             if phase == .story { clock.resume() }
-        case .notThisDay:
+        case .notThisDay, .notThisTheme:
             onClose()
         }
     }

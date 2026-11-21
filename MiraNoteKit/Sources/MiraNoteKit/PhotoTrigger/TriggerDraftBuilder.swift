@@ -9,6 +9,8 @@ import Foundation
 /// Real text, so a page saved untouched keeps the fact and detail lines;
 /// the question is a prompt (`TriggerDraft.prompts`), filed only once the
 /// writer has put words on the page (user decisions 2026-11-01, 11-04).
+/// A life fragment's page is dated its shooting day; a repeat theme's, the
+/// day the page is made (spec 6.9).
 public enum TriggerDraftBuilder {
     public static let margin: CGFloat = 20
     static let top: CGFloat = 24
@@ -21,13 +23,15 @@ public enum TriggerDraftBuilder {
     ///   - imageFiles: photo id ("P1") -> its `ImageFileStore` file name;
     ///     a photo without one is left out.
     ///   - detailFont: the ending's detail face (a `TextBlock.fontName`).
-    public static func build(memory: TriggerMemory, imageFiles: [String: String], detailFont: String) -> Memory {
-        draft(memory: memory, imageFiles: imageFiles, detailFont: detailFont).page
+    ///   - now: when the page is made: a repeat theme's page date.
+    public static func build(memory: TriggerMemory, imageFiles: [String: String], detailFont: String,
+                             now: Date = Date()) -> Memory {
+        draft(memory: memory, imageFiles: imageFiles, detailFont: detailFont, now: now).page
     }
 
     /// `build`'s page with its prompt: the question's item and words.
     public static func draft(memory: TriggerMemory, imageFiles: [String: String],
-                             detailFont: String) -> TriggerDraft {
+                             detailFont: String, now: Date = Date()) -> TriggerDraft {
         let width = MiraNoteConfig.pageWidth - 2 * margin
         var items: [CanvasItem] = []
         var zIndex = 0
@@ -65,7 +69,8 @@ public enum TriggerDraftBuilder {
         let question = items[items.count - 1].id
 
         return TriggerDraft(
-            page: Memory(title: memory.ending.factLine, memoryDate: shootingDay(memory), items: items),
+            page: Memory(title: memory.ending.factLine, memoryDate: memory.isRepeat ? now : shootingDay(memory),
+                         items: items),
             prompts: [question: memory.ending.question]
         )
     }

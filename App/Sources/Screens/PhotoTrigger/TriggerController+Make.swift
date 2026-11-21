@@ -72,7 +72,7 @@ extension TriggerController {
         let clock = debugClock(arguments)
         let themePhotos = ThemePhotoStore(directory: folder.appendingPathComponent("themes/photos"))
         let engine = syntheticThemeEngine(library: synthetic, folder: folder, photos: themePhotos, clock: clock)
-        return TriggerController(
+        let controller = TriggerController(
             photos: synthetic, records: records,
             dependencies: { flag in
                 var deps = SchedulerDependencies(
@@ -99,6 +99,17 @@ extension TriggerController {
             fakeAI: arguments.contains("-TRIGGER-FAKE-AI"),
             optedIn: AppSettings.storeDefaults.bool(forKey: optedInKey)
         )
+        if arguments.contains("-TRIGGER-TRY-THEME") { Task { await controller.tryFirstTheme(engine) } }
+        return controller
+    }
+
+    /// `-TRIGGER-TRY-THEME` (UI tests of repeat pushes): the themes are found
+    /// on the synthetic library, then the first one in the library is
+    /// test-pushed, as the debug page's button would -- one press per launch.
+    private func tryFirstTheme(_ engine: ThemeEngine) async {
+        _ = await engine.run(trigger: .foreground, deadline: nil)
+        guard let first = await engine.snapshot().themes.first else { return }
+        tryTheme(first.id)
     }
 
     /// The repeat-theme finder over the synthetic library (two themes with

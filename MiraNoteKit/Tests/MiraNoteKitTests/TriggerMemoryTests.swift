@@ -207,7 +207,7 @@ final class TriggerGridLayoutTests: XCTestCase {
     }
 
     func testCellsStayInsideTheCardWithoutOverlapping() {
-        for count in 1...8 {
+        for count in 1...10 {
             let layout = TriggerGridLayout(photoCount: count, width: 360)
             let card = CGRect(origin: .zero, size: layout.size)
             let all = [layout.big] + layout.small

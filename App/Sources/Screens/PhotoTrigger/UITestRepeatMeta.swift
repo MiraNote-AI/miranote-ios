@@ -55,9 +55,11 @@ struct RepeatMeta: Decodable {
         let title = theme.name + TriggerWords.separator + Self.months(dated.map(\.1), calendar: calendar)
         let noun = theme.noun
         let peak = dated.first?.0 ?? ""
-        // "keep these <noun>", "<n> photos on <n> different days", "three keywords for these <noun>?"
+        // "keep these <noun>", "three keywords for these <noun>?"
         let keep = "\u{7559}\u{4F4F}\u{8FD9}\u{4E9B}" + noun
-        let body = "\(dated.count)\u{5F20}\u{7167}\u{7247}\u{FF0C}\(dated.count)\u{5929}"
+        // F0 as the backend writes it: "{n} photos, {n} different days".
+        let body = "\(dated.count) \u{5F20}\u{7167}\u{7247}\u{FF0C}"
+            + "\(dated.count) \u{4E2A}\u{4E0D}\u{540C}\u{7684}\u{65E5}\u{5B50}"
         let question = "\u{7528}\u{4E09}\u{4E2A}\u{8BCD}\u{5F62}\u{5BB9}\u{8FD9}\u{4E9B}" + noun + "\u{FF1F}"
         let day = DateFormatter()
         day.locale = Locale(identifier: "en_US_POSIX")

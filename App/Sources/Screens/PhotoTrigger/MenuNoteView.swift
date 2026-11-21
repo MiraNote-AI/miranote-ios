@@ -1,16 +1,18 @@
 import MiraNoteKit
 import SwiftUI
 
-/// What the story's "..." menu answers (handoff 7.7); the scheduler acts on
-/// the same choice.
+/// What the story's "..." menu answers (handoff 7.7; a repeat push's,
+/// spec 6.9); the scheduler acts on the same choice.
 enum MenuNote: Equatable {
     case fewerLikeThis
     case notThisDay
+    case notThisTheme
 
     var action: MenuAction {
         switch self {
         case .fewerLikeThis: return .fewerLikeThis
         case .notThisDay: return .notThisDay
+        case .notThisTheme: return .notThisTheme
         }
     }
 
@@ -43,6 +45,7 @@ struct MenuNoteView: View {
         switch note {
         case .fewerLikeThis: return Text("Fewer like \"\(bucket)\" from now on")
         case .notThisDay: return Text("This day won't be pushed again")
+        case .notThisTheme: return Text("This theme won't be pushed again")
         }
     }
 }

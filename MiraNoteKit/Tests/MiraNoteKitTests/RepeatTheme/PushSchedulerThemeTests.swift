@@ -165,6 +165,45 @@ final class PushSchedulerThemeTests: PushSchedulerTestCase {
         XCTAssertEqual(memory.push.body, "[7 photos on 7 different days]")
         XCTAssertEqual(memory.ending.questionType, "one_word")
     }
+
+    // MARK: - "Not this theme"
+
+    /// The story's "Not this theme" (spec 6.9): the theme its push carries
+    /// is blocked -- a test push of it is then refused -- and the ledger
+    /// row records the choice. No day, bucket or V1 push is touched.
+    func testNotThisThemeBlocksThePushedTheme() async throws {
+        let ids = try seed("t", days: Array(10...19))
+        try themeLibrary.save([big(members: ids), big("sky", name: "Sky", members: [])])
+        let scheduler = scheduler()
+        await scheduler.appBecameActive()
+        let before = active
+        let preferencesBefore = preferences.load()
+        let steps = await press(scheduler, "big")
+        guard case .scheduled = steps.last else { return XCTFail("\(steps)") }
+        let pushId = try XCTUnwrap(ledger.load().first(where: \.isDebug)?.pushId)
+
+        await scheduler.menu(.notThisTheme, pushId: pushId)
+        XCTAssertEqual(themeLibrary.load().map(\.status), [.blocked, .active])
+        let entry = try XCTUnwrap(ledger.load().first { $0.pushId == pushId })
+        XCTAssertEqual(entry.menuAction, .notThisTheme)
+        XCTAssertEqual(entry.menuActionAt, clock.now)
+        XCTAssertEqual(preferences.load(), preferencesBefore, "no day or bucket is blocked")
+        XCTAssertEqual(active, before, "the schedule is untouched")
+        let again = await press(scheduler, "big")
+        XCTAssertEqual(again, [.preparing, .themeStopped(.blocked)])
+    }
+
+    /// With no ledger row (cleared), the push's record names the theme.
+    func testNotThisThemeFindsTheThemeOnTheRecord() async throws {
+        let ids = try seed("t", days: Array(10...19))
+        try themeLibrary.save([big(members: ids)])
+        let scheduler = scheduler()
+        _ = await press(scheduler, "big")
+        let pushId = try XCTUnwrap(ledger.load().first?.pushId)
+        try ledger.clear()
+        await scheduler.menu(.notThisTheme, pushId: pushId)
+        XCTAssertEqual(themeLibrary.load().map(\.status), [.blocked])
+    }
 }
 
 // MARK: - Fixtures

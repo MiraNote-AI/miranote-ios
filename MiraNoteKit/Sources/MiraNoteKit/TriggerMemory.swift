@@ -173,6 +173,7 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
     }
 
     public let id: String
+    /// `"life_fragment"` (V1) or `"repeat"` (`RepeatComposeMeta.mode`).
     public let mode: String
     public let date: String
     public let daypart: Daypart
@@ -186,6 +187,9 @@ public struct TriggerMemory: Codable, Equatable, Sendable {
     /// photo's `ImageRef.summary`, so the editor does not describe it again.
     public let facts: [String: String]
     public let generation: Generation?
+
+    /// A repeat theme's push: its own menu and canvas date (spec 6.9).
+    public var isRepeat: Bool { mode == RepeatComposeMeta.mode }
 
     public init(
         id: String,

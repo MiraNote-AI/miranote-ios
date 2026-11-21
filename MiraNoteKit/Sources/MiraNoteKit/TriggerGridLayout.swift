@@ -17,7 +17,8 @@ public struct TriggerGridLayout: Equatable, Sendable {
     public let small: [CGRect]
 
     /// Small photos per row, top row first: 3 photos put 2 side by side,
-    /// 4-5 photos one row of 3-4, 6-8 photos two rows.
+    /// 4-5 photos one row of 3-4, 6-9 photos (a repeat theme's most) two
+    /// rows; nine small photos make three rows of three.
     public static func rows(forSmallCount count: Int) -> [Int] {
         switch count {
         case ..<1: return []
@@ -25,8 +26,10 @@ public struct TriggerGridLayout: Equatable, Sendable {
         case 5: return [3, 2]
         case 6: return [3, 3]
         case 7: return [4, 3]
+        case 8: return [4, 4]
+        case 9: return [3, 3, 3]
         default:
-            // Past the eight a memory is meant to hold: rows of four.
+            // Past what a memory is meant to hold: rows of four.
             return stride(from: 0, to: count, by: 4).map { min(4, count - $0) }
         }
     }

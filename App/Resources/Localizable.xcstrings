@@ -1,6 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%1$lld photos on %1$lld different days" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: push body with no detail line (F0); the argument is the page's photo count, once a photo and once a day.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld 张照片，%1$lld 个不同的日子"
+          }
+        }
+      }
+    },
     "%1$lld photos, a %2$@ %3$@" : {
       "comment" : "Photo trigger CONTENT (always Chinese): push body when there is no detail line; the photo count, then the weekday of the group's day (Friday) and the cover photo's daypart (night).",
       "extractionState" : "manual",
@@ -9,6 +21,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$lld 张照片，一个%2$@的%3$@"
+          }
+        }
+      }
+    },
+    "%1$lld.%2$lld to %3$lld.%4$lld" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: the title's months across years: first year, first month, last year, last month.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld.%2$lld–%3$lld.%4$lld"
           }
         }
       }
@@ -3100,6 +3124,18 @@
         }
       }
     },
+    "Keep these %@" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: the ending's button; the argument is the theme's short noun.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留住这些%@"
+          }
+        }
+      }
+    },
     "Keep this %@" : {
       "comment" : "Photo trigger CONTENT (always Chinese): the ending's button; the argument is a daypart.",
       "extractionState" : "manual",
@@ -3979,6 +4015,18 @@
         }
       }
     },
+    "Month %lld" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: the title's months when every photo is in one month; the argument is the month number.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld月"
+          }
+        }
+      }
+    },
     "Monthly" : {
       "comment" : "Paywall: the monthly plan's name.",
       "extractionState" : "manual",
@@ -3987,6 +4035,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按月"
+          }
+        }
+      }
+    },
+    "Months %1$lld to %2$lld" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: the title's months within one year; first and last month numbers.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld月–%2$lld月"
           }
         }
       }
@@ -4524,6 +4584,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不想看这一天"
+          }
+        }
+      }
+    },
+    "Not this theme" : {
+      "comment" : "Photo trigger story menu item for a repeat-theme push.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不想看这个主题"
           }
         }
       }
@@ -7455,6 +7527,18 @@
         }
       }
     },
+    "This theme won't be pushed again" : {
+      "comment" : "Photo trigger story: note after Not this theme, then the story closes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个主题不会再推了"
+          }
+        }
+      }
+    },
     "This was taking too long, so I stopped. Try again?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7473,6 +7557,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这些照片没能导入，换几张试试？"
+          }
+        }
+      }
+    },
+    "Three keywords for these %@?" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: fallback question B1; the argument is the theme's short noun.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些%@的三个关键词？"
           }
         }
       }
@@ -8881,6 +8977,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "马天尼"
+          }
+        }
+      }
+    },
+    "moments" : {
+      "comment" : "Photo trigger CONTENT (always Chinese), repeat-theme push: the noun when the theme has none.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "瞬间"
           }
         }
       }

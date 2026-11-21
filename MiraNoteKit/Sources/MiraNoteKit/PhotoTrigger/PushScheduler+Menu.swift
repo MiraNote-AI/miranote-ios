@@ -11,7 +11,14 @@ extension PushScheduler {
     /// from the memory's date; "fewer" needs a bucket and does nothing then.
     /// `replan` false (an install that may not schedule, decision 8) does
     /// all of that but leaves the nights unfilled: no run, no upload.
+    /// "Not this theme" (a repeat push) blocks the theme instead (`blockTheme`).
     public func menu(_ action: MenuAction, pushId: String, replan: Bool = true) async {
+        if action == .notThisTheme { return await blockTheme(of: pushId) }
+        await blockDayOrBucket(action, pushId: pushId, replan: replan)
+    }
+
+    /// A life fragment's "not this day" or "fewer like this" (`menu`).
+    private func blockDayOrBucket(_ action: MenuAction, pushId: String, replan: Bool) async {
         let entry = deps.ledger.load().first { $0.pushId == pushId }
         let record = deps.records.load(pushId)
         let day = entry?.belongsTo ?? record?.belongsTo ?? record.flatMap { Self.dayKey($0.memory.date) }
@@ -29,6 +36,7 @@ extension PushScheduler {
         case .fewerLikeThis:
             guard let bucket, bucket != .other else { return }
             try? deps.preferences.update { $0.fewer[bucket] = now }
+        case .notThisTheme: return // `blockTheme`
         }
         try? deps.ledger.update(pushId) {
             $0.menuAction = action
@@ -38,9 +46,25 @@ extension PushScheduler {
         case .notThisDay:
             await removeActive(.menuDay) { $0.belongsTo == day || !Set($0.photoIds).isDisjoint(with: photos) }
         case .fewerLikeThis: await removeActive(.menuBucket) { $0.bucket == bucket }
+        case .notThisTheme: return
         }
         guard replan else { return }
         await request(.menu)
+    }
+
+    /// "Not this theme": the theme the push carries (its ledger row, or its
+    /// record) is blocked for good (`ThemeEngine.block`) and the row records
+    /// the choice. Phase 1 schedules no repeat push, so none is taken back
+    /// and the nights are left as they are.
+    private func blockTheme(of pushId: String) async {
+        let entry = deps.ledger.load().first { $0.pushId == pushId }
+        guard let themeId = entry?.themeId ?? deps.records.load(pushId)?.themeId else { return }
+        await deps.themeEngine?.block(themeId)
+        let now = deps.now()
+        try? deps.ledger.update(pushId) {
+            $0.menuAction = .notThisTheme
+            $0.menuActionAt = now
+        }
     }
 
     /// An App Store install (decision 8), or a TestFlight tester who turned

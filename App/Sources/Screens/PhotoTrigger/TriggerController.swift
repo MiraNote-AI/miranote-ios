@@ -315,6 +315,23 @@ final class TriggerController {
         }
     }
 
+    /// "Test-push this theme": round 2 on the theme's photos, the repeat
+    /// compose and a debug push in 10 s, its steps shown as a press's are.
+    /// Like "Try a group outside the schedule", it asks for background time.
+    func tryTheme(_ themeId: String) {
+        guard !isRunning else { return }
+        isRunning = true
+        notice = nil
+        fakeAIFlag.value = fakeAI
+        let time = BackgroundTime()
+        time.begin(onExpire: nil)
+        Task {
+            for await step in await scheduler.tryTheme(themeId) { record(step) }
+            isRunning = false
+            time.end()
+        }
+    }
+
     /// Keeps the last run's grouping on the phone (local only) for checking.
     @Sendable nonisolated static func saveGroupingReport(_ data: Data) {
         let file = GroupingReport.defaultFile
