@@ -75,6 +75,29 @@ final class HTTPClientTests: XCTestCase {
             XCTFail("expected BackendError, got \(error)")
         }
     }
+
+    /// These fail after the request went out, so the server may have acted
+    /// on it: a delete must not say nothing was deleted (#220).
+    func testALostAnswerMapsToAnswerLost() async {
+        let codes: [URLError.Code] = [.networkConnectionLost, .badServerResponse, .cannotParseResponse,
+                                      .cannotDecodeContentData, .cannotDecodeRawData]
+        for code in codes {
+            StubURLProtocol.handler = { _ in throw URLError(code) }
+            do {
+                let _: Echo = try await makeClient().postJSON(to: url, body: Echo(value: "x"))
+                XCTFail("expected an error")
+            } catch let error as BackendError {
+                XCTAssertEqual(error, .answerLost, "\(code)")
+            } catch {
+                XCTFail("expected BackendError, got \(error)")
+            }
+        }
+    }
+
+    /// An AI request whose answer was lost reads as before.
+    func testALostAnswerSaysWhatUnreachableSays() {
+        XCTAssertEqual(BackendError.answerLost.errorDescription, BackendError.unreachable.errorDescription)
+    }
 }
 
 extension HTTPClientTests {

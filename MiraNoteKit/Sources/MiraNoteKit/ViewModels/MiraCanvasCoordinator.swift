@@ -157,12 +157,13 @@ public final class MiraCanvasCoordinator {
     }
 
     /// The chat box's Go while writing (#205 F6B): the block rewritten as
-    /// the typed words ask. The text service takes no free words yet, so
-    /// they pick the transform they name, the way the chat reads them, and
-    /// a polish otherwise.
+    /// the writer's own words ask, no Mira turn. `/rewrite` takes at most
+    /// 500 characters of them.
     public func rewriteText(_ text: String, asked words: String) async throws -> String {
-        try await self.text.transform(text, mode: MiraIntent.textTransform(asked: words) ?? .polish)
+        try await self.text.rewrite(text, instruction: String(words.prefix(Self.rewriteInstructionLimit)))
     }
+
+    static let rewriteInstructionLimit = 500
 
     // MARK: Turn lifecycle
 
