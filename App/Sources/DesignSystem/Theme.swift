@@ -97,6 +97,23 @@ struct Theme: Equatable {
         }
     }
 
+    // MARK: The star jar
+
+    /// The jar's glass: the other themes keep the cream-theme glass as
+    /// drawn; on Forest's dark green it read milky, so Forest's glass is
+    /// tinted from its own muted green and light ink, a faint lift with a
+    /// light outline, and the shade at its right edge is the background's
+    /// green, which deepens the glass rather than greying it (#243).
+    var jarGlass: JarArt.Glass {
+        guard appearance == .forest else { return .cream }
+        let green = muted(Palette.textSecondary), light = ink
+        return JarArt.Glass(
+            body: [green.opacity(0.12), light.opacity(0.03), green.opacity(0.07), green.opacity(0.14)],
+            rimBack: green.opacity(0.35), outline: green.opacity(0.5), rimEdge: green.opacity(0.45),
+            tint: green.opacity(0.04), edge: background.opacity(0.3), foot: light.opacity(0.06),
+            rim: light.opacity(0.1))
+    }
+
     // MARK: Home
 
     /// Home's glyphs: the header circles' icons and the prompt spark.

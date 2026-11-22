@@ -31,6 +31,7 @@ struct SaveFold: View {
     /// Home's background: the veil over it.
     let veilColor: Color
     let reduceMotion: Bool
+    @Environment(\.theme) private var theme
     /// The pile but the new star and the stars its landing pushes, drawn
     /// once: star by star every frame, a month of 36 stars took the fold
     /// from 17 to about 51 ms a frame (simulator), 66 stars to 87.
@@ -202,7 +203,7 @@ struct SaveFold: View {
         jarContext.translateBy(x: pose.foot.x, y: pose.foot.y)
         jarContext.rotate(by: .radians(pose.rotation))
         jarContext.scaleBy(x: pose.scale, y: pose.scale)
-        JarArt.back(in: jarContext, s: pose.scale, caustic: pose.caustic)
+        JarArt.back(in: jarContext, s: pose.scale, glass: theme.jarGlass, caustic: pose.caustic)
         let tau = t - 1440
         let push = tau > 0 ? 3 * (tau / 80) * exp(1 - tau / 80) : 0
         let landing = landing
@@ -234,7 +235,7 @@ struct SaveFold: View {
                             look: .init(k: landing.radius / FoldDrawing.knot, shadow: 0.5))
         }
         if t >= 1200, t < 1440 { toss(in: context, stage: stage, at: t, landing: landing) }
-        JarArt.front(in: jarContext, s: pose.scale, glint: pose.glint, rip: pose.rip)
+        JarArt.front(in: jarContext, s: pose.scale, glass: theme.jarGlass, glint: pose.glint, rip: pose.rip)
         JarArt.cap(in: jarContext, s: pose.scale, cap: pose.cap)
 
         // The editor's background opens onto Home.
@@ -308,7 +309,7 @@ extension SaveFold {
         var jarContext = context
         jarContext.translateBy(x: stage.chip.x, y: stage.chip.y + 78 * Self.chipScale)
         jarContext.scaleBy(x: Self.chipScale, y: Self.chipScale)
-        JarArt.back(in: jarContext, s: Self.chipScale)
+        JarArt.back(in: jarContext, s: Self.chipScale, glass: theme.jarGlass)
         drawPile(in: jarContext, still: still)
         if let landing, settle > 0 {
             var inside = jarContext
@@ -317,7 +318,7 @@ extension SaveFold {
                             rotation: landing.rotation,
                             look: .init(k: landing.radius / FoldDrawing.knot, shadow: 0.5, opacity: settle))
         }
-        JarArt.front(in: jarContext, s: Self.chipScale)
+        JarArt.front(in: jarContext, s: Self.chipScale, glass: theme.jarGlass)
         JarArt.cap(in: jarContext, s: Self.chipScale)
         let page = 1 - Ease.seg(t, 0, fade)
         if page > 0 {

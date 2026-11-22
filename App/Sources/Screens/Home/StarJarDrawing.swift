@@ -56,6 +56,31 @@ struct JarGeometry {
 /// jar's foot: the back glass (behind the stars), the front glass and
 /// rim (over them), and the knurled screw cap.
 enum JarArt {
+    /// The glass's tints, from the theme (`Theme.jarGlass`). The cream
+    /// glass is the prototype's; on Forest's dark green it reads milky, so
+    /// Forest tints its own (#243). Highlights, twine and cap are the same
+    /// in every theme.
+    struct Glass: Equatable {
+        /// The back glass, left to right (stops at 0, 0.35, 0.75 and 1).
+        let body: [Color]
+        let rimBack: Color
+        let outline: Color
+        let rimEdge: Color
+        /// The front glass's faint tint, its right edge's shade, the band
+        /// at its foot and the rim's face.
+        let tint: Color
+        let edge: Color
+        let foot: Color
+        let rim: Color
+
+        static let cream = Glass(
+            body: [rgba(206, 222, 216, 0.34), rgba(255, 255, 255, 0.14), rgba(205, 220, 215, 0.22),
+                   rgba(160, 182, 176, 0.34)],
+            rimBack: rgba(110, 120, 115, 0.35), outline: rgba(104, 116, 110, 0.55), rimEdge: rgba(104, 116, 110, 0.5),
+            tint: rgba(226, 236, 232, 0.1), edge: rgba(110, 128, 122, 0.26), foot: rgba(255, 255, 255, 0.16),
+            rim: rgba(255, 255, 255, 0.26))
+    }
+
     /// The glass's outline, `i` jar units in.
     static func body(inset i: CGFloat = 0, closed: Bool = true) -> Path {
         var c = Path()
@@ -81,7 +106,7 @@ enum JarArt {
 
     /// The jar's soft shadow on the ground, a warm caustic, the back glass
     /// and the back of the rim. `s` is points per jar unit.
-    static func back(in context: GraphicsContext, s: CGFloat, caustic: CGFloat = 0) {
+    static func back(in context: GraphicsContext, s: CGFloat, glass: Glass, caustic: CGFloat = 0) {
         if s > 0.4 {
             let a = Ease.clamp((s - 0.4) / 0.6)
             var ground = context
@@ -95,29 +120,26 @@ enum JarArt {
                 center: CGPoint(x: 16, y: -20), startRadius: 0, endRadius: 46))
         }
         context.fill(body(), with: .linearGradient(
-            Gradient(stops: [.init(color: rgba(206, 222, 216, 0.34), location: 0),
-                             .init(color: rgba(255, 255, 255, 0.14), location: 0.35),
-                             .init(color: rgba(205, 220, 215, 0.22), location: 0.75),
-                             .init(color: rgba(160, 182, 176, 0.34), location: 1)]),
+            Gradient(stops: zip(glass.body, [0, 0.35, 0.75, 1]).map { Gradient.Stop(color: $0, location: $1) }),
             startPoint: CGPoint(x: -62, y: 0), endPoint: CGPoint(x: 62, y: 0)))
         var rim = Path()
         rim.addArc(center: .zero, radius: 1, startAngle: .radians(.pi), endAngle: .radians(2 * .pi), clockwise: false)
         context.stroke(rim.applying(CGAffineTransform(a: 40, b: 0, c: 0, d: 4.5, tx: 0, ty: -137)),
-                       with: .color(rgba(110, 120, 115, 0.35)), lineWidth: max(0.8, 0.8 / s))
+                       with: .color(glass.rimBack), lineWidth: max(0.8, 0.8 / s))
     }
 
     /// The glass over the stars: a faint tint, the highlights, a glint
     /// sweeping across (`glint` 0...1), a ripple of light (`rip`), the
     /// outline, the rim and the twine at the neck.
     static func front( // swiftlint:disable:this function_body_length
-        in context: GraphicsContext, s: CGFloat, glint: CGFloat = 0, rip: CGFloat = 0
+        in context: GraphicsContext, s: CGFloat, glass tints: Glass, glint: CGFloat = 0, rip: CGFloat = 0
     ) {
         let lw = max(1.1, 1 / s)
         var glass = context
         glass.clip(to: body())
-        glass.fill(Path(CGRect(x: -70, y: -175, width: 140, height: 185)), with: .color(rgba(226, 236, 232, 0.1)))
+        glass.fill(Path(CGRect(x: -70, y: -175, width: 140, height: 185)), with: .color(tints.tint))
         glass.fill(Path(CGRect(x: 44, y: -130, width: 18, height: 130)), with: .linearGradient(
-            Gradient(colors: [rgba(110, 128, 122, 0), rgba(110, 128, 122, 0.26)]),
+            Gradient(colors: [tints.edge.opacity(0), tints.edge]),
             startPoint: CGPoint(x: 44, y: 0), endPoint: CGPoint(x: 62, y: 0)))
         glass.fill(Path(roundedRect: CGRect(x: -55, y: -104, width: 7, height: 84), cornerRadius: 3.5),
                    with: .linearGradient(Gradient(colors: [rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.12)]),
@@ -140,16 +162,16 @@ enum JarArt {
             glass.fill(Path(CGRect(x: -70, y: -150, width: 140, height: 152)),
                        with: .color(rgba(255, 244, 222, 0.5 * rip * (1 - rip))))
         }
-        glass.fill(Path(CGRect(x: -62, y: -10, width: 124, height: 10)), with: .color(rgba(255, 255, 255, 0.16)))
+        glass.fill(Path(CGRect(x: -62, y: -10, width: 124, height: 10)), with: .color(tints.foot))
         var foot = Path()
         foot.move(to: CGPoint(x: -58, y: -10))
         foot.addQuadCurve(to: CGPoint(x: 58, y: -10), control: CGPoint(x: 0, y: -7))
         glass.stroke(foot, with: .color(rgba(255, 255, 255, 0.55)), lineWidth: 0.9)
 
-        context.stroke(body(), with: .color(rgba(104, 116, 110, 0.55)), lineWidth: lw)
+        context.stroke(body(), with: .color(tints.outline), lineWidth: lw)
         let rimRect = Path(roundedRect: CGRect(x: -44, y: -142, width: 88, height: 7), cornerRadius: 3.5)
-        context.fill(rimRect, with: .color(rgba(255, 255, 255, 0.26)))
-        context.stroke(rimRect, with: .color(rgba(104, 116, 110, 0.5)), lineWidth: lw)
+        context.fill(rimRect, with: .color(tints.rim))
+        context.stroke(rimRect, with: .color(tints.rimEdge), lineWidth: lw)
         var lip = Path()
         lip.move(to: CGPoint(x: -40, y: -141))
         lip.addLine(to: CGPoint(x: 40, y: -141))
@@ -300,13 +322,14 @@ struct JarPile {
 /// The glass jar behind the jar screen's stars.
 struct JarBackGlass: View {
     let geometry: JarGeometry
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        Canvas { context, _ in
+        Canvas { [glass = theme.jarGlass] context, _ in
             var ctx = context
             ctx.translateBy(x: 62 * geometry.unit, y: 170 * geometry.unit)
             ctx.scaleBy(x: geometry.unit, y: geometry.unit)
-            JarArt.back(in: ctx, s: geometry.unit)
+            JarArt.back(in: ctx, s: geometry.unit, glass: glass)
         }
         .frame(width: geometry.size.width, height: geometry.size.height)
         .allowsHitTesting(false)
@@ -319,13 +342,14 @@ struct JarBackGlass: View {
 struct JarFrontGlass: View {
     let geometry: JarGeometry
     var capped = true
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        Canvas { context, _ in
+        Canvas { [glass = theme.jarGlass] context, _ in
             var ctx = context
             ctx.translateBy(x: 62 * geometry.unit, y: 170 * geometry.unit)
             ctx.scaleBy(x: geometry.unit, y: geometry.unit)
-            JarArt.front(in: ctx, s: geometry.unit)
+            JarArt.front(in: ctx, s: geometry.unit, glass: glass)
             if capped { JarArt.cap(in: ctx, s: geometry.unit) }
         }
         .frame(width: geometry.size.width, height: geometry.size.height)
@@ -339,19 +363,20 @@ struct HeaderJar: View {
     let pile: JarPile
     /// Points per jar unit: about 19 x 26 pt in its 38 pt circle.
     static let unit: CGFloat = 0.15
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        Canvas { context, size in
+        Canvas { [glass = theme.jarGlass] context, size in
             let s = Self.unit
             var ctx = context
             ctx.translateBy(x: size.width / 2, y: size.height / 2 + 78 * s)
             ctx.scaleBy(x: s, y: s)
-            JarArt.back(in: ctx, s: s)
+            JarArt.back(in: ctx, s: s, glass: glass)
             #if DEBUG
             StarJarProbe.header(pile)
             #endif
             pile.draw(in: ctx)
-            JarArt.front(in: ctx, s: s)
+            JarArt.front(in: ctx, s: s, glass: glass)
             JarArt.cap(in: ctx, s: s)
         }
         .allowsHitTesting(false)
