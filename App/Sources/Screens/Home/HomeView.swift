@@ -33,21 +33,21 @@ struct HomeView: View {
     @FocusState private var promptFocused: Bool
     @State private var addingCollection = false
     @State private var newCollectionName = ""
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     /// When the fold started; nil when none is playing.
-    @State private var foldStart: Date?
+    @State var foldStart: Date?
     /// The fold is the Reduce Motion fade: kept from its start.
-    @State private var foldFades = false
+    @State var foldFades = false
     /// Landings so far (UI tests count them).
-    @State private var jarBeat = 0
+    @State var jarBeat = 0
 
     /// The dateline's warm grey (#8F8477), also used for the extras the
     /// design does not draw (New collection, Recently deleted).
     static let dateColor = Color(hex: 0x8F8477)
 
     /// The top of the page, to scroll back to.
-    private static let top = "home.top"
+    static let top = "home.top"
 
     var body: some View {
         ScrollViewReader { scroller in
@@ -168,102 +168,6 @@ struct HomeView: View {
                 headerCircle("home.profile", label: "Profile", action: onOpenProfile)
             }
         }
-    }
-
-    /// This month's stars, as the jar shows them.
-    private var jarPile: JarPile {
-        JarPile(StarJar.stars(in: viewModel.library, during: JarPeriod.month.interval(containing: .now)).map(\.id))
-    }
-
-    /// The star jar's circle: the glass jar, small, with this month's
-    /// stars (design X). While a Save folds, the fold draws it.
-    private var headerJar: some View {
-        Button(action: onOpenStarJar) {
-            HeaderJar(pile: jarPile)
-                .frame(width: 30, height: 30)
-                .opacity(foldStart == nil ? 1 : 0)
-                .glassCircle()
-        }
-        .buttonStyle(.plain)
-        .circleHitTarget()
-        .accessibilityLabel("Star jar")
-        .accessibilityIdentifier("home.starJar")
-    }
-
-    /// The page folds into its star over Home and drops into the jar
-    /// (`SaveFold`, 1.8 s); under Reduce Motion it cross-fades to its star,
-    /// which fades into the jar (0.5 s). Haptics on the fold's beats. Home
-    /// scrolls to its top at once, under the fold: the jar chip scrolls
-    /// with the page.
-    private func landArrivingStar(_ scroller: ScrollViewProxy) async {
-        guard arrivingStar != nil else { return }
-        scroller.scrollTo(Self.top, anchor: .top)
-        do {
-            if arrivingFold != nil {
-                let start = Date.now
-                let fades = ReduceMotion.resolved(reduceMotion)
-                let haptics = fades ? StarFold.fadeHaptics : StarFold.haptics
-                let land = fades ? StarFold.fadeEnd : StarFold.land, end = fades ? StarFold.fadeEnd : StarFold.end
-                let generators = StarHaptics()
-                foldFades = fades
-                foldStart = start
-                // A tap may finish the fold before this task is cancelled.
-                func wait(until ms: Double) async throws {
-                    try await sleep(until: ms, from: start)
-                    if foldStart != start { throw CancellationError() }
-                }
-                var landedYet = false
-                for haptic in haptics {
-                    if !landedYet, haptic.ms >= land {
-                        try await wait(until: land)
-                        landedYet = true
-                        landed()
-                    }
-                    try await wait(until: haptic.ms)
-                    generators.play(haptic)
-                }
-                if !landedYet {
-                    try await wait(until: land)
-                    landed()
-                }
-                try await wait(until: end)
-                foldStart = nil
-            } else {
-                try await Task.sleep(for: .milliseconds(450))
-                landed()
-                try await Task.sleep(for: .milliseconds(800))
-            }
-        } catch {
-            // Cut short: by a tap or the app leaving (`finishFold` has
-            // run), or by Home leaving with no tap on it mid-fold (a
-            // VoiceOver activation opens the jar), which cancels this
-            // task. Then the star is in at once, as when the app leaves,
-            // and the fold does not play again when Home is back.
-            finishFold()
-            return
-        }
-        onStarLanded()
-    }
-
-    /// The jar takes the star in; VoiceOver, which sees none of the fold,
-    /// hears it.
-    private func landed() {
-        jarBeat += 1
-        AccessibilityNotification.Announcement(String(appCopy: "Saved to your star jar")).post()
-    }
-
-    private func sleep(until ms: Double, from start: Date) async throws {
-        try await StarClock.sleep(until: ms, from: start)
-    }
-
-    /// A tap, or the app leaving the front, during the fold: the star is
-    /// in the jar at once.
-    private func finishFold() {
-        guard let start = foldStart else { return }
-        let land = foldFades ? StarFold.fadeEnd : StarFold.land
-        if StarClock.ms(since: start) < land { landed() }
-        foldStart = nil
-        onStarLanded()
     }
 
     private func headerCircle(_ icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
@@ -440,89 +344,6 @@ struct HomeView: View {
         guard !trimmed.isEmpty else { return }
         onQuickCapture(trimmed)
         prompt = ""
-    }
-}
-
-/// One collection card in the Home grid (handoff screen 01): 188 pt tall,
-/// r26, the title in Bold 20 at (30, 26) (#D9CDBA, or AA-safe for large
-/// text -- see `Style.cycle`), and a 110 x 60 art block
-/// with its accent layer 18 above the bottom edge. No note count.
-struct HomeCollectionCard: View {
-    static let height: CGFloat = 188
-    static let corner: CGFloat = 26
-
-    /// The handoff's four card colors, cycled by grid position.
-    struct Style {
-        let card: Color
-        let art: Color
-        let accent: Color
-        /// The handoff's #D9CDBA where it reads at 3:1 (forest, 8.4:1).
-        var title = Color(hex: 0xD9CDBA)
-        var border = Color(hex: 0x48433B).opacity(0.12)
-
-        /// Accessibility deviation (decided 2026-10-15, as dev had it): the
-        /// handoff's titles read at 1.5-2.5:1 on the grey, olive and tan
-        /// cards, under the 3:1 that Bold 20 (large text) needs. Grey and
-        /// olive keep the drawn card colors under a paper title (3.5 and
-        /// 3.4:1), the tan card takes an ink title (7:1).
-        static func cycle(_ index: Int) -> Style {
-            let warmAccent = Color(hex: 0x8F7E76).opacity(0.5)
-            let coolAccent = Color(hex: 0xEEF1EB).opacity(0.32)
-            switch index % 4 {
-            case 1: return Style(card: Palette.forest, art: Color(hex: 0xB6C2BA), accent: coolAccent)
-            case 2: return Style(card: Color(hex: 0x878476), art: Palette.forest, accent: warmAccent,
-                                 title: Palette.onInk)
-            case 3: return Style(card: Color(hex: 0xC1A47E), art: Color(hex: 0xC1A47E), accent: coolAccent,
-                                 title: Palette.ink)
-            default: return Style(card: Color(hex: 0x8F7E76), art: Color(hex: 0xD6BFAA), accent: warmAccent,
-                                  title: Palette.onInk)
-            }
-        }
-    }
-
-    let title: String
-    let style: Style
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            titleText
-                .foregroundStyle(style.title)
-                .frame(width: 118, alignment: .leading)
-            Spacer(minLength: 0)
-            RoundedRectangle(cornerRadius: 18)
-                .fill(style.art)
-                .overlay(RoundedRectangle(cornerRadius: 18).fill(style.accent))
-                .frame(width: 110, height: 60)
-        }
-        .padding(.top, 27)
-        .padding(.leading, 30)
-        .padding(.bottom, 18)
-        .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: Self.corner)
-                .fill(style.card)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Self.corner)
-                        .strokeBorder(style.border, lineWidth: 1)
-                )
-                .shadow(color: Color(hex: 0x544738).opacity(0.1), radius: 17, y: 18)
-        )
-    }
-
-    /// Up to two lines, in Josefin or the theme's face.
-    @ViewBuilder private var titleText: some View {
-        if let face = theme.cardTitleFace {
-            ThemedCardTitle(title: title, face: face, width: 118)
-        } else {
-            Text(title)
-                .font(Sans.font(size: 22, weight: 700))
-                .lineSpacing(3)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .multilineTextAlignment(.leading)
-        }
     }
 }
 
