@@ -65,8 +65,8 @@ final class StarFaceTests: XCTestCase {
         XCTAssertNotNil(StarFace.cached(binned.id), "a binned page can come back, with its star")
         XCTAssertNil(StarFace.cached(gone.id), "the star of a page gone for good is gone too")
         let exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
-        XCTAssertTrue(exists(file("star-dress", shelved)) && exists(file("star-dress", binned)))
-        XCTAssertFalse(exists(file("star-dress", gone)), "its dress is off the disk")
+        XCTAssertTrue(exists(file("star-dress-x", shelved)) && exists(file("star-dress-x", binned)))
+        XCTAssertFalse(exists(file("star-dress-x", gone)), "its dress is off the disk")
         XCTAssertTrue(exists(file("stars", shelved)))
         XCTAssertFalse(exists(file("stars", gone)), "and so is its lit star from part A")
     }

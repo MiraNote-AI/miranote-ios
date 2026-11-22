@@ -231,13 +231,7 @@ struct HomeFlow: View {
     private struct NoteRef: Hashable {
         let collectionID: MemoryCollection.ID
         let noteID: Memory.ID
-        /// Opened by a hold in the star jar: the page zooms from where it
-        /// unrolled (iOS 18).
-        var zoomsFromJar = false
     }
-
-    /// The star jar's unrolled page and the reading view it opens.
-    @Namespace private var jarZoom
 
     /// UI tests keep the avatar in a folder of their own, emptied at launch
     /// like the settings' suite (`AppSettings.storeDefaults`);
@@ -340,13 +334,12 @@ struct HomeFlow: View {
     /// A Save: the page's star is baked from the page as it is now
     /// (#206). The first Save that makes a page a star -- a new page, or a
     /// draft never saved -- folds it into the jar, when Home shows the jar
-    /// (under Reduce Motion the jar glows).
+    /// (under Reduce Motion it cross-fades to its star).
     private func saved(_ memory: Memory, wasStar: Bool) {
         let arrival = StarFold.arrival(saved: true, wasStar: wasStar, onHome: path.isEmpty,
                                        reduceMotion: ReduceMotion.resolved(systemReduceMotion))
-        guard arrival == .fold else {
+        guard arrival != .none else {
             Task { await StarFace.bake(memory) }
-            if arrival != .none { arrivingStar = memory.id }
             closeEditor()
             return
         }
@@ -396,17 +389,12 @@ struct HomeFlow: View {
                 triggerEntry: openTriggerGates.showsDebugEntry ? TriggerDebugEntry(controller: trigger) : nil,
                 arrivingStar: arrivingStar.flatMap(viewModel.memory),
                 arrivingFold: arrivingFold,
-                onStarLanded: { skipped in
-                    if let arrivingStar, let arrivingFold {
-                        // After the landing's ring: the bake is a frame or
-                        // two. A skipped fold keeps it at once, before the
-                        // jar it may be opening bakes the page again.
-                        Task { @MainActor in
-                            if !skipped { try? await Task.sleep(for: .milliseconds(600)) }
-                            // Deleted meanwhile: nothing to keep.
-                            guard viewModel.memory(arrivingStar) != nil else { return }
-                            StarFace.keep(arrivingFold, for: arrivingStar)
-                        }
+                onStarLanded: {
+                    // Its dress first (a frame or two, once the jar has
+                    // docked), so Home's jar redraws with it and the jar it
+                    // may be opening does not bake the page again.
+                    if let arrivingStar, let arrivingFold, viewModel.memory(arrivingStar) != nil {
+                        StarFace.keep(arrivingFold, for: arrivingStar)
                     }
                     arrivingStar = nil
                     arrivingFold = nil
@@ -432,17 +420,14 @@ struct HomeFlow: View {
                         photoSaver: Self.makePhotoSaver()
                     )
                     .navigationBarHidden(true)
-                    .zoomTransition(from: ref.noteID, in: jarZoom, when: ref.zoomsFromJar)
                 }
             }
             .navigationDestination(for: StarJarRoute.self) { _ in
                 StarJarView(
                     viewModel: viewModel,
                     onBack: { path.removeLast() },
-                    zoom: jarZoom,
                     onOpenNote: { star, style in
-                        let ref = NoteRef(collectionID: star.collectionID, noteID: star.id,
-                                          zoomsFromJar: style == .zoom)
+                        let ref = NoteRef(collectionID: star.collectionID, noteID: star.id)
                         guard style == .instant else {
                             path.append(ref)
                             return
