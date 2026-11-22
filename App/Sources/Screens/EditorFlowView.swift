@@ -486,13 +486,14 @@ struct HomeFlow: View {
         .overlay(alignment: .bottom) { draftToast }
         // The Appearance setting, applied live (a choice redraws at once).
         .environment(\.theme, Theme(appearance: settings.appearance))
-        // Pages the bin let go of at launch take their stars, photos and
-        // sounds along.
+        // Pages the bin let go of at launch take their photos, sounds and
+        // stars along. The media first: pages it puts back in the bin
+        // (favorites unreadable) keep their stars.
         .task {
-            StarFace.forget(allBut: viewModel.library)
             viewModel.forgetPurgedMedia(
                 images: ImageFileStore(), sounds: SoundFileStore(), favorites: .forCurrentProcess()
             )
+            StarFace.forget(allBut: viewModel.library)
         }
         .task {
             guard Self.triggerEntryAllowed else { return }
