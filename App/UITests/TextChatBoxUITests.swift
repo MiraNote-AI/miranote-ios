@@ -172,12 +172,45 @@ final class TextChatBoxUITests: TextToolUITestCase {
         field.typeText("we walked")
         let writing = canvasState()["writing"] as? String ?? ""
         ask.tap()
-        ask.typeText("make it warmer\n")
+        // The key on its own, as a person presses it. One typeText call
+        // lands in chunks, and a chunk of whole new words with the key in
+        // it reads as a paste (`WritingAskReturn`).
+        ask.typeText("make it warmer")
+        ask.typeText("\n")
         XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "\(fieldValue())")
         XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the same block")
         app.typeText("!")
         XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked!"),
                       "the caret is in the block: \(fieldValue())")
+    }
+
+    /// The Go key with an autocorrection pending on the last word sends,
+    /// the correction taken (#236). Typed on the keyboard's own keys, as a
+    /// person types: XCUITest's typeText is never autocorrected. Skipped on
+    /// a keyboard that does not correct the word at all (one that learned
+    /// it): there is nothing to pin there.
+    func testTheGoKeySendsWithAnAutocorrectionPending() throws {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("we walked")
+        ask.tap()
+        // The keyboard needs a moment to be ready to correct, and to settle
+        // a correction after the last key.
+        sleep(1)
+        ask.typeText("make it warmer ")
+        tapKeys("becuase")
+        sleep(1)
+        app.keyboards.keys["space"].tap()
+        guard ask.value as? String == "make it warmer because " else {
+            throw XCTSkip("this keyboard does not correct the word: \(ask.value as? String ?? "")")
+        }
+        tapKeys("becuase")
+        sleep(1)
+        XCTAssertEqual(ask.value as? String, "make it warmer because becuase", "the correction waits for the key")
+        app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] 'go'")).firstMatch.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "the Go key sent it: \(fieldValue())")
+        XCTAssertEqual(ask.value as? String ?? "", ask.placeholderValue ?? "",
+                       "the words left the box, none waiting: \(ask.value as? String ?? "")")
     }
 
     /// The mic tapped while the caret is in the empty box: the waveform

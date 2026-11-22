@@ -83,6 +83,12 @@ class TextToolUITestCase: XCTestCase {
         return false
     }
 
+    /// Types `word` on the software keyboard's own keys, as a person does:
+    /// the keyboard autocorrects these, never XCUITest's typeText.
+    func tapKeys(_ word: String) {
+        for character in word { app.keyboards.keys[String(character)].tap() }
+    }
+
     /// The block's menu, "Edit text", from wherever the page is.
     func editText(_ words: String, file: StaticString = #filePath, line: UInt = #line) {
         let block = app.staticTexts[words]
