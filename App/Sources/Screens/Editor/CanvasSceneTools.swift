@@ -82,7 +82,8 @@ extension CanvasScene {
                 onRelease: releaseDictation,
                 // The system took the touch: the take ends as if let go (#218).
                 onCancel: stopDictationForBackground,
-                onToggle: { dictating ? stopDictation() : startDictation() }
+                onToggle: { dictating ? stopDictation() : startDictation() },
+                onEscape: endTextEditing
             )
             .padding(.horizontal, Metrics.chromeInset)
             .padding(.top, 8)
@@ -106,8 +107,6 @@ extension CanvasScene {
         // 4 above the keyboard.
         .padding(.bottom, 4)
         .animation(.easeOut(duration: 0.15), value: dictationCaption)
-        // VoiceOver's two-finger scrub ends the writing, as Back does.
-        .accessibilityAction(.escape) { endTextEditing() }
         .onAppear { TextOpenTiming.markAccessoryShown() }
     }
 

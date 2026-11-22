@@ -231,6 +231,9 @@ struct CanvasScene: View {
             Task { await lookAtUnseenPhotos() }
             consumePendingTool()
             placeArrivingSticker()
+            #if DEBUG
+            EscapeProbe.listen()
+            #endif
         }
     }
 
@@ -1675,6 +1678,7 @@ extension CanvasScene {
             "textOpen": TextOpenTiming.snapshot,
             "textToolsShown": textToolsShown,
             "escapeArmed": WritingEscape.armed,
+            "escape": EscapeProbe.last,
             "board": [boardRow.minY, boardRow.height],
             // Mira painting's glow: breathing, or still under Reduce Motion.
             "paintGlow": applyingBackground ? (ReduceMotion.resolved(reduceMotion) ? "still" : "breathing") : ""

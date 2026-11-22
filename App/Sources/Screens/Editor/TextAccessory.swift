@@ -222,6 +222,9 @@ struct WritingChatBox: View {
     var onCancel: () -> Void
     /// Starts or ends the take in one activation (assistive technologies).
     var onToggle: () -> Void
+    /// VoiceOver's two-finger scrub on the mic or Go: the writing ends (the
+    /// field's own escape is `WritingEscape`'s).
+    var onEscape: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -278,6 +281,8 @@ struct WritingChatBox: View {
         .padding(.trailing, 10)
         .frame(height: 54)
         .background(GlassCapsule())
+        // The mic and Go; a text field's view never reaches it.
+        .accessibilityAction(.escape, onEscape)
     }
 
     /// The composer's ink Go pill; a spinner while Mira rewrites.
