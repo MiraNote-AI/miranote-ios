@@ -112,6 +112,27 @@ final class BackgroundPaintUITests: XCTestCase {
         XCTAssertTrue(app.buttons["background.color.painted"].waitForSelection(), "the Painted cell is chosen")
     }
 
+    // Painted from the Color row, the row lands on the Painted cell, chosen.
+    // A tap on it is Keep as well (F4A), though it applies nothing: the
+    // receipt goes, the painting stays, and no undo step is added (#236).
+    func testATapOnTheChosenPaintedCellKeepsThePainting() {
+        startMemory()
+        app.openBackgroundRow("color")
+        app.paintBackground("a soft sunset glow")
+        XCTAssertTrue(app.buttons["mira.keep"].waitForExistence(timeout: 12))
+        let painted = app.buttons["background.color.painted"]
+        XCTAssertTrue(painted.waitForSelection(), "the row landed on the Painted cell")
+        let backdrop = app.backdrop
+        XCTAssertFalse(backdrop.isEmpty, "the page wears the painting")
+        let depth = app.undoDepth
+
+        painted.tap()
+        XCTAssertTrue(app.buttons["mira.keep"].waitForNonExistence(timeout: 3), "the tap kept the painting")
+        XCTAssertEqual(app.backdrop, backdrop, "the painting stays")
+        XCTAssertTrue(painted.isSelected, "still on the Painted cell")
+        XCTAssertEqual(app.undoDepth, depth, "nothing was applied again")
+    }
+
     // Revert on the floating receipt takes the painting back; the tool stays.
     func testRevertOnTheReceiptTakesThePaintingBack() {
         startMemory()
