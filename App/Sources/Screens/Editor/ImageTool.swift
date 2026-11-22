@@ -228,8 +228,9 @@ struct RecentsSheet: View {
     /// The picks are importing: Editing waits.
     var importing: Bool
     var onEditing: () -> Void
-    /// Photos picked through the system picker (no library access).
-    var onSystemPicks: ([PhotosPickerItem]) -> Void
+    /// Photos picked through the system picker (no library access): the
+    /// load of their bytes.
+    var onSystemPicks: (@escaping () async -> [Data]) -> Void
     /// A photo carried out of the grid by long-press: the drag as it
     /// moves, then nil at the let-go with where it was let go.
     var onDrag: (PhotoDrag?) -> Void = { _ in }
@@ -268,7 +269,7 @@ struct RecentsSheet: View {
         .task { if library.access == .unknown { await library.load() } }
         .onChange(of: systemPicks) { _, picks in
             guard !picks.isEmpty else { return }
-            onSystemPicks(picks)
+            onSystemPicks { await PhotoPlacer.data(for: picks) }
             systemPicks = []
         }
     }
@@ -346,6 +347,22 @@ struct RecentsSheet: View {
 
     /// The system photo picker: any photo, without library access.
     private var systemPicker: some View {
+        Group {
+            #if DEBUG
+            if UITestSystemPicker.isOn {
+                Button("Add to Canvas") { onSystemPicks(UITestSystemPicker.load) }
+            } else {
+                photosPicker
+            }
+            #else
+            photosPicker
+            #endif
+        }
+        .buttonStyle(NavPill(prominent: false))
+        .accessibilityIdentifier("image.library.system")
+    }
+
+    private var photosPicker: some View {
         PhotosPicker(
             selection: $systemPicks,
             maxSelectionCount: MiraNoteConfig.maxImagesPerAdd,
@@ -353,8 +370,6 @@ struct RecentsSheet: View {
         ) {
             Text("Add to Canvas")
         }
-        .buttonStyle(NavPill(prominent: false))
-        .accessibilityIdentifier("image.library.system")
     }
 
     private func order(of photo: LibraryPhoto) -> Int? {
