@@ -38,7 +38,7 @@ final class SignInUITests: XCTestCase {
     }
 
     private func expand() {
-        if !app.buttons["style.ai.expand"].exists { app.buttons["style.ai"].tap() }
+        if !app.buttons["style.ai.expand"].exists { app.openTextRow("style.ai") }
         app.buttons["style.ai.expand"].tap()
     }
 
@@ -153,6 +153,8 @@ final class SignInUITests: XCTestCase {
         XCTAssertTrue(fieldValueContains("(expanded draft -- mock)"), "consent is enough")
         XCTAssertEqual(probeMax("aiSent"), 1)
         XCTAssertEqual(probeMax("signedIn"), 0)
+
+        app.backToTextRow()
 
         app.buttons["keyboard.done"].tap()
         app.buttons["Save"].tap()

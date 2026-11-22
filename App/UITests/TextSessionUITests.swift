@@ -29,10 +29,11 @@ final class TextSessionUITests: XCTestCase {
     func testHeaderUndoWithTheColorSheetUpOnlyDropsThePreview() {
         app.buttons["Start a memory"].tap()
         tapText("restyle me")
+        app.openTextRow("style.font")
         app.buttons["style.font.Futura"].tap()
         XCTAssertTrue(app.buttons["style.font.Futura"].isSelected)
 
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.colors")
         app.buttons["style.color.custom"].tap()
         let hex = app.textFields["colorSheet.hex"]
         XCTAssertTrue(hex.waitForExistence(timeout: 5))
@@ -43,7 +44,7 @@ final class TextSessionUITests: XCTestCase {
 
         app.buttons["editor.undo"].tap()
         XCTAssertTrue(app.buttons["colorSheet.apply"].waitForNonExistence(timeout: 5), "undo closes the sheet")
-        app.buttons["style.sizes"].tap()
+        app.openTextRow("style.font")
         XCTAssertTrue(app.buttons["style.font.Futura"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["style.font.Futura"].isSelected, "the font step before the preview stays")
         XCTAssertTrue(field.exists, "and so does the block")
@@ -52,7 +53,7 @@ final class TextSessionUITests: XCTestCase {
     func testCustomBackgroundApplyKeepsTheShownColor() {
         app.buttons["Start a memory"].tap()
         tapText("on plum")
-        app.buttons["style.highlight"].tap()
+        app.openTextRow("style.highlight")
         app.buttons["style.highlight.custom"].tap()
         let apply = app.buttons["colorSheet.apply"]
         XCTAssertTrue(apply.waitForExistence(timeout: 5))

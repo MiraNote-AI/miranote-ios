@@ -1,18 +1,19 @@
+import AVFoundation
 import MiraNoteKit
 import PhotosUI
 import SwiftUI
 
 /// The base editor: the infinite canvas plus the five-tool bar. Background,
-/// Voice, Text and Image act directly on the canvas -- Background lays its
-/// glass sheet over the card (screen 05), Image opens its sheets in place
+/// Voice, Text and Image act directly on the canvas -- Background swaps the
+/// tool bar for its one row (#205), Image opens its sheets in place
 /// and lifts a photo into its editor (23-29), Voice swaps the bottom bar for
 /// a recorder, Text drops an editable block; Sticker leaves for its panel.
 /// The composer opens the Mira canvas chat (06); a landed change waits on
 /// the result sheet (07); a dragged element floats above the dock over the
-/// composer's delete zone (22). Header is Home (Canvas while a tool is open
-/// in place) / undo / Save; Save still files the page and leaves. Writing
-/// reads Cancel / Done, picking photos Cancel / Add, a lifted photo
-/// Cancel / Done.
+/// composer's delete zone (22). Header is Home / undo / Save; Save still
+/// files the page and leaves. Writing, Background and the Image tool grey
+/// Home and Save (#205); a lifted photo or an edited sticker reads Cancel /
+/// Done.
 struct CanvasScene: View {
     @Bindable var editor: CanvasViewModel
     @Bindable var mira: MiraCanvasCoordinator
@@ -36,9 +37,15 @@ struct CanvasScene: View {
     @State var recorderNotice: String?
     /// The take Stop just put on the page, while its result sheet shows.
     @State var attachedSound: AttachedSound?
-    /// The text tool whose row is open (screen 11: Aa when writing starts).
-    @State var textTool: TextTool = .font
+    /// The tool whose row is in the text slot; nil shows the text row.
+    @State var textRow: TextTool?
+    /// The last tool-slot level change went deeper: its row rises (D7A).
+    @State var slotDeeper = true
     @State var rewrite: RewriteState?
+    /// The words typed in the chat box while writing (F6B).
+    @State var writingAsk = ""
+    /// Mira rewriting the block as the chat box asked.
+    @State var rewriteAsk: Task<Void, Never>?
     @State var colorRequest: ColorRequest?
     /// The beat between tapping Text and the block appearing (screen 10):
     /// the Text tool shows active and the composer reads as text entry.
@@ -50,12 +57,9 @@ struct CanvasScene: View {
     /// edge as one block (#162: they popped up over the tool bar ~140 ms
     /// before the keyboard came).
     @State private var textToolsShown = false
-    /// The tools are on their way up: they sit on the keyboard's own edge
-    /// and the font row rides as a still copy.
-    @State var textToolsRiding = false
     /// This open's wait for a keyboard that may never come.
     @State private var textToolsWait: Task<Void, Never>?
-    /// The dictation strip's press in progress.
+    /// The chat-box mic's press in progress.
     @State var dictationPress: (start: Date, wasLive: Bool)?
     @State var miraPrompt = ""
     /// The Mira canvas chat (screen 06) is up over the canvas.
@@ -77,10 +81,13 @@ struct CanvasScene: View {
     /// The Background tool's composer words ("Apply to this page").
     @State private var applyWords = ""
     @FocusState var applyFocus: Bool
-    /// Apply's painting is on its way: the Background sheet shows the work
-    /// and stays up until it lands.
+    /// The keyboard's height while it is up for a Background field, 0 once
+    /// it is down: the card keeps its size and the tool rides over it.
+    @State private var backgroundKeyboard: CGFloat = 0
+    /// Apply's painting is on its way: the composer is Mira's working bar
+    /// and the page glows until it lands (R5A).
     @State var applyingBackground = false
-    /// Why Apply's painting did not come, shown in the Background sheet.
+    /// Why Apply's painting did not come, shown over the Background row.
     @State var backgroundNotice: String?
     /// The photo editor's AI prompt, lowered by a tap on the photo or page.
     @FocusState private var photoPromptFocus: Bool
@@ -107,8 +114,6 @@ struct CanvasScene: View {
     @State private var recentsFrame: CGRect = .zero
     /// Bumped when a visit or a pick is left; a slower import checks it.
     @State private var importGeneration = 0
-    /// The photos this Image visit placed: its Cancel takes them back.
-    @State private var placedThisVisit: [CanvasItem.ID] = []
     @State private var imageNotice: String?
     /// The Image tool's AI Image words, paintings and their guard.
     @State private var aiImage = AIImageDraft()
@@ -131,6 +136,12 @@ struct CanvasScene: View {
     @State var layoutScroll: CGFloat = 0
     @State var scrollBack: CGFloat?
     @State var backgroundPanelOpen = false
+    /// The Background item whose row is in the tool slot; nil shows the
+    /// four items.
+    @State var backgroundRow: BackgroundRow?
+    /// The tool bar or Background's row, just swapped into the dock, waits
+    /// hidden before it enters (D7A, `SlotEntrance`).
+    @State var slotEntering = false
     /// The Background tool's custom page color sheet, while it is up.
     @State var pageColorEdit: PageColorEdit?
     @State private var showsToolsOnboarding = false
@@ -145,7 +156,7 @@ struct CanvasScene: View {
     /// cannot look mid-drag, so the trail is left for it to read.
     @State var dropZoneTrail: [String] = []
     #endif
-    /// The text strip's take is live: its recorder is up and not yet let
+    /// The chat-box mic's take is live: its recorder is up and not yet let
     /// go of (its words on their way are `writingDown`).
     @State var dictating = false
     /// A strip's mic on its way up; cancelling it stops it once it is.
@@ -168,12 +179,12 @@ struct CanvasScene: View {
     @State var afterWritingDown: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    /// The dictation strip's subtitle when the mic is not live: why nothing
+    /// The text rows' caption when the mic is not live: why nothing
     /// landed, or why a rewrite failed.
     @State var dictationHint: String?
-    /// The writing that just ended was Cancelled: its words are not split.
-    @State var textCancelled = false
     @FocusState var textFocus: CanvasItem.ID?
+    /// The caret is in the chat box while writing: still writing (F6B).
+    @FocusState var writingAskFocus: Bool
     @FocusState var miraFocus: Bool
 
     private let soundStore = SoundFileStore()
@@ -181,7 +192,7 @@ struct CanvasScene: View {
     private let favoritesStore = StickerFavoritesStore.forCurrentProcess()
 
     /// Words are being written (or the Text tool is on its way in): the
-    /// header reads Cancel / undo / Done, and Done ends the writing.
+    /// header greys Home and Save; the text row's Back ends the writing.
     private var writing: Bool { editor.editingTextItemID != nil || textModeArming }
 
     var body: some View {
@@ -249,10 +260,29 @@ struct CanvasScene: View {
     /// While words are written the page keeps its size and the keyboard
     /// rides over the dock -- and after, until that keyboard is gone (#162:
     /// the page used to shrink above the falling keyboard at once, then
-    /// grow back down with it).
+    /// grow back down with it). The Background tool's keyboard rides over
+    /// it the same way (final 42).
     private var holdsPageUnderKeyboard: Bool {
         _ = keyboardMoves
-        return editor.editingTextItemID != nil || TextKeyboard.up
+        return editor.editingTextItemID != nil || TextKeyboard.up || backgroundPanelOpen || backgroundKeyboard > 0
+    }
+
+    /// How far the dock rides up from its place to sit 10 above the
+    /// Background keyboard (final 42: the card keeps its size).
+    private var backgroundKeyboardLift: CGFloat {
+        let inset = Self.homeInset
+        return max(0, backgroundKeyboard - inset - Metrics.bottomGap(safeAreaBottom: inset) + 10)
+    }
+
+    /// The keyboard rising or falling for a Background field: the dock goes
+    /// with it. One rising elsewhere leaves it be.
+    private func followBackgroundKeyboard(_ note: Notification) {
+        guard backgroundPanelOpen || backgroundKeyboard > 0,
+              let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds
+        else { return }
+        let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        withAnimation(.easeOut(duration: duration)) { backgroundKeyboard = max(0, screen.maxY - end.minY) }
     }
 
     /// The home indicator's inset, which the keyboard covers.
@@ -270,10 +300,7 @@ struct CanvasScene: View {
         } else {
             var still = Transaction()
             still.disablesAnimations = true
-            withTransaction(still) {
-                textToolsShown = true
-                textToolsRiding = false
-            }
+            withTransaction(still) { textToolsShown = true }
         }
         TextOpenTiming.markToolsVisible()
     }
@@ -292,6 +319,11 @@ struct CanvasScene: View {
     private var canvas: some View {
         ZStack(alignment: .bottom) {
             scaffold
+                // Writing's start and end move the page as one eased change
+                // (it rode on the old writing scrim's fade): without it, the
+                // keyboard's inset leaving clamps a page scrolled clear of
+                // the tools a frame before it jumps back (#217).
+                .animation(.easeOut(duration: 0.2), value: editor.editingTextItemID != nil)
                 // While words are written the page keeps its size and the
                 // keyboard rides over the dock, as drawn (screens 11-20).
                 .ignoresSafeArea(.keyboard, edges: holdsPageUnderKeyboard ? .bottom : [])
@@ -315,9 +347,16 @@ struct CanvasScene: View {
                     if editor.editingTextItemID != nil, !textToolsShown, !TextKeyboard.up {
                         waitForTheKeyboard(TextKeyboard.focusWait)
                     }
+                    if editor.editingTextItemID != nil { WritingEscape.follow() }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidChangeNotification)) { _ in
+                    // An input method composing takes Esc back for itself.
+                    if editor.editingTextItemID != nil { WritingEscape.follow() }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: WritingEscape.pressed)) { _ in
+                    if editor.editingTextItemID != nil, colorRequest == nil { endTextEditing() }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-                    if textToolsRiding && !TextKeyboard.holdsRiding { textToolsRiding = false }
                     // After this redraw, which would put the default back.
                     if editor.editingTextItemID != nil { DispatchQueue.main.async { WritingKeyboard.keepDark() } }
                 }
@@ -325,6 +364,10 @@ struct CanvasScene: View {
                     TextKeyboard.up = false
                     if editor.editingTextItemID == nil { keyboardMoves += 1 }
                 }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification),
+                    perform: followBackgroundKeyboard
+                )
             // The text chrome floats over the page, on the keyboard.
             if editor.editingTextItemID != nil {
                 Group {
@@ -361,13 +404,14 @@ struct CanvasScene: View {
         }
         .onChange(of: backgroundPanelOpen) { _, open in
             if !open {
+                backgroundRow = nil
                 closePageColorSheet(keeping: false)
                 // Closed mid-painting: the turn runs on in the Mira strip.
                 applyingBackground = false
                 backgroundNotice = nil
             }
             // Opening Background moves on from a waiting result (Keep):
-            // its sheet would draw over the tool's sets and layout.
+            // its sheet would draw over the tool's rows.
             if open, receipt != nil { mira.dismiss() }
         }
     }
@@ -383,26 +427,23 @@ struct CanvasScene: View {
             onTrailing: header.onTrailing,
             onUndo: headerUndo,
             undoEnabled: headerUndoEnabled,
-            leadingMuted: !writing,
-            leadingID: writing ? "text.cancel" : nil,
-            trailingID: writing ? "keyboard.done" : nil,
-            // The picks importing are Add's: a second tap waits it out.
-            trailingEnabled: !(imagePhase == .library && importingPicks),
+            leadingEnabled: header.leadingEnabled,
+            trailingEnabled: header.trailingEnabled,
             // Screen 07: Save turns forest while a Mira change waits.
             trailingFill: receipt == nil || writing ? Palette.ink : Palette.forest,
-            dimmed: editor.editingTextItemID != nil,
             pageInert: editingImageItem != nil,
             onPageTap: photoPageTapped
         ) {
             board
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { boardRow = $0 }
-                .overlay(alignment: .top) {
-                    if backgroundPanelOpen {
-                        // A tap on the sheet lowers the Apply field's keyboard.
-                        backgroundSheet
-                            .onTapGesture { applyFocus = false }
+                // Mira is painting: a soft glow breathes on the page (R5A).
+                .overlay {
+                    if applyingBackground {
+                        PaintingGlow(reduceMotion: ReduceMotion.resolved(reduceMotion))
+                            .transition(.opacity)
                     }
                 }
+                .animation(.easeOut(duration: 0.3), value: applyingBackground)
                 .overlay(alignment: .bottom) {
                     if let receipt, layoutOriginal == nil {
                         // Screen 07: what Mira changed and what she kept.
@@ -460,6 +501,7 @@ struct CanvasScene: View {
                 }
                 .animation(.easeOut(duration: 0.15), value: dropToDelete)
                 .animation(.easeOut(duration: 0.2), value: attachedSound)
+                .offset(y: -backgroundKeyboardLift)
         }
         .overlay {
             if dropToDelete != nil {
@@ -489,6 +531,7 @@ struct CanvasScene: View {
             cancelDictationIfNeeded()
             cancelMiraDictation()
             textModeArming = false
+            WritingEscape.stop()
         }
         .onChange(of: scenePhase) { _, phase in
             // A hold the system interrupted never ends: the mic stops when
@@ -499,6 +542,27 @@ struct CanvasScene: View {
                 stopMiraDictationForBackground()
             }
         }
+        .onReceive(
+            NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
+                .receive(on: RunLoop.main)
+        ) { note in
+            // A call, Siri or an alarm takes the audio: the recorder stops
+            // capturing, so a live take ends as if let go (#218). The mic
+            // stays off when the interruption ends. A late notice of the
+            // suspension the trip away already handled would end a new take.
+            let info = note.userInfo
+            let type = info?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let reason = info?[AVAudioSessionInterruptionReasonKey] as? UInt
+            guard type == AVAudioSession.InterruptionType.began.rawValue,
+                  reason != AVAudioSession.InterruptionReason.appWasSuspended.rawValue else { return }
+            stopDictationForBackground()
+            stopMiraDictationForBackground()
+        }
+        #if DEBUG
+        .onChange(of: dictating || miraListening) { _, live in
+            if live { interruptAudioIfAsked() }
+        }
+        #endif
         .onChange(of: pendingTool) { consumePendingTool() }
         .onChange(of: editor.selectedItemID) { _, selected in
             // Layer-1 onboarding: the gesture hint appears on the first
@@ -542,9 +606,7 @@ struct CanvasScene: View {
             textToolsWait = nil
             if editing == nil {
                 textToolsShown = false
-                textToolsRiding = false
             } else if !textToolsShown {
-                textToolsRiding = true
                 // A keyboard already up brings no new rise.
                 if TextKeyboard.up {
                     showTextTools(rising: false)
@@ -553,24 +615,26 @@ struct CanvasScene: View {
                     waitForTheKeyboard(TextKeyboard.toolsWait)
                 }
             }
-            // Writing that ended any way but Cancel splits on its blank
-            // lines, one block per paragraph (#184) -- after its open
-            // previews are kept, like Done keeps them, each its own step.
+            // Writing that ended splits on its blank lines, one block per
+            // paragraph (#184) -- after its open previews are kept, like
+            // Back keeps them, each its own step.
             if let ended, ended != editing {
                 finishRewrite()
+                // The next block, even one opened straight from this one
+                // ("Edit text"), starts on the text row (S7).
+                textRow = nil
                 if let request = colorRequest {
                     editor.commitPreview(of: request.original)
                     colorRequest = nil
                 }
-                if textCancelled {
-                    textCancelled = false
-                } else {
-                    splitWrittenParagraphs(ended)
-                }
+                splitWrittenParagraphs(ended)
+                // A block opened straight from this one ("Edit text") is a
+                // new session: the chat box's words and a Go still running
+                // were this block's, and the next starts on its own rows.
+                if editing != nil { resetTextTools() }
             }
             // Words on their way belong to the session that asked for them:
-            // never landed after it ends or moves on -- the page says so
-            // (Cancel, which drops them on purpose, let go of them first).
+            // never landed after it ends or moves on -- the page says so.
             if dictationTarget != nil {
                 if editing == nil {
                     flashHint(String(appCopy: "Couldn't catch those words."))
@@ -586,11 +650,12 @@ struct CanvasScene: View {
             doneWaiting = nil
             afterWritingDown = nil
             if editing == nil {
+                WritingEscape.stop()
                 resetTextTools()
                 cleanUpEmptyText()
                 cancelDictationIfNeeded()
             } else {
-                // Writing takes the bottom cluster; the Background card must
+                // Writing takes the bottom cluster; the Background row must
                 // not come back over Mira's strip once it ends.
                 backgroundPanelOpen = false
             }
@@ -609,8 +674,7 @@ struct CanvasScene: View {
                     imageNotice = String(appCopy: "That photo couldn't be saved. Try again?")
                     return
                 }
-                placedThisVisit.append(id)
-                imagePhase = .placed
+                closeImageTool(selecting: [id])
             }
             .ignoresSafeArea()
         }
@@ -629,19 +693,35 @@ struct CanvasScene: View {
         .onChange(of: mira.isWorking) { _, working in
             // A running turn owns the strip (Stop, then the receipt) --
             // except the Background tool's own Apply, which shows its work
-            // in the sheet and closes it once the painting lands.
+            // in the tool's composer; the tool stays once the painting lands.
             if working {
                 if !applyingBackground { backgroundPanelOpen = false }
             } else if applyingBackground {
                 finishBackgroundApply()
             }
         }
+        .onChange(of: applyFocus) { _, focused in
+            // Typing a new painting moves on from the last one's receipt,
+            // which the keyboard would cover (F4A).
+            if focused { keepPaintReceipt() }
+        }
         .onChange(of: textFocus) { _, focus in
             // Interactive keyboard dismissal clears focus without going
             // through the Done button; keep the editing state in sync. The
-            // color sheet lowers the keyboard on purpose and keeps writing.
-            if focus == nil, editor.editingTextItemID != nil, colorRequest == nil {
+            // color sheet lowers the keyboard on purpose and keeps writing,
+            // and the caret moving to the chat box is still writing (F6B).
+            if focus == nil, !writingAskFocus, editor.editingTextItemID != nil, colorRequest == nil {
                 endTextEditing()
+            }
+        }
+        .onChange(of: writingAskFocus) { _, focus in
+            // The caret leaving the chat box for nowhere -- the box giving
+            // way to the live mic's waveform -- goes back to the block, which
+            // the words land in: still writing. Back and a page tap end it
+            // themselves.
+            if !focus, textFocus == nil, let id = editor.editingTextItemID, colorRequest == nil,
+               doneWaiting == nil {
+                textFocus = id
             }
         }
         .onChange(of: editingBlock?.text) { _, text in noteTyped(text) }
@@ -668,9 +748,14 @@ struct CanvasScene: View {
                 // folds it like it folds the text tools. Recording keeps
                 // its bar: a stray tap must not lose audio.
                 if case .armed = recorderState { recorderState = .idle }
-                // The Background card is a tool too: the paper folds it,
-                // and the Image tool before anything is picked.
-                backgroundPanelOpen = false
+                // Background folds back to the tool bar -- once Apply's
+                // keyboard is down: the first tap only lowers it -- and the
+                // Image tool folds before anything is picked.
+                if applyFocus {
+                    applyFocus = false
+                } else if backgroundPanelOpen {
+                    closeBackground()
+                }
                 if imagePhase == .choose { endImageVisit() }
                 // Edit sticker and AI Image stay open; the tap only lowers
                 // their keyboards.
@@ -740,7 +825,7 @@ struct CanvasScene: View {
                     coordinator: mira,
                     editor: editor,
                     prompt: $miraPrompt,
-                    placeholder: "Type or polish your memory",
+                    placeholder: "Ask Mira to refine...",
                     onOpenChat: {}
                 )
                 .allowsHitTesting(false)
@@ -755,7 +840,7 @@ struct CanvasScene: View {
                 coordinator: mira,
                 editor: editor,
                 prompt: $miraPrompt,
-                placeholder: "Type or polish your memory",
+                placeholder: "Ask Mira to refine...",
                 onOpenChat: openMiraChat
             )
         } else {
@@ -785,9 +870,10 @@ struct CanvasScene: View {
                     onSelectTool: handleTool
                 )
             } else if backgroundPanelOpen {
-                // The tool's sheet lies over the canvas; the composer below
+                // The tool's row in the tool bar's place; the composer below
                 // asks Mira to paint a backdrop from words (screen 05).
-                toolBar(active: .background)
+                backgroundSlot
+                    .modifier(SlotEntrance(deeper: true, waiting: slotEntering))
                 BackgroundApplyBar(
                     words: $applyWords,
                     focus: $applyFocus,
@@ -815,6 +901,7 @@ struct CanvasScene: View {
             }
             // Voice stays lit while its take's result sheet shows (09).
             toolBar(active: attachedSound == nil ? nil : .voice)
+                .modifier(SlotEntrance(deeper: false, waiting: slotEntering))
             // The card and the bar are one conversational dock.
             VStack(spacing: 6) {
                 MiraCard(
@@ -892,8 +979,7 @@ struct CanvasScene: View {
         attachedSound = nil
         let backgroundWasOpen = backgroundPanelOpen
         backgroundPanelOpen = false
-        // Another tool keeps the photos this Image visit placed (as Add);
-        // the Image tool itself toggles shut only from its first sheet.
+        // The Image tool toggles shut only from its first sheet.
         let imageWasOpen = imagePhase
         if mode != .image { endImageVisit() }
         switch mode {
@@ -904,6 +990,7 @@ struct CanvasScene: View {
             guard !mira.isWorking else { return }
             if case .recording = recorderState { return }
             cancelRecording()
+            if !backgroundWasOpen { enterSlot() }
             backgroundPanelOpen = !backgroundWasOpen
         case .text:
             guard !textModeArming else { return }
@@ -926,12 +1013,12 @@ struct CanvasScene: View {
             switch imageWasOpen {
             case nil: openImageTool()
             case .choose: endImageVisit()
-            // Picking or placed: the tap brings back the first sheet, and
-            // leaves a pick still importing (it must not land afterwards).
+            // Picking: the tap brings back the first sheet, and leaves a
+            // pick still importing (it must not land afterwards).
             case .library:
                 cancelImport()
                 imagePhase = .choose
-            case .placed, .generate: imagePhase = .choose
+            case .generate: imagePhase = .choose
             }
         case .sticker:
             cancelRecording()
@@ -952,32 +1039,21 @@ struct CanvasScene: View {
                      onDimmedLayout: { if let layoutBlocked { flashHint(layoutBlocked) } }, onSelect: handleTool)
     }
 
-    /// A tool open in place over the canvas (Background, photo or sticker
-    /// editing). The handoff's leading pill then reads "Canvas" and folds
-    /// the tool away (screen 05); on the bare canvas it is the way Home.
-    private var toolOpen: Bool {
-        backgroundPanelOpen || editingImageItem != nil || editingStickerItem != nil || imagePhase != nil
-    }
-
-    private func closeTool() {
-        backgroundPanelOpen = false
-        endImageVisit()
-        if let id = editingImageItem {
-            revealItem = id
-            editingImageItem = nil
-        }
-        if let id = editingStickerItem {
-            revealItem = id
-            editingStickerItem = nil
-        }
+    /// Edit sticker's Cancel and Done: an edit replaces the sticker and
+    /// closes the panel as it lands, so there is nothing to keep or take
+    /// back here (a running one's result is ignored when it lands).
+    private func closeStickerEditor() {
+        guard let id = editingStickerItem else { return }
+        revealItem = id
+        editingStickerItem = nil
     }
 
     /// The Background tool's Apply (owner, TestFlight 1.0(6)). With no words
-    /// the sheet's choices are already on the page: back to the canvas.
-    /// With words Mira paints a backdrop; the sheet shows the work.
+    /// the rows' choices are already on the page: back to the canvas.
+    /// With words Mira paints a backdrop; the row stays while she works.
     private func applyBackground(_ words: String) {
         guard !words.isEmpty else {
-            backgroundPanelOpen = false
+            closeBackground()
             return
         }
         guard !mira.isWorking else { return }
@@ -986,22 +1062,24 @@ struct CanvasScene: View {
         mira.askBackground(words, editor: editor)
     }
 
-    /// Apply's turn ended: landed, the canvas with its result sheet; failed,
-    /// the sheet says why (once -- not again in the strip) with the words
-    /// back; stopped, the words back.
+    /// Apply's turn ended: landed, its receipt floats on the card's foot
+    /// and the row stays (F4A); failed, the row's caption says why (once --
+    /// not again in the strip) with the words back; stopped, the words back.
     private func finishBackgroundApply() {
         applyingBackground = false
-        let refill = mira.refillPrompt
+        // Only a stop or a failure gives the words back.
+        applyWords = mira.refillPrompt ?? applyWords
         mira.refillPrompt = nil
         switch mira.phase {
         case .failure(let failure):
             backgroundNotice = failure.message
-            applyWords = refill ?? applyWords
             mira.dismiss()
-        case .idle:
-            applyWords = refill ?? applyWords
+        case .idle, .receipt:
+            // Stopped, or landed: the receipt floats over the row (F4A).
+            break
         default:
-            backgroundPanelOpen = false
+            // Anything else waits in the Mira strip, which the tool covers.
+            closeBackground()
         }
     }
 
@@ -1012,57 +1090,37 @@ struct CanvasScene: View {
         let trailing: String
         let onLeading: () -> Void
         let onTrailing: () -> Void
+        var leadingEnabled = true
+        var trailingEnabled = true
     }
 
-    /// The handoff's labels per state: writing reads Cancel / Done (screens
-    /// 10-20), a lifted photo Cancel / Done (27), picking and placed photos
-    /// Cancel / Add (24-29), any other open tool Canvas / Save (05, 23), the
-    /// bare canvas Home / Save.
+    /// The labels per state (#205 spec 1): a lifted photo or an edited
+    /// sticker Cancel / Done (E4B, F3A), trying layouts Cancel / Done; the
+    /// bare canvas Home / Save, greyed while writing, Background or the
+    /// Image tool is open (R2B, F1A) -- the tool closes first.
     private var header: Header {
         if layoutOriginal != nil {
             return Header(leading: "Cancel", trailing: "Done", onLeading: cancelLayout, onTrailing: keepLayout)
-        }
-        if writing {
-            return Header(leading: "Cancel", trailing: "Done",
-                          onLeading: cancelTextEditing, onTrailing: endTextEditing)
         }
         if editingImageItem != nil {
             return Header(leading: "Cancel", trailing: "Done",
                           onLeading: cancelPhotoEdit, onTrailing: closePhotoEditor)
         }
-        switch imagePhase {
-        case .library:
-            // Cancel goes straight back to the canvas, as the other tools'
-            // leading pill does (#167); with photos placed this visit it
-            // shows them, so they can still be kept or taken back.
-            return Header(leading: "Cancel", trailing: "Add", onLeading: {
-                if placedThisVisit.isEmpty {
-                    endImageVisit()
-                } else {
-                    libraryPicks = []
-                    cancelImport()
-                    imagePhase = .placed
-                }
-            }, onTrailing: addPicks)
-        case .placed:
-            return Header(leading: "Cancel", trailing: "Add",
-                          onLeading: cancelImageVisit, onTrailing: endImageVisit)
-        case .generate:
-            // Cancel lets the paintings go; Add waits for a pick.
-            return Header(leading: "Cancel", trailing: "Add", onLeading: {
-                aiImage.discard()
-                imagePhase = placedThisVisit.isEmpty ? .choose : .placed
-            }, onTrailing: {
-                if aiImage.holdsWork {
-                    aiImage.notice = Self.aiImageWaiting
-                } else {
-                    endImageVisit()
-                }
-            })
-        case .choose, nil:
-            return Header(leading: toolOpen ? "Canvas" : "Home", trailing: "Save",
-                          onLeading: toolOpen ? closeTool : actions.leading, onTrailing: actions.done)
+        if editingStickerItem != nil {
+            return Header(leading: "Cancel", trailing: "Done",
+                          onLeading: closeStickerEditor, onTrailing: closeStickerEditor)
         }
+        // AI paintings waiting to be picked: as a made sticker waits (H2),
+        // the leading pill is Cancel and lets them go.
+        if imagePhase == .generate, aiImage.holdsWork {
+            return Header(leading: "Cancel", trailing: "Save", onLeading: {
+                aiImage.discard()
+                imagePhase = .choose
+            }, onTrailing: actions.done, trailingEnabled: false)
+        }
+        let greyed = writing || backgroundPanelOpen || imagePhase != nil
+        return Header(leading: "Home", trailing: "Save", onLeading: actions.leading, onTrailing: actions.done,
+                      leadingEnabled: !greyed, trailingEnabled: !greyed)
     }
 
     /// The header's undo: while a photo is lifted, only that visit's own
@@ -1085,40 +1143,54 @@ struct CanvasScene: View {
         return editingStickerItem == nil && editor.canUndo
     }
 
-    // MARK: Image tool (handoff screens 23-26, 29)
+    // MARK: Image tool (handoff screens 23-26)
 
     private var placer: PhotoPlacer { PhotoPlacer(editor: editor, studio: imageStudio) }
 
     private func openImageTool() {
         imageNotice = nil
         libraryPicks = []
-        placedThisVisit = []
         cancelImport()
         imagePhase = .choose
     }
 
-    /// Closes the Image tool keeping what it placed (Add, another tool).
-    /// Never with an AI image waiting: those paths are guarded first.
+    /// Closes the Image tool (another tool, a tap on the page). Never with
+    /// an AI image waiting: those paths are guarded first.
     private func endImageVisit() {
         imagePhase = nil
         libraryPicks = []
-        placedThisVisit = []
         imageNotice = nil
         aiImage.discard()
         cancelImport()
     }
 
+    /// Photos landed (Add, Camera, an AI painting): the tool closes and the
+    /// page shows them, the last one selected (F10A). A block opened while
+    /// they imported keeps its writing: selecting would end it.
+    private func closeImageTool(selecting ids: [CanvasItem.ID]) {
+        endImageVisit()
+        guard editor.editingTextItemID == nil else { return }
+        editor.select(ids.last)
+    }
+
+    /// An import landed: with system picker picks queued behind it the tool
+    /// stays open (Home and Save greyed) until the last one lands.
+    private func importLanded(_ ids: [CanvasItem.ID]) {
+        guard queuedImports.isEmpty else { return }
+        closeImageTool(selecting: ids)
+    }
+
     static var aiImageWaiting: String { String(appCopy: "Pick an image first, or Cancel to let it go.") }
 
     /// A candidate tapped: it lands like a library photo (aspect-true, one
-    /// undo step, looked at by vision) and the tool shows it placed (25).
+    /// undo step, looked at by vision) and the tool closes on it (G9).
     private func placeAIImage(_ index: Int) {
-        let placed = aiImage.pick(index) { data, prompt in
-            guard let id = placer.place(data, name: prompt) else { return false }
-            placedThisVisit.append(id)
-            return true
+        var placed: CanvasItem.ID?
+        aiImage.pick(index) { data, prompt in
+            placed = placer.place(data, name: prompt)
+            return placed != nil
         }
-        if placed { imagePhase = .placed }
+        if let placed { closeImageTool(selecting: [placed]) }
     }
 
     /// A slow import (iCloud originals) still loading belongs to a visit,
@@ -1127,12 +1199,6 @@ struct CanvasScene: View {
         importGeneration += 1
         importingPicks = false
         queuedImports = []
-    }
-
-    /// Cancel after placing: this visit's photos come off as one step.
-    private func cancelImageVisit() {
-        editor.remove(itemIDs: placedThisVisit)
-        endImageVisit()
     }
 
     @ViewBuilder private var toolSheet: some View {
@@ -1178,14 +1244,14 @@ struct CanvasScene: View {
                     importing: importingPicks,
                     onEditing: editPick,
                     onSystemPicks: { items in
-                        importPicks(load: { await PhotoPlacer.data(for: items) }) { _ in imagePhase = .placed }
+                        importPicks(load: { await PhotoPlacer.data(for: items) }, then: importLanded)
                     },
                     onDrag: { photoDrag.drag = $0 },
                     onDrop: dropPhoto
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { recentsFrame = $0 }
                 .transition(.opacity)
-            case .placed, nil:
+            case nil:
                 EmptyView()
             }
         }
@@ -1216,36 +1282,35 @@ struct CanvasScene: View {
                     aiImage.generate(with: imageStudio)
                 }
             )
-        case .library, .placed:
+        case .library:
+            // The only Add (E3A): the picks importing are its, so a second
+            // tap waits them out.
             ToolComposer(
                 placeholder: "Add selected photos to canvas",
                 action: "Add",
-                actionEnabled: phase == .placed || (!libraryPicks.isEmpty && !importingPicks),
+                actionEnabled: !libraryPicks.isEmpty && !importingPicks,
                 fieldID: "image.composer",
                 actionID: "image.composer.add",
-                onAction: {
-                    // Placed: Add opens the grid for more.
-                    if phase == .placed { imagePhase = .library } else { addPicks() }
-                }
+                onAction: addPicks
             )
         }
     }
 
     /// The grid's picks are imported once: while they load, Add and
     /// Editing wait (only the system picker's picks queue behind them).
+    /// They land and the tool closes on them (F10A).
     private func addPicks() {
         guard !libraryPicks.isEmpty, !importingPicks else { return }
-        importPicks(load: libraryLoad) { _ in imagePhase = .placed }
+        importPicks(load: libraryLoad, then: importLanded)
     }
 
-    /// Screen 26: one pick, "Editing" -- it lands, and lifts straight into
-    /// the photo editor; Done returns to the placed state (29).
+    /// Screen 26: one pick, "Editing" -- it lands, the tool closes, and it
+    /// lifts straight into the photo editor; Done returns to the page.
     private func editPick() {
         guard !importingPicks else { return }
         importPicks(load: libraryLoad) { ids in
-            imagePhase = .placed
+            closeImageTool(selecting: ids)
             guard let id = ids.first else { return }
-            editor.select(id)
             openPhotoEditor(id)
         }
     }
@@ -1260,11 +1325,10 @@ struct CanvasScene: View {
         Task {
             let data = await library.data(for: [drag.photo]).first
             guard generation == importGeneration, imagePhase == .library else { return }
-            guard let data, let id = placer.place(data, name: "Library photo", at: spot) else {
+            guard let data, placer.place(data, name: "Library photo", at: spot) != nil else {
                 imageNotice = String(appCopy: "Those photos couldn't be imported. Try different ones?")
                 return
             }
-            placedThisVisit.append(id)
         }
     }
 
@@ -1308,7 +1372,6 @@ struct CanvasScene: View {
                 imageNotice = String(appCopy: "Those photos couldn't be imported. Try different ones?")
                 imagePhase = .choose
             } else {
-                placedThisVisit += ids
                 then(ids)
                 // They land under everything else on the page: bring the
                 // first one into view, wherever the page was scrolled (#167).
@@ -1323,8 +1386,9 @@ struct CanvasScene: View {
 
     private func placeSamples() {
         #if DEBUG
-        placedThisVisit += placer.placeSamples()
-        imagePhase = .placed
+        // Unselected, as the tests that ask Mira about the page expect.
+        _ = placer.placeSamples()
+        closeImageTool(selecting: [])
         #endif
     }
 
@@ -1602,22 +1666,47 @@ extension CanvasScene {
             "paper": editor.memory.paper.rawValue,
             "elements": editor.items.map(Self.debugElement),
             "textOpen": TextOpenTiming.snapshot,
-            "textToolsShown": textToolsShown
+            "textToolsShown": textToolsShown,
+            "escapeArmed": WritingEscape.armed,
+            "board": [boardRow.minY, boardRow.height],
+            // Mira painting's glow: breathing, or still under Reduce Motion.
+            "paintGlow": applyingBackground ? (ReduceMotion.resolved(reduceMotion) ? "still" : "breathing") : ""
         ]
+    }
+
+    /// -UITEST only: `-AUDIO_INTERRUPT_AFTER <ms>` interrupts the audio
+    /// session that long after a mic goes live, as a call would (#218).
+    func interruptAudioIfAsked() {
+        guard ProcessInfo.processInfo.arguments.contains("-UITEST") else { return }
+        let delay = UserDefaults.standard.integer(forKey: "AUDIO_INTERRUPT_AFTER")
+        guard delay > 0 else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(delay))
+            guard dictating || miraListening else { return }
+            NotificationCenter.default.post(
+                name: AVAudioSession.interruptionNotification,
+                object: AVAudioSession.sharedInstance(),
+                userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue]
+            )
+        }
     }
 
     private static func debugElement(_ item: CanvasItem) -> [String: Any] {
         var kind = "sound", text = ""
+        var style: [String: Any] = [:]
         switch item.content {
         case .text(let block):
             kind = "text"
             text = String(block.text.prefix(24))
+            style = ["font": block.fontName, "pointSize": block.pointSize, "color": block.colorName,
+                     "fill": block.backgroundColorName]
         case .image: kind = "image"
         case .sticker: kind = "sticker"
         case .sound: break
         }
         return ["id": item.id.uuidString, "kind": kind, "text": text,
                 "x": item.position.x, "y": item.position.y, "w": item.size.width, "h": item.size.height]
+            .merging(style) { old, _ in old }
     }
 }
 #endif
@@ -1655,15 +1744,5 @@ enum TextKeyboard {
         if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
         #endif
         return .milliseconds(300)
-    }
-
-    /// Tests only: the tools stay riding once the keyboard has landed, so a
-    /// tap can reach the font row's still copy.
-    static var holdsRiding: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("-HOLD_TOOLS_RIDING")
-        #else
-        return false
-        #endif
     }
 }

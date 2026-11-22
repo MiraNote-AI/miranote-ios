@@ -69,12 +69,12 @@ struct CanvasElementView: View {
 
     @ViewBuilder private func textView(_ block: TextBlock) -> some View {
         if isEditingText {
-            // Words straight on the editing scrim (screens 11-20): no chip
-            // behind them, only the block's own background if it has one.
+            // Words straight on the page (#205): no chip behind them, only
+            // the block's own background if it has one.
             TextField(
                 "Say something...",
                 text: text,
-                prompt: Text("Say something...").foregroundStyle(Palette.onInk.opacity(0.6)),
+                prompt: Text("Say something...").foregroundStyle(Palette.textSecondary),
                 axis: .vertical
             )
                 .font(TextFace.font(for: block))
@@ -209,8 +209,58 @@ enum WritingKeyboard {
     }
 }
 
+/// Esc on a hardware keyboard ends the writing, as Back does (R1A). The
+/// field takes Esc before SwiftUI's shortcuts see it, so a key command that
+/// outranks it sits on the field's own controller while words are written
+/// -- and steps aside while an input method composes (pinyin), whose Esc
+/// cancels the composition as usual.
+@MainActor
+enum WritingEscape {
+    static let pressed = Notification.Name("WritingEscape.pressed")
+
+    private static let command: UIKeyCommand = {
+        let command = UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [],
+                                   action: #selector(UIResponder.endWritingOnEscape))
+        command.wantsPriorityOverSystemBehavior = true
+        return command
+    }()
+    private static weak var host: UIViewController?
+
+    /// Esc ends the writing now (the -UITEST probe: XCUITest cannot press
+    /// a hardware key).
+    static var armed: Bool { host != nil }
+
+    /// On while the field being written has the keyboard and no marked text.
+    static func follow() {
+        // SwiftUI's own text view (VerticalTextView on iOS 26), not a
+        // UITextView: any field taking text input.
+        let field = UIResponder.currentFirstResponder
+        if let field, let input = field as? UITextInput, input.markedTextRange == nil {
+            guard host == nil else { return }
+            // The nearest controller up the field's responder chain: the
+            // editor's own, presented or not.
+            var responder = field.next
+            while let next = responder, !(next is UIViewController) { responder = next.next }
+            guard let controller = responder as? UIViewController else { return }
+            controller.addKeyCommand(command)
+            host = controller
+        } else {
+            stop()
+        }
+    }
+
+    static func stop() {
+        host?.removeKeyCommand(command)
+        host = nil
+    }
+}
+
 extension UIResponder {
     private static weak var found: UIResponder?
+
+    @objc fileprivate func endWritingOnEscape() {
+        NotificationCenter.default.post(name: WritingEscape.pressed, object: nil)
+    }
 
     static var currentFirstResponder: UIResponder? {
         found = nil

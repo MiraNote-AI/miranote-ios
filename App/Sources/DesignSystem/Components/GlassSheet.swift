@@ -22,8 +22,8 @@ struct GlassSheet<Content: View>: View {
 
     var title: String?
     var subtitle: String?
-    /// 20 on most sheets; 22 (at y 19) on Choose photos, Export, Background
-    /// (the handoff's 18 and 20 on the iOS-standard scale, 2026-10-19).
+    /// 20 on most sheets; 22 (at y 19) on Choose photos and Export (the
+    /// handoff's 18 and 20 on the iOS-standard scale, 2026-10-19).
     var titleSize: CGFloat = 20
     /// Paper over the blur: 0.56 on most sheets, 0.50 on the photo grid.
     var fillOpacity: Double = 0.56
@@ -80,9 +80,9 @@ struct GlassSheet<Content: View>: View {
 }
 
 /// The handoff's frosted glass in any shape: blur, a tint over it, the inner
-/// top highlight, a 1 pt rim and an ink drop shadow. GlassSheet, the
-/// Background tool, the Mira result sheet and the canvas chat panel differ
-/// only in these values.
+/// top highlight, a 1 pt rim and an ink drop shadow. GlassSheet, the text
+/// slot, the Mira result sheet and the canvas chat panel differ only in
+/// these values.
 struct GlassSurface<S: InsettableShape>: View {
     let shape: S
     let tint: Color

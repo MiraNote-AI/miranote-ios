@@ -40,7 +40,7 @@ final class PaywallUITests: XCTestCase {
     }
 
     private func expand() {
-        if !app.buttons["style.ai.expand"].exists { app.buttons["style.ai"].tap() }
+        if !app.buttons["style.ai.expand"].exists { app.openTextRow("style.ai") }
         app.buttons["style.ai.expand"].tap()
     }
 
@@ -123,6 +123,54 @@ final class PaywallUITests: XCTestCase {
                       "the strip says the free limit, not a retry: \(String(describing: strip.value))")
     }
 
+    /// #205 F6B: Go in the chat box while writing rewrites through the same
+    /// text service, so a used-up allowance opens the paywall there too,
+    /// and the caption above the rows says the limit once it closes.
+    func testGoInTheChatBoxOpensThePaywallAndTheCaptionSaysTheLimit() {
+        startWriting("noodle shop")
+        let ask = app.descendants(matching: .any)["writing.ask"]
+        ask.tap()
+        ask.typeText("make it warmer")
+        app.buttons["writing.go"].tap()
+
+        XCTAssertTrue(paywall.waitForExistence(timeout: 5), "the used-up allowance opens the paywall")
+        app.buttons["paywall.close"].tap()
+        XCTAssertTrue(paywall.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(limitLine.waitForExistence(timeout: 3), "the caption says the free limit, not a retry")
+        XCTAssertTrue(fieldValueContains("noodle shop"), "the block keeps its words")
+        XCTAssertEqual(ask.value as? String, "make it warmer", "the ask stays, to send again")
+    }
+
+    /// #205 R5A: Mira painting a page meets a used-up allowance. The paywall
+    /// opens; once it closes the painting's glow and Stop are gone, the
+    /// composer is Apply again with the words back, and the caption over
+    /// the row says the limit (G25). The page is untouched.
+    func testALimitMidPaintingOpensThePaywallAndTheCaptionSaysIt() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
+        app.openBackground()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
+
+        XCTAssertTrue(paywall.waitForExistence(timeout: 8), "the used-up allowance opens the paywall")
+        app.buttons["paywall.close"].tap()
+        XCTAssertTrue(paywall.waitForNonExistence(timeout: 5))
+        let notice = app.staticTexts["background.notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 3), "the caption over the row")
+        XCTAssertTrue(notice.label.hasPrefix("You've reached the free limit for this."), notice.label)
+        XCTAssertLessThanOrEqual(notice.frame.maxY, app.buttons["background.back"].frame.minY, "above the row")
+        XCTAssertEqual(app.buttons["background.apply"].label, "Apply", "the composer is back to Apply")
+        XCTAssertEqual(words.value as? String, "a soft sunset glow", "the words are back")
+        XCTAssertFalse(app.staticTexts["background.status"].exists, "no longer painting")
+        let probe = app.canvasProbe
+        XCTAssertTrue(probe.label.contains("\"paintGlow\":\"\""), "the glow ended: \(probe.label)")
+        XCTAssertTrue(probe.label.contains("\"backdrop\":\"\""), "the page is untouched: \(probe.label)")
+        XCTAssertFalse(app.buttons["mira.keep"].exists, "no receipt")
+    }
+
     /// A build that names no accounts service (Config/App.xcconfig as
     /// shipped): the same answer opens no paywall, and Settings has no PLUS
     /// card.
@@ -139,6 +187,8 @@ final class PaywallUITests: XCTestCase {
         )).firstMatch
         XCTAssertTrue(failed.waitForExistence(timeout: 5), "the 429 came back and the action failed")
         XCTAssertFalse(paywall.waitForExistence(timeout: 2), "no paywall")
+
+        app.backToTextRow()
 
         app.buttons["keyboard.done"].tap()
         app.buttons["Save"].tap()

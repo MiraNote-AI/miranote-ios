@@ -60,11 +60,11 @@ final class StarJarSaveUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reading.edit"].waitForExistence(timeout: 5))
         app.buttons["reading.edit"].tap()
         XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
-        app.buttons["mode.background"].tap()
+        app.openBackgroundRow("color")
         let lilac = app.buttons["background.color.#E6D9F0"]
         XCTAssertTrue(lilac.waitForExistence(timeout: 5))
         lilac.tap()
-        app.buttons["mode.background"].tap()
+        app.closeBackground()
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["reading.back"].waitForExistence(timeout: 5))
         app.buttons["reading.back"].tap()
@@ -79,6 +79,53 @@ final class StarJarSaveUITests: XCTestCase {
         let afresh = averageColor(of: star)
         XCTAssertGreaterThan(difference(before, afresh), 15, "lilac paper makes a new star: \(before) -> \(afresh)")
         XCTAssertLessThan(difference(back, afresh), 3, "the jar it was edited from shows it too: \(back) vs \(afresh)")
+    }
+
+    /// #205 R5A: Save is greyed while Background is open, so a painting
+    /// cannot be saved half way from the header. Closed mid-painting, the
+    /// page saves as it shows: one star, and the painting that comes after
+    /// the Save never reaches the saved page.
+    func testClosingBackgroundMidPaintingThenSaveFilesThePageAsShown() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-GENERATE_DELAY", "4000"]
+        app.launch()
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        XCTAssertEqual(jar.value as? String, "0")
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("Lake day")
+        app.buttons["keyboard.done"].tap()
+
+        app.openBackground()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
+        XCTAssertTrue(app.staticTexts["background.status"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Save"].isEnabled, "Save waits for the tool to close")
+        app.buttons["background.back"].tap()
+        XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Save"].isEnabled)
+        app.buttons["Save"].tap()
+
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: jar)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the star lands once")
+        // Past the painting's own time.
+        sleep(5)
+        XCTAssertEqual(jar.value as? String, "1", "and only once")
+        openJar()
+        let star = app.buttons["jar.star.Lake day"]
+        XCTAssertTrue(star.waitForExistence(timeout: 5))
+        star.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["reading.edit"].waitForExistence(timeout: 5))
+        app.buttons["reading.edit"].tap()
+        XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.backdrop, "", "the late painting never reached the saved page: \(app.canvasProbe.label)")
     }
 
     /// A Mira chat draft has never been saved: its first Save makes it a

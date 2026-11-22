@@ -21,11 +21,15 @@ public struct StickerFavoritesStore: Sendable {
     }
 
     public func all() -> [GeneratedSticker] {
-        guard let data = try? Data(contentsOf: url),
-              let stickers = try? JSONDecoder().decode([GeneratedSticker].self, from: data) else {
-            return []
-        }
-        return stickers
+        (try? load()) ?? []
+    }
+
+    /// The favorites as stored; none when none was ever saved. Throws
+    /// when the file is there but cannot be read or decoded, for a caller
+    /// that must not take that for "no favorites".
+    public func load() throws -> [GeneratedSticker] {
+        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+        return try JSONDecoder().decode([GeneratedSticker].self, from: Data(contentsOf: url))
     }
 
     /// One-shot hygiene at panel open: keep only stickers whose image

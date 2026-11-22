@@ -29,28 +29,36 @@ final class TextStylingUITests: XCTestCase {
     func testStylingRowsApplyAndShowTheCurrentStyle() {
         startEditingText("sunny afternoon")
 
-        // Font row: open from the start (screen 11); the picked face reads
-        // as selected.
+        // Font row (Aa): the picked face reads as selected.
+        app.openTextRow("style.font")
         let futura = app.buttons["style.font.Futura"]
         XCTAssertTrue(futura.waitForExistence(timeout: 5))
         futura.tap()
         XCTAssertTrue(futura.isSelected)
 
-        // Alignment steps leading -> center -> trailing.
+        // Size row: the picked size reads as selected.
+        app.openTextRow("style.size")
+        let large = app.buttons["style.size.L"]
+        XCTAssertTrue(large.waitForExistence(timeout: 5))
+        large.tap()
+        XCTAssertTrue(large.isSelected)
+
+        // Alignment, on the text row, steps leading -> center -> trailing.
+        app.backToTextRow()
         let align = app.buttons["style.align"]
         XCTAssertEqual(align.value as? String, "Left")
         align.tap()
         XCTAssertEqual(align.value as? String, "Centered")
 
         // Color: the picked swatch reads as selected.
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.colors")
         let green = app.buttons["style.color.#24382D"]
         XCTAssertTrue(green.waitForExistence(timeout: 5))
         green.tap()
         XCTAssertTrue(green.isSelected)
 
         // Text background: on, then off again.
-        app.buttons["style.highlight"].tap()
+        app.openTextRow("style.highlight")
         let highlight = app.buttons["style.highlight.#B4826D"]
         XCTAssertTrue(highlight.waitForExistence(timeout: 5))
         highlight.tap()
@@ -58,6 +66,7 @@ final class TextStylingUITests: XCTestCase {
         app.buttons["style.highlight.none"].tap()
         XCTAssertFalse(highlight.isSelected)
 
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.staticTexts["sunny afternoon"].waitForExistence(timeout: 5))
     }

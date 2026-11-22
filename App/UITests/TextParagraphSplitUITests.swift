@@ -92,7 +92,9 @@ final class TextParagraphSplitUITests: XCTestCase {
         XCTAssertEqual(blocks().map(\.text), ["one", "two"])
     }
 
-    func testCancelDoesNotSplit() {
+    /// Paragraphs undone before the writing ends are not split (#205: Undo
+    /// took Cancel's place).
+    func testUndoneParagraphsDoNotSplit() {
         startWriting("draft")
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(field.waitForNonExistence(timeout: 5))
@@ -101,8 +103,9 @@ final class TextParagraphSplitUITests: XCTestCase {
         words.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.typeText("\n\nmore")
-        app.buttons["text.cancel"].tap()
-        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Cancel ends the writing")
+        app.buttons["editor.undo"].tap()
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Back ends the writing")
         sleep(1)
         XCTAssertEqual(blocks().map(\.text), ["draft"], "the block as it was, in one piece")
     }
@@ -133,7 +136,7 @@ final class TextParagraphSplitUITests: XCTestCase {
     /// splits it: two undos give back the words as typed.
     func testATapOnThePaperKeepsAnOpenExpandBeforeSplitting() {
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
         waitForExpectations(timeout: 5)
@@ -178,6 +181,11 @@ final class TextParagraphSplitUITests: XCTestCase {
         words.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.typeText("\n\nmore")
+        // The grown block pushed "below" under the text tools: the page is
+        // dragged up to bring it into view first.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.42))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.25)))
+        sleep(1)
         app.staticTexts["below"].tap()
         XCTAssertTrue(app.staticTexts["more"].waitForExistence(timeout: 5), "the tap ends the writing")
 

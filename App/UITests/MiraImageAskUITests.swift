@@ -34,13 +34,13 @@ final class MiraImageAskUITests: XCTestCase {
         samples.tap()
         let second = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 1)
-        // Placed photos arrive unselected (addImages never selects), so no
+        // Samples arrive unselected (unlike an Add, F10A), so no
         // deselect tap: on some phones every candidate point lands off the
         // canvas, on the dock.
         XCTAssertTrue(second.waitForExistence(timeout: 5))
-        // The Image tool stays open after placing (screen 25); its header
-        // Add keeps the photos and returns to the canvas and Mira's bar.
-        app.buttons["nav.trailing"].tap()
+        // The Image tool closes on them (F10A): back on the canvas and
+        // Mira's bar.
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
     }
 
     // "draw ..." -> two candidates on the card; tapping one places it.

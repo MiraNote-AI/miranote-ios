@@ -72,7 +72,7 @@ final class OwnerTourUITests: XCTestCase {
         app.buttons["image.library.samples"].tap()
         let photo = app.descendants(matching: .any).matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the Image tool closed on them")
 
         photo.press(forDuration: 0.9)
         XCTAssertTrue(app.buttons["Edit photo"].waitForExistence(timeout: 5))
@@ -81,14 +81,14 @@ final class OwnerTourUITests: XCTestCase {
         check("photo-edit")
         app.buttons["nav.trailing"].tap()
 
-        open("mode.background", until: app.descendants(matching: .any)["background.title"])
+        open("mode.background", until: app.descendants(matching: .any)["background.row.tools"])
         check("background")
-        // A tool's header: "Canvas" leads back; the trailing Save files the page.
-        app.buttons["nav.leading"].tap()
+        // The tool's items in the tool bar's place: Back leads to the tool bar.
+        app.buttons["background.back"].tap()
 
         open("mode.sticker", until: app.buttons["sticker.tab.make"])
         check("sticker")
-        app.buttons["nav.leading"].tap()
+        app.buttons["mode.sticker"].tap()
 
         // Voice is a strip on the canvas itself; its X lets it go.
         open("mode.voice", until: app.buttons["recorder.cancel"])

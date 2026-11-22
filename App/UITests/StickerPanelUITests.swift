@@ -1,8 +1,11 @@
 import XCTest
 
-/// The Sticker panel's handoff states (screens 30-35): presets place on a
-/// tap, a made sticker restyles with its own undo and redo, and the header
-/// Add hands the showing one to the canvas.
+/// The Sticker panel's handoff states (screens 30-35, #205): the header is
+/// Home / Undo / Save, all greyed (E1A, F1A, F2A); presets place on a tap,
+/// close the panel and land selected (E2B); the Sticker tool again or a tap
+/// on the page leaves (H1A); a made sticker restyles with its own undo and
+/// redo, "Add to page" hands it to the canvas, and while it waits the
+/// leading pill is Cancel and lets it go (H2).
 final class StickerPanelUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -45,8 +48,8 @@ final class StickerPanelUITests: XCTestCase {
     /// it as they place): its header Undo is off, never the canvas-wide
     /// undo reaching the page under the panel.
     func testThePanelsHeaderUndoLeavesTheCanvasAlone() {
-        app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any)["canvas.textEditor"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -70,7 +73,7 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["sticker.preset.ramen"].exists, "the handoff's food set is bundled")
 
         martini.tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5), "back on the canvas")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the panel closed, back on the canvas")
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "the preset landed")
         XCTAssertEqual(stickers.count, 1)
     }
@@ -79,8 +82,8 @@ final class StickerPanelUITests: XCTestCase {
     /// the cut is what shows, Outline is not lit and there is nothing to
     /// undo. It used to push an outlined look on top of the cut.
     func testAPhotoBecomesAStickerWithNoEdge() {
-        app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         app.buttons["mode.image"].tap()
         let samples = app.buttons["image.library.samples"]
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
@@ -88,8 +91,8 @@ final class StickerPanelUITests: XCTestCase {
         let photo = app.descendants(matching: .any)
             .matching(identifier: "element.image").element(boundBy: 0)
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
-        // Placed photos arrive unselected; the shortcut needs one selected.
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the Image tool closed on them")
+        // Samples arrive unselected; the shortcut needs one selected.
         photo.tap()
 
         app.buttons["mode.sticker"].tap()
@@ -125,18 +128,20 @@ final class StickerPanelUITests: XCTestCase {
 
     /// Owner, 2026-10-19: "Add to page" under the result, within the thumb's
     /// reach, puts the showing sticker on the page in view -- selected, one
-    /// undo step, the toast's Undo takes it back. The header has no Add then.
+    /// undo step, the toast's Undo takes it back. The header has no Add.
     func testAddToPagePlacesTheShowingResultInView() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
-        XCTAssertFalse(app.buttons["nav.trailing"].exists, "no second Add in the header")
+        XCTAssertEqual(app.buttons["nav.trailing"].label, "Save", "no second Add in the header")
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled)
         let add = app.buttons["sticker.addToPage"]
         XCTAssertGreaterThanOrEqual(add.frame.height, 44)
         add.tap()
 
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "it landed")
         XCTAssertEqual(stickers.count, 1)
-        XCTAssertTrue(app.buttons["Save"].isHittable, "back on the canvas")
+        // No wait: the toast below lasts 4 s.
+        XCTAssertTrue(app.miraComposer.exists, "back on the canvas")
         // It lands selected: the probe's selection is the new sticker.
         let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
             .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
@@ -155,8 +160,8 @@ final class StickerPanelUITests: XCTestCase {
     /// 2026-10-19): looking further down a long page, the sticker lands in
     /// the part that was showing, and the page is still there.
     func testAStickerAddedFurtherDownLandsWhereThePageStood() {
-        app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         app.buttons["mode.text"].tap()
         let field = app.descendants(matching: .any)["canvas.textEditor"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -200,6 +205,7 @@ final class StickerPanelUITests: XCTestCase {
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
         sleep(1)
         let cancel = app.buttons["nav.leading"]
+        XCTAssertEqual(cancel.label, "Cancel")
         XCTAssertTrue(cancel.isHittable, "Cancel is in view")
         XCTAssertGreaterThan(app.staticTexts["Sticker"].frame.minY, cancel.frame.maxY,
                              "the sheet starts below the header")
@@ -267,8 +273,9 @@ final class StickerPanelUITests: XCTestCase {
     func testCancelDropsTheResult() {
         generate("a coffee cup")
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 8))
+        XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
         app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Cancel leaves the panel (today)")
         sleep(1)
         XCTAssertEqual(stickers.count, 0, "nothing lands")
         app.buttons["mode.sticker"].tap()
@@ -285,7 +292,8 @@ final class StickerPanelUITests: XCTestCase {
         app.buttons["mode.background"].tap()
         // Either the tap is refused (still in the panel) or the sticker
         // survives the round trip.
-        if app.buttons["mode.sticker"].waitForExistence(timeout: 2), !any("sticker.result.0").exists {
+        if app.buttons["background.back"].waitForExistence(timeout: 2) {
+            app.closeBackground()
             app.buttons["mode.sticker"].tap()
         }
         XCTAssertTrue(any("sticker.result.0").waitForExistence(timeout: 5), "the made coffee cup still waits")

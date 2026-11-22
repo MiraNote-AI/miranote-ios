@@ -6,11 +6,11 @@ import UIKit
 // MARK: - Dictation (hold to talk)
 
 extension CanvasScene {
-    /// Touch down on the strip: the mic goes live unless it already is. A
-    /// take already let go of and being written down is not live: a press
+    /// Touch down on the chat box's mic: it goes live unless it already is.
+    /// A take already let go of and being written down is not live: a press
     /// then records a new take.
     func pressDictation() {
-        // A live voice take owns the recorder slot: the strip never takes
+        // A live voice take owns the recorder slot: the mic never takes
         // it over (or its release would transcribe the take into the block).
         // An armed Voice tool holds nothing yet.
         if case .recording = recorderState {
@@ -49,9 +49,10 @@ extension CanvasScene {
         endDeferredWriting()
     }
 
-    /// The app leaves the foreground: a live take ends as if let go, so
-    /// what it recorded lands (or the strip says why not); a mic still
-    /// coming up has recorded nothing and is cancelled.
+    /// The system ends the take -- the app leaves the foreground (#148),
+    /// takes the touch, or interrupts the audio (#218): a live take ends as
+    /// if let go, so what it recorded lands (or the caption says why not); a
+    /// mic still coming up has recorded nothing and is cancelled.
     func stopDictationForBackground() {
         dictationPress = nil
         guard dictating else {
@@ -66,7 +67,7 @@ extension CanvasScene {
 
     /// iOS suspends the app seconds after it leaves: ask for time to stop
     /// the take (`stop`, which returns its task) and send it, until its
-    /// words land or time is up. Both strips (#148, #150).
+    /// words land or time is up. Both mics (#148, #150).
     func stopTakeInBackground(_ stop: () -> Task<Void, Never>?) {
         let app = UIApplication.shared
         var assertion = UIBackgroundTaskIdentifier.invalid
@@ -131,10 +132,10 @@ extension CanvasScene {
 
     /// Record, transcribe (:8005), append to the block being edited, inside
     /// its session like typing. Words never land after the session ends:
-    /// Done waits for them ("Writing it down...", `endTextEditing`); Cancel,
-    /// or a session that ends or moves on, drops them. The take stops being
-    /// live here, as the recorder is let go of: its words on their way are
-    /// `writingDown`, and the strip is free for the next take.
+    /// ending the writing waits for them ("Writing it down...",
+    /// `endTextEditing`); a session that ends or moves on drops them. The
+    /// take stops being live here, as the recorder is let go of: its words
+    /// on their way are `writingDown`, and the mic is free for the next take.
     func stopDictation() {
         // A mic still coming up is let go of here (its start then stops
         // it): no stale claim left for a later cancel to act on.
@@ -169,7 +170,7 @@ extension CanvasScene {
         }
     }
 
-    /// The take's words, or nil with the strip saying why -- a silent
+    /// The take's words, or nil with the caption saying why -- a silent
     /// return looked like a dead feature.
     private func transcribe(_ recorder: AudioRecording, for id: CanvasItem.ID?) async -> String? {
         guard let data = try? await recorder.stop(), !data.isEmpty else {
@@ -194,7 +195,7 @@ extension CanvasScene {
 
     /// The take's transcript, or nil. A trip away cuts the request off
     /// (the app is suspended): the take is sent once more back in the
-    /// foreground, still in its place. Both strips (#148, #150).
+    /// foreground, still in its place. Both mics (#148, #150).
     func transcribeAcrossATripAway(_ data: Data) async -> String? {
         let trips = leftForeground
         let away = { UIApplication.shared.applicationState != .active || leftForeground != trips }

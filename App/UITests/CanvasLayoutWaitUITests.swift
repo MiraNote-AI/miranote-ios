@@ -65,7 +65,7 @@ final class CanvasLayoutWaitUITests: XCTestCase {
         app.buttons["image.composer.add"].tap()
         let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == \(target)"), object: photos)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed)
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the Image tool")
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
         settle()
     }
