@@ -29,9 +29,9 @@ extension HomeView {
 
     /// The page folds into its star over Home and drops into the jar
     /// (`SaveFold`, 1.8 s); under Reduce Motion it cross-fades to its star,
-    /// which fades into the jar (0.5 s). Haptics on the fold's beats. Home
-    /// scrolls to its top at once, under the fold: the jar chip scrolls
-    /// with the page.
+    /// which fades out where it is as it fades into the jar (0.5 s).
+    /// Haptics on the fold's beats. Home scrolls to its top at once, under
+    /// the fold: the jar chip scrolls with the page.
     func landArrivingStar(_ scroller: ScrollViewProxy) async {
         guard arrivingStar != nil else { return }
         scroller.scrollTo(Self.top, anchor: .top)

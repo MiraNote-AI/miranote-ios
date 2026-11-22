@@ -12,8 +12,8 @@ import SwiftUI
 /// aside, the star arcs into the open half of the mouth, bounces twice,
 /// the cap seats and the jar docks back into its chip. Home stays sharp
 /// under a light veil. 1.8 s. Only drawn: VoiceOver hears the landing.
-/// Under Reduce Motion the page cross-fades to its star, which fades into
-/// the header jar (0.5 s).
+/// Under Reduce Motion the page cross-fades to its star, which fades out
+/// where it is as it fades into the header jar (0.5 s): nothing travels.
 struct SaveFold: View {
     let paper: StarPaper
     /// The header jar chip's middle, in this view's space.
@@ -297,16 +297,26 @@ struct SaveFold: View {
 // MARK: - Reduce Motion
 
 extension SaveFold {
-    /// The page cross-fades to its finished star (200 ms), which fades and
-    /// shrinks into the header jar where it is (300 ms).
+    /// The page cross-fades to its finished star (200 ms), which fades out
+    /// where it is as it fades into its place in the header jar (300 ms):
+    /// nothing travels across the screen or changes size (#243).
     fileprivate func drawFade(in context: GraphicsContext, stage: Stage, at t: CGFloat, still: Image?) {
         let fade = CGFloat(StarFold.fadeToStar), end = CGFloat(StarFold.fadeEnd)
-        // The header jar, which the fold hides, with the stars it had.
+        let settle = Ease.seg(t, fade, end)
+        // The header jar, which the fold hides, with the stars it had and
+        // the new one fading in at its place.
         var jarContext = context
         jarContext.translateBy(x: stage.chip.x, y: stage.chip.y + 78 * Self.chipScale)
         jarContext.scaleBy(x: Self.chipScale, y: Self.chipScale)
         JarArt.back(in: jarContext, s: Self.chipScale)
         drawPile(in: jarContext, still: still)
+        if let landing, settle > 0 {
+            var inside = jarContext
+            inside.clip(to: JarArt.body())
+            FoldedStar.draw(in: inside, paper: paper, at: landing.center, radius: landing.radius,
+                            rotation: landing.rotation,
+                            look: .init(k: landing.radius / FoldDrawing.knot, shadow: 0.5, opacity: settle))
+        }
         JarArt.front(in: jarContext, s: Self.chipScale)
         JarArt.cap(in: jarContext, s: Self.chipScale)
         let page = 1 - Ease.seg(t, 0, fade)
@@ -321,13 +331,14 @@ extension SaveFold {
             ctx.draw(paper.page,
                      in: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: paper.fullHeight * s))
         }
-        let shrink = Ease.seg(t, fade, end)
-        let at = CGPoint(x: Ease.lerp(stage.hero.x, stage.chip.x, shrink),
-                         y: Ease.lerp(stage.hero.y, stage.chip.y, shrink))
-        let R = Ease.lerp(FoldDrawing.hero * stage.k, 4, shrink)
-        FoldedStar.draw(in: context, paper: paper, at: at, radius: R, rotation: 0,
-                        look: .init(k: R / FoldDrawing.knot, shadow: 1 - shrink,
-                                    opacity: Ease.seg(t, 0, fade) * (1 - shrink)))
+        // The star at the hero point, below the ask bar, at its full size.
+        let R = FoldDrawing.hero * stage.k
+        #if DEBUG
+        StarJarProbe.fadeStar(start, at: stage.hero, radius: R)
+        #endif
+        FoldedStar.draw(in: context, paper: paper, at: stage.hero, radius: R, rotation: 0,
+                        look: .init(k: R / FoldDrawing.knot, shadow: 1,
+                                    opacity: Ease.seg(t, 0, fade) * (1 - settle)))
     }
 }
 

@@ -235,7 +235,9 @@ final class StarJarSaveUITests: XCTestCase {
     }
 
     /// Under Reduce Motion the page cross-fades to its star, which fades
-    /// into the header jar (0.5 s): the star lands once.
+    /// out where it is as it fades into the header jar (0.5 s): the star
+    /// lands once, and nothing travels across the screen or changes size
+    /// (#243).
     func testUnderReduceMotionASaveFadesItsStarIn() {
         relaunch(["-REDUCE_MOTION"])
         let jar = app.buttons["home.starJar"]
@@ -243,5 +245,9 @@ final class StarJarSaveUITests: XCTestCase {
         XCTAssertEqual(jar.value as? String, "0")
         saveNewPage()
         assertLandedOnce(jar, within: 5, "the fade lands it")
+        let state = homeState
+        XCTAssertGreaterThan(state["fadeFrames"] as? Int ?? 0, 1, "the fade drew its star: \(state)")
+        XCTAssertEqual(state["fadeTravel"] as? Double ?? .nan, 0, accuracy: 0.5, "it fades where it is: \(state)")
+        XCTAssertEqual(state["fadeResize"] as? Double ?? .nan, 0, accuracy: 0.5, "at one size: \(state)")
     }
 }
