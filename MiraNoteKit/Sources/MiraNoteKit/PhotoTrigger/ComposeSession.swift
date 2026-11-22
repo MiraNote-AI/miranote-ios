@@ -232,6 +232,9 @@ struct ComposeSession {
     }
 
     static func failure(for error: Error) -> TriggerFailure {
+        // The HTTP client ends a sign-in the server refused twice: not a
+        // backend out of reach.
+        if error as? AccountError == .signedOut { return .signedOut }
         switch error as? ComposeError {
         case .unreachable, .none: return .backendUnreachable
         case .unauthorized: return .unauthorized

@@ -61,6 +61,7 @@ struct TriggerProgressText: View {
         case .notificationsOff: return Text("Notifications are off")
         case .photosDenied: return Text("Photo library access is needed")
         case .unauthorized: return Text("This build has no beta access")
+        case .signedOut: return Text("Your sign-in has ended. Sign in again to use Mira's AI.")
         case .backend(let message): return Text("The backend said: \(message)")
         }
     }

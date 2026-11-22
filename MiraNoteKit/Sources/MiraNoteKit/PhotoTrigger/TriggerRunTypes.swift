@@ -70,6 +70,9 @@ public enum TriggerFailure: Equatable, Sendable {
     case photosDenied
     /// 401: this build has no valid beta token.
     case unauthorized
+    /// The writer's sign-in ended: the server refused even a renewed
+    /// token (`AccountError.signedOut`, #231).
+    case signedOut
     /// Any other refusal or error, with the backend's message.
     case backend(String)
 }
