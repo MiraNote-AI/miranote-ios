@@ -3,11 +3,13 @@ import XCTest
 /// VoiceOver's two-finger escape while writing (#236, after #223 and
 /// #225), as the Background slot's (#226): on a tool's row it goes back up
 /// to the text row, as the row's Back does; on the text row and the chat
-/// box's mic it ends the writing, as the text row's Back does. Through the
-/// -UITEST escape probe (`voiceOverEscape(from:)`), a model of VoiceOver's
-/// walk.
+/// box's mic it ends the writing, as the text row's Back does; with the
+/// caret in the block or in the chat box it ends the writing too. Through
+/// the -UITEST escape probe (`voiceOverEscape(from:)`), a model of
+/// VoiceOver's walk.
 final class TextEscapeUITests: TextToolUITestCase {
     private var field: XCUIElement { any("canvas.textEditor") }
+    private var ask: XCUIElement { app.descendants(matching: .any)["writing.ask"] }
 
     private func startWriting(_ words: String) -> String {
         app.buttons["mode.text"].tap()
@@ -63,6 +65,31 @@ final class TextEscapeUITests: TextToolUITestCase {
         assertTheWritingEnded("escape on the chat box's mic ends the writing")
     }
 
+    /// #223: no escape action reached the block's field, which sits on the
+    /// page -- and no SwiftUI escape action reaches a text field's own view.
+    func testEscapeWithTheCaretInTheBlockEndsTheWriting() {
+        _ = startWriting("we walked")
+        let record = app.voiceOverEscape(from: "canvas.textEditor")
+        XCTAssertTrue(record.contains("taken at 0"), "the field itself took the escape: \(record)")
+        assertTheWritingEnded("escape in the block's field ends the writing, as Back does")
+        XCTAssertTrue(app.staticTexts["we walked"].exists, "the words stay on the page")
+    }
 
-}
+    /// With a tool's row open the caret is still in the block: escape from
+    /// the field ends the writing, as from the text row.
+    func testEscapeWithTheCaretInTheBlockEndsTheWritingWithARowOpen() {
+        _ = startWriting("we walked")
+        app.openTextRow("style.size")
+        app.voiceOverEscape(from: "canvas.textEditor")
+        assertTheWritingEnded("escape in the block's field ends the writing")
+    }
+
+    /// The chat box's field never reached the text chrome's escape either.
+    func testEscapeWithTheCaretInTheChatBoxEndsTheWriting() {
+        _ = startWriting("we walked")
+        ask.tap()
+        let record = app.voiceOverEscape(from: "writing.ask")
+        XCTAssertTrue(record.contains("taken at 0"), "the field itself took the escape: \(record)")
+        assertTheWritingEnded("escape in the chat box ends the writing")
+    }
 }
