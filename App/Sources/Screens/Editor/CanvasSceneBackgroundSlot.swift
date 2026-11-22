@@ -281,10 +281,10 @@ private struct PageColorRow: View {
             identifier: { "background.color.\($0)" },
             onApply: apply,
             isAction: { $0 == Self.pick || $0 == Self.custom },
-            onAction: {
-                onKeep()
-                onCustomColor($0 == Self.pick ? .pick : .custom)
-            },
+            onAction: { onCustomColor($0 == Self.pick ? .pick : .custom) },
+            // Any tap is Keep, the chosen cell's too (Painted right after
+            // Apply), which applies nothing (F4A).
+            onTap: { _ in onKeep() },
             cell: cell
         )
         .frame(height: 48)

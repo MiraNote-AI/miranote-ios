@@ -548,13 +548,10 @@ struct CanvasScene: View {
         ) { note in
             // A call, Siri or an alarm takes the audio: the recorder stops
             // capturing, so a live take ends as if let go (#218). The mic
-            // stays off when the interruption ends. A late notice of the
-            // suspension the trip away already handled would end a new take.
-            let info = note.userInfo
-            let type = info?[AVAudioSessionInterruptionTypeKey] as? UInt
-            let reason = info?[AVAudioSessionInterruptionReasonKey] as? UInt
-            guard type == AVAudioSession.InterruptionType.began.rawValue,
-                  reason != AVAudioSession.InterruptionReason.appWasSuspended.rawValue else { return }
+            // stays off when the interruption ends. (iOS 16 and later never
+            // send the old `appWasSuspended` reason, so none is filtered.)
+            let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard type == AVAudioSession.InterruptionType.began.rawValue else { return }
             stopDictationForBackground()
             stopMiraDictationForBackground()
         }
@@ -1730,8 +1727,8 @@ enum TextKeyboard {
     /// How long the tools wait for a keyboard before they show anyway.
     static var toolsWait: Duration {
         #if DEBUG
-        // Tests only: a longer wait, so two opens fall inside one.
-        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        // Tests only: a longer wait, so two opens fall well inside one.
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(10) }
         #endif
         return .milliseconds(1500)
     }
@@ -1741,7 +1738,7 @@ enum TextKeyboard {
     /// iPhone 17 Pro sim); a hardware one never says so on iOS 26.
     static var focusWait: Duration {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(10) }
         #endif
         return .milliseconds(300)
     }

@@ -19,6 +19,9 @@ struct SnapRow<ID: Hashable, Cell: View>: View {
     let onApply: (ID) -> Void
     var isAction: (ID) -> Bool = { _ in false }
     var onAction: (ID) -> Void = { _ in }
+    /// Every tap on a cell, before it acts -- the chosen cell's too, which
+    /// applies nothing: the Background color row's Keep (F4A).
+    var onTap: (ID) -> Void = { _ in }
     @ViewBuilder let cell: (ID) -> Cell
 
     /// The cell under the marker.
@@ -92,6 +95,7 @@ struct SnapRow<ID: Hashable, Cell: View>: View {
     }
 
     private func tap(_ id: ID) {
+        onTap(id)
         if isAction(id) {
             onAction(id)
             return

@@ -46,6 +46,26 @@ final class JoinStepsTests: XCTestCase {
         XCTAssertEqual(text(of: block, in: editor), "hello")
     }
 
+    /// The photos land before the block's first change, so the first of
+    /// them also starts the session (it records no step of its own): Cancel
+    /// still takes back the words typed after them, and keeps the photos.
+    func testJoiningTheSessionsFirstStepsKeepsItsCancel() {
+        let editor = CanvasViewModel(memory: Memory())
+        let block = editor.addText("hello", at: CGPoint(x: 100, y: 60), pointSize: 17,
+                                   size: CGSize(width: 200, height: 48))
+        editor.startEditingText(block)
+        let placed = photos(editor, 3)
+        editor.joinLastSteps(3)
+        editor.setText(itemID: block, to: "hello world")
+
+        editor.cancelEditingText()
+        XCTAssertEqual(text(of: block, in: editor), "hello", "Cancel takes the words back")
+        XCTAssertEqual(editor.items.count, 4, "the photos stay")
+        editor.undo()
+        XCTAssertEqual(Set(editor.items.map(\.id)).intersection(placed), [], "one undo takes the batch back")
+        XCTAssertEqual(text(of: block, in: editor), "hello")
+    }
+
     private func text(of id: CanvasItem.ID, in editor: CanvasViewModel) -> String? {
         guard case .text(let block) = editor.item(id)?.content else { return nil }
         return block.text

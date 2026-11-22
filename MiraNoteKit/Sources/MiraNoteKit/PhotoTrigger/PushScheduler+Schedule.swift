@@ -20,16 +20,20 @@ extension PushScheduler {
         switch attempt {
         case .pushed: return "pushed"
         case .rejected(let message): return message
-        case .stop(let failure):
-            switch failure {
-            case .backendUnreachable: return "backendUnreachable"
-            case .aiTimeout: return "aiTimeout"
-            case .noFragment: return "noFragment"
-            case .notificationsOff: return "notificationsOff"
-            case .photosDenied: return "photosDenied"
-            case .unauthorized: return "unauthorized"
-            case .backend(let message): return message
-            }
+        case .stop(let failure): return describe(failure)
+        }
+    }
+
+    private static func describe(_ failure: TriggerFailure) -> String {
+        switch failure {
+        case .backendUnreachable: return "backendUnreachable"
+        case .aiTimeout: return "aiTimeout"
+        case .noFragment: return "noFragment"
+        case .notificationsOff: return "notificationsOff"
+        case .photosDenied: return "photosDenied"
+        case .unauthorized: return "unauthorized"
+        case .signedOut: return "signedOut"
+        case .backend(let message): return message
         }
     }
 
