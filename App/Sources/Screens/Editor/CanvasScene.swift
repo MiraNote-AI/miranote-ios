@@ -234,6 +234,9 @@ struct CanvasScene: View {
             Task { await lookAtUnseenPhotos() }
             consumePendingTool()
             placeArrivingSticker()
+            #if DEBUG
+            EscapeProbe.listen()
+            #endif
         }
     }
 
@@ -705,12 +708,19 @@ struct CanvasScene: View {
             // which the keyboard would cover (F4A).
             if focused { keepPaintReceipt() }
         }
-        .onChange(of: textFocus) { _, focus in
+        .onChange(of: textFocus) { left, focus in
             // Interactive keyboard dismissal clears focus without going
             // through the Done button; keep the editing state in sync. The
             // color sheet lowers the keyboard on purpose and keeps writing,
             // and the caret moving to the chat box is still writing (F6B).
-            if focus == nil, !writingAskFocus, editor.editingTextItemID != nil, colorRequest == nil {
+            guard focus == nil, !writingAskFocus, let writing = editor.editingTextItemID, colorRequest == nil
+            else { return }
+            if let left, left != writing {
+                // "Edit text" on another block: the caret left the block the
+                // writing moved on from, and goes on to the one now written,
+                // as from the chat box (#236: the writing used to end).
+                textFocus = writing
+            } else {
                 endTextEditing()
             }
         }
@@ -1681,6 +1691,7 @@ extension CanvasScene {
             "textOpen": TextOpenTiming.snapshot,
             "textToolsShown": textToolsShown,
             "escapeArmed": WritingEscape.armed,
+            "escape": EscapeProbe.last,
             "board": [boardRow.minY, boardRow.height],
             // Mira painting's glow: breathing, or still under Reduce Motion.
             "paintGlow": applyingBackground ? (ReduceMotion.resolved(reduceMotion) ? "still" : "breathing") : ""

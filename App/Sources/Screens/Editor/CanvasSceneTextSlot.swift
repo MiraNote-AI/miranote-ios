@@ -27,6 +27,12 @@ extension CanvasScene {
         .padding(.horizontal, Metrics.chromeInset)
         // A tap between two keys stays in the writing, off the page.
         .contentShape(Rectangle())
+        // VoiceOver's two-finger scrub goes up one level, as Back does, and
+        // as in the Background slot (#236): a tool's row back to the text
+        // row, the text row ends the writing.
+        .accessibilityAction(.escape) {
+            if textRow != nil { backToTextRow() } else { endTextEditing() }
+        }
     }
 
     /// A level change in the tool slot (D7A, G26), Text and Background

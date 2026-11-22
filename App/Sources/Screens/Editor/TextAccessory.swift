@@ -222,6 +222,9 @@ struct WritingChatBox: View {
     var onCancel: () -> Void
     /// Starts or ends the take in one activation (assistive technologies).
     var onToggle: () -> Void
+    /// VoiceOver's two-finger scrub on the mic or Go: the writing ends (the
+    /// field's own escape is `WritingEscape`'s).
+    var onEscape: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -241,7 +244,8 @@ struct WritingChatBox: View {
             } else {
                 // The block's kind of field, so the block's dark keyboard
                 // stays dark as the caret moves here (#162: never swapped).
-                // One line: Return sends, as Go does, and keeps the caret.
+                // One line: Return sends, as Go does, and keeps the caret;
+                // a paste never sends (#236).
                 TextField("", text: $ask, prompt: Text(copy: "Ask Mira to refine...").foregroundStyle(Palette.muted),
                           axis: .vertical)
                     .lineLimit(1)
@@ -250,9 +254,16 @@ struct WritingChatBox: View {
                     .tint(Palette.forest)
                     .submitLabel(.go)
                     .focused(focus)
-                    .onChange(of: ask) { _, words in
-                        guard words.contains("\n") else { return }
-                        ask = words.replacingOccurrences(of: "\n", with: "")
+                    .onChange(of: ask) { before, words in
+                        guard words.contains(where: \.isNewline) else { return }
+                        // The Go key sends (`WritingAskReturn`). Any other line
+                        // break -- a paste's -- is words: a space, as the Mira
+                        // chat's one-line field makes it.
+                        guard let asked = WritingAskReturn.goKey(words, before: before) else {
+                            ask = String(words.map { $0.isNewline ? " " : $0 })
+                            return
+                        }
+                        ask = asked
                         if hasWords, canGo, !asking { onGo() }
                     }
                     .environment(\.colorScheme, .dark)
@@ -269,6 +280,8 @@ struct WritingChatBox: View {
         .padding(.trailing, 10)
         .frame(height: 54)
         .background(GlassCapsule())
+        // The mic and Go; a text field's view never reaches it.
+        .accessibilityAction(.escape, onEscape)
     }
 
     /// The composer's ink Go pill; a spinner while Mira rewrites.
@@ -322,6 +335,29 @@ struct WritingChatBox: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { onToggle() }
             .accessibilityIdentifier("style.mic")
+    }
+}
+
+/// When a change to the writing chat box is its Go key, not a paste
+/// (#236). The key puts one line break where the caret was and leaves the
+/// words after it. The last word before it may change in the same change:
+/// the key takes a pending autocorrection, and letters typed just before it
+/// can land with it. Any other line break, as a paste brings, is not the
+/// key. A paste of a lone line break still looks like it.
+enum WritingAskReturn {
+    /// The words without the key's line break; nil when it is not the key.
+    static func goKey(_ words: String, before: String) -> String? {
+        guard let lineBreak = words.firstIndex(where: \.isNewline) else { return nil }
+        let typed = String(words[..<lineBreak]), after = String(words[words.index(after: lineBreak)...])
+        guard !after.contains(where: \.isNewline), before.hasSuffix(after) else { return nil }
+        let caret = String(before.dropLast(after.count))
+        if typed != caret {
+            // Only the last word before the caret changed: the words up to
+            // it are as they were.
+            let kept = caret.lastIndex(where: \.isWhitespace).map { String(caret[...$0]) } ?? ""
+            guard caret.count > kept.count, typed.count > kept.count, typed.hasPrefix(kept) else { return nil }
+        }
+        return typed + after
     }
 }
 

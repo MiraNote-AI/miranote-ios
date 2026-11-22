@@ -529,7 +529,9 @@ struct CanvasBoardView: View {
         // selection's frame and handles.
         .scaleEffect(pageScale)
         .frame(width: menuBox(geometry).width * pageScale, height: menuBox(geometry).height * pageScale)
-        .contextMenu { contextMenu(for: item) }
+        // The block being written has the system's edit menu only: its own
+        // menu came up with Paste and stayed over the chat box (#236).
+        .contextMenu { if !isEditing { contextMenu(for: item) } }
         .scaleEffect(1 / pageScale)
         .position(geometry.position)
         .id(item.id)

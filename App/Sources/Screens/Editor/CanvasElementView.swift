@@ -230,11 +230,24 @@ enum WritingEscape {
     /// a hardware key).
     static var armed: Bool { host != nil }
 
+    /// VoiceOver's two-finger scrub on a field being written (the block's
+    /// or the chat box's) ends the writing too, as Back does. On the field's
+    /// own view: SwiftUI's escape actions, the text chrome's among them,
+    /// never reach a text field's view (#236).
+    private static let voiceOverEscape: () -> Bool = {
+        NotificationCenter.default.post(name: pressed, object: nil)
+        return true
+    }
+    private static let escapeBlockSetter = NSSelectorFromString("setAccessibilityPerformEscapeBlock:")
+
     /// On while the field being written has the keyboard and no marked text.
     static func follow() {
         // SwiftUI's own text view (VerticalTextView on iOS 26), not a
         // UITextView: any field taking text input.
         let field = UIResponder.currentFirstResponder
+        if let field, field is UITextInput, field.responds(to: escapeBlockSetter) {
+            field.accessibilityPerformEscapeBlock = voiceOverEscape
+        }
         if let field, let input = field as? UITextInput, input.markedTextRange == nil {
             guard host == nil else { return }
             // The nearest controller up the field's responder chain: the

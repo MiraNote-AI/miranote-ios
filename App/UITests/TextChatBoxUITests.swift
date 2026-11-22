@@ -12,12 +12,57 @@ final class TextChatBoxUITests: TextToolUITestCase {
     private var go: XCUIElement { app.buttons["writing.go"] }
     private var mic: XCUIElement { any("style.mic") }
 
-    private func fieldValue() -> String { field.value as? String ?? "" }
+    /// TestFlight 1.0(14): "tapping the chat box flies to Mira chat". While
+    /// writing, the tap puts the caret in the chat box in place (T1, F6B) --
+    /// on a fresh page and on a page with blocks -- and never opens the
+    /// Mira chat. (Outside writing the composer opens the chat as designed:
+    /// "the bottom composer is a button that opens the chat", design
+    /// fidelity plan.)
+    func testATapOnTheChatBoxWhileWritingStaysInPlace() {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        assertTheTapStaysInPlace("a fresh page")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
 
-    private func waitForField(_ predicate: String, _ words: String, timeout: TimeInterval = 5) -> Bool {
-        let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value \(predicate) %@", words),
-                                              object: field)
-        return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
+        write("first block")
+        write("second block")
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("third")
+        assertTheTapStaysInPlace("a page with blocks")
+    }
+
+    private func assertTheTapStaysInPlace(_ page: String, file: StaticString = #filePath, line: UInt = #line) {
+        let writing = canvasState()["writing"] as? String ?? ""
+        XCTAssertFalse(writing.isEmpty, file: file, line: line)
+        ask.tap()
+        XCTAssertTrue(waitForCaret(in: ask), "\(page): the caret is in the chat box", file: file, line: line)
+        XCTAssertFalse(app.miraInput.exists, "\(page): the Mira chat never opens", file: file, line: line)
+        XCTAssertEqual(canvasState()["writing"] as? String, writing, "\(page): still writing the same block",
+                       file: file, line: line)
+        app.typeText("warm")
+        XCTAssertEqual(ask.value as? String, "warm", "\(page): the words go to the chat box", file: file, line: line)
+    }
+
+    /// #236: a paste never sends -- only Go and the keyboard's Go key do. A
+    /// pasted two-line ask waits in the box on one line, its line break a
+    /// space as in the Mira chat's own field, to be edited and sent.
+    func testAPastedTwoLineAskWaitsToBeEdited() {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("we walked")
+        ask.tap()
+        app.paste("make it warmer\nand shorter", into: ask)
+        sleep(2)
+        XCTAssertEqual(fieldValue(), "we walked", "nothing was sent: the block is as it was")
+        XCTAssertEqual(ask.value as? String, "make it warmer and shorter", "the words wait, on one line")
+        XCTAssertFalse(app.buttons["style.ai.original"].exists, "no rewrite was asked for")
+
+        ask.typeText("!")
+        XCTAssertEqual(ask.value as? String, "make it warmer and shorter!", "the words can be edited")
+        go.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "Go sends them: \(fieldValue())")
     }
 
     func testTheMicGivesWayToGoOnceThereAreWords() {
@@ -127,12 +172,45 @@ final class TextChatBoxUITests: TextToolUITestCase {
         field.typeText("we walked")
         let writing = canvasState()["writing"] as? String ?? ""
         ask.tap()
-        ask.typeText("make it warmer\n")
+        // The key on its own, as a person presses it. One typeText call
+        // lands in chunks, and a chunk of whole new words with the key in
+        // it reads as a paste (`WritingAskReturn`).
+        ask.typeText("make it warmer")
+        ask.typeText("\n")
         XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "\(fieldValue())")
         XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the same block")
         app.typeText("!")
         XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked!"),
                       "the caret is in the block: \(fieldValue())")
+    }
+
+    /// The Go key with an autocorrection pending on the last word sends,
+    /// the correction taken (#236). Typed on the keyboard's own keys, as a
+    /// person types: XCUITest's typeText is never autocorrected. Skipped on
+    /// a keyboard that does not correct the word at all (one that learned
+    /// it): there is nothing to pin there.
+    func testTheGoKeySendsWithAnAutocorrectionPending() throws {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("we walked")
+        ask.tap()
+        // The keyboard needs a moment to be ready to correct, and to settle
+        // a correction after the last key.
+        sleep(1)
+        ask.typeText("make it warmer ")
+        tapKeys("becuase")
+        sleep(1)
+        app.keyboards.keys["space"].tap()
+        guard ask.value as? String == "make it warmer because " else {
+            throw XCTSkip("this keyboard does not correct the word: \(ask.value as? String ?? "")")
+        }
+        tapKeys("becuase")
+        sleep(1)
+        XCTAssertEqual(ask.value as? String, "make it warmer because becuase", "the correction waits for the key")
+        app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] 'go'")).firstMatch.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "the Go key sent it: \(fieldValue())")
+        XCTAssertEqual(ask.value as? String ?? "", ask.placeholderValue ?? "",
+                       "the words left the box, none waiting: \(ask.value as? String ?? "")")
     }
 
     /// The mic tapped while the caret is in the empty box: the waveform
@@ -198,7 +276,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
         let block = String(repeating: "a", count: 3000)
         app.paste(block, into: field)
         XCTAssertTrue(waitForField("==", block), "pasted: \(fieldValue().count)")
-        closeTheBlocksMenu()
+        XCTAssertFalse(app.buttons["Edit text"].exists, "the paste brought no block menu over the chat box")
         ask.tap()
         ask.typeText("make it shorter")
         go.tap()
@@ -218,28 +296,6 @@ final class TextChatBoxUITests: TextToolUITestCase {
         XCTAssertTrue(tooLong.waitForExistence(timeout: 3), "the caption says why")
         XCTAssertEqual(ask.value as? String, "make it shorter", "the words stay, to send again")
         XCTAssertEqual(fieldValue(), rewritten + "!", "the block is as it was")
-    }
-
-    /// The long press that pastes also opens the block's own menu (Edit
-    /// text, Duplicate, ...), over the chat box. A tap closes the menu and
-    /// does nothing else: the caret stays in the block.
-    private func closeTheBlocksMenu() {
-        let menu = app.buttons["Edit text"]
-        guard menu.waitForExistence(timeout: 2) else { return }
-        let writing = canvasState()["writing"] as? String
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(menu.waitForNonExistence(timeout: 3), "the block's menu closed")
-        XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the block")
-    }
-
-    /// The block's menu, "Edit text", from wherever the page is.
-    private func editText(_ words: String) {
-        let block = app.staticTexts[words]
-        XCTAssertTrue(block.waitForExistence(timeout: 5))
-        block.press(forDuration: 1.2)
-        XCTAssertTrue(app.buttons["Edit text"].waitForExistence(timeout: 3))
-        app.buttons["Edit text"].tap()
-        XCTAssertTrue(waitForField("==", words), "writing '\(words)': \(fieldValue())")
     }
 
     /// A page tap with the caret in the chat box ends the writing, as it
