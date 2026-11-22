@@ -1727,8 +1727,8 @@ enum TextKeyboard {
     /// How long the tools wait for a keyboard before they show anyway.
     static var toolsWait: Duration {
         #if DEBUG
-        // Tests only: a longer wait, so two opens fall inside one.
-        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        // Tests only: a longer wait, so two opens fall well inside one.
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(10) }
         #endif
         return .milliseconds(1500)
     }
@@ -1738,7 +1738,7 @@ enum TextKeyboard {
     /// iPhone 17 Pro sim); a hardware one never says so on iOS 26.
     static var focusWait: Duration {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(4) }
+        if ProcessInfo.processInfo.arguments.contains("-LONG_TOOLS_WAIT") { return .seconds(10) }
         #endif
         return .milliseconds(300)
     }

@@ -89,7 +89,9 @@ final class TextToolLatencyUITests: TextToolUITestCase {
 
     /// The wait for a keyboard that never comes belongs to one open: an
     /// earlier open's wait, run out, never shows the next open's tools
-    /// ahead of its own keyboard (#162's pop, back again).
+    /// ahead of its own keyboard (#162's pop, back again). The two opens
+    /// come well inside one wait, so the earlier open's would run out in
+    /// the middle of the next.
     func testAnEarlierOpensWaitLeavesTheNextOpenAlone() {
         app.terminate()
         app.launchArguments = ["-UITEST", "-NO_KEYBOARD_SIGNAL", "-LONG_TOOLS_WAIT"]
@@ -97,35 +99,60 @@ final class TextToolLatencyUITests: TextToolUITestCase {
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
         app.buttons["Start a memory"].tap()
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
-        write("kept")
+        // The block, written and left with a tap on the bare page: the
+        // tools, Done among them, wait the whole wait here.
+        let page = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 200, dy: 160))
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("kept")
+        page.tap()
         let block = app.staticTexts["kept"]
         XCTAssertTrue(block.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "the writing ended")
         // One open and out, then the next as soon as the keyboard is down.
+        var firstOpen = Date()
         block.tap()
-        let field = app.descendants(matching: .any)["canvas.textEditor"]
-        if !field.waitForExistence(timeout: 2) { block.tap() }
+        if !field.waitForExistence(timeout: 2) {
+            firstOpen = Date()
+            block.tap()
+        }
         XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let firstSeen = Date()
         // Out before the tools (and their Back) show: a tap on the bare page.
-        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 200, dy: 160)).tap()
-        let down = NSPredicate(format: "exists == false")
-        expectation(for: down, evaluatedWith: app.keyboards.firstMatch)
-        waitForExpectations(timeout: 5)
+        page.tap()
+        // Polled tightly: an expectation looks only about once a second.
+        let keyboard = app.keyboards.firstMatch
+        let downBy = Date().addingTimeInterval(5)
+        while keyboard.exists, Date() < downBy { usleep(50_000) }
+        XCTAssertFalse(keyboard.exists, "the keyboard went down")
         // The page tap let go of the block: one tap selects it again, the
         // timed one opens it.
         block.tap()
         let start = Date()
         block.tap()
+        // The first open's wait began after `firstOpen`: it would run out
+        // at least half a wait into this open.
+        let gap = start.timeIntervalSince(firstOpen)
+        XCTAssertLessThan(gap, Self.toolsWait / 2, "the two opens are \(gap) s apart")
         var shownAfter = -1.0
-        while Date().timeIntervalSince(start) < 7 {
+        while Date().timeIntervalSince(start) < Self.toolsWait + 4 {
             if canvasState()["textToolsShown"] as? Bool == true {
                 shownAfter = Date().timeIntervalSince(start)
                 break
             }
             usleep(50_000)
         }
-        // The wait is 4 s here; the earlier open's runs out ~3 s sooner.
-        XCTAssertGreaterThan(shownAfter, 3.0, "the tools showed \(shownAfter) s into the open")
+        // This open's own wait starts after `start`; the first open's began
+        // by `firstSeen`, so it would run out at least that much sooner.
+        let stale = Self.toolsWait - start.timeIntervalSince(firstSeen)
+        print("earlier-open-wait gap=\(gap) shownAfter=\(shownAfter) staleBy=\(stale)")
+        XCTAssertGreaterThan(shownAfter, Self.toolsWait - 0.5,
+                             "the tools showed \(shownAfter) s into the open; the first's wait ends by \(stale)")
     }
+
+    /// `-LONG_TOOLS_WAIT`'s wait for a keyboard, in seconds.
+    private static let toolsWait = 10.0
 
     /// A tap on the font row, even between two chips, stays in the session
     /// and sets the font (a tap through the rising row's gaps used to fall
