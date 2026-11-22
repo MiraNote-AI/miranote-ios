@@ -241,7 +241,8 @@ struct WritingChatBox: View {
             } else {
                 // The block's kind of field, so the block's dark keyboard
                 // stays dark as the caret moves here (#162: never swapped).
-                // One line: Return sends, as Go does, and keeps the caret.
+                // One line: Return sends, as Go does, and keeps the caret;
+                // a paste never sends (#236).
                 TextField("", text: $ask, prompt: Text(copy: "Ask Mira to refine...").foregroundStyle(Palette.muted),
                           axis: .vertical)
                     .lineLimit(1)
@@ -250,9 +251,17 @@ struct WritingChatBox: View {
                     .tint(Palette.forest)
                     .submitLabel(.go)
                     .focused(focus)
-                    .onChange(of: ask) { _, words in
-                        guard words.contains("\n") else { return }
-                        ask = words.replacingOccurrences(of: "\n", with: "")
+                    .onChange(of: ask) { before, words in
+                        guard words.contains(where: \.isNewline) else { return }
+                        // The Go key puts one line break where the caret was
+                        // and changes nothing else. Any other line break --
+                        // a paste's -- is words: a space, as the Mira chat's
+                        // one-line field makes it.
+                        guard words.count == before.count + 1, words.filter({ !$0.isNewline }) == before else {
+                            ask = String(words.map { $0.isNewline ? " " : $0 })
+                            return
+                        }
+                        ask = before
                         if hasWords, canGo, !asking { onGo() }
                     }
                     .environment(\.colorScheme, .dark)

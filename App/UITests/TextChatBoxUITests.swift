@@ -53,6 +53,26 @@ final class TextChatBoxUITests: TextToolUITestCase {
         XCTAssertEqual(ask.value as? String, "warm", "\(page): the words go to the chat box", file: file, line: line)
     }
 
+    /// #236: a paste never sends -- only Go and the keyboard's Go key do. A
+    /// pasted two-line ask waits in the box on one line, its line break a
+    /// space as in the Mira chat's own field, to be edited and sent.
+    func testAPastedTwoLineAskWaitsToBeEdited() {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("we walked")
+        ask.tap()
+        app.paste("make it warmer\nand shorter", into: ask)
+        sleep(2)
+        XCTAssertEqual(fieldValue(), "we walked", "nothing was sent: the block is as it was")
+        XCTAssertEqual(ask.value as? String, "make it warmer and shorter", "the words wait, on one line")
+        XCTAssertFalse(app.buttons["style.ai.original"].exists, "no rewrite was asked for")
+
+        ask.typeText("!")
+        XCTAssertEqual(ask.value as? String, "make it warmer and shorter!", "the words can be edited")
+        go.tap()
+        XCTAssertTrue(waitForField("==", "(rewritten -- mock) we walked"), "Go sends them: \(fieldValue())")
+    }
+
     func testTheMicGivesWayToGoOnceThereAreWords() {
         app.buttons["mode.text"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
