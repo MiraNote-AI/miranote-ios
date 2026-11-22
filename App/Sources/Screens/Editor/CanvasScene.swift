@@ -548,13 +548,10 @@ struct CanvasScene: View {
         ) { note in
             // A call, Siri or an alarm takes the audio: the recorder stops
             // capturing, so a live take ends as if let go (#218). The mic
-            // stays off when the interruption ends. A late notice of the
-            // suspension the trip away already handled would end a new take.
-            let info = note.userInfo
-            let type = info?[AVAudioSessionInterruptionTypeKey] as? UInt
-            let reason = info?[AVAudioSessionInterruptionReasonKey] as? UInt
-            guard type == AVAudioSession.InterruptionType.began.rawValue,
-                  reason != AVAudioSession.InterruptionReason.appWasSuspended.rawValue else { return }
+            // stays off when the interruption ends. (iOS 16 and later never
+            // send the old `appWasSuspended` reason, so none is filtered.)
+            let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard type == AVAudioSession.InterruptionType.began.rawValue else { return }
             stopDictationForBackground()
             stopMiraDictationForBackground()
         }
