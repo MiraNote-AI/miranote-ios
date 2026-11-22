@@ -31,6 +31,10 @@ struct SaveFold: View {
     /// Home's background: the veil over it.
     let veilColor: Color
     let reduceMotion: Bool
+    /// The pile but the new star and the stars its landing pushes, drawn
+    /// once: star by star every frame, a month of 36 stars took the fold
+    /// from 17 to about 51 ms a frame (simulator), 66 stars to 87.
+    @State private var still: Image?
 
     /// Where the editor shows its page's top: 42 pt below the safe area
     /// (measured in the editor, its nav row and gap).
@@ -41,6 +45,10 @@ struct SaveFold: View {
 
     var body: some View {
         let editorTop = Self.editorPageTop, readingTop = OpenUnfold.readingTop
+        // Read here, not only in the canvas: the still's arrival redraws
+        // the fold with it. Read in the canvas alone, the fold kept drawing
+        // star by star until Home redrew at the landing.
+        let still = still
         return GeometryReader { proxy in
             TimelineView(.animation) { timeline in
                 let t = CGFloat(StarClock.ms(since: start, at: timeline.date))
@@ -49,9 +57,9 @@ struct SaveFold: View {
                 ZStack(alignment: .topLeading) {
                     Canvas { context, _ in
                         if reduceMotion {
-                            drawFade(in: context, stage: stage, at: t)
+                            drawFade(in: context, stage: stage, at: t, still: still)
                         } else {
-                            drawBehind(in: context, stage: stage, at: t)
+                            drawBehind(in: context, stage: stage, at: t, still: still)
                         }
                     }
                     if !reduceMotion, t < CGFloat(StarFold.pleatsEnd) {
@@ -62,6 +70,9 @@ struct SaveFold: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+        .task(id: pile.stars.map(\.id)) {
+            self.still = pile.still(except: newStar) { !nudged($0) }
+        }
     }
 
     /// The prototype's 402 x 874 screen fitted to this one.
@@ -178,7 +189,7 @@ struct SaveFold: View {
     private var landing: JarPile.Star? { pile.stars.first { $0.id == newStar } }
 
     // swiftlint:disable:next function_body_length
-    private func drawBehind(in context: GraphicsContext, stage: Stage, at t: CGFloat) {
+    private func drawBehind(in context: GraphicsContext, stage: Stage, at t: CGFloat, still: Image?) {
         let full = Path(CGRect(origin: .zero, size: stage.size))
         // Lighter than the prototype's 34%: Home's cards are darker than its
         // mock, and a stronger cream greys them. It lifts slowly, no pop.
@@ -195,7 +206,7 @@ struct SaveFold: View {
         let tau = t - 1440
         let push = tau > 0 ? 3 * (tau / 80) * exp(1 - tau / 80) : 0
         let landing = landing
-        pile.draw(in: jarContext, except: newStar) { star in
+        drawPile(in: jarContext, still: still) { star in
             guard let landing, push > 0 else { return .zero }
             let dx = star.center.x - landing.center.x, dy = star.center.y - landing.center.y, d = hypot(dx, dy)
             guard d < 30, d > 0 else { return .zero }
@@ -286,14 +297,14 @@ struct SaveFold: View {
 
     /// The page cross-fades to its finished star (200 ms), which fades and
     /// shrinks into the header jar where it is (300 ms).
-    private func drawFade(in context: GraphicsContext, stage: Stage, at t: CGFloat) {
+    private func drawFade(in context: GraphicsContext, stage: Stage, at t: CGFloat, still: Image?) {
         let fade = CGFloat(StarFold.fadeToStar), end = CGFloat(StarFold.fadeEnd)
         // The header jar, which the fold hides, with the stars it had.
         var jarContext = context
         jarContext.translateBy(x: stage.chip.x, y: stage.chip.y + 78 * Self.chipScale)
         jarContext.scaleBy(x: Self.chipScale, y: Self.chipScale)
         JarArt.back(in: jarContext, s: Self.chipScale)
-        pile.draw(in: jarContext, except: newStar)
+        drawPile(in: jarContext, still: still)
         JarArt.front(in: jarContext, s: Self.chipScale)
         JarArt.cap(in: jarContext, s: Self.chipScale)
         let page = 1 - Ease.seg(t, 0, fade)
@@ -315,6 +326,25 @@ struct SaveFold: View {
         FoldedStar.draw(in: context, paper: paper, at: at, radius: R, rotation: 0,
                         look: .init(k: R / FoldDrawing.knot, shadow: 1 - shrink,
                                     opacity: Ease.seg(t, 0, fade) * (1 - shrink)))
+    }
+}
+
+// MARK: - The pile, drawn once
+
+extension SaveFold {
+    /// Near enough to the landing to be pushed aside by it.
+    fileprivate func nudged(_ star: JarPile.Star) -> Bool {
+        guard let landing else { return false }
+        return hypot(star.center.x - landing.center.x, star.center.y - landing.center.y) < 30
+    }
+
+    /// The pile but the new star: the still and, live, the stars the
+    /// landing pushes; star by star until the still is ready.
+    fileprivate func drawPile(in jar: GraphicsContext, still: Image?,
+                              offset: (JarPile.Star) -> CGSize = { _ in .zero }) {
+        guard let still else { return pile.draw(in: jar, except: newStar, offset: offset) }
+        jar.draw(still, in: JarPile.frame)
+        pile.draw(in: jar, except: newStar, where: nudged, offset: offset)
     }
 }
 // swiftlint:enable identifier_name

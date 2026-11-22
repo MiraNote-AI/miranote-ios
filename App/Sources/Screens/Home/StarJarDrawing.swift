@@ -265,17 +265,35 @@ struct JarPile {
         }
     }
 
-    /// Draws the stars inside the glass, each in its page's dress.
+    /// The jar's frame in jar units, its foot at the origin.
+    static let frame = CGRect(x: -62, y: -170, width: 124, height: 170)
+
+    /// Draws the stars inside the glass, each in its page's dress; only
+    /// those `include` takes.
     func draw(in context: GraphicsContext, except skipped: Memory.ID? = nil,
-              offset: (Star) -> CGSize = { _ in .zero }) {
+              where include: (Star) -> Bool = { _ in true }, offset: (Star) -> CGSize = { _ in .zero }) {
         var inside = context
         inside.clip(to: JarArt.body())
-        for star in stars where star.id != skipped {
+        for star in stars where star.id != skipped && include(star) {
             let shift = offset(star)
             PaperStar.draw(in: inside, at: CGPoint(x: star.center.x + shift.width, y: star.center.y + shift.height),
                            radius: star.radius, inner: PaperStar.rest, rotation: star.rotation, dress: star.dress,
                            style: .init(shadow: 0.35))
         }
+    }
+
+    /// The stars `include` takes, but `skipped`, drawn once into an image
+    /// of the jar's `frame` (a point a jar unit): a drawing that shows the
+    /// pile every frame draws this instead of each star.
+    @MainActor
+    func still(except skipped: Memory.ID?, where include: @escaping (Star) -> Bool) -> Image? {
+        let renderer = ImageRenderer(content: Canvas { context, _ in
+            var jar = context
+            jar.translateBy(x: -Self.frame.minX, y: -Self.frame.minY)
+            draw(in: jar, except: skipped, where: include)
+        }.frame(width: Self.frame.width, height: Self.frame.height))
+        renderer.scale = UITraitCollection.current.displayScale
+        return renderer.cgImage.map { Image(decorative: $0, scale: renderer.scale) }
     }
 }
 
