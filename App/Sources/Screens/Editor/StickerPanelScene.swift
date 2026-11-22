@@ -171,7 +171,7 @@ struct StickerPanelScene: View {
         .background(DebugStateProbe {
             ["scene": "sticker", "listening": [String: Bool](), "busy": busy, "drafts": drafts.count,
              "undoDepth": editor.undoDepth, "writing": editor.editingTextItemID?.uuidString ?? "",
-             "scrollOffset": scrollMemory.offset]
+             "scrollOffset": scrollMemory.offset, "announced": UITestAnnouncement.last]
         })
         #endif
     }
@@ -847,17 +847,27 @@ struct StickerPanelScene: View {
         drafts.remove(at: page)
         page = min(page, max(drafts.count - 1, 0))
         notice = nil
+        // Focus stays on Discard and only the page dots change: VoiceOver
+        // says what went (#236).
+        let said = String(appCopy: "Discarded the sticker")
+        AccessibilityNotification.Announcement(said).post()
+        #if DEBUG
+        UITestAnnouncement.last = said
+        #endif
     }
 
     // MARK: The hop onto the page
 
     /// The free spot nearest the middle of the card as the canvas will show
     /// it (where it stood, the sheet gone), page points.
-    private var landingSpot: CGPoint {
+    private var landingSpot: CGPoint { landingSpot(for: CGSize(width: StickerSpot.side, height: StickerSpot.side)) }
+
+    /// The same for a box of `size`: a photo's.
+    private func landingSpot(for size: CGSize) -> CGPoint {
         let card = pageCard
         let visible = CGRect(x: 0, y: scrollMemory.offset,
                              width: MiraNoteConfig.pageWidth, height: card.frame.height / card.scale)
-        return StickerSpot.find(in: visible, avoiding: editor.items)
+        return StickerSpot.find(in: visible, avoiding: editor.items, size: size)
     }
 
     /// A spot in page points, on screen (global), the page as it stands.
@@ -902,24 +912,23 @@ struct StickerPanelScene: View {
     /// Tap-to-place: stickers come back as stickers, photos as photos.
     private func place(_ favorite: GeneratedSticker) {
         guard !placingWouldDropWork else { return }
-        let centerX = MiraNoteConfig.pageWidth / 2
         switch favorite.kind {
         case .sticker:
             // On a free spot of the page in view, as a made sticker (E2B).
             editor.select(editor.addSticker(favorite, at: landingSpot))
         case .image:
             // Re-adopt the photo's aspect so a saved original comes back the
-            // shape it went in, not center-cropped into the default box.
+            // shape it went in, not center-cropped into the default box; on
+            // a free spot of the page in view, as a sticker (#236).
             var box = CGSize(width: 170, height: 150)
             if let image = CanvasImageCache.image(
                 fileName: favorite.fileName, filterName: "", store: imageStore
             ) {
                 box = CanvasImageCache.aspectBox(for: image)
             }
-            let position = CGPoint(x: centerX, y: min(editor.contentBottom + 60 + box.height / 2, 4000))
             editor.select(editor.addImages(
                 [ImageRef(displayName: favorite.prompt, fileName: favorite.fileName)],
-                around: position, size: box
+                around: landingSpot(for: box), size: box
             ).first)
         }
         actions.leading()

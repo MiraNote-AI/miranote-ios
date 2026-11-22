@@ -33,6 +33,19 @@ final class StickerSpotTests: XCTestCase {
         XCTAssertLessThanOrEqual(abs(spot.y - visible.midY), 60 + 8 + StickerSpot.side / 2 + 8)
     }
 
+    /// A photo's box (#236): the spot keeps the whole box in view and
+    /// clear of the element, not only a sticker's 88 pt.
+    func testAPhotosBoxStaysInViewAndClear() {
+        let size = CGSize(width: 170, height: 130)
+        let item = block(at: CGPoint(x: visible.midX, y: visible.midY), size: CGSize(width: 200, height: 120))
+        let spot = StickerSpot.find(in: visible, avoiding: [item], size: size)
+        let photo = CGRect(x: spot.x - size.width / 2, y: spot.y - size.height / 2,
+                           width: size.width, height: size.height)
+        let taken = CGRect(x: item.position.x - 100, y: item.position.y - 60, width: 200, height: 120)
+        XCTAssertFalse(photo.intersects(taken.insetBy(dx: -8, dy: -8)), "8 pt clear of the element")
+        XCTAssertTrue(visible.contains(photo), "the whole photo inside the page in view")
+    }
+
     func testAFullViewFallsBackToTheMiddle() {
         let item = block(at: CGPoint(x: visible.midX, y: visible.midY), size: visible.size)
         let spot = StickerSpot.find(in: visible, avoiding: [item])

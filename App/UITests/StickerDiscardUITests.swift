@@ -24,14 +24,16 @@ final class StickerDiscardUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    /// The sticker panel's made stickers, from the debug probe.
-    private var draftCount: Int? {
+    /// The sticker panel's debug probe.
+    private var panelState: [String: Any]? {
         let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
             .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"sticker\"'")).firstMatch
         guard probe.waitForExistence(timeout: 5) else { return nil }
-        let state = (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8))) as? [String: Any]
-        return state?["drafts"] as? Int
+        return (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8))) as? [String: Any]
     }
+
+    /// The sticker panel's made stickers, from the debug probe.
+    private var draftCount: Int? { panelState?["drafts"] as? Int }
 
     /// The fake studio makes two, alike; the first shows.
     private func makeTwo() {
@@ -87,6 +89,34 @@ final class StickerDiscardUITests: XCTestCase {
         XCTAssertEqual(app.buttons["nav.leading"].label, "Home", "nothing waits: Cancel gives way to Home")
         XCTAssertFalse(app.buttons["nav.leading"].isEnabled, "greyed while the panel is open (#229)")
         XCTAssertFalse(any("element.sticker").exists, "nothing landed on the page")
+    }
+
+    /// #236: VoiceOver hears that the sticker went -- from two to one, focus
+    /// stays on Discard and only the page dots change.
+    func testDiscardIsAnnounced() {
+        makeTwo()
+        app.buttons["sticker.draft.discard"].tap()
+        sleep(1)
+        XCTAssertEqual(draftCount, 1)
+        XCTAssertEqual(panelState?["announced"] as? String, "Discarded the sticker")
+    }
+
+    /// In Chinese, with the catalog's word for Discard.
+    func testDiscardIsAnnouncedInChinese() {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.sticker"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        makeTwo()
+        app.buttons["sticker.draft.discard"].tap()
+        sleep(1)
+        XCTAssertEqual(draftCount, 1)
+        // "Discarded this sticker", as Unicode escapes: Swift source stays
+        // ASCII (org rule 3).
+        XCTAssertEqual(panelState?["announced"] as? String,
+                       "\u{5DF2}\u{653E}\u{5F03}\u{8FD9}\u{5F20}\u{8D34}\u{7EB8}")
     }
 
     /// Discard stays put after it lets one go, and the one left often looks

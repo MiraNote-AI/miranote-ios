@@ -107,6 +107,9 @@ struct CanvasScene: View {
     /// Picks made while another import loads (the system picker during a
     /// grid import): they follow it, never dropped.
     @State private var queuedImports: [QueuedImport] = []
+    /// The Editing pick, landed with system picker picks still queued
+    /// behind it: the photo editor opens on it once they have landed.
+    @State private var editAfterImports: CanvasItem.ID?
     /// A Recents photo being carried onto the page (#167), and where the
     /// page card and the Recents sheet stand, to know where it lands.
     @State private var photoDrag = PhotoDragTracker()
@@ -1171,10 +1174,17 @@ struct CanvasScene: View {
     }
 
     /// An import landed: with system picker picks queued behind it the tool
-    /// stays open (Home and Save greyed) until the last one lands.
+    /// stays open (Home and Save greyed) until the last one lands. An
+    /// Editing pick then lifts into the photo editor (#236).
     private func importLanded(_ ids: [CanvasItem.ID]) {
         guard queuedImports.isEmpty else { return }
-        closeImageTool(selecting: ids)
+        if let edit = editAfterImports {
+            closeImageTool(selecting: [edit])
+            revealItem = edit
+            openPhotoEditor(edit)
+        } else {
+            closeImageTool(selecting: ids)
+        }
     }
 
     static var aiImageWaiting: String { String(appCopy: "Pick an image first, or Cancel to let it go.") }
@@ -1196,6 +1206,7 @@ struct CanvasScene: View {
         importGeneration += 1
         importingPicks = false
         queuedImports = []
+        editAfterImports = nil
     }
 
     @ViewBuilder private var toolSheet: some View {
@@ -1240,9 +1251,7 @@ struct CanvasScene: View {
                     selection: $libraryPicks,
                     importing: importingPicks,
                     onEditing: editPick,
-                    onSystemPicks: { items in
-                        importPicks(load: { await PhotoPlacer.data(for: items) }, then: importLanded)
-                    },
+                    onSystemPicks: { load in importPicks(load: load, then: importLanded) },
                     onDrag: { photoDrag.drag = $0 },
                     onDrop: dropPhoto
                 )
@@ -1303,12 +1312,12 @@ struct CanvasScene: View {
 
     /// Screen 26: one pick, "Editing" -- it lands, the tool closes, and it
     /// lifts straight into the photo editor; Done returns to the page.
+    /// System picker picks made while it loads land first (#236).
     private func editPick() {
         guard !importingPicks else { return }
         importPicks(load: libraryLoad) { ids in
-            closeImageTool(selecting: ids)
-            guard let id = ids.first else { return }
-            openPhotoEditor(id)
+            editAfterImports = ids.first
+            importLanded(ids)
         }
     }
 
@@ -1369,14 +1378,21 @@ struct CanvasScene: View {
                 imageNotice = String(appCopy: "Those photos couldn't be imported. Try different ones?")
                 imagePhase = .choose
             } else {
-                then(ids)
                 // They land under everything else on the page: bring the
                 // first one into view, wherever the page was scrolled (#167).
+                // Before `then`, so an Editing pick that waited on queued
+                // picks takes the view back when the last of them lands.
                 revealItem = ids.first
+                then(ids)
             }
             if !queuedImports.isEmpty {
                 let next = queuedImports.removeFirst()
                 importPicks(load: next.load, then: next.then)
+            } else {
+                // Nothing left queued. If the last pick failed, its notice
+                // stays up and an Editing pick that waited on it stays on
+                // the page unopened, as an Add's picks do.
+                editAfterImports = nil
             }
         }
     }
