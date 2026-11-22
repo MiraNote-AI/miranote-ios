@@ -5,9 +5,10 @@ import XCTest
 /// composer reads "Ask Mira to refine...", the words of the chat box over
 /// the keyboard while writing. With one text block selected its tap now
 /// does what they say: the block's writing opens again with the caret in
-/// the chat box, where Go rewrites the block (F6B). Anything else still
-/// opens the Mira chat (P2). Under -UITEST the rewrite is the mock's
-/// `/rewrite` answer, "(rewritten -- mock)".
+/// the chat box, where Go rewrites the block (F6B), while Mira shows no card
+/// and nothing waits. Anything else still opens the Mira chat (P2). Under
+/// -UITEST the rewrite is the mock's `/rewrite` answer, "(rewritten --
+/// mock)".
 final class TextComposerRefineUITests: TextToolUITestCase {
     private var field: XCUIElement { any("canvas.textEditor") }
     private var ask: XCUIElement { app.descendants(matching: .any)["writing.ask"] }
@@ -77,5 +78,26 @@ final class TextComposerRefineUITests: TextToolUITestCase {
         XCTAssertEqual(app.miraComposer.label, "Ask Mira to refine...")
         app.openMiraChat()
         XCTAssertEqual(canvasState()["writing"] as? String, "")
+    }
+
+    /// Mira's card over the composer (here her reply) is a conversation
+    /// going on: the tap continues it in the chat, also with a text block
+    /// selected, and the writing does not open.
+    func testWithMirasReplyShowingTheComposerContinuesTheChat() {
+        write("we walked")
+        app.letGoOfTheSelection()
+        app.askMira("just chatting with you")
+        let reply = app.buttons["mira.dismissReply"]
+        XCTAssertTrue(reply.waitForExistence(timeout: 8), "Mira's reply card shows")
+
+        app.staticTexts["we walked"].tap()
+        XCTAssertFalse((canvasState()["selected"] as? String ?? "").isEmpty, "the block is selected")
+        XCTAssertTrue(reply.exists, "with the reply still showing")
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira to refine...")
+
+        app.miraComposer.tap()
+        XCTAssertTrue(app.miraInput.waitForExistence(timeout: 5), "the chat opens")
+        XCTAssertEqual(canvasState()["writing"] as? String, "", "the writing does not start")
+        XCTAssertFalse(field.exists, "the block has no editor")
     }
 }

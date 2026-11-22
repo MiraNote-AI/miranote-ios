@@ -92,7 +92,8 @@ extension CanvasScene {
     /// reads "Ask Mira to refine...", the writing chat box's words, and does
     /// what they say: the block's writing opens again, as a tap on the block
     /// opens it, with the caret in that box, where Go rewrites the block
-    /// (F6B). Anything else opens the chat (P2). TestFlight 1.0(14).
+    /// (F6B) -- while Mira is idle. Anything else, her card showing among
+    /// them, opens the chat (P2). TestFlight 1.0(14).
     func tapComposer() {
         guard let id = blockToRefineInPlace else { return openMiraChat() }
         editor.startEditingText(id)
@@ -101,11 +102,13 @@ extension CanvasScene {
     }
 
     /// The selected text block a composer tap refines in place: nothing is
-    /// being written, no result waits for Keep or Revert, no take beside
-    /// it, and no draft from the chat waits in the composer (its tap goes
-    /// on with the draft in the chat).
+    /// being written, Mira is idle -- no card over the composer (a reply, a
+    /// failure, image choices: the tap goes on with that conversation in the
+    /// chat), no result waiting for Keep or Revert, no turn running -- no
+    /// take beside it, and no draft from the chat waits in the composer (its
+    /// tap goes on with the draft in the chat).
     var blockToRefineInPlace: CanvasItem.ID? {
-        guard editor.editingTextItemID == nil, !textModeArming, receipt == nil, attachedSound == nil,
+        guard editor.editingTextItemID == nil, !textModeArming, mira.phase == .idle, attachedSound == nil,
               miraPrompt.isEmpty, !mira.isWorking,
               let id = editor.selectedItemID, case .text = editor.item(id)?.content else { return nil }
         return id
