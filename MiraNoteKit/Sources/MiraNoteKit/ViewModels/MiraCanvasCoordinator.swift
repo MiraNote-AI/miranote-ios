@@ -501,8 +501,9 @@ public final class MiraCanvasCoordinator {
         if let clarify = error as? MiraClarifyError {
             return MiraFailure(kind: .clarify, message: clarify.question, chips: clarify.chips)
         }
-        // No consent or sign-in, a sign-in that ended, or a used-up
-        // allowance (api #95): said as it is, since rephrasing cannot help.
+        // No consent or sign-in, a sign-in that ended, a used-up allowance
+        // (api #95), or the account guard's paused feature or unanswered
+        // sign-in service: said as it is, since rephrasing cannot help.
         if let message = AIConsentError.message(for: error) {
             return MiraFailure(kind: .retry, message: message, chips: ["Try again"])
         }

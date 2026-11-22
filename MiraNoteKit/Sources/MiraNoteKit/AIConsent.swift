@@ -163,13 +163,22 @@ public enum AIConsentError: Error, LocalizedError, Equatable {
 
     /// The words for an AI action that stopped on the writer's side rather
     /// than the server's: no consent or sign-in yet, a sign-in that ended,
-    /// a used-up allowance (api #95), or a block too long to rewrite. Retrying or rephrasing cannot get
-    /// past these, so screens that word other failures their own way say
-    /// these as they are. nil for any other failure.
+    /// a used-up allowance (api #95), or a block too long to rewrite -- or
+    /// that the AI services' account guard held back, saying why (the
+    /// accounts service not answering, the feature paused; api #112,
+    /// #118). Retrying at once or rephrasing cannot get past these, so
+    /// screens that word other failures their own way say these as they
+    /// are. nil for any other failure.
     public static func message(for error: Error) -> String? {
         if let consent = error as? AIConsentError { return consent.errorDescription }
         if let account = error as? AccountError { return account.errorDescription }
-        if let backend = error as? BackendError, case .limitReached = backend { return backend.errorDescription }
+        if let backend = error as? BackendError {
+            switch backend {
+            case .limitReached: return backend.errorDescription
+            case .server(let status, let detail): return BackendError.guardMessage(status: status, detail: detail)
+            default: return nil
+            }
+        }
         if let tooLong = error as? RewriteTooLong { return tooLong.errorDescription }
         return nil
     }

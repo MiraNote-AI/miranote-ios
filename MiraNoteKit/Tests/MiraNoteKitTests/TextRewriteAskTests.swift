@@ -139,6 +139,59 @@ final class TextRewriteAskTests: XCTestCase {
         }
     }
 
+    // MARK: The account guard's 503 (miranote-api #112, #118)
+
+    /// What a Polish chip (Expand) and the chat box's Go each fail with
+    /// when the text service answers `status` and `body`.
+    private func failures(status: Int, body: String) async -> [(path: String, error: Error?)] {
+        StubURLProtocol.handler = { Self.answer($0, status, body) }
+        var polish: Error?, go: Error?
+        do { _ = try await coordinator(live()).rewriteText("tea", mode: .expand) } catch { polish = error }
+        do { _ = try await coordinator(live()).rewriteText("tea", asked: "make it warmer") } catch { go = error }
+        return [("Polish", polish), ("Go", go)]
+    }
+
+    /// The account guard's reason is the caption, on a Polish chip and on
+    /// Go alike: trying again at once cannot get past it, so it is not the
+    /// caption's "try again?" line (#236).
+    func testTheAccountGuardsReasonIsTheCaption() async {
+        let cases = [
+            (#"{"reason": "accounts_unavailable", "detail": "sign-in service unavailable, try again shortly"}"#,
+             "MiraNote's sign-in service isn't answering right now. Try again shortly."),
+            (#"{"reason": "service_paused", "feature": "expand"}"#,
+             "Mira has paused this for now. Try again later.")
+        ]
+        for (body, caption) in cases {
+            for (path, error) in await failures(status: 503, body: body) {
+                XCTAssertNotNil(error, "\(path): \(body)")
+                XCTAssertEqual(error.flatMap(AIConsentError.message(for:)), caption, "\(path): \(body)")
+            }
+        }
+    }
+
+    /// A pause that says when it ends says that time, as the strip does.
+    func testAPausedFeatureCaptionSaysWhenItIsBack() async {
+        let body = #"{"reason": "service_paused", "feature": "expand", "resets_at": "2026-11-19T00:00:00+00:00"}"#
+        for (path, error) in await failures(status: 503, body: body) {
+            let caption = error.flatMap(AIConsentError.message(for:))
+            XCTAssertTrue(caption?.hasPrefix("Mira has paused this for now. Try again after ") == true,
+                          "\(path): \(String(describing: caption))")
+        }
+    }
+
+    /// Any other 503 (the image provider's quota) is still an ordinary
+    /// failure: the caption's retry line.
+    func testAnyOther503KeepsTheRetryLine() async {
+        for body in ["", #"{"detail": "quota"}"#] {
+            for (path, error) in await failures(status: 503, body: body) {
+                guard case .server(503, _) = error as? BackendError else {
+                    return XCTFail("\(path): got \(String(describing: error))")
+                }
+                XCTAssertNil(error.flatMap(AIConsentError.message(for:)), "\(path): \(body)")
+            }
+        }
+    }
+
     // MARK: The rewrite Go asked for, on the Polish row (H3A)
 
     func testARequestedRewriteShowsWithNoChipSelected() {
