@@ -292,12 +292,14 @@ struct SaveFold: View {
                         look: .init(k: R / FoldDrawing.knot, shadow: Ease.lerp(1, 0.5, Ease.seg(t, 1200, 1440)),
                                     opacity: landing == nil ? 1 - Ease.seg(t, 1390, 1440) : 1))
     }
+}
 
-    // MARK: Reduce Motion
+// MARK: - Reduce Motion
 
+extension SaveFold {
     /// The page cross-fades to its finished star (200 ms), which fades and
     /// shrinks into the header jar where it is (300 ms).
-    private func drawFade(in context: GraphicsContext, stage: Stage, at t: CGFloat, still: Image?) {
+    fileprivate func drawFade(in context: GraphicsContext, stage: Stage, at t: CGFloat, still: Image?) {
         let fade = CGFloat(StarFold.fadeToStar), end = CGFloat(StarFold.fadeEnd)
         // The header jar, which the fold hides, with the stars it had.
         var jarContext = context
