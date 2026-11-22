@@ -120,17 +120,16 @@ final class CanvasEditorUITests: XCTestCase {
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
 
-        // On the live canvas: the two stored sample photos, the Image tool
-        // still open (screen 25) until its header Add keeps them.
+        // On the live canvas: the two stored sample photos, and the Image
+        // tool closed on them (F10A).
         let firstImage = app.descendants(matching: .any).matching(identifier: "element.image").firstMatch
         XCTAssertTrue(firstImage.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(
             app.descendants(matching: .any).matching(identifier: "element.image").count, 2
         )
-        let add = app.buttons["nav.trailing"]
-        XCTAssertEqual(add.label, "Add")
-        add.tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["nav.trailing"].label, "Save")
+        XCTAssertTrue(app.buttons["nav.trailing"].isEnabled)
         XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "element.image").count, 2)
     }
 
@@ -155,7 +154,7 @@ final class CanvasEditorUITests: XCTestCase {
     }
 
     // Stickers are made in the Sticker tool. "Add to page" under the result
-    // (the header has no Add while one shows) puts it straight on the page,
+    // (the header has no Add, E1A) puts it straight on the page,
     // selected, with an Undo toast -- no tap asked for, nothing filed in
     // Favorites.
     func testGenerateStickerPlacesElement() {
@@ -171,10 +170,11 @@ final class CanvasEditorUITests: XCTestCase {
 
         let firstResult = app.descendants(matching: .any).matching(identifier: "sticker.result.0").firstMatch
         XCTAssertTrue(firstResult.waitForExistence(timeout: 8))
-        XCTAssertFalse(app.buttons["nav.trailing"].exists, "no header Add while a result shows")
+        XCTAssertEqual(app.buttons["nav.trailing"].label, "Save", "no header Add while a result shows")
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled)
         app.buttons["sticker.addToPage"].tap()
 
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         let sticker = app.descendants(matching: .any).matching(identifier: "element.sticker").firstMatch
         XCTAssertTrue(sticker.waitForExistence(timeout: 5), "Add put the sticker on the canvas")
         XCTAssertTrue(app.buttons["toast.undo"].waitForExistence(timeout: 3), "the toast offers Undo")

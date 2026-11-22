@@ -1,6 +1,6 @@
 import XCTest
 
-/// The Sticker panel's grids, three across (#205, five before): the sets
+/// The Sticker panel's grids, five across (#205, D1C): the sets
 /// and Favorites share the same columns, and a cell takes taps in its own
 /// square only.
 final class StickerGridUITests: XCTestCase {
@@ -44,26 +44,24 @@ final class StickerGridUITests: XCTestCase {
         app.buttons["sticker.favorite"].tap()
     }
 
-    /// A photo favorite is drawn filled into 76 x 72: a tall photo runs
-    /// about 40 pt past that, hidden but still taking taps, and three
-    /// across that reached the cell above it. A tap low on the sticker
-    /// there placed the photo.
+    /// A photo favorite is drawn filled into 38 x 36: a tall photo runs
+    /// past that, hidden. Five across, the photo sits under the sticker,
+    /// and a tap low on the sticker places the sticker, never the photo.
     func testATapLowOnAFavoriteNeverPlacesTheTallPhotoUnderIt() {
-        app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["mode.image"].waitForExistence(timeout: 5))
+        app.buttons["mode.sticker"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         app.buttons["mode.image"].tap()
         let samples = app.buttons["image.library.samples"]
         XCTAssertTrue(samples.waitForExistence(timeout: 5))
         samples.tap()
         XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 5))
-        app.buttons["nav.trailing"].tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "the Image tool closed on them")
         sleep(1)
         let tall = photos.allElementsBoundByIndex.first { $0.frame.height > $0.frame.width * 1.2 }
         guard let tall else { return XCTFail("one of the sample photos is tall") }
-        // Saved three times, the oldest three: the photo ends up in the
+        // Saved five times, the oldest five: the photo ends up in the
         // second row, under the sticker saved after it.
-        for _ in 0..<3 {
+        for _ in 0..<5 {
             tall.press(forDuration: 0.9)
             XCTAssertTrue(app.buttons["Favorite"].waitForExistence(timeout: 5))
             app.buttons["Favorite"].tap()
@@ -72,53 +70,58 @@ final class StickerGridUITests: XCTestCase {
         app.buttons["mode.sticker"].tap()
         favoriteAMadeSticker()
         // Cancel lets the made sticker go; its favorite stays.
+        XCTAssertEqual(app.buttons["nav.leading"].label, "Cancel")
         app.buttons["nav.leading"].tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
         sleep(1)
         let photosBefore = photos.count
 
         app.buttons["mode.sticker"].tap()
         XCTAssertTrue(app.buttons["sticker.tab.favorites"].waitForExistence(timeout: 5))
         app.buttons["sticker.tab.favorites"].tap()
-        XCTAssertTrue(favorites.element(boundBy: 3).waitForExistence(timeout: 5))
+        XCTAssertTrue(favorites.element(boundBy: 5).waitForExistence(timeout: 5))
         let sticker = favorites.element(boundBy: 0).frame
-        XCTAssertEqual(favorites.element(boundBy: 3).frame.midX, sticker.midX, accuracy: 1,
+        XCTAssertEqual(favorites.element(boundBy: 5).frame.midX, sticker.midX, accuracy: 1,
                        "the photo sits under the sticker")
         app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: sticker.midX, dy: sticker.maxY - 8)).tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5), "back on the canvas")
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "back on the canvas")
         XCTAssertTrue(stickers.firstMatch.waitForExistence(timeout: 5), "the sticker landed")
         XCTAssertEqual(photos.count, photosBefore, "not the photo under it")
     }
 
     /// The Favorites cells stand where the set's do, so a tab change keeps
-    /// them in place.
+    /// them in place, and inside the grid: five across, a column is under
+    /// 60 pt on most phones, and a wider cell is cut at the grid's edge.
     func testFavoritesLineUpWithTheSetCells() {
         favoriteAMadeSticker()
         app.buttons["sticker.tab.favorites"].tap()
         XCTAssertTrue(favorites.firstMatch.waitForExistence(timeout: 5))
         let favorite = favorites.firstMatch.frame
+        let grid = app.scrollViews.containing(.button, identifier: favorites.firstMatch.identifier).firstMatch
+        XCTAssertGreaterThanOrEqual(favorite.minX, grid.frame.minX - 0.5, "the first cell is not cut by the grid")
         app.buttons["sticker.tab.food"].tap()
         let preset = app.buttons["sticker.preset.focaccia"]
         XCTAssertTrue(preset.waitForExistence(timeout: 5))
         XCTAssertEqual(favorite.midX, preset.frame.midX, accuracy: 1, "the first column stays put across the tabs")
     }
 
-    func testASetShowsThreeAcrossAndScrollsToItsLastRow() {
+    func testASetShowsFiveAcrossAndScrollsToItsLastRow() {
         let food = app.buttons["sticker.tab.food"]
         XCTAssertTrue(food.waitForExistence(timeout: 5))
         food.tap()
-        let first = ["focaccia", "burrito", "hotpot", "martini"].map { app.buttons["sticker.preset.\($0)"] }
+        let first = ["focaccia", "burrito", "hotpot", "martini", "coffee", "salad"]
+            .map { app.buttons["sticker.preset.\($0)"] }
         XCTAssertTrue(first[0].waitForExistence(timeout: 5))
-        let row = first[0...2].map(\.frame)
+        let row = first[0...4].map(\.frame)
         for frame in row {
-            XCTAssertEqual(frame.midY, row[0].midY, accuracy: 1, "the first three share a row")
+            XCTAssertEqual(frame.midY, row[0].midY, accuracy: 1, "the first five share a row")
         }
-        XCTAssertGreaterThan(first[3].frame.minY, row[0].maxY, "the fourth starts the next row")
-        XCTAssertEqual(first[3].frame.midX, row[0].midX, accuracy: 1, "under the first")
-        XCTAssertLessThanOrEqual(row[2].maxX, app.frame.maxX - 16, "the third stays inside the sheet")
+        XCTAssertGreaterThan(first[5].frame.minY, row[0].maxY, "the sixth starts the next row")
+        XCTAssertEqual(first[5].frame.midX, row[0].midX, accuracy: 1, "under the first")
+        XCTAssertLessThanOrEqual(row[4].maxX, app.frame.maxX - 16, "the fifth stays inside the sheet")
 
-        // The last row (pancake, ice cream, bao): drag the grid up from
+        // The last row (burgers ... bao): drag the grid up from
         // inside the sheet.
         let bao = app.buttons["sticker.preset.bao"]
         let origin = app.coordinate(withNormalizedOffset: .zero)

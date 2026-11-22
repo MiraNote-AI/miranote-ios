@@ -19,11 +19,14 @@ public struct TextRewriteSession: Equatable, Sendable {
     }
 
     public private(set) var original: String
-    /// The version on the canvas.
-    public private(set) var selected: Choice = .original
+    /// The version on the canvas; nil while the rewrite asked for in the
+    /// chat box is shown (#205 H3A: no chip is selected for it).
+    public private(set) var selected: Choice? = .original
     /// A rewrite asked for and not back yet.
     public private(set) var pending: Choice?
     private var results: [Choice: String] = [:]
+    /// The rewrite asked for in the chat box (F6B).
+    private var requested: String?
 
     public init(original: String) {
         self.original = original
@@ -31,7 +34,7 @@ public struct TextRewriteSession: Equatable, Sendable {
 
     /// The words the canvas shows for the selected choice.
     public var shownText: String {
-        text(for: selected) ?? original
+        selected.flatMap(text(for:)) ?? requested ?? original
     }
 
     public func text(for choice: Choice) -> String? {
@@ -62,6 +65,16 @@ public struct TextRewriteSession: Equatable, Sendable {
         return text
     }
 
+    /// The rewrite asked for in the chat box came back: shown with no chip
+    /// selected, unless the user has since retyped the words.
+    public mutating func showRequested(_ text: String, of source: String) -> String? {
+        guard source == original else { return nil }
+        requested = text
+        selected = nil
+        pending = nil
+        return text
+    }
+
     /// A rewrite of `source` failed: the selection stays where it was.
     public mutating func fail(_ choice: Choice, of source: String) {
         if source == original, pending == choice { pending = nil }
@@ -73,6 +86,7 @@ public struct TextRewriteSession: Equatable, Sendable {
         guard text != shownText else { return }
         original = text
         results = [:]
+        requested = nil
         selected = .original
         pending = nil
     }

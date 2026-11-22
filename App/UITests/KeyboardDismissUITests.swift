@@ -116,15 +116,20 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(app.miraComposer.label, "a picnic", "the draft waits in the composer")
     }
 
-    func testATapOnTheBackgroundSheetLowersTheApplyKeyboard() {
+    /// The first tap on the page only lowers Apply's keyboard: the tool
+    /// stays open with the words; the next one closes the tool.
+    func testATapOnThePageLowersTheApplyKeyboardFirst() {
         startMemory()
-        app.buttons["mode.background"].tap()
+        app.openBackground()
         let field = app.textFields["background.apply.input"]
         type("a sunset", into: field)
-        app.staticTexts["background.title"].tap()
-        waitUntilGone(keyboard, "a tap on the Background sheet lowers the keyboard")
+        point(app.frame.midX, app.frame.height * 0.3).tap()
+        waitUntilGone(keyboard, "a tap on the page lowers the keyboard")
         XCTAssertEqual(field.value as? String, "a sunset", "the words stay")
-        XCTAssertTrue(app.staticTexts["background.title"].exists, "the sheet stays open")
+        let row = app.descendants(matching: .any)["background.row.tools"]
+        XCTAssertTrue(row.exists, "the tool stays open")
+        point(app.frame.midX, app.frame.height * 0.3).tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5), "the next tap closes the tool")
     }
 
     /// The Sticker sheet lowers the keyboard; the page does too while it is
@@ -139,7 +144,7 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "a cat", "the words stay")
 
         raiseKeyboard(field)
-        let page = point(app.frame.midX, app.buttons["Cancel"].frame.maxY + 40)
+        let page = point(app.frame.midX, app.buttons["nav.leading"].frame.maxY + 40)
         page.tap()
         waitUntilGone(keyboard, "the first tap on the page lowers the keyboard")
         XCTAssertTrue(field.exists, "the panel stays open")
@@ -156,7 +161,7 @@ final class KeyboardDismissUITests: XCTestCase {
         let field = app.textFields["sticker.prompt"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         raiseKeyboard(field)
-        point(app.frame.midX, app.buttons["Cancel"].frame.maxY + 40).tap()
+        point(app.frame.midX, app.buttons["nav.leading"].frame.maxY + 40).tap()
         waitUntilGone(field, "with nothing typed, the first tap on the page goes back to the canvas")
         XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "back on the idle canvas")
     }

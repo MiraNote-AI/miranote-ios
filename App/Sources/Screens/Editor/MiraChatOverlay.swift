@@ -17,7 +17,7 @@ struct MiraChatOverlay: View {
     var onClose: () -> Void
     var onHoldStart: () -> Void
     var onHoldEnd: () -> Void
-    /// The system took the touch mid-hold: the take stops, nothing kept.
+    /// The system took the touch mid-hold: the take ends as if let go (#218).
     var onHoldCancel: () -> Void
     /// Starts or ends the take in one activation (assistive technologies).
     var onToggle: () -> Void
@@ -51,7 +51,6 @@ struct MiraChatOverlay: View {
                     .padding(.top, 25)
                 Spacer(minLength: 0)
                 DictationStrip(
-                    surface: .keyboard,
                     listening: dictation == .listening,
                     detail: dictation.detail,
                     action: dictation == .listening ? "Release" : "Hold",

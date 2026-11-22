@@ -681,16 +681,18 @@ extension CanvasViewModel {
         if editingTextItemID == itemID { editingTextItemID = nil }
     }
 
-    /// Takes several elements off the page as ONE undo step (the Image
-    /// tool's Cancel takes back the photos it placed); ids no longer on the
-    /// page are ignored, and nothing is recorded when none are.
-    public func remove(itemIDs: [CanvasItem.ID]) {
-        let ids = Set(itemIDs)
-        guard memory.items.contains(where: { ids.contains($0.id) }) else { return }
-        beginChange()
-        memory.items.removeAll { ids.contains($0.id) }
-        if let selected = selectedItemID, ids.contains(selected) { selectedItemID = nil }
-        if let editing = editingTextItemID, ids.contains(editing) { editingTextItemID = nil }
+    /// Folds the last `count` undo steps into one, the page before the
+    /// first of them: the Image tool's Add places several photos, and one
+    /// Undo takes them all back (#205 G8). Nothing when fewer were recorded.
+    /// A slow import can land while a block is written: the text session
+    /// counts the joined steps as one too, so its Cancel still finds where
+    /// it began.
+    public func joinLastSteps(_ count: Int) {
+        guard count > 1, history.count >= count else { return }
+        history.removeLast(count - 1)
+        if let steps = sessionSteps {
+            sessionSteps = steps >= count ? steps - (count - 1) : nil
+        }
     }
 
     /// Removes an abandoned husk (e.g. an empty text block) without

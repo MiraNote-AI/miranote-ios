@@ -45,7 +45,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
 
         app.buttons["onboarding.background"].tap()
         waitUntilGone(intro)
-        XCTAssertTrue(app.staticTexts["background.title"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.descendants(matching: .any)["background.row.tools"].waitForExistence(timeout: 5),
                       "the handoff flow goes on to the Background tool")
     }
 
@@ -55,7 +55,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         XCTAssertTrue(intro.waitForExistence(timeout: 5))
         app.buttons["Next"].tap()
         waitUntilGone(intro)
-        XCTAssertTrue(app.staticTexts["background.title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["background.row.tools"].waitForExistence(timeout: 5))
     }
 
     func testBackJustCloses() {
@@ -64,7 +64,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
         XCTAssertTrue(intro.waitForExistence(timeout: 5))
         app.buttons["Back"].tap()
         waitUntilGone(intro)
-        XCTAssertFalse(app.staticTexts["background.title"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["background.row.tools"].exists)
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5), "on the blank canvas")
     }
 

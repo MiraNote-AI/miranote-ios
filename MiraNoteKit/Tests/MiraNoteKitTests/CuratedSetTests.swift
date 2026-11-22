@@ -2,7 +2,8 @@ import XCTest
 @testable import MiraNoteKit
 
 /// Curated sets (handoff screen 05): one tap dresses the page -- display
-/// face, body face, text color and page color -- as one undo step.
+/// face on titles, text color and page color -- as one undo step; body
+/// text keeps its own face (R4A).
 @MainActor
 final class CuratedSetTests: XCTestCase {
     private let didot = CuratedSet.all[1]
@@ -25,11 +26,12 @@ final class CuratedSetTests: XCTestCase {
         let editor = CanvasViewModel(memory: Memory())
         let title = editor.addText("Lunch by the river", at: CGPoint(x: 100, y: 60), pointSize: 30)
         let body = editor.addText("noodles and sun", at: CGPoint(x: 100, y: 160), pointSize: 17)
+        let bodyFont = block(editor, body)?.fontName
 
         editor.applyCuratedSet(didot)
 
         XCTAssertEqual(block(editor, title)?.fontName, "Didot")
-        XCTAssertEqual(block(editor, body)?.fontName, "Cardo")
+        XCTAssertEqual(block(editor, body)?.fontName, bodyFont, "body text keeps its face")
         XCTAssertEqual(block(editor, title)?.colorName, "#2D372C")
         XCTAssertEqual(block(editor, body)?.colorName, "#2D372C")
         XCTAssertEqual(editor.memory.pageColorName, "#FCD766")
@@ -85,16 +87,18 @@ final class CuratedSetTests: XCTestCase {
     // on the Ink chip would read at about 1.2:1 (owner decision).
     func testABlockWithATextBackgroundKeepsItsTextColor() {
         let editor = CanvasViewModel(memory: Memory())
-        let chip = editor.addText("on ink", at: CGPoint(x: 100, y: 60), pointSize: 17)
+        let chip = editor.addText("on ink", at: CGPoint(x: 100, y: 60), pointSize: 30)
         editor.setTextBackground(itemID: chip, to: "#293322")
         editor.setTextColorName(itemID: chip, to: "#FFFFFF")
         let plain = editor.addText("plain", at: CGPoint(x: 100, y: 160), pointSize: 17)
+        editor.setTextFont(itemID: plain, to: "Futura")
         let poppins = CuratedSet.all[0]
 
         editor.applyCuratedSet(poppins)
         XCTAssertEqual(block(editor, chip)?.colorName, "#FFFFFF")
-        XCTAssertEqual(block(editor, chip)?.fontName, "Lora", "the faces still apply")
+        XCTAssertEqual(block(editor, chip)?.fontName, "Poppins", "the title face still applies")
         XCTAssertEqual(block(editor, plain)?.colorName, poppins.textColor)
+        XCTAssertEqual(block(editor, plain)?.fontName, "Futura", "body text keeps its face")
         XCTAssertEqual(editor.wornCuratedSet(), poppins, "the page wears the set")
     }
 
@@ -110,5 +114,29 @@ final class CuratedSetTests: XCTestCase {
 
         editor.setPageColor(CuratedSet.all[3].pageColor)
         XCTAssertNil(editor.wornCuratedSet(), "set 04 also wants its own text color")
+    }
+
+    // R4A: a set re-fonts only text of 24 pt and up. Body text keeps the
+    // face it was given, the page still reads as wearing the set, and one
+    // undo gives everything back.
+    func testASetKeepsTheBodyFont() {
+        let editor = CanvasViewModel(memory: Memory())
+        let title = editor.addText("Lunch by the river", at: CGPoint(x: 100, y: 60), pointSize: 24)
+        let body = editor.addText("noodles and sun", at: CGPoint(x: 100, y: 160), pointSize: 23)
+        editor.setTextFont(itemID: title, to: "Futura")
+        editor.setTextFont(itemID: body, to: "Futura")
+        let count = editor.changeCount
+
+        editor.applyCuratedSet(didot)
+        XCTAssertEqual(editor.changeCount, count + 1, "one undo step")
+        XCTAssertEqual(block(editor, title)?.fontName, "Didot", "24 pt is a title")
+        XCTAssertEqual(block(editor, body)?.fontName, "Futura", "23 pt is body: its face stays")
+        XCTAssertEqual(block(editor, body)?.colorName, didot.textColor, "but it takes the set's color")
+        XCTAssertEqual(editor.wornCuratedSet(), didot, "the page wears the set with its own body face")
+
+        editor.undo()
+        XCTAssertEqual(block(editor, title)?.fontName, "Futura")
+        XCTAssertEqual(block(editor, body)?.fontName, "Futura")
+        XCTAssertEqual(editor.memory.pageColorName, "")
     }
 }

@@ -61,7 +61,9 @@ struct DeleteAccountSheet: View {
     @ViewBuilder private var explanation: some View {
         title("Delete your account")
         point("What is deleted",
-              "Your MiraNote account, your AI usage, and your Sign in with Apple link to MiraNote.")
+              "Your MiraNote account and your Sign in with Apple link to MiraNote.")
+        // The server keeps ai_usage rows with user_id set to null (api #116).
+        point("What is kept", "Your AI usage records stop being linked to you.")
         point("What stays",
               "Your pages, photos and voice stay on this phone. Deleting your account removes none of them.")
         VStack(alignment: .leading, spacing: 4) {

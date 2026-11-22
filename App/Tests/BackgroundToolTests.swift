@@ -2,22 +2,10 @@ import XCTest
 @testable import MiraNote
 @testable import MiraNoteKit
 
-/// The Background tool's pure pieces (handoff screen 05): the hex field's
-/// reading of what was typed, and the CSS band gradients of the set cards.
+/// The Background tool's pure pieces (handoff screen 05): the set cards'
+/// CSS band gradients.
 @MainActor
 final class BackgroundToolTests: XCTestCase {
-    func testHexFieldAcceptsSixHexDigitsWithOrWithoutHash() {
-        XCTAssertEqual(BackgroundToolSheet.normalizedHex("e5d9f0"), "#E5D9F0")
-        XCTAssertEqual(BackgroundToolSheet.normalizedHex(" #E5D9F0 "), "#E5D9F0")
-        XCTAssertEqual(BackgroundToolSheet.normalizedHex("#a1B2c3"), "#A1B2C3")
-    }
-
-    func testHexFieldRejectsAnythingElse() {
-        for typed in ["", "#", "E5D9F", "#E5D9F00", "GGGGGG", "#E5 D9F0", "lilac"] {
-            XCTAssertNil(BackgroundToolSheet.normalizedHex(typed), "\"\(typed)\" is not a color")
-        }
-    }
-
     /// Stops past the box are cut at its edges, the colors there
     /// interpolated: the band shows what CSS would draw inside the box.
     func testBandStopsAreCutToTheBox() {
@@ -29,10 +17,11 @@ final class BackgroundToolTests: XCTestCase {
 
     func testEveryCuratedSetHasACard() {
         for set in CuratedSet.all {
-            XCTAssertNotNil(UIImage(named: "curated.\(set.id)"), "\(set.id) has its photo")
             let look = CuratedSetLook.look(for: set)
             XCTAssertFalse(look.displayLabel.isEmpty)
-            XCTAssertFalse(look.bodyLabel.isEmpty)
+            if case .image(let name) = look.band {
+                XCTAssertNotNil(UIImage(named: name), "\(set.id) has its band")
+            }
         }
     }
 }

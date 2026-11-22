@@ -123,7 +123,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // MARK: 07
 
     // Opening Background moves on from a waiting result: the sheet would
-    // cover the curated sets and the Mira tidy button.
+    // cover the tool's rows.
     func testOpeningBackgroundClosesTheResultSheet() {
         addText("sunny afternoon by the bridge")
         app.askMira("polish the text")
@@ -131,7 +131,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
 
         app.buttons["mode.background"].tap()
         waitGone(app.buttons["mira.keep"], "the result sheet steps aside for the tool")
-        app.buttons["Canvas"].tap()
+        app.closeBackground()
         XCTAssertTrue(app.staticTexts["(polished -- mock) sunny afternoon by the bridge"].waitForExistence(timeout: 5),
                       "and the change is kept")
     }

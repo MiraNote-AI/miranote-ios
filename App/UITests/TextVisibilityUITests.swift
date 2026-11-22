@@ -33,21 +33,21 @@ final class TextVisibilityUITests: XCTestCase {
         XCTAssertTrue(any("image.library.photo.0").waitForExistence(timeout: 5))
         for index in 0..<3 { any("image.library.photo.\(index)").tap() }
         app.buttons["image.composer.add"].tap()
-        app.buttons["nav.trailing"].tap()
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5), "Add closes the Image tool")
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
     }
 
     /// The block's frame lies below the header and above every text tool.
     private func assertClearOfTheTools(_ when: String) {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["style.sizes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textSlotRows.firstMatch.waitForExistence(timeout: 5))
         // The scroll into view animates.
         Thread.sleep(forTimeInterval: 1)
         let tools = app.buttons.matching(NSPredicate(
-            format: "identifier == 'style.sizes' OR identifier BEGINSWITH 'style.font.' OR identifier BEGINSWITH 'style.size.'"
-        )).allElementsBoundByIndex.map(\.frame.minY) + [any("style.mic").frame.minY]
+            format: "identifier BEGINSWITH 'style.' OR identifier IN {'keyboard.done', 'text.row.back'}"
+        )).allElementsBoundByIndex.map(\.frame.minY)
         let toolsTop = tools.min() ?? 0
-        let headerBottom = app.buttons["keyboard.done"].frame.maxY
+        let headerBottom = app.buttons["nav.trailing"].frame.maxY
         XCTAssertLessThanOrEqual(field.frame.maxY, toolsTop + 0.5,
                                  "\(when): the block (\(field.frame)) runs under the text tools (top \(toolsTop))")
         XCTAssertGreaterThanOrEqual(field.frame.minY, headerBottom - 0.5,
@@ -106,7 +106,7 @@ final class TextVisibilityUITests: XCTestCase {
         field.typeText(String(repeating: "We walked down to the river after lunch and sat on the warm stones. ",
                               count: 14))
         Thread.sleep(forTimeInterval: 1.5)
-        let headerBottom = app.buttons["keyboard.done"].frame.maxY
+        let headerBottom = app.buttons["nav.trailing"].frame.maxY
         // Drag the page down until the block's first line shows.
         for _ in 0..<6 where field.frame.minY < headerBottom + 20 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.2))
@@ -204,6 +204,29 @@ final class TextVisibilityUITests: XCTestCase {
         assertOneSlideBack("the block opened again")
     }
 
+    /// #217: under Reduce Motion the page jumps where it would slide: the
+    /// keep-clear scroll as a new block below the fold opens, and the way
+    /// back after Done.
+    func testUnderReduceMotionThePageJumpsInsteadOfSliding() throws {
+        app.terminate()
+        app.launchArguments = ["-UITEST", "-REDUCE_MOTION"]
+        app.launch()
+        fillThePage()
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        try XCTSkipUnless(softwareKeyboardRose(), "hardware keyboard connected: no keyboard to scroll clear of")
+        field.typeText("lunch by the river")
+        assertClearOfTheTools("a new block")
+        let open = textOpen()
+        XCTAssertGreaterThanOrEqual(open["clearScrolls"] as? Int ?? 0, 1, "the block scrolled clear: \(open)")
+        // One frame for a jump (a slide moves on about 12).
+        XCTAssertTrue((1...2).contains(open["clearFrames"] as? Int ?? 0), "the keep-clear scroll jumps: \(open)")
+        app.buttons["keyboard.done"].tap()
+        Thread.sleep(forTimeInterval: 1.6)
+        let trace = textOpen()["exitTrace"] as? String ?? ""
+        XCTAssertEqual(trace.split(separator: " ").count, 1, "Done jumps the page back (ms:offset \(trace))")
+    }
+
     /// The -UITEST probe's `textOpen` entry.
     private func textOpen() -> [String: Any] {
         let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
@@ -246,11 +269,12 @@ final class TextVisibilityUITests: XCTestCase {
         field.typeText("lunch by the river, then a long walk home")
         assertClearOfTheTools("a new block")
         let whileWriting = photo.frame.minY
-        for row in ["style.colors", "style.highlight", "style.ai"] { app.buttons[row].tap() }
-        app.buttons["style.colors"].tap()
+        for row in ["style.colors", "style.highlight", "style.ai"] { app.openTextRow(row) }
+        app.openTextRow("style.colors")
         app.buttons["style.color.custom"].tap()
         XCTAssertTrue(app.buttons["colorSheet.apply"].waitForExistence(timeout: 5))
         app.buttons["colorSheet.apply"].tap()
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         Thread.sleep(forTimeInterval: 1.2)
         let block = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'lunch by the river'")).firstMatch

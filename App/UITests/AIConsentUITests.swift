@@ -88,7 +88,7 @@ final class AIConsentUITests: XCTestCase {
         launch(asking: true)
         XCTAssertFalse(sheet.exists, "nothing at launch")
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 5), "the first AI action asks")
 
@@ -119,10 +119,34 @@ final class AIConsentUITests: XCTestCase {
         app.terminate()
         launch(asking: true, keep: true)
         startWriting("tea")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         XCTAssertTrue(fieldValueContains("(expanded draft -- mock)"))
         XCTAssertFalse(sheet.exists)
+    }
+
+    /// #205 F6B: Go in the chat box while writing asks first, as the Polish
+    /// row does: Not now sends nothing and says why; Continue rewrites.
+    func testGoInTheChatBoxAsksFirst() {
+        launch(asking: true)
+        startWriting("noodle shop")
+        let ask = app.descendants(matching: .any)["writing.ask"]
+        ask.tap()
+        ask.typeText("make it warmer")
+        app.buttons["writing.go"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "Go asks first")
+
+        app.buttons["aiConsent.notNow"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(consentLine.waitForExistence(timeout: 3), "the caption says why")
+        XCTAssertEqual(aiSent, 0, "Not now: nothing was sent")
+        XCTAssertFalse(fieldValueContains("(rewritten -- mock)", timeout: 1))
+
+        app.buttons["writing.go"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        app.buttons["aiConsent.continue"].tap()
+        XCTAssertTrue(fieldValueContains("(rewritten -- mock) noodle shop"), "Continue: the block is rewritten")
+        XCTAssertEqual(aiSent, 1)
     }
 
     /// #206: a page's star is made on the phone, so a Save before consent
@@ -176,6 +200,28 @@ final class AIConsentUITests: XCTestCase {
         XCTAssertEqual(aiSent, 0)
     }
 
+    /// #205 R5A: Apply's painting asks first; Not now paints nothing, and
+    /// the caption over the Background row says why.
+    func testNotNowOnAPaintingSaysWhyOverTheRow() {
+        launch(asking: true)
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.background"].waitForExistence(timeout: 5))
+        app.openBackground()
+        let words = app.textFields["background.apply.input"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5))
+        words.tap()
+        words.typeText("a soft sunset glow")
+        app.buttons["background.apply"].tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        app.buttons["aiConsent.notNow"].tap()
+        let notice = app.staticTexts["background.notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the row says why")
+        XCTAssertTrue(notice.label.contains("needs your OK"), notice.label)
+        XCTAssertEqual(app.buttons["background.apply"].label, "Apply")
+        XCTAssertEqual(words.value as? String, "a soft sunset glow", "the words are back")
+        XCTAssertEqual(aiSent, 0)
+    }
+
     func testWithdrawShowsTheSheetAgain() {
         launch(asking: false)
         openSettings()
@@ -186,7 +232,7 @@ final class AIConsentUITests: XCTestCase {
         backHome()
 
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 5), "withdrawn: the next AI action asks again")
         app.buttons["aiConsent.notNow"].tap()

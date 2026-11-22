@@ -61,18 +61,6 @@
         }
       }
     },
-    "%@ and %@" : {
-      "comment" : "VoiceOver: a display font and a body font.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ 搭配 %2$@"
-          }
-        }
-      }
-    },
     "%@ paper" : {
       "comment" : "VoiceOver: a paper type, e.g. 'Grid paper'.",
       "extractionState" : "manual",
@@ -484,18 +472,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "一个小标记，不打扰页面画面。"
-          }
-        }
-      }
-    },
-    "A small moment worth keeping." : {
-      "comment" : "Background preview: sample line.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "值得留住的小小瞬间。"
           }
         }
       }
@@ -1170,17 +1146,6 @@
         }
       }
     },
-    "Background color" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "背景颜色"
-          }
-        }
-      }
-    },
     "Before" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1644,6 +1609,18 @@
         }
       }
     },
+    "Color" : {
+      "comment" : "Background tool: the page color row.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "颜色"
+          }
+        }
+      }
+    },
     "Compare with the original" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1826,17 +1803,6 @@
         }
       }
     },
-    "Curated sets · %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "精选搭配 · %lld"
-          }
-        }
-      }
-    },
     "Current" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1926,17 +1892,6 @@
         }
       }
     },
-    "DEFAULT" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "默认"
-          }
-        }
-      }
-    },
     "Day %@ is blocked, since %@" : {
       "comment" : "Photo trigger debug screen (testers only).",
       "extractionState" : "manual",
@@ -1968,6 +1923,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "装点你的回忆"
+          }
+        }
+      }
+    },
+    "Default backdrop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认背景"
           }
         }
       }
@@ -2129,6 +2095,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "放弃录音"
+          }
+        }
+      }
+    },
+    "Discard this sticker" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃这张贴纸"
           }
         }
       }
@@ -2549,13 +2526,13 @@
         }
       }
     },
-    "Font and size" : {
+    "Font" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "字体与字号"
+            "value" : "字体"
           }
         }
       }
@@ -3861,6 +3838,17 @@
         }
       }
     },
+    "Mira's painting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira 画的背景"
+          }
+        }
+      }
+    },
     "MiraNote Plus" : {
       "comment" : "Paywall title; the subscription's name.",
       "extractionState" : "manual",
@@ -4803,18 +4791,6 @@
         }
       }
     },
-    "PAINTED" : {
-      "comment" : "Preview label: the page has a painted background.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已绘制"
-          }
-        }
-      }
-    },
     "PLUS" : {
       "comment" : "Settings section: the subscription.",
       "extractionState" : "manual",
@@ -4838,29 +4814,6 @@
         }
       }
     },
-    "PREVIEW COLOR  ·  %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "预览颜色  ·  %@"
-          }
-        }
-      }
-    },
-    "Page color hex" : {
-      "comment" : "VoiceOver.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "页面颜色色值"
-          }
-        }
-      }
-    },
     "Page type" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4879,17 +4832,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "页面会在 30 天后永久删除。"
-          }
-        }
-      }
-    },
-    "Painting a background for this page..." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在为这一页绘制背景…"
           }
         }
       }
@@ -4926,17 +4868,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "纸白"
-          }
-        }
-      }
-    },
-    "Paper, color & curated type" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "纸张、颜色与精选字体"
           }
         }
       }
@@ -5859,18 +5790,6 @@
         }
       }
     },
-    "Returns the page to its default backdrop" : {
-      "comment" : "VoiceOver hint.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "让页面回到默认背景"
-          }
-        }
-      }
-    },
     "Revert" : {
       "comment" : "Glossary: Revert = 还原 (take back the last change).",
       "extractionState" : "manual",
@@ -5926,17 +5845,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "玫瑰木"
-          }
-        }
-      }
-    },
-    "SWIPE →" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "滑动 →"
           }
         }
       }
@@ -6260,6 +6168,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已设置页面背景。"
+          }
+        }
+      }
+    },
+    "Sets" : {
+      "comment" : "Background tool: the curated sets row.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搭配"
           }
         }
       }
@@ -7282,6 +7202,18 @@
         }
       }
     },
+    "This block is too long for Mira to rewrite." : {
+      "comment" : "Caption above the text rows: the block is over the 3000 characters the rewrite service takes, so Go sent nothing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这段文字太长，Mira 无法改写。"
+          }
+        }
+      }
+    },
     "This build cannot get into the beta -- its access was never set up, or has since been replaced. Ask the team for an updated build; reinstalling this one will not help." : {
       "comment" : "Server error 401: the build's beta access.",
       "extractionState" : "manual",
@@ -7408,13 +7340,25 @@
       }
     },
     "This purchase belongs to another MiraNote account. Contact us to move it." : {
-      "comment" : "Restore error: the subscription is linked to another account.",
+      "comment" : "Purchase or Restore error: the subscription is linked to another account.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这笔购买属于另一个 MiraNote 账号。如需转移，请联系我们。"
+            "value" : "这笔购买属于另一个 MiraNote 账户。如需转移，请联系我们。"
+          }
+        }
+      }
+    },
+    "This purchase has moved between MiraNote accounts too often. Contact us to move it." : {
+      "comment" : "Purchase or Restore error: the server refused to move the subscription again so soon (relinked within 30 days, or too many links in a day).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这笔购买在 MiraNote 账户之间转移得太频繁。如需转移，请联系我们。"
           }
         }
       }
@@ -7956,6 +7900,18 @@
         }
       }
     },
+    "What is kept" : {
+      "comment" : "Settings > Delete account (api #95 step 6): heading of the point about what the server keeps after deletion.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会留存什么"
+          }
+        }
+      }
+    },
     "What is sent" : {
       "comment" : "AI consent sheet (#151): heading.",
       "extractionState" : "manual",
@@ -8285,14 +8241,26 @@
         }
       }
     },
-    "Your MiraNote account, your AI usage, and your Sign in with Apple link to MiraNote." : {
+    "Your AI usage records stop being linked to you." : {
+      "comment" : "Settings > Delete account (api #95 step 6): what the server keeps with user_id set to null (api #116).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 AI 使用记录将不再与你关联。"
+          }
+        }
+      }
+    },
+    "Your MiraNote account and your Sign in with Apple link to MiraNote." : {
       "comment" : "Settings > Delete account (api #95 step 6): what the server deletes.",
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的 MiraNote 账户、AI 使用记录，以及 MiraNote 与“通过 Apple 登录”的关联。"
+            "value" : "你的 MiraNote 账户，以及 MiraNote 与“通过 Apple 登录”的关联。"
           }
         }
       }

@@ -32,10 +32,6 @@ enum Palette {
     /// The handoff's muted #878476 as drawn: the leading nav label on editor
     /// scenes and the composer placeholder (design fidelity pass, 2026-10-15).
     static let muted = Color(hex: 0x878476)
-    /// The handoff's "story canvas dim glass scrim", rgba(41, 51, 34, 0.34):
-    /// over the page while text is written (screens 11-20) and while a
-    /// photo or the Sticker sheet is lifted above it (27-35).
-    static let scrim = Color(hex: 0x293322).opacity(0.34)
     /// A selected Photo Editing tile (screen 27); the sticker style tiles
     /// keep `cardFill` when selected (screen 33).
     static let tileSelected = Color(hex: 0xE3DAC8)

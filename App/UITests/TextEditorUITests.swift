@@ -1,8 +1,8 @@
 import XCTest
 
-/// The text editor's chrome (handoff screens 10-21): the writing scrim, the
-/// tool bar and its rows, the custom color sheet, the in-place AI rewrite
-/// and the header's Cancel.
+/// The text editor's chrome (handoff screens 10-21, #205): the clear page
+/// and the waiting header, the tool bar and its rows, the custom color
+/// sheet, the in-place AI rewrite, and Undo and Back.
 final class TextEditorUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -38,46 +38,82 @@ final class TextEditorUITests: XCTestCase {
         textField.typeText(text)
     }
 
-    func testTheScrimCoversThePageOnlyWhileWriting() {
-        startWriting("under glass")
-        let scrim = app.descendants(matching: .any)["text.scrim"]
-        XCTAssertTrue(scrim.exists, "the page dims and blurs while words are written")
+    /// #205: the page stays clear while words are written; the header
+    /// greys Home and Save until the row's Back ends the writing.
+    func testThePageStaysClearAndTheHeaderWaitsWhileWriting() {
+        startWriting("on a clear page")
+        XCTAssertFalse(app.descendants(matching: .any)["text.scrim"].exists, "no scrim over the page")
+        XCTAssertFalse(app.buttons["nav.leading"].isEnabled, "Home waits for the writing to end")
+        XCTAssertFalse(app.buttons["nav.trailing"].isEnabled, "Save waits for the writing to end")
+        XCTAssertEqual(app.buttons["keyboard.done"].label, "Back")
 
         app.buttons["keyboard.done"].tap()
-        waitUntilGone(scrim, "the scrim lifts when writing ends")
-        XCTAssertTrue(app.staticTexts["under glass"].exists)
+        waitUntilGone(field, "Back ends the writing")
+        XCTAssertTrue(app.staticTexts["on a clear page"].exists)
+        XCTAssertTrue(app.buttons["nav.leading"].isEnabled, "Home is back")
+        XCTAssertTrue(app.buttons["nav.trailing"].isEnabled, "Save is back")
     }
 
-    func testTheToolBarSwitchesTheRowAbove() {
-        startWriting("tools")
-        // Aa is the open tool when writing starts (screen 11).
-        XCTAssertTrue(app.buttons["style.sizes"].isSelected)
-        XCTAssertTrue(app.buttons["style.font.Josefin"].isSelected, "a new block is set in Josefin")
+    /// Esc on a hardware keyboard ends the writing, as Back does (R1A).
+    /// XCUITest's typeKey goes through the software keyboard, never as a
+    /// hardware key, so this checks Esc's key command is armed exactly while
+    /// words are written (a real Esc was checked by hand on the simulator).
+    func testEscapeIsArmedOnlyWhileWriting() {
+        startWriting("escaped")
+        XCTAssertTrue(escapeArmed(), "Esc is armed while writing")
+        app.buttons["keyboard.done"].tap()
+        waitUntilGone(field, "Back ends the writing")
+        XCTAssertFalse(escapeArmed(), "Esc is let go once the writing ends")
+    }
 
-        app.buttons["style.colors"].tap()
+    private func escapeArmed() -> Bool {
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        // The probe refreshes every 0.25 s.
+        Thread.sleep(forTimeInterval: 0.6)
+        return probe.label.contains("\"escapeArmed\":true")
+    }
+
+    /// One row in the text slot (#205): each tool's row takes the text
+    /// row's place, and its own Back goes back to it.
+    func testEachToolRowReplacesTheTextRow() {
+        startWriting("tools")
+        // Writing starts on the text row (S7).
+        XCTAssertTrue(app.buttons["style.font"].exists)
+        XCTAssertFalse(app.buttons["text.row.back"].exists)
+
+        app.openTextRow("style.font")
+        XCTAssertTrue(app.buttons["style.font.Josefin"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["style.font.Josefin"].isSelected, "a new block is set in Josefin")
+        XCTAssertFalse(app.buttons["style.colors"].exists, "the font row is in the text row's place")
+        XCTAssertFalse(app.buttons["keyboard.done"].exists, "its Back goes up a level, not out")
+
+        app.openTextRow("style.colors")
         XCTAssertTrue(app.buttons["style.color.#F1EBDD"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.buttons["style.font.Josefin"].exists, "one row at a time")
-        XCTAssertTrue(app.buttons["style.colors"].isSelected)
 
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         XCTAssertTrue(app.buttons["style.ai.original"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["style.ai.original"].isSelected, "the row opens on the words as written")
         XCTAssertFalse(app.buttons["style.color.#F1EBDD"].exists)
 
-        // Align has no row (screens 16-17).
+        // Align has no row (screens 16-17): it steps on the text row.
+        app.backToTextRow()
+        waitUntilGone(app.buttons["style.ai.original"], "Back closes the row")
         app.buttons["style.align"].tap()
-        waitUntilGone(app.buttons["style.ai.original"], "align closes the open row")
-        XCTAssertTrue(app.buttons["style.align"].isSelected)
+        XCTAssertEqual(app.buttons["style.align"].value as? String, "Centered")
+        XCTAssertFalse(app.buttons["text.row.back"].exists, "align opens no row")
 
-        app.buttons["style.highlight"].tap()
+        app.openTextRow("style.highlight")
         XCTAssertTrue(app.buttons["style.highlight.none"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["style.highlight.none"].isSelected, "no background yet")
-        XCTAssertFalse(app.buttons["style.align"].isSelected)
+        XCTAssertFalse(app.buttons["style.align"].exists)
     }
 
     func testTheCustomColorSheetAppliesAHex() {
         startWriting("plum words")
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.colors")
         app.buttons["style.color.custom"].tap()
         let hex = app.textFields["colorSheet.hex"]
         XCTAssertTrue(hex.waitForExistence(timeout: 5))
@@ -104,7 +140,7 @@ final class TextEditorUITests: XCTestCase {
 
     func testOriginalBringsTheWordsBackAfterARewrite() {
         startWriting("noodle shop")
-        app.buttons["style.ai"].tap()
+        app.openTextRow("style.ai")
         app.buttons["style.ai.expand"].tap()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
         waitForExpectations(timeout: 5)
@@ -119,6 +155,7 @@ final class TextEditorUITests: XCTestCase {
         app.buttons["style.ai.expand"].tap()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "(expanded draft -- mock)"), evaluatedWith: field)
         waitForExpectations(timeout: 5)
+        app.backToTextRow()
         app.buttons["keyboard.done"].tap()
         let expanded = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "expanded draft")).firstMatch
         XCTAssertTrue(expanded.waitForExistence(timeout: 5))
@@ -131,30 +168,62 @@ final class TextEditorUITests: XCTestCase {
         XCTAssertFalse(expanded.exists)
     }
 
-    func testCancelDropsANewBlock() {
+    /// No Cancel while writing (#205): Undo takes a new block back.
+    func testUndoTakesANewBlockBack() {
         startWriting("never mind")
-        app.buttons["text.cancel"].tap()
+        app.buttons["editor.undo"].tap()
+        if app.buttons["keyboard.done"].exists { app.buttons["keyboard.done"].tap() }
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5), "back on the canvas")
-        XCTAssertFalse(app.staticTexts["never mind"].exists, "the new block went with the session")
+        XCTAssertFalse(app.staticTexts["never mind"].exists, "the new block went with the undo")
         XCTAssertFalse(app.descendants(matching: .any)["canvas.textEditor"].exists)
     }
 
-    func testCancelRevertsAnEditToAnExistingBlock() {
+    /// Undo while writing takes the session's edits to an existing block
+    /// back one step at a time, newest first: words typed after a color are
+    /// a step of their own, then the color. Both come back, as Cancel's
+    /// revert-all did.
+    func testUndoRevertsAnEditToAnExistingBlock() {
         startWriting("kept")
         app.buttons["keyboard.done"].tap()
         let block = app.staticTexts["kept"]
         XCTAssertTrue(block.waitForExistence(timeout: 5))
+        let original = textBlock()
+        XCTAssertEqual(original["text"] as? String, "kept")
 
         // Done leaves the block selected: one tap writes again.
         block.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        app.buttons["style.colors"].tap()
+        app.openTextRow("style.colors")
         app.buttons["style.color.#FFFFFF"].tap()
         field.typeText(" more")
-        app.buttons["text.cancel"].tap()
+        XCTAssertEqual(textBlock()["color"] as? String, "#FFFFFF")
 
-        XCTAssertTrue(app.staticTexts["kept"].waitForExistence(timeout: 5), "the words as they were")
-        let changed = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "more")).firstMatch
-        XCTAssertFalse(changed.exists)
+        app.buttons["editor.undo"].tap()
+        let afterOne = textBlock()
+        XCTAssertEqual(afterOne["text"] as? String, "kept", "the first Undo takes the words back")
+        XCTAssertEqual(afterOne["color"] as? String, "#FFFFFF", "and leaves the color, a step of its own")
+        app.buttons["editor.undo"].tap()
+        let afterTwo = textBlock()
+        XCTAssertEqual(afterTwo["color"] as? String, original["color"] as? String, "the second takes the color back")
+        app.backToTextRow()
+        app.buttons["keyboard.done"].tap()
+
+        waitUntilGone(field, "Back ends the writing")
+        let ended = textBlock()
+        XCTAssertEqual(ended["text"] as? String, "kept", "the words as they were")
+        XCTAssertEqual(ended["color"] as? String, original["color"] as? String, "in the color they were")
+    }
+
+    /// The page's one text block as the -UITEST probe reads it.
+    private func textBlock() -> [String: Any] {
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state")
+            .matching(NSPredicate(format: "label CONTAINS '\"scene\":\"canvas\"'")).firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        // The probe refreshes every 0.25 s.
+        Thread.sleep(forTimeInterval: 0.6)
+        let state = (try? JSONSerialization.jsonObject(with: Data(probe.label.utf8)) as? [String: Any]) ?? [:]
+        let texts = (state["elements"] as? [[String: Any]] ?? []).filter { $0["kind"] as? String == "text" }
+        XCTAssertEqual(texts.count, 1, "one text block on the page")
+        return texts.first ?? [:]
     }
 }
