@@ -20,6 +20,39 @@ final class TextChatBoxUITests: TextToolUITestCase {
         return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
     }
 
+    /// TestFlight 1.0(14): "tapping the chat box flies to Mira chat". While
+    /// writing, the tap puts the caret in the chat box in place (T1, F6B) --
+    /// on a fresh page and on a page with blocks -- and never opens the
+    /// Mira chat. (Outside writing the composer opens the chat as designed:
+    /// "the bottom composer is a button that opens the chat", design
+    /// fidelity plan.)
+    func testATapOnTheChatBoxWhileWritingStaysInPlace() {
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        assertTheTapStaysInPlace("a fresh page")
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+
+        write("first block")
+        write("second block")
+        app.buttons["mode.text"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("third")
+        assertTheTapStaysInPlace("a page with blocks")
+    }
+
+    private func assertTheTapStaysInPlace(_ page: String, file: StaticString = #filePath, line: UInt = #line) {
+        let writing = canvasState()["writing"] as? String ?? ""
+        XCTAssertFalse(writing.isEmpty, file: file, line: line)
+        ask.tap()
+        XCTAssertTrue(waitForCaret(in: ask), "\(page): the caret is in the chat box", file: file, line: line)
+        XCTAssertFalse(app.miraInput.exists, "\(page): the Mira chat never opens", file: file, line: line)
+        XCTAssertEqual(canvasState()["writing"] as? String, writing, "\(page): still writing the same block",
+                       file: file, line: line)
+        app.typeText("warm")
+        XCTAssertEqual(ask.value as? String, "warm", "\(page): the words go to the chat box", file: file, line: line)
+    }
+
     func testTheMicGivesWayToGoOnceThereAreWords() {
         app.buttons["mode.text"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))

@@ -64,6 +64,16 @@ class TextToolUITestCase: XCTestCase {
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
     }
 
+    /// The caret is in `element` (it has the keyboard's focus).
+    func waitForCaret(in element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.value(forKey: "hasKeyboardFocus") as? Bool == true { return true }
+            usleep(100_000)
+        }
+        return false
+    }
+
     func write(_ words: String) {
         app.buttons["mode.text"].tap()
         let field = any("canvas.textEditor")
