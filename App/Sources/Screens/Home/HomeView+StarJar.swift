@@ -7,9 +7,42 @@ import SwiftUI
 /// saved page's star landing in it (#206). The circle and the fold over
 /// Home share HomeView's fold state, so that state is internal.
 extension HomeView {
-    /// This month's stars, as the jar shows them.
+    /// This month's stars, as the jar shows them, each in its page's dress
+    /// once it is baked.
     var jarPile: JarPile {
-        JarPile(StarJar.stars(in: viewModel.library, during: JarPeriod.month.interval(containing: .now)).map(\.id))
+        // Read here so that each dress Home bakes redraws the jar with it.
+        _ = dressesBaked
+        return JarPile(jarStars.map(\.id))
+    }
+
+    private var jarStars: [JarStar] {
+        StarJar.stars(in: viewModel.library, during: JarPeriod.month.interval(containing: .now))
+    }
+
+    /// When Home looks for dresses its jar is missing: for this month's
+    /// jar, and again once a star has landed. A star on its way keeps the
+    /// dress its fold cut (`StarFace.keep` as it lands), so Home bakes
+    /// nothing meanwhile.
+    struct DressRound: Equatable {
+        let month: Date
+        let arriving: Memory.ID?
+    }
+
+    var dressRound: DressRound {
+        DressRound(month: JarPeriod.month.interval(containing: .now).start, arriving: arrivingStar?.id)
+    }
+
+    /// Bakes the dresses this month's stars are missing -- pages saved
+    /// before design X's dresses (#234), or whose dress iOS cleared from
+    /// Caches -- as the jar screen's stars do: `StarFace.bakeInTurn`, one
+    /// at a time a frame apart, into the same cache. The header jar shows
+    /// each one as it is baked, with no visit to the jar screen (#243).
+    func dressTheJar() async {
+        guard arrivingStar == nil else { return }
+        for star in jarStars where StarFace.cached(star.id) == nil {
+            if Task.isCancelled { return }
+            if await StarFace.bakeInTurn(star.memory) != nil { dressesBaked += 1 }
+        }
     }
 
     /// The star jar's circle: the glass jar, small, with this month's

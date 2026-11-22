@@ -424,6 +424,21 @@ final class StarJarUITests: XCTestCase { // swiftlint:disable:this type_body_len
         XCTAssertEqual(jar.value as? String, "0", "a draft sends no star")
     }
 
+    /// #243: saved pages whose stars have no dress yet -- a fresh launch's
+    /// seed, as after the move to design X's dresses -- show dressed in
+    /// Home's header jar without a visit to the jar screen.
+    func testHomesHeaderJarDressesItsStarsWithoutAVisit() {
+        XCTAssertTrue(app.buttons["home.starJar"].waitForExistence(timeout: 8))
+        let dressed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let home = self.state(of: "home")
+            let stars = home["headerStars"] as? Int ?? 0
+            return stars > 0 && home["headerDressed"] as? Int == stars
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [dressed], timeout: 8), .completed,
+                       "every star in the header jar wears its dress: \(state(of: "home"))")
+        XCTAssertFalse(app.staticTexts["Star jar"].exists, "the jar screen never opened")
+    }
+
     func testWeekMonthAndStepping() {
         openJar()
         let period = app.staticTexts["jar.period"]

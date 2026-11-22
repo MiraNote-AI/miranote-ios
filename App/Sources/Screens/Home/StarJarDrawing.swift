@@ -347,6 +347,9 @@ struct HeaderJar: View {
             ctx.translateBy(x: size.width / 2, y: size.height / 2 + 78 * s)
             ctx.scaleBy(x: s, y: s)
             JarArt.back(in: ctx, s: s)
+            #if DEBUG
+            StarJarProbe.header(pile)
+            #endif
             pile.draw(in: ctx)
             JarArt.front(in: ctx, s: s)
             JarArt.cap(in: ctx, s: s)

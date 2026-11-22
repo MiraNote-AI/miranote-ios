@@ -41,6 +41,8 @@ struct HomeView: View {
     @State var foldFades = false
     /// Landings so far (UI tests count them).
     @State var jarBeat = 0
+    /// Dresses Home has baked for its jar's stars (`dressTheJar`).
+    @State var dressesBaked = 0
 
     /// The dateline's warm grey (#8F8477), also used for the extras the
     /// design does not draw (New collection, Recently deleted).
@@ -108,6 +110,7 @@ struct HomeView: View {
             .scrollDismissesKeyboard(.immediately)
             .task(id: arrivingStar?.id) { await landArrivingStar(scroller) }
         }
+        .task(id: dressRound) { await dressTheJar() }
         // A tap during the fold skips to the landing, and still does what
         // it tapped (the jar opens, a page starts).
         .simultaneousGesture(TapGesture().onEnded { finishFold() })

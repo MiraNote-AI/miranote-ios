@@ -46,9 +46,9 @@ final class StarJarSaveUITests: XCTestCase {
         zip(lhs, rhs).map { abs($0 - $1) }.reduce(0, +)
     }
 
-    /// A seeded page's star is baked when the jar first shows it. Held
-    /// open, painted lilac and saved, it is a new star back in that same
-    /// jar -- not only in a jar opened afresh.
+    /// A seeded page's star is baked when a jar first shows it (Home's,
+    /// #243). Held open, painted lilac and saved, it is a new star back in
+    /// that same jar -- not only in a jar opened afresh.
     func testAPageEditedFromTheJarShowsItsNewStarThere() {
         openJar()
         let star = app.buttons["jar.star.Slow morning, good coffee"]
