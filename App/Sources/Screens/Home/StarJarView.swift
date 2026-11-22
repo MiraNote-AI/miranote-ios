@@ -38,7 +38,9 @@ struct StarJarView: View {
     @State private var tosses = 0
     /// Stars in the air: drawn by `tossScene`, their buttons hidden.
     @State var tossing = false
-    @State private var tossScene = StarTossScene(size: .zero)
+    /// Made on the first visit, not as a default: SwiftUI rebuilds the
+    /// view's struct often, and each default would build a scene (#219).
+    @State private var tossScene: StarTossScene?
     /// Where the last toss left each star, until the visit ends.
     @State private var settled: [Memory.ID: StarPile.Spot] = [:]
     /// The star being held: the others dim.
@@ -95,7 +97,8 @@ struct StarJarView: View {
         #if DEBUG
         .background(DebugStateProbe {
             ["scene": "jar", "shakes": shakes, "tosses": tosses, "settled": !tossing,
-             "tossFPS": tossScene.frameStats.fps, "tossWorstMs": tossScene.frameStats.worstMs, "hint": !hasOpened]
+             "tossFPS": tossScene?.frameStats.fps ?? 0, "tossWorstMs": tossScene?.frameStats.worstMs ?? 0,
+             "tossScenes": StarTossScene.made, "hint": !hasOpened]
         })
         #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
@@ -106,12 +109,12 @@ struct StarJarView: View {
         .onAppear(perform: firstVisit)
         .onAppear(perform: cameBack)
         .onChange(of: interval) {
-            tossScene.stop()
+            tossScene?.stop()
             settled = [:]
         }
         .onDisappear {
             // Opened mid-air: the stars lie where they did before the toss.
-            tossScene.stop()
+            tossScene?.stop()
             // Left (an edge swipe back) before the page opened: it never
             // opens on top of where the jar was.
             if opening?.unrolled != true {
@@ -238,11 +241,13 @@ struct StarJarView: View {
                     // A hold is ignored while the stars are in the air.
                     .allowsHitTesting(!tossing && opening == nil)
                 }
-                SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .opacity(tossing ? 1 : 0)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                if let tossScene {
+                    SpriteView(scene: tossScene, isPaused: !tossing, options: [.allowsTransparency])
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .opacity(tossing ? 1 : 0)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
                 JarShine(geometry: geometry)
                 JarLid(geometry: geometry)
                 if stars.isEmpty {
@@ -323,7 +328,7 @@ extension StarJarView {
     private func throwStars(
         _ resting: [(star: JarStar, spot: StarPile.Spot)], starSize: CGFloat, geometry: JarGeometry
     ) {
-        guard !reduceMotion, arriving.isEmpty, !resting.isEmpty else { return }
+        guard !reduceMotion, arriving.isEmpty, !resting.isEmpty, let tossScene else { return }
         if !tossing {
             tossScene.load(resting, starSize: starSize, geometry: geometry) { star in
                 StarTossScene.face(of: star.memory)
@@ -357,6 +362,7 @@ extension StarJarView {
     private func firstVisit() {
         guard !visited else { return }
         visited = true
+        tossScene = StarTossScene(size: .zero)
         let defaults = UserDefaults.standard
         let lastOpened = defaults.object(forKey: Self.lastOpenedKey) as? Date
         defaults.set(Date.now, forKey: Self.lastOpenedKey)
