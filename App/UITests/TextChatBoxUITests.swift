@@ -12,14 +12,6 @@ final class TextChatBoxUITests: TextToolUITestCase {
     private var go: XCUIElement { app.buttons["writing.go"] }
     private var mic: XCUIElement { any("style.mic") }
 
-    private func fieldValue() -> String { field.value as? String ?? "" }
-
-    private func waitForField(_ predicate: String, _ words: String, timeout: TimeInterval = 5) -> Bool {
-        let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value \(predicate) %@", words),
-                                              object: field)
-        return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
-    }
-
     /// TestFlight 1.0(14): "tapping the chat box flies to Mira chat". While
     /// writing, the tap puts the caret in the chat box in place (T1, F6B) --
     /// on a fresh page and on a page with blocks -- and never opens the
@@ -251,7 +243,7 @@ final class TextChatBoxUITests: TextToolUITestCase {
         let block = String(repeating: "a", count: 3000)
         app.paste(block, into: field)
         XCTAssertTrue(waitForField("==", block), "pasted: \(fieldValue().count)")
-        closeTheBlocksMenu()
+        XCTAssertFalse(app.buttons["Edit text"].exists, "the paste brought no block menu over the chat box")
         ask.tap()
         ask.typeText("make it shorter")
         go.tap()
@@ -271,28 +263,6 @@ final class TextChatBoxUITests: TextToolUITestCase {
         XCTAssertTrue(tooLong.waitForExistence(timeout: 3), "the caption says why")
         XCTAssertEqual(ask.value as? String, "make it shorter", "the words stay, to send again")
         XCTAssertEqual(fieldValue(), rewritten + "!", "the block is as it was")
-    }
-
-    /// The long press that pastes also opens the block's own menu (Edit
-    /// text, Duplicate, ...), over the chat box. A tap closes the menu and
-    /// does nothing else: the caret stays in the block.
-    private func closeTheBlocksMenu() {
-        let menu = app.buttons["Edit text"]
-        guard menu.waitForExistence(timeout: 2) else { return }
-        let writing = canvasState()["writing"] as? String
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(menu.waitForNonExistence(timeout: 3), "the block's menu closed")
-        XCTAssertEqual(canvasState()["writing"] as? String, writing, "still writing the block")
-    }
-
-    /// The block's menu, "Edit text", from wherever the page is.
-    private func editText(_ words: String) {
-        let block = app.staticTexts[words]
-        XCTAssertTrue(block.waitForExistence(timeout: 5))
-        block.press(forDuration: 1.2)
-        XCTAssertTrue(app.buttons["Edit text"].waitForExistence(timeout: 3))
-        app.buttons["Edit text"].tap()
-        XCTAssertTrue(waitForField("==", words), "writing '\(words)': \(fieldValue())")
     }
 
     /// A page tap with the caret in the chat box ends the writing, as it

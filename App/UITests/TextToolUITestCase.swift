@@ -64,6 +64,15 @@ class TextToolUITestCase: XCTestCase {
         XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
     }
 
+    /// The block being written's words.
+    func fieldValue() -> String { any("canvas.textEditor").value as? String ?? "" }
+
+    func waitForField(_ predicate: String, _ words: String, timeout: TimeInterval = 5) -> Bool {
+        let reads = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value \(predicate) %@", words),
+                                              object: any("canvas.textEditor"))
+        return XCTWaiter().wait(for: [reads], timeout: timeout) == .completed
+    }
+
     /// The caret is in `element` (it has the keyboard's focus).
     func waitForCaret(in element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -72,6 +81,16 @@ class TextToolUITestCase: XCTestCase {
             usleep(100_000)
         }
         return false
+    }
+
+    /// The block's menu, "Edit text", from wherever the page is.
+    func editText(_ words: String, file: StaticString = #filePath, line: UInt = #line) {
+        let block = app.staticTexts[words]
+        XCTAssertTrue(block.waitForExistence(timeout: 5), file: file, line: line)
+        block.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Edit text"].waitForExistence(timeout: 3), file: file, line: line)
+        app.buttons["Edit text"].tap()
+        XCTAssertTrue(waitForField("==", words), "writing '\(words)': \(fieldValue())", file: file, line: line)
     }
 
     func write(_ words: String) {
