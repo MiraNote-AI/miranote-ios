@@ -171,7 +171,7 @@ struct StickerPanelScene: View {
         .background(DebugStateProbe {
             ["scene": "sticker", "listening": [String: Bool](), "busy": busy, "drafts": drafts.count,
              "undoDepth": editor.undoDepth, "writing": editor.editingTextItemID?.uuidString ?? "",
-             "scrollOffset": scrollMemory.offset]
+             "scrollOffset": scrollMemory.offset, "announced": UITestAnnouncement.last]
         })
         #endif
     }
@@ -847,6 +847,13 @@ struct StickerPanelScene: View {
         drafts.remove(at: page)
         page = min(page, max(drafts.count - 1, 0))
         notice = nil
+        // Focus stays on Discard and only the page dots change: VoiceOver
+        // says what went (#236).
+        let said = String(appCopy: "Discarded the sticker")
+        AccessibilityNotification.Announcement(said).post()
+        #if DEBUG
+        UITestAnnouncement.last = said
+        #endif
     }
 
     // MARK: The hop onto the page
