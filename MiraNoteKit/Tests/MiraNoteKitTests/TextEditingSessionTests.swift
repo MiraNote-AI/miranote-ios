@@ -148,23 +148,29 @@ final class TextEditingSessionTests: XCTestCase {
     func testCancelAfterUndoingPastTheSessionStartChangesNothingMore() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("first", at: CGPoint(x: 100, y: 100))
+        let placed = editor.item(id)?.position
+        editor.beginChange()
+        editor.move(itemID: id, to: CGPoint(x: 140, y: 100))
         editor.startEditingText(id)
         editor.setTextColorName(itemID: id, to: "#FFFFFF")
         editor.undo()
         editor.undo()
         XCTAssertEqual(block(editor, id)?.colorName, "ink")
+        XCTAssertEqual(editor.item(id)?.position, placed, "the second undo took the move below the session")
 
         editor.cancelEditingText()
         XCTAssertEqual(block(editor, id)?.text, "first", "the earlier step is not eaten")
         XCTAssertTrue(editor.canUndo)
     }
 
-    /// Harness seed 104377848497032: tap a block, Undo (the session's start
-    /// changed nothing, so nothing seems to happen), type, Cancel -- the
-    /// words go. Before, they stayed, and no undo could take them back.
+    /// Harness seed 104377848497032: tap a block, Undo (no step yet: it takes
+    /// back the move below), type, Cancel -- the words go. Before, they
+    /// stayed, and no undo could take them back.
     func testWordsTypedAfterUndoingTheSessionStartAreTheSessions() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))
+        editor.beginChange()
+        editor.move(itemID: id, to: CGPoint(x: 140, y: 100))
         editor.startEditingText(id)
         editor.undo()
         XCTAssertEqual(editor.editingTextItemID, id, "still writing")
@@ -179,6 +185,8 @@ final class TextEditingSessionTests: XCTestCase {
     func testWordsTypedAfterUndoingTheSessionStartUndoInOneStep() {
         let editor = CanvasViewModel(memory: Memory())
         let id = editor.addText("lunch", at: CGPoint(x: 100, y: 100))
+        editor.beginChange()
+        editor.move(itemID: id, to: CGPoint(x: 140, y: 100))
         editor.startEditingText(id)
         editor.undo()
         editor.setText(itemID: id, to: "lunch with")

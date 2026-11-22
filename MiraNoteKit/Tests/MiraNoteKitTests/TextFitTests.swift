@@ -174,11 +174,13 @@ final class TextFitTests: XCTestCase {
 
     /// Undo back to before the growth while still writing, then the same
     /// growth again: the photo is pushed again, never left under the words.
+    /// The block grows with words, as the board's text binding has it.
     func testGrowingAgainAfterAnUndoPushesAgain() {
         let memory = page()
         let paragraph = memory.items[0].id, photo = memory.items[1].id
         let editor = CanvasViewModel(memory: memory)
         editor.startEditingText(paragraph)
+        editor.setText(itemID: paragraph, to: "Sunny afternoon by the bridge, and then the long walk home")
         editor.autosizeTextHeight(itemID: paragraph, to: 90)
         editor.setTextColorName(itemID: paragraph, to: "clay")
         editor.undo()

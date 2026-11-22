@@ -114,6 +114,9 @@ final class CanvasSequenceModel: SequenceModel {
             self.id = id
             self.startPage = startPage
             origin = startPage.first { $0.id == id }
+            // A reopened block's session records its start with its first
+            // change; a new block's is the step that added it.
+            restartPending = origin != nil
         }
 
         /// `steps` changes recorded inside the session.

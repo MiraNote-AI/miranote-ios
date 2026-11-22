@@ -35,9 +35,10 @@ public final class CanvasViewModel {
     /// takes back that step and the words typed since.
     private var typingNeedsStep = false
 
-    /// An undo took the session's starting point back while the session
-    /// goes on: its next change (a word typed, a style) records a new one,
-    /// so that change is undoable and Cancel takes it back.
+    /// The session has no starting point on the history -- a reopened
+    /// block before its first change, or an undo took it back while the
+    /// session goes on: its next change (a word typed, a style) records
+    /// one, so that change is undoable and Cancel takes it back.
     private var sessionNeedsStart = false
 
     /// Undo steps recorded since the open text editing session began, so
@@ -183,10 +184,16 @@ public final class CanvasViewModel {
     public var canRedo: Bool { !future.isEmpty }
 
     public func beginChange() {
+        beginChange(recording: true)
+    }
+
+    /// A change: a waiting receipt and redo move on; `recording` also puts
+    /// the page as it is now on the undo history.
+    private func beginChange(recording: Bool) {
         if pageBeforeEdits == nil { pageBeforeEdits = filedSnapshot }
         changeCount += 1
         future.removeAll()
-        pushHistory(currentSnapshot)
+        if recording { pushHistory(currentSnapshot) }
         if editingTextItemID != nil { typingNeedsStep = true }
     }
 
@@ -263,17 +270,28 @@ public final class CanvasViewModel {
     }
 
     /// One undo point per editing session (or none if the caller made
-    /// one); re-entry never burns snapshots.
+    /// one); re-entry never burns snapshots. A reopened block's undo point
+    /// is recorded with the session's first change, the page as it was
+    /// before it: until then the session has no step, so every Undo
+    /// changes something -- a session that only restyles, or changes
+    /// nothing, leaves no step that restores the same page (#236).
     public func startEditingText(_ id: CanvasItem.ID, recordingUndo: Bool = true) {
         guard editingTextItemID != id, case .text = item(id)?.content else { return }
-        if recordingUndo { beginChange() }
+        // Opening moves on as a change does (a waiting receipt, redo).
+        if recordingUndo { beginChange(recording: false) }
         selectedItemID = id
         editingTextItemID = id
-        // The undo point on top of the history (this call's, or the one the
-        // caller made) is the page as it was before the session.
-        sessionSteps = history.isEmpty ? nil : 0
-        sessionOrigin = history.last?.items.first { $0.id == id }
-        sessionNeedsStart = false
+        if recordingUndo {
+            sessionSteps = nil
+            sessionOrigin = item(id)
+            sessionNeedsStart = true
+        } else {
+            // The undo point the caller made, on top of the history, is the
+            // page as it was before the session.
+            sessionSteps = history.isEmpty ? nil : 0
+            sessionOrigin = history.last?.items.first { $0.id == id }
+            sessionNeedsStart = false
+        }
         // The session's start is the typing's undo point.
         typingNeedsStep = false
     }
@@ -456,7 +474,11 @@ extension CanvasViewModel {
         let before = TextFit.revert(previewed, box: original.id, to: original)
         guard before != previewed else { return }
         memory.items = before
-        beginChange()
+        // A rewrite shown on a reopened block started its session with
+        // this same page: a second step of it would restore nothing.
+        let started = editingTextItemID == original.id && sessionSteps == 0
+            && history.last?.sameEdits(as: currentSnapshot) == true
+        beginChange(recording: !started)
         memory.items = previewed
     }
 
@@ -686,12 +708,12 @@ extension CanvasViewModel {
     /// Undo takes them all back (#205 G8). Nothing when fewer were recorded.
     /// A slow import can land while a block is written: the text session
     /// counts the joined steps as one too, so its Cancel still finds where
-    /// it began.
+    /// it began -- also when the first of them started the session.
     public func joinLastSteps(_ count: Int) {
         guard count > 1, history.count >= count else { return }
         history.removeLast(count - 1)
         if let steps = sessionSteps {
-            sessionSteps = steps >= count ? steps - (count - 1) : nil
+            sessionSteps = steps >= count - 1 ? steps - (count - 1) : nil
         }
     }
 
