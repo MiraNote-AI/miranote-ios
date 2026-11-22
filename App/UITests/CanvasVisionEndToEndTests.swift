@@ -64,6 +64,11 @@ final class CanvasVisionEndToEndTests: XCTestCase {
         textTool.tap()
         app.typeText("Lunch by the river")
         if app.buttons["keyboard.done"].exists { app.buttons["keyboard.done"].tap() }
+        // Done left the words selected, which a composer tap refines in
+        // place: let go of them on the empty page under them (the lowest
+        // element), so the asks go to the chat.
+        app.staticTexts["Lunch by the river"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+            .withOffset(CGVector(dx: 0, dy: 120)).tap()
 
         // 4. The asks. Each was broken or impossible before this work.
         let moved = ask("move the title below the photo")

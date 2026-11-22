@@ -26,6 +26,14 @@ extension XCUIApplication {
         item.tap()
     }
 
+    /// A tap on the empty page below a block lets go of the selection. With
+    /// a text block selected the composer refines it in place (F6B); with
+    /// nothing selected it opens the chat: the way there from a selected
+    /// block, as after Back from writing one.
+    func letGoOfTheSelection() {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+    }
+
     func openMiraChat(file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(miraComposer.waitForExistence(timeout: 5), "the composer is up", file: file, line: line)
         miraComposer.tap()

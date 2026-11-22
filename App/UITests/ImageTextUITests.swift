@@ -60,6 +60,9 @@ final class ImageTextUITests: XCTestCase {
         let done = app.buttons["keyboard.done"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         done.tap()
+        // Done left the block selected, which a composer tap refines in
+        // place; with nothing selected the ask still reads the page's words.
+        app.letGoOfTheSelection()
         ask("turn this text into a picture")
 
         let first = app.buttons["mira.imageChoice.0"]

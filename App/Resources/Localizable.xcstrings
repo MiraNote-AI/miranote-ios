@@ -2314,6 +2314,18 @@
         }
       }
     },
+    "Edits the selected text in place, with the caret in the chat box." : {
+      "comment" : "VoiceOver hint: the canvas composer with one text block selected. A tap opens that block's writing again, the caret in the writing chat box (Ask Mira to refine...), instead of opening the Mira chat.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在原处编辑所选文字，光标放在输入框里。"
+          }
+        }
+      }
+    },
     "Ends the dictation." : {
       "comment" : "VoiceOver hint.",
       "extractionState" : "manual",

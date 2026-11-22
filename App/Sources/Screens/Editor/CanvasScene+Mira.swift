@@ -88,6 +88,29 @@ extension CanvasScene {
         return miraNotice.map { .notice($0) } ?? .idle
     }
 
+    /// The composer at rest, tapped. With one text block selected (21) it
+    /// reads "Ask Mira to refine...", the writing chat box's words, and does
+    /// what they say: the block's writing opens again, as a tap on the block
+    /// opens it, with the caret in that box, where Go rewrites the block
+    /// (F6B). Anything else opens the chat (P2). TestFlight 1.0(14).
+    func tapComposer() {
+        guard let id = blockToRefineInPlace else { return openMiraChat() }
+        editor.startEditingText(id)
+        // The box comes with the writing, as the chat's field comes with it.
+        Task { @MainActor in writingAskFocus = true }
+    }
+
+    /// The selected text block a composer tap refines in place: nothing is
+    /// being written, no result waits for Keep or Revert, no take beside
+    /// it, and no draft from the chat waits in the composer (its tap goes
+    /// on with the draft in the chat).
+    var blockToRefineInPlace: CanvasItem.ID? {
+        guard editor.editingTextItemID == nil, !textModeArming, receipt == nil, attachedSound == nil,
+              miraPrompt.isEmpty, !mira.isWorking,
+              let id = editor.selectedItemID, case .text = editor.item(id)?.content else { return nil }
+        return id
+    }
+
     /// Tapping the composer opens the chat with the keyboard up.
     func openMiraChat() {
         guard !mira.isWorking else { return }
