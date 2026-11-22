@@ -8,20 +8,22 @@ enum StickerSpot {
     static let side = CanvasViewModel.placedStickerSide
 
     /// The free spot nearest the middle of `visible` (page points) where a
-    /// sticker overlaps no element, 8 pt clear; the middle itself when no
-    /// spot is free.
-    static func find(in visible: CGRect, avoiding items: [CanvasItem]) -> CGPoint {
+    /// box of `size` -- a sticker's, or a photo's -- overlaps no element,
+    /// 8 pt clear; the middle itself when no spot is free.
+    static func find(in visible: CGRect, avoiding items: [CanvasItem],
+                     size: CGSize = CGSize(width: StickerSpot.side, height: StickerSpot.side)) -> CGPoint {
         let anchor = CGPoint(x: visible.midX, y: visible.midY)
         let taken = items.map {
             CGRect(x: $0.position.x - $0.size.width / 2, y: $0.position.y - $0.size.height / 2,
                    width: $0.size.width, height: $0.size.height).insetBy(dx: -8, dy: -8)
         }
-        let half = side / 2 + 8
+        let halfWidth = size.width / 2 + 8, halfHeight = size.height / 2 + 8
         var best: CGPoint?
         var bestDistance = CGFloat.infinity
-        for spotY in stride(from: visible.minY + half, through: visible.maxY - half, by: 8) {
-            for spotX in stride(from: visible.minX + half, through: visible.maxX - half, by: 8) {
-                let box = CGRect(x: spotX - side / 2, y: spotY - side / 2, width: side, height: side)
+        for spotY in stride(from: visible.minY + halfHeight, through: visible.maxY - halfHeight, by: 8) {
+            for spotX in stride(from: visible.minX + halfWidth, through: visible.maxX - halfWidth, by: 8) {
+                let box = CGRect(x: spotX - size.width / 2, y: spotY - size.height / 2,
+                                 width: size.width, height: size.height)
                 guard !taken.contains(where: { $0.intersects(box) }) else { continue }
                 let distance = hypot(spotX - anchor.x, spotY - anchor.y)
                 if distance < bestDistance {
