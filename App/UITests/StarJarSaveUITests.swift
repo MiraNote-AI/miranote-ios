@@ -1,7 +1,9 @@
 import XCTest
 
 /// What a Save does to the star jar (#206): an edited page's star shows
-/// its new face at once, and a never-saved draft's first Save flies in.
+/// its new face at once, a never-saved draft's first Save flies in, and
+/// the fold keeps #212's rules (#234): a tap or the app leaving lands the
+/// star at once, and under Reduce Motion it fades in.
 final class StarJarSaveUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -100,5 +102,99 @@ final class StarJarSaveUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 6), .completed, "the star lands once")
         sleep(2)
         XCTAssertEqual(jar.value as? String, "1", "and only once")
+    }
+
+    // MARK: The fold's rules
+
+    /// Home's flow as its debug probe reports it.
+    private var homeState: [String: Any] {
+        let probes = app.descendants(matching: .any).matching(identifier: "debug.state").allElementsBoundByIndex
+        for probe in probes {
+            guard let data = probe.label.data(using: .utf8),
+                  let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  state["scene"] as? String == "home" else { continue }
+            return state
+        }
+        return [:]
+    }
+
+    private func relaunch(_ arguments: [String]) {
+        app.terminate()
+        app.launchArguments = ["-UITEST"] + arguments
+        app.launch()
+    }
+
+    /// A new page of words, saved from the editor.
+    private func saveNewPage() {
+        app.buttons["Start a memory"].tap()
+        XCTAssertTrue(app.buttons["mode.text"].waitForExistence(timeout: 5))
+        app.buttons["mode.text"].tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("A happy picnic")
+        app.buttons["keyboard.done"].tap()
+        app.buttons["Save"].tap()
+    }
+
+    private func waitUntil(_ timeout: TimeInterval, _ message: @autoclosure () -> String,
+                           _ condition: @escaping () -> Bool) {
+        let met = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in condition() }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [met], timeout: timeout), .completed, message())
+    }
+
+    /// The fold is playing: its star is on its way, not in the jar yet.
+    private func waitForTheFold(_ jar: XCUIElement) {
+        waitUntil(8, "the fold plays: \(homeState)") { self.homeState["starArriving"] as? Bool == true }
+        sleep(2)
+        XCTAssertEqual(jar.value as? String, "0", "2 s into an 18 s fold, the star is not in yet")
+    }
+
+    /// The star is in the jar, once, and nothing is on its way.
+    private func assertLandedOnce(_ jar: XCUIElement, within timeout: TimeInterval, _ message: String) {
+        waitUntil(timeout, "\(message): \(homeState)") {
+            jar.value as? String == "1" && self.homeState["starArriving"] as? Bool == false
+        }
+        sleep(3)
+        XCTAssertEqual(jar.value as? String, "1", "\(message), once")
+    }
+
+    /// #212's rule, kept by design X: a tap on Home during the fold lands
+    /// the star at once. `-STAR_SLOW 10` makes the fold 18 s long, so the
+    /// tap is surely mid-fold and "at once" is well before its end.
+    func testATapDuringTheFoldLandsTheStarAtOnce() {
+        relaunch(["-STAR_SLOW", "10"])
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        saveNewPage()
+        waitForTheFold(jar)
+        // The headline, which no button takes.
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.2)).tap()
+        assertLandedOnce(jar, within: 4, "a tap lands it at once")
+    }
+
+    /// #212's rule, kept by design X: the app leaving during the fold
+    /// lands the star; back on Home it is in, and no fold plays again.
+    func testLeavingTheAppDuringTheFoldLandsTheStar() {
+        relaunch(["-STAR_SLOW", "10"])
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        saveNewPage()
+        waitForTheFold(jar)
+        XCUIDevice.shared.press(.home)
+        sleep(2)
+        app.activate()
+        XCTAssertTrue(jar.waitForExistence(timeout: 5))
+        assertLandedOnce(jar, within: 4, "back from the background, it is in")
+    }
+
+    /// Under Reduce Motion the page cross-fades to its star, which fades
+    /// into the header jar (0.5 s): the star lands once.
+    func testUnderReduceMotionASaveFadesItsStarIn() {
+        relaunch(["-REDUCE_MOTION"])
+        let jar = app.buttons["home.starJar"]
+        XCTAssertTrue(jar.waitForExistence(timeout: 8))
+        XCTAssertEqual(jar.value as? String, "0")
+        saveNewPage()
+        assertLandedOnce(jar, within: 5, "the fade lands it")
     }
 }
