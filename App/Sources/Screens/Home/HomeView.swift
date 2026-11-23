@@ -326,8 +326,8 @@ struct HomeView: View {
 
     /// The 41 pt retrieval bar: the four-point star in a 26 pt #C6B298
     /// circle, then the Bold 16 question at ink@0.5. A tap anywhere on it
-    /// opens the Mira chat, its field already taking the words; it never
-    /// starts a note.
+    /// opens the Mira chat with the chat's field focused; it never starts
+    /// a note.
     private var promptBar: some View {
         Button(action: onAsk) {
             HStack(spacing: 12) {

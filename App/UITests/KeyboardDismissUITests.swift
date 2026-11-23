@@ -58,28 +58,36 @@ final class KeyboardDismissUITests: XCTestCase {
 
     // MARK: Home
 
-    /// The chat is up, its field has the caret and the keyboard is up,
-    /// within a second of the tap. Polled every 50 ms: a predicate
+    /// Taps `target`; the chat is up, its field has the caret and the
+    /// keyboard is up within a second of the tap. Counted from when the tap
+    /// returns: XCUITest's tap itself (the event, then waiting for the app
+    /// to idle) takes 0.6-1.0 s on a simulator, and the field was focused
+    /// within 0.12 s of it (2026-11-22). Polled every 50 ms: a predicate
     /// expectation only looks about once a second.
-    private func assertChatOpensFocused(_ message: String, file: StaticString = #filePath, line: UInt = #line) {
-        let tapped = Date()
+    private func tapOpensChatFocused(_ target: XCUICoordinate, _ message: String,
+                                     file: StaticString = #filePath, line: UInt = #line) {
+        target.tap()
+        let start = Date()
         var focused = false
-        while !focused, Date().timeIntervalSince(tapped) < 1 {
-            focused = app.chatField.exists && (app.chatField.value(forKey: "hasKeyboardFocus") as? Bool) == true
-                && keyboard.exists
+        while !focused, Date().timeIntervalSince(start) < 1 {
+            focused = (app.chatField.value(forKey: "hasKeyboardFocus") as? Bool) == true && keyboard.exists
             if !focused { usleep(50_000) }
         }
-        XCTAssertTrue(focused, "\(message) (after \(Date().timeIntervalSince(tapped)) s)", file: file, line: line)
+        XCTAssertTrue(focused, "\(message) (after \(Date().timeIntervalSince(start)) s)", file: file, line: line)
+    }
+
+    private var askBarCenter: XCUICoordinate {
+        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
+        return app.homeAsk.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
     }
 
     /// One tap on the ask bar goes straight into the Mira chat, ready to
     /// type: no field and no keyboard on Home.
     func testTheAskBarOpensTheChatWithItsFieldFocused() {
-        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
+        let bar = askBarCenter
         XCTAssertEqual(app.textFields.count, 0, "Home has no field to type in")
         XCTAssertFalse(keyboard.exists, "no keyboard on Home")
-        app.homeAsk.tap()
-        assertChatOpensFocused("one tap opens the chat with its field focused")
+        tapOpensChatFocused(bar, "one tap opens the chat with its field focused")
         app.typeText("Paris")
         XCTAssertEqual(app.chatField.value as? String, "Paris", "the words go into the chat's field")
     }
@@ -88,8 +96,7 @@ final class KeyboardDismissUITests: XCTestCase {
     func testATapOnTheAskBarsStarOpensTheChat() {
         XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
         let frame = app.homeAsk.frame
-        point(frame.minX + 21, frame.midY).tap()
-        assertChatOpensFocused("the star opens the chat with its field focused")
+        tapOpensChatFocused(point(frame.minX + 21, frame.midY), "the star opens the chat with its field focused")
     }
 
     /// VoiceOver hears a button, not a field.
@@ -99,15 +106,14 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(app.homeAsk.label, "Ask Mira", "VoiceOver says Ask Mira, not the sample question")
     }
 
-    /// Leaving the chat by its Home pill leaves no keyboard on Home.
-    func testLeavingTheChatLeavesNoKeyboardOnHome() {
-        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
-        app.homeAsk.tap()
-        assertChatOpensFocused("the chat opens with its field focused")
-        app.typeText("Paris")
+    /// Every opening is a fresh chat: back on Home there is no keyboard,
+    /// and the next tap on the bar focuses the field again.
+    func testTheAskBarFocusesTheFieldEveryTime() {
+        tapOpensChatFocused(askBarCenter, "the first opening focuses the field")
         app.buttons["chat.home"].tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5), "back on Home")
         waitUntilGone(keyboard, "no keyboard on Home")
+        tapOpensChatFocused(askBarCenter, "the next opening focuses the field again")
     }
 
     // MARK: Editor

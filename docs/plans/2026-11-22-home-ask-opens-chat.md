@@ -39,3 +39,9 @@ field and raises no keyboard.
    without the focus line the three focus tests fail (after 1.0 s).
    swiftlint --strict: 231 violations, origin/dev has 232, none in new
    lines.
+3. Fresh-context review: DONE with minor findings, all taken -- the
+   vacuous leave test became "focuses the field every time" (re-open);
+   comments; demo runbook beats 1-2. Timing measured: XCUITest's tap
+   returns 0.6-1.0 s after it starts, the field focused within 0.12 s
+   of that; the 1 s budget counts from the tap's return.
+   KeyboardDismissUITests 12/12 + OwnerTour chat green.

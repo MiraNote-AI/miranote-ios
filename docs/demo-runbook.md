@@ -77,10 +77,10 @@ Relaunch re-seeds the four starter collections.
 
 ## 5. A demo path that is verified to work (10 beats)
 
-1. Home -> quick capture "note this down: ..." -> Mira drafts a page ->
-   open in editor (works in Chinese too, via paste).
-2. Home -> quick capture "find my note about ..." -> tap the cover ->
-   read -> back returns to the conversation.
+1. Home -> tap the ask bar -> type "note this down: ..." in the chat ->
+   Mira drafts a page -> open in editor (works in Chinese too, via paste).
+2. Home -> tap the ask bar -> type "find my note about ..." in the chat ->
+   tap the cover -> read -> back returns to the conversation.
 3. Canvas: Text tool, type a stub -> sparkles -> Expand -> live result
    with real bullets; Revert available on the receipt.
 4. Image -> AI image -> prompt -> ~30s -> tap result to place.

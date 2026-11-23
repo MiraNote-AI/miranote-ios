@@ -84,7 +84,8 @@ struct MiraChatComposer: View {
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { stopListening() }
         }
-        // Once: a cover over the chat (the camera) brings it back on screen.
+        // Only once: closing a cover over the chat (the camera) runs onAppear
+        // again, and must not raise the keyboard.
         .onAppear {
             guard focusOnAppear, !openedFocused else { return }
             openedFocused = true
