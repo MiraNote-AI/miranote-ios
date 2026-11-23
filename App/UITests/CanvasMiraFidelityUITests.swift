@@ -193,6 +193,30 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    // The first take's words land while the next press's mic is still
+    // coming up: Go must not take the mic's place under the finger, or the
+    // lift ends nothing and that take stays live. The mic stays until the
+    // finger lifts, so the second take ends there and both land.
+    func testATakeLandingUnderTheNextPressKeepsTheMic() {
+        app.terminate()
+        app.launchArguments += ["-MIC_START_DELAY", "2500", "-TRANSCRIBE_FIRST_DELAY", "2000", "-TIME_TAKES"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        app.openMiraChat()
+        miraMic.press(forDuration: 3.5)
+        // The first take's words land about 2 s into this press, before its
+        // mic is up at 2.5 s.
+        miraMic.press(forDuration: 5)
+        let both = #"Transcribed voice note \(mock\) \([0-2] s\) Transcribed voice note \(mock\) \([1-3] s\)"#
+        let landed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value MATCHES %@", both),
+                                               object: app.miraInput)
+        XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 10), .completed,
+                       "the second take never ended: \(app.miraInput.value ?? "")")
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state").firstMatch
+        XCTAssertTrue(probe.label.contains("\"micLive\":0"), "the mic stayed on: \(probe.label)")
+    }
+
     // MARK: 07
 
     // Opening Background moves on from a waiting result: the sheet would
