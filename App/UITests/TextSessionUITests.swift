@@ -2,7 +2,8 @@ import XCTest
 
 /// The text session's edges (review of #105): header undo with the custom
 /// color sheet up, the custom background's Apply, and the dictation strip
-/// beside a live voice take.
+/// beside a live voice take; on a reopened block, one Undo per change made
+/// through the AI row (#252).
 final class TextSessionUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -88,5 +89,79 @@ final class TextSessionUITests: XCTestCase {
         XCTAssertTrue(stop.waitForExistence(timeout: 5))
         stop.tap()
         XCTAssertTrue(app.buttons["recorder.keep"].waitForExistence(timeout: 5), "Stop still ends the take")
+    }
+
+    /// #252: on a reopened block, a size and then a rewrite kept from the
+    /// AI row are two changes and two Undos. Before, the rewrite's first
+    /// words and its keeping each recorded the page under it, so the second
+    /// Undo did nothing and the size needed a third.
+    func testASizeThenAKeptRewriteOnAReopenedBlockUndoOnceEach() {
+        let depth = reopenAndSize("noodle shop")
+        app.openTextRow("style.ai")
+        app.buttons["style.ai.expand"].tap()
+        XCTAssertTrue(waitForField("CONTAINS", "(expanded draft -- mock)"), "the version shows")
+        app.backToTextRow()
+        XCTAssertEqual(settledProbe()["undoDepth"] as? Int, depth + 2, "the size and the rewrite")
+
+        app.buttons["editor.undo"].tap()
+        XCTAssertTrue(waitForField("==", "noodle shop"), "the first Undo takes the rewrite back")
+        XCTAssertEqual(pointSize(), 30, "and leaves the size")
+        app.buttons["editor.undo"].tap()
+        XCTAssertEqual(pointSize(), 21, "the second takes the size back")
+    }
+
+    /// #252: a version shown, then Original picked again, leaves no step:
+    /// the next Undo takes back the size.
+    func testAVersionTakenBackOnAReopenedBlockLeavesNoUndo() {
+        let depth = reopenAndSize("noodle shop")
+        app.openTextRow("style.ai")
+        app.buttons["style.ai.expand"].tap()
+        XCTAssertTrue(waitForField("CONTAINS", "(expanded draft -- mock)"), "the version shows")
+        app.buttons["style.ai.original"].tap()
+        XCTAssertTrue(waitForField("==", "noodle shop"), "Original brings the words back")
+        app.backToTextRow()
+        XCTAssertEqual(settledProbe()["undoDepth"] as? Int, depth + 1, "only the size")
+
+        app.buttons["editor.undo"].tap()
+        XCTAssertEqual(pointSize(), 21, "the first Undo takes the size back")
+    }
+
+    /// A new block holding `words`, written and ended, opened again with a
+    /// tap and set to L: the undo depth before the size.
+    private func reopenAndSize(_ words: String) -> Int {
+        app.buttons["Start a memory"].tap()
+        tapText(words)
+        app.buttons["keyboard.done"].tap()
+        let block = app.staticTexts[words]
+        XCTAssertTrue(block.waitForExistence(timeout: 5))
+        // Done leaves the block selected: one tap writes again.
+        block.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let depth = settledProbe()["undoDepth"] as? Int ?? -1
+        app.openTextRow("style.size")
+        app.buttons["style.size.L"].tap()
+        XCTAssertEqual(pointSize(), 30, "L")
+        return depth
+    }
+
+    private func waitForField(_ comparison: String, _ words: String) -> Bool {
+        let shown = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value \(comparison) %@", words), object: field
+        )
+        return XCTWaiter.wait(for: [shown], timeout: 5) == .completed
+    }
+
+    /// The -UITEST probe once it has caught up (it refreshes every 0.25 s).
+    private func settledProbe() -> [String: Any] {
+        XCTAssertTrue(app.canvasProbe.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 0.6)
+        return (try? JSONSerialization.jsonObject(with: Data(app.canvasProbe.label.utf8)) as? [String: Any]) ?? [:]
+    }
+
+    /// The point size of the page's one text block.
+    private func pointSize() -> Double? {
+        let texts = (settledProbe()["elements"] as? [[String: Any]] ?? []).filter { $0["kind"] as? String == "text" }
+        XCTAssertEqual(texts.count, 1, "one text block on the page")
+        return texts.first?["pointSize"] as? Double
     }
 }
