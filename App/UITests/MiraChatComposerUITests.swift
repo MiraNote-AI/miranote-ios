@@ -129,4 +129,19 @@ final class MiraChatComposerUITests: XCTestCase {
         expectation(for: NSPredicate(format: "label == '0'"), evaluatedWith: files)
         waitForExpectations(timeout: 3)
     }
+
+    /// #247: the chat opened from Home takes the keyboard once. The
+    /// camera's cover closing shows the chat again, and the keyboard "+"
+    /// lowered stays down.
+    func testTheCameraComingBackLeavesTheKeyboardDown() {
+        openChat(["-CAMERA_COVER"])
+        let keyboard = app.keyboards.firstMatch
+        app.buttons["chat.plus"].tap()
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 3), "+ lowers the keyboard")
+        app.buttons["chat.tray.camera"].tap()
+        XCTAssertTrue(app.buttons["camera.stub.use"].waitForExistence(timeout: 5), "the cover is up")
+        app.buttons["camera.stub.use"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["chat.staged.0"].waitForExistence(timeout: 5))
+        XCTAssertFalse(keyboard.waitForExistence(timeout: 2), "the cover going away raised no keyboard")
+    }
 }
