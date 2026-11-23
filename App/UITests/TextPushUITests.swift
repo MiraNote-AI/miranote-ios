@@ -31,11 +31,16 @@ final class TextPushUITests: XCTestCase {
         app.buttons["keyboard.done"].tap()
         XCTAssertTrue(app.buttons["keyboard.done"].waitForNonExistence(timeout: 5))
 
+        // Done left the block selected, which a composer tap refines in place.
+        app.letGoOfTheSelection()
         app.openMiraChat()
         app.buttons["mira.action.Add soft title"].tap()
         XCTAssertTrue(app.miraInput.waitForNonExistence(timeout: 5), "the chat steps aside for the turn")
         let block = app.staticTexts["lunch by the river"]
         XCTAssertTrue(block.waitForExistence(timeout: 5))
+        // Let go of for the chat: one tap selects it again, the next opens
+        // its writing.
+        block.tap()
         block.tap()
         if !field.waitForExistence(timeout: 2) { block.tap() }
         XCTAssertTrue(field.waitForExistence(timeout: 5), "writing opens while Mira works")

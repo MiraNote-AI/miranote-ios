@@ -207,6 +207,7 @@ final class CanvasEditorUITests: XCTestCase {
     func testMiraPolishShowsReceiptAndRevertRestores() {
         app.buttons["Start a memory"].tap()
         addTextBlock("sunny afternoon by the bridge")
+        app.letGoOfTheSelection()
 
         app.askMira("polish the text")
 
@@ -280,6 +281,7 @@ final class CanvasEditorUITests: XCTestCase {
     func testMiraFailureShowsRetryAndRefills() {
         app.buttons["Start a memory"].tap()
         addTextBlock("still here untouched")
+        app.letGoOfTheSelection()
         app.askMira("please fail now")
 
         XCTAssertTrue(app.staticTexts["mira.failure"].waitForExistence(timeout: 8))

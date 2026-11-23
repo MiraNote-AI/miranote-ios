@@ -62,6 +62,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // A quick action closes the chat and runs its turn.
     func testAQuickActionRunsItsTurn() {
         addText("sunny afternoon by the bridge")
+        app.letGoOfTheSelection()
         app.openMiraChat()
         app.buttons["mira.action.Make text warmer"].tap()
         waitGone(app.miraInput, "the chat steps aside for the turn")
@@ -72,6 +73,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // one-call typing is askMira's, above).
     func testReturnAsItsOwnKeyPressSendsTheAsk() {
         addText("sunny afternoon by the bridge")
+        app.letGoOfTheSelection()
         app.openMiraChat()
         app.miraInput.tap()
         app.miraInput.typeText("polish the text")
@@ -126,6 +128,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // cover the tool's rows.
     func testOpeningBackgroundClosesTheResultSheet() {
         addText("sunny afternoon by the bridge")
+        app.letGoOfTheSelection()
         app.askMira("polish the text")
         XCTAssertTrue(app.buttons["mira.keep"].waitForExistence(timeout: 8))
 
@@ -141,6 +144,12 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // offers to refine. Keep keeps; Revert restores.
     func testResultSheetWaitsThenKeepsOrReverts() {
         addText("sunny afternoon by the bridge")
+        // Done left the block selected (screen 21), which offers to refine
+        // it in place; with nothing selected the composer asks the chat.
+        XCTAssertTrue(app.miraComposer.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira to refine...")
+        app.letGoOfTheSelection()
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira anything")
         app.askMira("polish the text")
 
         let receipt = app.staticTexts["mira.receipt"]
@@ -157,11 +166,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         waitGone(receipt, "Keep closes the sheet")
         let polished = "(polished -- mock) sunny afternoon by the bridge"
         XCTAssertTrue(app.staticTexts[polished].exists, "and keeps the change")
-        // Done left the block selected (screen 21), which still offers to
-        // refine; with nothing selected the composer is back to asking.
-        XCTAssertEqual(app.miraComposer.label, "Ask Mira to refine...")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
-        XCTAssertEqual(app.miraComposer.label, "Ask Mira anything")
+        XCTAssertEqual(app.miraComposer.label, "Ask Mira anything", "nothing waits, nothing is selected")
 
         app.askMira("polish the text")
         XCTAssertTrue(receipt.waitForExistence(timeout: 8))
