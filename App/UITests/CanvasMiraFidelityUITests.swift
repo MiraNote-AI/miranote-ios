@@ -96,6 +96,18 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["mira.receipt"].exists)
     }
 
+    // Nor a lone new line pasted after typed words, which the Go key's
+    // own line break looks like in the writing box's field.
+    func testAPastedLoneNewLineIsNotSent() {
+        app.openMiraChat()
+        app.miraInput.tap()
+        app.miraInput.typeText("polish the text")
+        app.paste("\n", into: app.miraInput)
+        sleep(2)
+        XCTAssertTrue(app.miraInput.exists, "still in the chat: nothing was sent")
+        XCTAssertTrue((app.miraInput.value as? String ?? "").contains("polish the text"), "the words wait")
+    }
+
     // Option B (team lead, 2026-11-22): the question is asked from the
     // writing chat box at the bottom -- just above the keyboard, above the
     // home indicator with it down -- with the mic on its right. No
