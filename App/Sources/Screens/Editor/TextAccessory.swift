@@ -203,8 +203,20 @@ struct TextBackKey: View {
 /// the box is empty, Go once there are words (F7A). The mic dictates into
 /// the block (D2A, F8A) -- hold to talk, or tap to start and tap again to
 /// end; while it is live the box shows a waveform and "Listening...". Go
-/// asks Mira to rewrite the block (F6B).
+/// asks Mira to rewrite the block (F6B). The Mira canvas chat asks from
+/// the same box, with its own words and names (`Names.chat`).
 struct WritingChatBox: View {
+    /// The box's placeholder and the identifiers tests find it by.
+    struct Names {
+        var prompt = "Ask Mira to refine..."
+        var field = "writing.ask"
+        var go = "writing.go"
+        var mic = "style.mic"
+
+        /// The Mira canvas chat's question box.
+        static let chat = Names(prompt: "Ask Mira anything", field: "mira.input", go: "mira.ask", mic: "mira.dictation")
+    }
+
     @Binding var ask: String
     var focus: FocusState<Bool>.Binding
     let listening: Bool
@@ -225,6 +237,11 @@ struct WritingChatBox: View {
     /// VoiceOver's two-finger scrub on the mic or Go: the writing ends (the
     /// field's own escape is `WritingEscape`'s).
     var onEscape: () -> Void
+    var names = Names()
+    /// The words land in this box, not a block (the Mira chat): it keeps
+    /// its field -- and the keyboard -- while the mic listens, instead of
+    /// the waveform.
+    var keepsFieldWhileListening = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -232,7 +249,7 @@ struct WritingChatBox: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if listening, let recorder {
+            if listening, !keepsFieldWhileListening, let recorder {
                 LiveWaveform(recorder: recorder, tint: Tokens.forest, scale: 0.5)
                 Text(copy: "Listening...")
                     .font(.miraComposer)
@@ -246,7 +263,7 @@ struct WritingChatBox: View {
                 // stays dark as the caret moves here (#162: never swapped).
                 // One line: Return sends, as Go does, and keeps the caret;
                 // a paste never sends (#236).
-                TextField("", text: $ask, prompt: Text(copy: "Ask Mira to refine...").foregroundStyle(Palette.muted),
+                TextField("", text: $ask, prompt: Text(copy: names.prompt).foregroundStyle(Palette.muted),
                           axis: .vertical)
                     .lineLimit(1)
                     .font(.miraComposer)
@@ -267,8 +284,8 @@ struct WritingChatBox: View {
                         if hasWords, canGo, !asking { onGo() }
                     }
                     .environment(\.colorScheme, .dark)
-                    .accessibilityLabel(Text(copy: "Ask Mira to refine..."))
-                    .accessibilityIdentifier("writing.ask")
+                    .accessibilityLabel(Text(copy: names.prompt))
+                    .accessibilityIdentifier(names.field)
             }
             if hasWords, !listening {
                 go
@@ -309,7 +326,7 @@ struct WritingChatBox: View {
         // As the Polish row with nothing to rewrite.
         .opacity(canGo ? 1 : 0.6)
         .accessibilityLabel(Text(copy: "Go"))
-        .accessibilityIdentifier("writing.go")
+        .accessibilityIdentifier(names.go)
     }
 
     private var mic: some View {
@@ -334,7 +351,7 @@ struct WritingChatBox: View {
             .accessibilityHint(listening ? Text("Ends the dictation.") : Text("Hold to talk, or tap to start."))
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { onToggle() }
-            .accessibilityIdentifier("style.mic")
+            .accessibilityIdentifier(names.mic)
     }
 }
 

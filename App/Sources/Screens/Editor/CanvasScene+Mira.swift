@@ -64,7 +64,9 @@ extension CanvasScene {
         MiraChatOverlay(
             prompt: $miraPrompt,
             focus: $miraFocus,
-            dictation: miraDictation,
+            listening: miraListening,
+            caption: miraCaption,
+            micStatus: miraCaption ?? "",
             onUndo: editor.undo,
             undoEnabled: editor.canUndo,
             onSend: sendMiraPrompt,
@@ -80,12 +82,13 @@ extension CanvasScene {
         )
     }
 
-    /// The strip as drawn: a live take listens even while earlier ones are
-    /// still being written down.
-    var miraDictation: DictationStripState {
-        if miraListening { return .listening }
-        if miraTakesOut > 0 { return .transcribing }
-        return miraNotice.map { .notice($0) } ?? .idle
+    /// Over the question box: a take listening (it says so before earlier
+    /// ones still being written down), the words on their way, or why
+    /// nothing landed.
+    var miraCaption: String? {
+        if miraListening { return String(appCopy: "Listening...") }
+        if miraTakesOut > 0 { return String(appCopy: "Writing it down...") }
+        return miraNotice
     }
 
     /// Tapping the composer opens the chat with the keyboard up.
@@ -113,7 +116,7 @@ extension CanvasScene {
 
     // MARK: Mira Dictation (hold to talk)
 
-    /// Touch down on the strip: the mic goes live unless it already is (a
+    /// Touch down on the chat's mic: it goes live unless it already is (a
     /// take being written down is not live: a press records a new one).
     func pressMiraDictation() {
         let live = miraListening
@@ -165,7 +168,7 @@ extension CanvasScene {
         }
     }
 
-    /// The take ends: the recorder is let go of (the strip is free for the
+    /// The take ends: the recorder is let go of (the mic is free for the
     /// next take) and the words land in the question for editing, never
     /// sent.
     func finishMiraDictation() {
@@ -189,7 +192,7 @@ extension CanvasScene {
         }
     }
 
-    /// The take's words, or nil with the strip's notice saying why.
+    /// The take's words, or nil with the caption saying why.
     private func miraWords(from recorder: AudioRecording) async -> String? {
         guard let data = try? await recorder.stop(), !data.isEmpty else {
             miraNotice = String(appCopy: "I couldn't catch any words -- try again?")
@@ -211,7 +214,7 @@ extension CanvasScene {
 
     /// The system ends the take -- the app leaves the foreground (#150),
     /// takes the touch, or interrupts the audio (#218): a live take ends as
-    /// if let go, so its words land in the question (or the strip says why
+    /// if let go, so its words land in the question (or the caption says why
     /// not); a mic still coming up has recorded nothing and is cancelled.
     func stopMiraDictationForBackground() {
         miraPress = nil

@@ -185,7 +185,8 @@ final class DictationTakeOrderUITests: XCTestCase {
         let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
         let landed = XCTNSPredicateExpectation(predicate: filled, object: app.miraInput)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed, "the second phrase lands")
-        XCTAssertEqual(miraStrip.value as? String, "Couldn't reach the transcriber -- try again?")
+        // Go has taken the mic's place: the caption over the box says it.
+        XCTAssertEqual(app.staticTexts["mira.caption"].label, "Couldn't reach the transcriber -- try again?")
     }
 
     /// The Mira strip's take live when the app leaves ends as if let go,
@@ -229,7 +230,9 @@ final class DictationTakeOrderUITests: XCTestCase {
         let landed = XCTNSPredicateExpectation(predicate: typed, object: app.miraInput)
         XCTAssertEqual(XCTWaiter().wait(for: [landed], timeout: 8), .completed,
                        "the take was lost: \(app.miraInput.value ?? "")")
-        XCTAssertNotEqual(miraStrip.value as? String, "Couldn't reach the transcriber -- try again?")
+        // Go has taken the mic's place: the caption over the box would say it.
+        let caption = app.staticTexts["mira.caption"]
+        XCTAssertFalse(caption.exists && caption.label == "Couldn't reach the transcriber -- try again?")
     }
 
     // MARK: The system ends a live take (#218)
@@ -273,7 +276,9 @@ final class DictationTakeOrderUITests: XCTestCase {
         miraStrip.press(forDuration: 3)
         XCTAssertTrue(waitFor(app.miraInput, value: "Transcribed voice note (mock)", timeout: 8),
                       "the take was dropped: \(app.miraInput.value ?? "")")
-        XCTAssertNotEqual(miraStrip.value as? String, "Listening...", "the mic stayed on")
+        // Go has taken the mic's place: the debug probe says whether it is on.
+        let probe = app.descendants(matching: .any).matching(identifier: "debug.state").firstMatch
+        XCTAssertTrue(probe.label.contains("\"micLive\":0"), "the mic stayed on: \(probe.label)")
     }
 
     /// On a phone the touch is taken first, then the app leaves (a swipe

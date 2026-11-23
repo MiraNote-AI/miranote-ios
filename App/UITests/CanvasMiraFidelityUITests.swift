@@ -27,6 +27,9 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         app.buttons["keyboard.done"].tap()
     }
 
+    /// The Mira chat's mic, on the question box's right.
+    private var miraMic: XCUIElement { app.descendants(matching: .any)["mira.dictation"] }
+
     private func waitGone(_ element: XCUIElement, _ message: String) {
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, message)
@@ -42,14 +45,14 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     }
 
     // The composer opens the chat: the question field, Mira's four quick
-    // actions, the dictation strip; Done closes it and the draft waits in
-    // the composer, ready to send.
+    // actions, the mic; Done closes it and the draft waits in the composer,
+    // ready to send.
     func testComposerOpensTheChatAndADraftWaits() {
         app.openMiraChat()
         for action in ["Change background", "Re-layout photos", "Make text warmer", "Add soft title"] {
             XCTAssertTrue(app.buttons["mira.action.\(action)"].exists, "\(action) chip")
         }
-        XCTAssertTrue(app.descendants(matching: .any)["mira.dictation"].exists, "the dictation strip")
+        XCTAssertTrue(miraMic.exists, "the mic")
         XCTAssertTrue(app.buttons["Canvas"].exists, "the way back reads Canvas")
 
         app.miraInput.typeText("a draft for later")
@@ -91,12 +94,80 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["mira.receipt"].exists)
     }
 
+    // Option B (team lead, 2026-11-22): the question is asked from the
+    // writing chat box at the bottom -- just above the keyboard, above the
+    // home indicator with it down -- with the mic on its right. No
+    // dictation strip, no dark capsule under the header.
+    func testTheQuestionBoxSitsAtTheBottomWithItsMic() {
+        app.openMiraChat()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        // The keyboard is in the tree before it has slid in.
+        for _ in 0..<30 where keyboard.frame.minY >= app.frame.maxY { usleep(100_000) }
+        XCTAssertLessThan(keyboard.frame.minY, app.frame.maxY, "the keyboard is up")
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertFalse(app.staticTexts["accurate voice-to-text"].exists, "no dictation strip")
+        let panel = app.staticTexts["Mira can edit this canvas directly."]
+        let field = app.miraInput.frame, mic = miraMic.frame
+        XCTAssertGreaterThan(field.minY, panel.frame.maxY + 40, "the box is under Mira's panel, not over it")
+        XCTAssertEqual(mic.midY, field.midY, accuracy: 4, "the mic is in the box's row")
+        XCTAssertGreaterThanOrEqual(mic.minX, field.maxX - 2, "the mic is on the box's right")
+        // iOS 26 reports the keyboard's frame lower than it draws (the
+        // suggestions row): the box is over that, and goes down with it.
+        XCTAssertLessThan(mic.maxY, keyboard.frame.minY, "the box is over the keyboard")
+
+        panel.tap()
+        waitGone(keyboard, "a tap on the panel lowers the keyboard")
+        for _ in 0..<30 where miraMic.frame.minY < mic.minY + 200 { usleep(100_000) }
+        XCTAssertGreaterThan(miraMic.frame.minY - mic.minY, 200, "the box rode down with the keyboard")
+        let aboveBottom = app.frame.maxY - miraMic.frame.maxY
+        XCTAssertTrue((34...80).contains(aboveBottom), "the box sits over the home indicator: \(aboveBottom) pt")
+    }
+
+    // As the writing chat box: the mic while the box is empty, Go once
+    // there are words, the mic again once they are cleared; Go sends.
+    func testTheMicBecomesGoWithWordsAndGoSends() {
+        addText("sunny afternoon by the bridge")
+        app.openMiraChat()
+        let go = app.buttons["mira.ask"]
+        XCTAssertTrue(miraMic.exists)
+        XCTAssertFalse(go.exists, "no Go without words")
+        app.miraInput.typeText("polish")
+        XCTAssertTrue(go.waitForExistence(timeout: 3), "words bring Go")
+        XCTAssertFalse(miraMic.exists, "Go takes the mic's place")
+        app.miraInput.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 6))
+        XCTAssertTrue(miraMic.waitForExistence(timeout: 3), "cleared: the mic is back")
+        app.miraInput.typeText("polish the text")
+        go.tap()
+        waitGone(app.miraInput, "Go sends: the chat steps aside for the turn")
+        XCTAssertTrue(app.staticTexts["mira.receipt"].waitForExistence(timeout: 8), "the ask ran")
+    }
+
+    // The transcriber unreachable (a 503): the hint that lived in the strip
+    // shows over the box, by the mic, as the writing chat box shows it; the
+    // mic says it too.
+    func testAnUnreachableTranscriberSaysSoByTheMic() {
+        app.terminate()
+        app.launchArguments += ["-FAIL_FIRST_TAKE"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 8))
+        app.buttons["Start a memory"].tap()
+        app.openMiraChat()
+        miraMic.press(forDuration: 1.2)
+        let hint = "Couldn't reach the transcriber -- try again?"
+        let caption = app.staticTexts["mira.caption"]
+        XCTAssertTrue(caption.waitForExistence(timeout: 8), "the hint shows")
+        XCTAssertEqual(caption.label, hint)
+        XCTAssertEqual(miraMic.value as? String, hint)
+        XCTAssertLessThan(caption.frame.maxY, miraMic.frame.minY + 6, "over the box, by the mic")
+        XCTAssertEqual(app.miraInput.value as? String ?? "", "", "nothing landed")
+    }
+
     // Hold to talk: the words land in the question for editing -- nothing
     // is sent by itself.
     func testHoldToDictateFillsTheQuestion() {
         app.openMiraChat()
-        let strip = app.descendants(matching: .any)["mira.dictation"]
-        strip.press(forDuration: 1.2)
+        miraMic.press(forDuration: 1.2)
         let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
         expectation(for: filled, evaluatedWith: app.miraInput)
         waitForExpectations(timeout: 5)
@@ -106,15 +177,14 @@ final class CanvasMiraFidelityUITests: XCTestCase {
 
     // A quick tap (how VoiceOver, Voice Control and Switch Control
     // activate it) leaves the mic listening; the next tap ends the take.
-    func testATapTogglesTheDictationStrip() {
+    func testATapTogglesTheMic() {
         app.openMiraChat()
-        let strip = app.descendants(matching: .any)["mira.dictation"]
-        strip.tap()
-        expectation(for: NSPredicate(format: "value == %@", "Listening..."), evaluatedWith: strip)
+        miraMic.tap()
+        expectation(for: NSPredicate(format: "value == %@", "Listening..."), evaluatedWith: miraMic)
         waitForExpectations(timeout: 5)
         XCTAssertFalse((app.miraInput.value as? String ?? "").contains("Transcribed"), "nothing taken yet")
 
-        strip.tap()
+        miraMic.tap()
         let filled = NSPredicate(format: "value CONTAINS %@", "Transcribed voice note (mock)")
         expectation(for: filled, evaluatedWith: app.miraInput)
         waitForExpectations(timeout: 5)

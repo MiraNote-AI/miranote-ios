@@ -64,15 +64,15 @@ struct CanvasScene: View {
     @State var miraPrompt = ""
     /// The Mira canvas chat (screen 06) is up over the canvas.
     @State var miraChatOpen = false
-    /// The Mira strip's take is live: its recorder is up and not yet let go
+    /// The Mira chat mic's take is live: its recorder is up and not yet let go
     /// of. Takes let go of and still written down are `miraTakesOut`.
     @State var miraListening = false
     @State var miraTakesOut = 0
-    /// The last Mira strip take let go of: the next one lands after it.
+    /// The last Mira chat take let go of: the next one lands after it.
     @State var lastMiraTake: Task<Void, Never>?
-    /// Why the last Mira strip take brought no words, while the strip rests.
+    /// Why the last Mira chat take brought no words, over the question box.
     @State var miraNotice: String?
-    /// The Mira strip's press in progress (hold to talk, or a tap toggle).
+    /// The Mira chat mic's press in progress (hold to talk, or a tap toggle).
     @State var miraPress: (start: Date, wasLive: Bool)?
     /// A hold ended before the mic came up: finish as soon as it is live.
     @State var miraFinishWhenLive = false
