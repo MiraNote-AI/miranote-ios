@@ -45,6 +45,8 @@ final class SwipeBackUITests: XCTestCase {
 
     func testSwipeOnHomeLeavesHomeUsable() {
         swipeBackFromTheEdge()
+        // It runs across the ask bar (#247).
+        XCTAssertFalse(app.buttons["chat.home"].waitForExistence(timeout: 1), "the swipe did not open the chat")
         app.buttons["home.starJar"].tap()
         XCTAssertTrue(app.staticTexts["Star jar"].waitForExistence(timeout: 5),
                       "a swipe on the root screen does not freeze navigation")

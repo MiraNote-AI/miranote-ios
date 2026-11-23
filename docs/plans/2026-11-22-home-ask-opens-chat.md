@@ -57,3 +57,9 @@ field and raises no keyboard.
    same way on an origin/dev build: pre-existing. After the fix:
    SwipeBack 3/3, StarJar 17/17, OwnerTour 3/3, the Home ask tests and
    the chat-from-Home tests green.
+5. Second fresh-context review (tap-gesture change): DONE; taken --
+   Voice Control input labels (the bar's words), a factual comment, and
+   SwipeBack asserts directly that the swipe opens no chat. Not taken:
+   press feedback (the old bar had none either); other Home Buttons
+   under a swipe (out of scope, noted in the PR). SwipeBack + Home ask
+   tests green.

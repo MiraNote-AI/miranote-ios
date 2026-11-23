@@ -353,11 +353,13 @@ struct HomeView: View {
                 .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
         )
         .contentShape(Capsule())
-        // A tap, not a Button: a Button also fires when a drag ends on it,
-        // and an edge swipe across Home must not open the chat.
+        // A tap, not a Button: an edge swipe across Home ended on the bar
+        // as a Button and opened the chat (SwipeBackUITests).
         .onTapGesture(perform: onAsk)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Ask Mira")
+        // Voice Control: the words on the bar work too.
+        .accessibilityInputLabels([Text("Ask Mira"), Text("When was my Paris trip?")])
         .accessibilityHint("Opens the Mira chat")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onAsk() }
