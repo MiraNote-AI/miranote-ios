@@ -206,15 +206,19 @@ struct TextBackKey: View {
 /// asks Mira to rewrite the block (F6B). The Mira canvas chat asks from
 /// the same box, with its own words and names (`Names.chat`).
 struct WritingChatBox: View {
-    /// The box's placeholder and the identifiers tests find it by.
+    /// The box's placeholder, the identifiers tests find it by, and its field.
     struct Names {
         var prompt = "Ask Mira to refine..."
         var field = "writing.ask"
         var go = "writing.go"
         var mic = "style.mic"
+        /// A one-line field whose Go key is the system Return, not the
+        /// block's kind of field (the Mira chat: no block to write in).
+        var oneLineField = false
 
         /// The Mira canvas chat's question box.
-        static let chat = Names(prompt: "Ask Mira anything", field: "mira.input", go: "mira.ask", mic: "mira.dictation")
+        static let chat = Names(prompt: "Ask Mira anything", field: "mira.input", go: "mira.ask", mic: "mira.dictation",
+                                oneLineField: true)
     }
 
     @Binding var ask: String
@@ -259,6 +263,22 @@ struct WritingChatBox: View {
                     // The mic's value says so.
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
+            } else if names.oneLineField {
+                // The Mira chat's field, as its capsule's was: one line,
+                // whose Go key is the system Return (onSubmit), so a paste
+                // never sends -- a lone line break included, which the
+                // block's kind of field below cannot tell from the key.
+                // No block's keyboard to keep: the chat opens on its own.
+                TextField("", text: $ask, prompt: Text(copy: names.prompt).foregroundStyle(Palette.muted))
+                    .font(.miraComposer)
+                    .foregroundStyle(Palette.ink)
+                    .tint(Palette.forest)
+                    .submitLabel(.go)
+                    .focused(focus)
+                    .onSubmit { if hasWords, canGo, !asking { onGo() } }
+                    .environment(\.colorScheme, .dark)
+                    .accessibilityLabel(Text(copy: names.prompt))
+                    .accessibilityIdentifier(names.field)
             } else {
                 // The block's kind of field, so the block's dark keyboard
                 // stays dark as the caret moves here (#162: never swapped).
