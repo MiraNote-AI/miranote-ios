@@ -74,3 +74,10 @@ canvas writing chat box, reused -- with its mic on the right; the
    it). CanvasMiraFidelity + DictationTakeOrder 28/28,
    DictationOwnership + KeyboardDismiss Mira + TextChatBox 31/32 (the
    pre-existing autocorrection test).
+4. Full suite (iPhone 17 Pro, iOS 26.3, software keyboard on): unit
+   green; UI 467 run, 12 skipped, 2 failed -- TextChatBox
+   testTheGoKeySendsWithAnAutocorrectionPending (fails the same on
+   origin/dev) and ImageTool testEditPhotoWaitsForAPaintingOnItsWay
+   (passed twice when re-run alone: flaky, image tool untouched here).
+   Film, screenshots and a side-by-side with mock B sent to the team
+   lead for approval.
