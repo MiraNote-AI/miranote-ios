@@ -16,15 +16,11 @@ final class MiraChatComposerUITests: XCTestCase {
         app = nil
     }
 
-    /// Opens the chat from Home's quick field and waits for Mira's answer.
+    /// Opens the chat from Home's ask bar and waits for Mira's answer.
     private func openChat(_ arguments: [String] = []) {
         app.launchArguments = ["-UITEST"] + arguments
         app.launch()
-        let quick = app.textFields["quick.field"]
-        XCTAssertTrue(quick.waitForExistence(timeout: 8))
-        quick.tap()
-        quick.typeText("say hello")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("say hello")
         XCTAssertTrue(app.buttons["chat.plus"].waitForExistence(timeout: 5))
         XCTAssertTrue(replies.firstMatch.waitForExistence(timeout: 8), "Mira answered")
     }

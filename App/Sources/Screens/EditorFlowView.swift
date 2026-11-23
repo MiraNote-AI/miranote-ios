@@ -189,8 +189,8 @@ struct EditorFlowView: View {
 
 /// Home and everything it opens. Collections are real and persisted: tapping a
 /// card pushes its detail; "Start a memory" opens the editor and files the
-/// finished note; the quick-capture field opens the MiraNote AI chat, which can
-/// turn the conversation into a filed memory.
+/// finished note; the ask bar opens the MiraNote AI chat, which can turn the
+/// conversation into a filed memory.
 struct HomeFlow: View {
     @Environment(\.services) private var services
     @State private var viewModel = HomeViewModel(store: HomeFlow.makeStore())
@@ -295,7 +295,7 @@ struct HomeFlow: View {
         /// A blank page started from a journal's "+ New memory": filed there.
         case editorIn(journal: MemoryCollection.ID)
         case editMemory(Memory)
-        case chat(String)
+        case chat
         /// A page Mira drafted in chat, opening in the editor as a new note;
         /// `prompts`: text on it filed only once rewritten (the trigger's question).
         case draft(Memory, prompts: [CanvasItem.ID: String] = [:], pushId: String? = nil)
@@ -380,7 +380,7 @@ struct HomeFlow: View {
             HomeView(
                 viewModel: viewModel,
                 onStart: { route = .editor },
-                onQuickCapture: { route = .chat($0) },
+                onAsk: { route = .chat },
                 onOpenCollection: { path.append($0) },
                 onOpenTrash: { path.append(TrashRoute()) },
                 onOpenStarJar: { path.append(StarJarRoute()) },
@@ -541,7 +541,7 @@ struct HomeFlow: View {
                 .environment(\.theme, Theme(appearance: .system))
             case .trigger(let opening):
                 triggerStory(opening)
-            case .chat(let seed):
+            case .chat:
                 // Same swap as the editor: -UITEST talks to the scripted
                 // chat so replies (and drafts) are deterministic.
                 MiraChatView(
@@ -549,7 +549,6 @@ struct HomeFlow: View {
                     transcription: Self.editorServices(base: services).voiceTranscription,
                     studio: Self.editorServices(base: services).imageStudio,
                     recorderFactory: Self.makeRecorder,
-                    seed: seed,
                     onExit: { route = nil },
                     onOpenCanvas: {
                         route = nil

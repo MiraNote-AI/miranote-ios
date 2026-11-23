@@ -44,11 +44,14 @@ final class OwnerTourUITests: XCTestCase {
     }
 
     func testChat() {
-        let field = app.textFields["quick.field"]
-        field.tap()
-        field.typeText("noodle shop")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("noodle shop")
         XCTAssertTrue(app.buttons["chat.hit.Lunch by the river"].waitForExistence(timeout: 8))
+        // The chat opens with the keyboard up (#247); with it down, as the
+        // tour has always checked it, the quick starts are not scrolled
+        // under the header pills, where XCUITest still counts them.
+        app.staticTexts["From your pages"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         check("chat")
         app.buttons["chat.home"].tap()
         XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5), "the chat's Home pill goes home")

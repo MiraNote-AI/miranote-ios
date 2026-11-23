@@ -1,10 +1,11 @@
 import XCTest
 
 /// A raised keyboard comes down without sending, and the words stay (#120).
-/// On Home a tap on the page or a scroll lowers it; in the editor a tap on
-/// the tool's sheet (the photo, Mira's panel) lowers it and the panel stays
-/// open. Where leaving would drop the words, the first tap on the page only
-/// lowers the keyboard.
+/// Home raises none of its own: its ask bar opens the Mira chat, whose field
+/// has the keyboard at once (#247). In the editor a tap on the tool's sheet
+/// (the photo, Mira's panel) lowers it and the panel stays open. Where
+/// leaving would drop the words, the first tap on the page only lowers the
+/// keyboard.
 final class KeyboardDismissUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -57,43 +58,56 @@ final class KeyboardDismissUITests: XCTestCase {
 
     // MARK: Home
 
-    func testATapOnHomeLowersTheAskBarsKeyboardAndKeepsTheWords() {
-        let field = app.textFields["quick.field"]
-        type("Paris", into: field)
-        field.tap()
-        assertKeyboardStays("a tap in the field keeps the keyboard")
-        // The star circle, outside the field but on the bar.
-        point(field.frame.minX - 25, field.frame.midY).tap()
-        assertKeyboardStays("a tap anywhere on the bar keeps the keyboard")
-
-        app.staticTexts["Your memory,"].tap()
-        waitUntilGone(keyboard, "a tap on the page lowers the keyboard")
-        XCTAssertEqual(field.value as? String, "Paris", "the words stay in the bar")
-        XCTAssertTrue(app.buttons["Start a memory"].exists, "nothing was sent: Home is still up")
+    /// The chat is up, its field has the caret and the keyboard is up,
+    /// within a second of the tap. Polled every 50 ms: a predicate
+    /// expectation only looks about once a second.
+    private func assertChatOpensFocused(_ message: String, file: StaticString = #filePath, line: UInt = #line) {
+        let tapped = Date()
+        var focused = false
+        while !focused, Date().timeIntervalSince(tapped) < 1 {
+            focused = app.chatField.exists && (app.chatField.value(forKey: "hasKeyboardFocus") as? Bool) == true
+                && keyboard.exists
+            if !focused { usleep(50_000) }
+        }
+        XCTAssertTrue(focused, "\(message) (after \(Date().timeIntervalSince(tapped)) s)", file: file, line: line)
     }
 
-    func testAScrollOnHomeLowersTheKeyboardAndKeepsTheWords() {
-        let field = app.textFields["quick.field"]
-        type("Paris", into: field)
-        let hero = app.staticTexts["Your memory,"]
-        hero.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.05, thenDragTo: hero.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -3)))
-        waitUntilGone(keyboard, "a scroll lowers the keyboard")
-        XCTAssertEqual(field.value as? String, "Paris", "the words stay in the bar")
+    /// One tap on the ask bar goes straight into the Mira chat, ready to
+    /// type: no field and no keyboard on Home.
+    func testTheAskBarOpensTheChatWithItsFieldFocused() {
+        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
+        XCTAssertEqual(app.textFields.count, 0, "Home has no field to type in")
+        XCTAssertFalse(keyboard.exists, "no keyboard on Home")
+        app.homeAsk.tap()
+        assertChatOpensFocused("one tap opens the chat with its field focused")
+        app.typeText("Paris")
+        XCTAssertEqual(app.chatField.value as? String, "Paris", "the words go into the chat's field")
     }
 
-    /// The bar's own tap (it focuses the field) leaves the field its taps: a
-    /// tap before the words still puts the caret there.
-    func testATapInTheAskBarStillMovesTheCaret() {
-        let field = app.textFields["quick.field"]
-        // Two words: a tap on the word the caret is in shows the edit menu
-        // instead of moving the caret, so the tap goes to the first word.
-        type("Paris trip", into: field)
-        // Two points into the field: before the P.
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-            .withOffset(CGVector(dx: 2, dy: 0)).tap()
-        field.typeText("X")
-        XCTAssertEqual(field.value as? String, "XParis trip", "the tap put the caret before the words")
+    /// Anywhere on the bar: the star circle opens the chat too.
+    func testATapOnTheAskBarsStarOpensTheChat() {
+        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
+        let frame = app.homeAsk.frame
+        point(frame.minX + 21, frame.midY).tap()
+        assertChatOpensFocused("the star opens the chat with its field focused")
+    }
+
+    /// VoiceOver hears a button, not a field.
+    func testTheAskBarIsAButtonForVoiceOver() {
+        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
+        XCTAssertEqual(app.homeAsk.elementType, .button)
+        XCTAssertEqual(app.homeAsk.label, "Ask Mira", "VoiceOver says Ask Mira, not the sample question")
+    }
+
+    /// Leaving the chat by its Home pill leaves no keyboard on Home.
+    func testLeavingTheChatLeavesNoKeyboardOnHome() {
+        XCTAssertTrue(app.homeAsk.waitForExistence(timeout: 8))
+        app.homeAsk.tap()
+        assertChatOpensFocused("the chat opens with its field focused")
+        app.typeText("Paris")
+        app.buttons["chat.home"].tap()
+        XCTAssertTrue(app.buttons["Start a memory"].waitForExistence(timeout: 5), "back on Home")
+        waitUntilGone(keyboard, "no keyboard on Home")
     }
 
     // MARK: Editor

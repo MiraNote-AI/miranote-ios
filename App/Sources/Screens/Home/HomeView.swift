@@ -11,7 +11,8 @@ import SwiftUI
 struct HomeView: View {
     var viewModel: HomeViewModel
     var onStart: () -> Void = {}
-    var onQuickCapture: (String) -> Void = { _ in }
+    /// The ask bar: opens the Mira chat.
+    var onAsk: () -> Void = {}
     var onOpenCollection: (MemoryCollection) -> Void = { _ in }
     var onOpenTrash: () -> Void = {}
     var onOpenStarJar: () -> Void = {}
@@ -28,9 +29,6 @@ struct HomeView: View {
     var onStarLanded: () -> Void = {}
 
     @Environment(\.theme) private var theme
-    @State private var prompt = ""
-    /// The ask bar's keyboard: a tap on the page or a scroll lowers it.
-    @FocusState private var promptFocused: Bool
     @State private var addingCollection = false
     @State private var newCollectionName = ""
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -100,12 +98,7 @@ struct HomeView: View {
                 // wordmark, not the circle, lines up with the editor's nav row.
                 .padding(.top, -6)
                 .padding(.bottom, 28)
-                // A tap that no button takes lowers the ask bar's keyboard; the
-                // words stay in the bar.
-                .contentShape(Rectangle())
-                .onTapGesture { promptFocused = false }
             }
-            .scrollDismissesKeyboard(.immediately)
             .task(id: arrivingStar?.id) { await landArrivingStar(scroller) }
         }
         // A tap during the fold skips to the landing, and still does what
@@ -332,58 +325,40 @@ struct HomeView: View {
     }
 
     /// The 41 pt retrieval bar: the four-point star in a 26 pt #C6B298
-    /// circle, then a Bold 16 field at ink@0.5. It asks about the past and
-    /// opens the Mira chat; it never starts a note.
+    /// circle, then the Bold 16 question at ink@0.5. A tap anywhere on it
+    /// opens the Mira chat, its field already taking the words; it never
+    /// starts a note.
     private var promptBar: some View {
-        HStack(spacing: 12) {
-            Image("home.spark")
-                .renderingMode(.template)
-                .resizable()
-                .frame(width: 20, height: 20)
-                .foregroundStyle(theme.homeIcon)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(theme.promptIconFill))
-                .accessibilityHidden(true)
+        Button(action: onAsk) {
+            HStack(spacing: 12) {
+                Image("home.spark")
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(theme.homeIcon)
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(theme.promptIconFill))
 
-            TextField("", text: $prompt)
-                .font(theme.promptFont)
-                .foregroundStyle(theme.ink)
-                .tint(theme.promptTint)
-                .submitLabel(.send)
-                .onSubmit(submitPrompt)
-                .focused($promptFocused)
-                .accessibilityIdentifier("quick.field")
-                .overlay(alignment: .leading) {
-                    if prompt.isEmpty {
-                        Text("When was my Paris trip?")
-                            .font(theme.promptFont)
-                            .foregroundStyle(theme.promptPlaceholder)
-                            .allowsHitTesting(false)
-                    }
-                }
-
-            if !prompt.isEmpty {
-                Button(action: submitPrompt) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(theme.ink)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("quick.send")
+                Text("When was my Paris trip?")
+                    .font(theme.promptFont)
+                    .foregroundStyle(theme.promptPlaceholder)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.leading, 8)
+            .padding(.trailing, 9)
+            .frame(height: 41)
+            .background(
+                Capsule()
+                    .fill(theme.promptFill)
+                    .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
+            )
+            .contentShape(Capsule())
         }
-        .padding(.leading, 8)
-        .padding(.trailing, 9)
-        .frame(height: 41)
-        .background(
-            Capsule()
-                .fill(theme.promptFill)
-                .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
-        )
-        // A tap anywhere on the bar is for its field, not the page's tap
-        // that lowers the keyboard.
-        .contentShape(Capsule())
-        .onTapGesture { promptFocused = true }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ask Mira")
+        .accessibilityHint("Opens the Mira chat")
+        .accessibilityIdentifier("home.ask")
     }
 
     private var grid: some View {
@@ -433,13 +408,6 @@ struct HomeView: View {
                               style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
         )
         .contentShape(RoundedRectangle(cornerRadius: HomeCollectionCard.corner))
-    }
-
-    private func submitPrompt() {
-        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        onQuickCapture(trimmed)
-        prompt = ""
     }
 }
 
