@@ -220,11 +220,12 @@ struct WritingChatBox: View {
     @Binding var ask: String
     var focus: FocusState<Bool>.Binding
     let listening: Bool
-    /// The live take's recorder, for the waveform.
+    /// The live take's recorder, for the waveform; nil keeps the field
+    /// while the mic listens (the Mira chat, whose words land in it).
     let recorder: AudioRecording?
     /// What the mic is doing or why nothing landed, for VoiceOver and tests.
     let status: String
-    /// The block has words for Mira to rewrite.
+    /// The block has words for Mira to rewrite (the Mira chat: always).
     let canGo: Bool
     /// Mira is rewriting the block as asked.
     let asking: Bool
@@ -235,13 +236,9 @@ struct WritingChatBox: View {
     /// Starts or ends the take in one activation (assistive technologies).
     var onToggle: () -> Void
     /// VoiceOver's two-finger scrub on the mic or Go: the writing ends (the
-    /// field's own escape is `WritingEscape`'s).
+    /// field's own escape is `WritingEscape`'s); the Mira chat closes.
     var onEscape: () -> Void
     var names = Names()
-    /// The words land in this box, not a block (the Mira chat): it keeps
-    /// its field -- and the keyboard -- while the mic listens, instead of
-    /// the waveform.
-    var keepsFieldWhileListening = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -249,7 +246,7 @@ struct WritingChatBox: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if listening, !keepsFieldWhileListening, let recorder {
+            if listening, let recorder {
                 LiveWaveform(recorder: recorder, tint: Tokens.forest, scale: 0.5)
                 Text(copy: "Listening...")
                     .font(.miraComposer)

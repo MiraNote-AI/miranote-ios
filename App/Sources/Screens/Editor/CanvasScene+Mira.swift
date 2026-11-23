@@ -64,9 +64,10 @@ extension CanvasScene {
         MiraChatOverlay(
             prompt: $miraPrompt,
             focus: $miraFocus,
-            listening: miraListening,
+            // An earlier take's words landing while this press's mic comes
+            // up must not swap the mic for Go under the finger.
+            listening: miraListening || miraPress != nil,
             caption: miraCaption,
-            micStatus: miraCaption ?? "",
             onUndo: editor.undo,
             undoEnabled: editor.canUndo,
             onSend: sendMiraPrompt,

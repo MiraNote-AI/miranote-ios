@@ -106,7 +106,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
         for _ in 0..<30 where keyboard.frame.minY >= app.frame.maxY { usleep(100_000) }
         XCTAssertLessThan(keyboard.frame.minY, app.frame.maxY, "the keyboard is up")
         Thread.sleep(forTimeInterval: 0.5)
-        XCTAssertFalse(app.staticTexts["accurate voice-to-text"].exists, "no dictation strip")
+        XCTAssertLessThan(miraMic.frame.width, 60, "the mic is a button in the box, not the full-width strip")
         let panel = app.staticTexts["Mira can edit this canvas directly."]
         let field = app.miraInput.frame, mic = miraMic.frame
         XCTAssertGreaterThan(field.minY, panel.frame.maxY + 40, "the box is under Mira's panel, not over it")

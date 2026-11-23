@@ -11,12 +11,12 @@ import SwiftUI
 struct MiraChatOverlay: View {
     @Binding var prompt: String
     var focus: FocusState<Bool>.Binding
+    /// A take is listening or its press is in progress: the mic stays
+    /// (never Go) under the finger.
     let listening: Bool
-    /// Listening, the words on their way, or why nothing landed: over
-    /// the box.
+    /// Listening, the words on their way, or why nothing landed: over the
+    /// box, and the mic's VoiceOver value.
     let caption: String?
-    /// What the mic is doing or why nothing landed, for VoiceOver and tests.
-    let micStatus: String
     var onUndo: () -> Void
     var undoEnabled: Bool
     var onSend: () -> Void
@@ -69,8 +69,10 @@ struct MiraChatOverlay: View {
             ask: $prompt,
             focus: focus,
             listening: listening,
+            // No waveform: the words land in this field, which keeps the
+            // keyboard while the mic listens.
             recorder: nil,
-            status: micStatus,
+            status: caption ?? "",
             canGo: true,
             asking: false,
             onGo: onSend,
@@ -79,8 +81,7 @@ struct MiraChatOverlay: View {
             onCancel: onHoldCancel,
             onToggle: onToggle,
             onEscape: onClose,
-            names: .chat,
-            keepsFieldWhileListening: true
+            names: .chat
         )
         .padding(.horizontal, Metrics.chromeInset)
         // As the writing box's caption: over the box, taking no room.

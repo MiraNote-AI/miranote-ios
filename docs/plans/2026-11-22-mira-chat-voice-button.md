@@ -38,8 +38,8 @@ canvas writing chat box, reused -- with its mic on the right; the
 - The box's caption (Listening, words on their way, or why none landed)
   sits over the box like the writing box's caption over its rows; the
   mic's VoiceOver value says the same.
-- The chat keeps its field while the mic listens
-  (`keepsFieldWhileListening`): the words land in this field, and taking
+- The chat keeps its field while the mic listens (it passes no
+  recorder, so the box shows no waveform): the words land in this field, and taking
   it away for the writing box's waveform dropped the keyboard mid-hold
   and broke the #150 "keyboard comes back" behavior. The writing box is
   unchanged.
@@ -63,3 +63,14 @@ canvas writing chat box, reused -- with its mic on the right; the
    (TextChatBox testTheGoKeySendsWithAnAutocorrectionPending fails the
    same on origin/dev and on #249). Mutation: the box moved back under
    the header fails the layout test ("the box is under Mira's panel").
+3. Fresh-context review: DONE, taken -- the mic stays (never Go) while a
+   press is in progress, so an earlier take's words landing cannot pull
+   it from under the finger; the "no strip" check measures the mic (the
+   old assertion could not fail); the overlay passes one caption (no
+   separate status) and no recorder instead of a flag; doc comments.
+   Not taken: removing the "Ask Mira" catalog entry (#249 uses it).
+   Noted for the team lead: with words in the box Go replaces the mic,
+   so a second take cannot be added to typed words (the strip allowed
+   it). CanvasMiraFidelity + DictationTakeOrder 28/28,
+   DictationOwnership + KeyboardDismiss Mira + TextChatBox 31/32 (the
+   pre-existing autocorrection test).
