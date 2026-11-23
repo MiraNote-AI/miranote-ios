@@ -45,7 +45,8 @@ public enum StarFold {
     ]
 
     /// Under Reduce Motion: the page cross-fades to its star (200 ms),
-    /// which fades and shrinks into the header jar (300 ms).
+    /// which fades out where it is as it fades into the header jar
+    /// (300 ms).
     public static let fadeToStar = 200.0
     public static let fadeEnd = 500.0
     public static let fadeHaptics = [StarHaptic(fadeEnd, .soft, 0.6)]

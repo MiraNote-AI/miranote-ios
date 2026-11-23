@@ -318,6 +318,7 @@ struct DebugStateProbe: View {
         state["sceneBodies"] = RenderCounters.canvasSceneBodies
         state["imageDecodes"] = RenderCounters.displayImageDecodes
         state["liftedWidth"] = (RenderCounters.liftedCopyWidth * 10).rounded() / 10
+        StarJarProbe.add(to: &state)
         guard let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }
