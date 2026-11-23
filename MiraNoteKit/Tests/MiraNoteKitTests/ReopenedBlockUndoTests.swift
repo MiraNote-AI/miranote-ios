@@ -95,4 +95,119 @@ final class ReopenedBlockUndoTests: XCTestCase {
             expectEveryUndoChangesSomething(editor, label)
         }
     }
+
+    /// A block with a photo below it, reopened: a version shown as the AI
+    /// row does (its words, then the box fitted to them, pushing the photo).
+    private func showVersion(_ editor: CanvasViewModel, _ id: CanvasItem.ID, _ text: String, height: CGFloat) {
+        editor.setText(itemID: id, to: text)
+        editor.autosizeTextHeight(itemID: id, to: height)
+    }
+
+    private func blockAbovePhoto(_ editor: CanvasViewModel) -> (CanvasItem.ID, CanvasItem.ID) {
+        let id = editor.addText("lunch", at: CGPoint(x: 120, y: 100.3))
+        editor.autosizeTextHeight(itemID: id, to: 36.3)
+        let photo = editor.addImages([ImageRef(displayName: "p")], around: CGPoint(x: 120, y: 300.3))[0]
+        return (id, photo)
+    }
+
+    /// A size, then a rewrite kept from the AI row: two changes, two Undos.
+    /// Before, the rewrite's first words recorded the page before it and
+    /// keeping it recorded the same page again, so one Undo did nothing.
+    func testASizeThenARewriteUndoOnceEach() throws {
+        for sized in [false, true] {
+            let label = sized ? "after a size" : "rewrite only"
+            let editor = CanvasViewModel(memory: Memory())
+            let (id, photo) = blockAbovePhoto(editor)
+            let photoAt = try XCTUnwrap(editor.item(photo)).position
+            let depth = editor.undoDepth
+            editor.startEditingText(id)
+            if sized { editor.setTextPointSize(itemID: id, to: 30) }
+            let original = try XCTUnwrap(editor.item(id))
+            showVersion(editor, id, "Lunch by the river, warm.", height: 100.1)
+            XCTAssertGreaterThan(try XCTUnwrap(editor.item(photo)).position.y, photoAt.y, "\(label): pushed")
+            editor.commitPreview(of: original)
+            editor.endEditingText()
+            XCTAssertEqual(editor.undoDepth, depth + (sized ? 2 : 1), "\(label): one step per change")
+
+            editor.undo()
+            XCTAssertEqual(block(editor, id)?.text, "lunch", "\(label): the rewrite")
+            XCTAssertEqual(block(editor, id)?.pointSize, sized ? 30 : 17)
+            XCTAssertEqual(try XCTUnwrap(editor.item(photo)).position.y, photoAt.y, accuracy: 0.5)
+            if sized {
+                editor.undo()
+                XCTAssertEqual(block(editor, id)?.pointSize, 17, "then the size")
+            }
+            editor.undo()
+            XCTAssertNil(editor.item(photo), "\(label): then the photo's adding, nothing in between")
+        }
+    }
+
+    /// A version shown, then Original picked again: the page is as it was,
+    /// so the AI row leaves no step -- on its own or after a size.
+    func testAVersionTakenBackToOriginalLeavesNoStep() throws {
+        for sized in [false, true] {
+            let label = sized ? "after a size" : "rewrite only"
+            let editor = CanvasViewModel(memory: Memory())
+            let (id, photo) = blockAbovePhoto(editor)
+            let depth = editor.undoDepth
+            editor.startEditingText(id)
+            if sized { editor.setTextPointSize(itemID: id, to: 30) }
+            let original = try XCTUnwrap(editor.item(id))
+            showVersion(editor, id, "Lunch by the river, warm.", height: 100.1)
+            showVersion(editor, id, "lunch", height: original.size.height)
+            editor.commitPreview(of: original)
+            XCTAssertEqual(editor.undoDepth, depth + (sized ? 1 : 0), "\(label): only the size")
+
+            editor.setText(itemID: id, to: "lunch with Sam")
+            editor.endEditingText()
+            editor.undo()
+            XCTAssertEqual(block(editor, id)?.text, "lunch", "\(label): the words typed after, alone")
+            XCTAssertEqual(block(editor, id)?.pointSize, sized ? 30 : 17, "\(label): the size stays")
+            if sized {
+                editor.undo()
+                XCTAssertEqual(block(editor, id)?.pointSize, 17, "then the size")
+            }
+            editor.undo()
+            XCTAssertNil(editor.item(photo), "\(label): then the photo's adding, nothing in between")
+        }
+    }
+
+    /// Cancel after a version went back to Original: the session's words
+    /// typed since go, the block is as it was, and no step is left over.
+    func testCancelAfterAVersionTakenBack() throws {
+        let editor = CanvasViewModel(memory: Memory())
+        let (id, photo) = blockAbovePhoto(editor)
+        let depth = editor.undoDepth
+        editor.startEditingText(id)
+        let original = try XCTUnwrap(editor.item(id))
+        showVersion(editor, id, "Lunch by the river, warm.", height: 100.1)
+        showVersion(editor, id, "lunch", height: original.size.height)
+        editor.commitPreview(of: original)
+        editor.setText(itemID: id, to: "lunch with Sam")
+        editor.cancelEditingText()
+        XCTAssertEqual(block(editor, id)?.text, "lunch")
+        XCTAssertEqual(editor.undoDepth, depth, "nothing of the session is left to undo")
+        editor.undo()
+        XCTAssertNil(editor.item(photo), "the Undo takes back the step below")
+    }
+
+    /// A page tap ends the session before the AI row's version is kept
+    /// (the scene commits it once the session has ended): still one step
+    /// for a version kept, none for one taken back to Original.
+    func testAPageTapKeepsTheVersionAsOneStep() throws {
+        for takenBack in [false, true] {
+            let label = takenBack ? "taken back" : "kept"
+            let editor = CanvasViewModel(memory: Memory())
+            let (id, _) = blockAbovePhoto(editor)
+            let depth = editor.undoDepth
+            editor.startEditingText(id)
+            let original = try XCTUnwrap(editor.item(id))
+            showVersion(editor, id, "Lunch by the river, warm.", height: 100.1)
+            if takenBack { showVersion(editor, id, "lunch", height: original.size.height) }
+            editor.endEditingText()
+            editor.select(nil)
+            editor.commitPreview(of: original)
+            XCTAssertEqual(editor.undoDepth, depth + (takenBack ? 0 : 1), label)
+        }
+    }
 }

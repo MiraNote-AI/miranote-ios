@@ -227,6 +227,18 @@ public final class CanvasViewModel {
         restore(snapshot)
     }
 
+    /// Takes the newest step off the history without restoring it: a step
+    /// that turned out to restore the page as it is.
+    private func dropLastStep() {
+        history.removeLast()
+        if let steps = sessionSteps {
+            sessionSteps = steps > 0 ? steps - 1 : nil
+            sessionNeedsStart = steps == 0
+        }
+        // Words typed next are a step of their own, not part of the one below.
+        if editingTextItemID != nil { typingNeedsStep = true }
+    }
+
     private func pushHistory(_ snapshot: UndoSnapshot) {
         let restarting = sessionNeedsStart && editingTextItemID != nil
         history.append(snapshot)
@@ -470,16 +482,24 @@ extension CanvasViewModel {
     /// meanwhile.
     public func commitPreview(of original: CanvasItem) {
         guard item(original.id) != nil else { return }
-        let previewed = memory.items
-        let before = TextFit.revert(previewed, box: original.id, to: original)
-        guard before != previewed else { return }
-        memory.items = before
-        // A rewrite shown on a reopened block started its session with
-        // this same page: a second step of it would restore nothing.
-        let started = editingTextItemID == original.id && sessionSteps == 0
-            && history.last?.sameEdits(as: currentSnapshot) == true
-        beginChange(recording: !started)
-        memory.items = previewed
+        let previewed = currentSnapshot
+        let before = previewed.replacingItems(TextFit.revert(previewed.items, box: original.id, to: original))
+        // A push taken back lands a hair off where it was: still the same page.
+        let drift: CGFloat = 0.5
+        // A rewrite shown while writing records a step with its first words
+        // (a reopened block's session start, or words after a size): the
+        // page before the preview, already on top of the history -- also
+        // when a page tap ended the session before this commit.
+        let shownStep = history.last?.sameEdits(as: before, ignoringMovesUnder: drift) == true
+        guard !previewed.sameEdits(as: before, ignoringMovesUnder: drift) else {
+            // Back to Original after a version: that step restores nothing.
+            if shownStep { dropLastStep() }
+            return
+        }
+        memory.items = before.items
+        // A second step of the same page would restore nothing.
+        beginChange(recording: !shownStep)
+        memory.items = previewed.items
     }
 
     /// Drops a live preview: the item as it was and what its growth pushed
