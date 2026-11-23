@@ -130,6 +130,7 @@ final class CanvasMiraFidelityUITests: XCTestCase {
     // there are words, the mic again once they are cleared; Go sends.
     func testTheMicBecomesGoWithWordsAndGoSends() {
         addText("sunny afternoon by the bridge")
+        app.letGoOfTheSelection()
         app.openMiraChat()
         let go = app.buttons["mira.ask"]
         XCTAssertTrue(miraMic.exists)
