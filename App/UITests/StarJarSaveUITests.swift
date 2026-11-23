@@ -46,9 +46,9 @@ final class StarJarSaveUITests: XCTestCase {
         zip(lhs, rhs).map { abs($0 - $1) }.reduce(0, +)
     }
 
-    /// A seeded page's star is baked when the jar first shows it. Held
-    /// open, painted lilac and saved, it is a new star back in that same
-    /// jar -- not only in a jar opened afresh.
+    /// A seeded page's star is baked when a jar first shows it (Home's,
+    /// #243). Held open, painted lilac and saved, it is a new star back in
+    /// that same jar -- not only in a jar opened afresh.
     func testAPageEditedFromTheJarShowsItsNewStarThere() {
         openJar()
         let star = app.buttons["jar.star.Slow morning, good coffee"]
@@ -235,7 +235,9 @@ final class StarJarSaveUITests: XCTestCase {
     }
 
     /// Under Reduce Motion the page cross-fades to its star, which fades
-    /// into the header jar (0.5 s): the star lands once.
+    /// out where it is as it fades into the header jar (0.5 s): the star
+    /// lands once, and nothing travels across the screen or changes size
+    /// (#243).
     func testUnderReduceMotionASaveFadesItsStarIn() {
         relaunch(["-REDUCE_MOTION"])
         let jar = app.buttons["home.starJar"]
@@ -243,5 +245,9 @@ final class StarJarSaveUITests: XCTestCase {
         XCTAssertEqual(jar.value as? String, "0")
         saveNewPage()
         assertLandedOnce(jar, within: 5, "the fade lands it")
+        let state = homeState
+        XCTAssertGreaterThan(state["fadeFrames"] as? Int ?? 0, 1, "the fade drew its star: \(state)")
+        XCTAssertEqual(state["fadeTravel"] as? Double ?? .nan, 0, accuracy: 0.5, "it fades where it is: \(state)")
+        XCTAssertEqual(state["fadeResize"] as? Double ?? .nan, 0, accuracy: 0.5, "at one size: \(state)")
     }
 }

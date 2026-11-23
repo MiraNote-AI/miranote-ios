@@ -180,3 +180,51 @@ struct FoldPageView: View {
         }
     }
 }
+
+// swiftlint:disable identifier_name
+
+// MARK: - Page marks
+
+/// What the page draws over its flat part: crease lines where it will
+/// fold or has folded, the lip where paper turns behind it, its border.
+enum PageMarks {
+    static func crease(in context: GraphicsContext, at v: CGFloat, opacity a: CGFloat) {
+        guard a > 0.003 else { return }
+        let y = v - StarPaper.height / 2, x0 = -StarPaper.width / 2 + 1.5, w = StarPaper.width - 3
+        let ink = Color(.sRGB, red: 70 / 255, green: 30 / 255, blue: 50 / 255)
+        context.fill(Path(CGRect(x: x0, y: y - 2.5, width: w, height: 5)), with: .color(ink.opacity(0.06 * a)))
+        context.fill(Path(CGRect(x: x0, y: y - 0.45, width: w, height: 0.9)), with: .color(ink.opacity(0.24 * a)))
+        context.fill(Path(CGRect(x: x0, y: y + 0.7, width: w, height: 0.8)),
+                     with: .color(Color(.sRGB, red: 1, green: 246 / 255, blue: 236 / 255, opacity: 0.45 * a)))
+    }
+
+    /// A fold edge where the paper turns behind: a thin lip of its back
+    /// and a highlight. `down` when the paper beyond lies below.
+    static func lip(in context: GraphicsContext, at v: CGFloat, down: Bool, opacity a: CGFloat) {
+        guard a > 0.003 else { return }
+        let y = v - StarPaper.height / 2, x0 = -StarPaper.width / 2 + 1, w = StarPaper.width - 2
+        context.fill(Path(CGRect(x: x0, y: down ? y : y - 2.5, width: w, height: 2.5)),
+                     with: .color(Color(.sRGB, red: 120 / 255, green: 58 / 255, blue: 72 / 255, opacity: 0.85 * a)))
+        context.fill(Path(CGRect(x: x0, y: down ? y - 1 : y + 0.2, width: w, height: 0.8)),
+                     with: .color(Color(.sRGB, red: 1, green: 240 / 255, blue: 230 / 255, opacity: 0.55 * a)))
+    }
+
+    /// The shade the folded half casts on the flat half above its crease.
+    static func halfShade(in context: GraphicsContext, angle: CGFloat) {
+        let s = abs(sin(angle)), y = StarPaper.half - StarPaper.height / 2
+        let ink = Color(.sRGB, red: 60 / 255, green: 25 / 255, blue: 35 / 255)
+        context.fill(Path(CGRect(x: -StarPaper.width / 2, y: y - 34, width: StarPaper.width, height: 34)),
+                     with: .linearGradient(Gradient(colors: [ink.opacity(0), ink.opacity(0.16 * s)]),
+                                           startPoint: CGPoint(x: 0, y: y - 34), endPoint: CGPoint(x: 0, y: y)))
+    }
+
+    static func border(in context: GraphicsContext, height: CGFloat, corner: CGFloat, opacity: CGFloat) {
+        guard opacity > 0 else { return }
+        let rect = CGRect(x: -StarPaper.width / 2 + 0.5, y: -StarPaper.height / 2 + 0.5,
+                          width: StarPaper.width - 1, height: height - 1)
+        context.stroke(Path(roundedRect: rect, cornerRadius: corner),
+                       with: .color(Color(.sRGB, red: 1, green: 245 / 255, blue: 235 / 255, opacity: 0.55 * opacity)),
+                       lineWidth: 1)
+    }
+}
+// swiftlint:enable identifier_name

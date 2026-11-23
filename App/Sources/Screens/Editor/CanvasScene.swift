@@ -836,7 +836,7 @@ struct CanvasScene: View {
                     editor: editor,
                     prompt: $miraPrompt,
                     placeholder: "Ask Mira to refine...",
-                    onOpenChat: {}
+                    onTap: {}
                 )
                 .allowsHitTesting(false)
                 .contentShape(Rectangle())
@@ -851,7 +851,7 @@ struct CanvasScene: View {
                 editor: editor,
                 prompt: $miraPrompt,
                 placeholder: "Ask Mira to refine...",
-                onOpenChat: openMiraChat
+                onTap: openMiraChat
             )
         } else {
             if let gestureHint {
@@ -928,7 +928,8 @@ struct CanvasScene: View {
                     editor: editor,
                     prompt: $miraPrompt,
                     placeholder: composerPlaceholder,
-                    onOpenChat: openMiraChat
+                    refinesInPlace: blockToRefineInPlace != nil,
+                    onTap: tapComposer
                 )
             }
         case .armed:

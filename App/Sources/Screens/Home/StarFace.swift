@@ -10,9 +10,10 @@ import UIKit
 /// Caches/star-dress-x; the light is drawn over it live, so a turned star
 /// keeps its light from the top left. A page with a photo, a sticker or a
 /// photo backdrop gives its most colorful band; a page of words gives a
-/// calm paper star. Pages from before are baked when the jar first shows
-/// them, a frame apart (`bakeInTurn`). Only the rendering of the page is
-/// on the main actor; the cut is not.
+/// calm paper star. Pages from before are baked when a jar first shows
+/// them -- Home's header jar or the jar screen -- a frame apart
+/// (`bakeInTurn`). Only the rendering of the page is on the main actor;
+/// the cut is not.
 @MainActor
 enum StarFace {
     /// Points a side; baked at 2x, twice the largest star in the jar.
@@ -73,7 +74,7 @@ enum StarFace {
     private static var baking = false
     private static let turnGap = Duration.milliseconds(17)
 
-    /// Bakes a star the jar finds missing (a page not saved since #206, or
+    /// Bakes a star a jar finds missing (a page not saved since #206, or
     /// one whose dress iOS cleared from Caches) in its turn: one at a
     /// time, at least a frame after the last such bake, so a jar of old
     /// pages fills in a star at a time instead of in one stall. Nil if the

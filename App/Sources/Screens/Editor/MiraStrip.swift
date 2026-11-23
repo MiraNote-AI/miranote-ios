@@ -253,6 +253,8 @@ struct MiraCard: View {
 /// canvas chat (screen 06), where the words are typed; a draft left there
 /// waits here with Go -- and past 400 ms of work the verb-specific working
 /// bar with the Stop control (stop refills the prompt, applies nothing).
+/// With one text block selected the tap refines it in place instead
+/// (`CanvasScene.tapComposer`).
 struct MiraBar: View {
     @Bindable var coordinator: MiraCanvasCoordinator
     @Bindable var editor: CanvasViewModel
@@ -261,7 +263,10 @@ struct MiraBar: View {
     /// for Keep or Revert (screen 07) or an element is selected (21); "Ask
     /// Mira to adjust sound..." beside a new take (09).
     var placeholder = "Ask Mira anything"
-    var onOpenChat: () -> Void
+    /// The tap opens the selected block's writing, the caret in its chat
+    /// box (F6B), not the chat: VoiceOver's hint says which.
+    var refinesInPlace = false
+    var onTap: () -> Void
 
     var body: some View {
         Group {
@@ -283,7 +288,7 @@ struct MiraBar: View {
         // Handoff composer: Medium 12 words from x 17 and the Go pill. The
         // words are the draft left in the chat, or the placeholder.
         ComposerCapsule(action: "Go", actionID: "mira.go", canAct: canSend, onAct: submit) {
-            Button(action: onOpenChat) {
+            Button(action: onTap) {
                 (prompt.isEmpty ? Text(copy: placeholder) : Text(prompt))
                     .font(.miraComposer)
                     .foregroundStyle(prompt.isEmpty ? Palette.muted : Palette.ink)
@@ -293,7 +298,9 @@ struct MiraBar: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(prompt.isEmpty ? Text(copy: placeholder) : Text(prompt))
-            .accessibilityHint("Opens the Mira chat")
+            .accessibilityHint(refinesInPlace
+                ? Text("Edits the selected text in place, with the caret in the chat box.")
+                : Text("Opens the Mira chat"))
             .accessibilityIdentifier("mira.composer")
         }
     }
