@@ -329,35 +329,38 @@ struct HomeView: View {
     /// opens the Mira chat with the chat's field focused; it never starts
     /// a note.
     private var promptBar: some View {
-        Button(action: onAsk) {
-            HStack(spacing: 12) {
-                Image("home.spark")
-                    .renderingMode(.template)
-                    .resizable()
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(theme.homeIcon)
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(theme.promptIconFill))
+        HStack(spacing: 12) {
+            Image("home.spark")
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(theme.homeIcon)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(theme.promptIconFill))
 
-                Text("When was my Paris trip?")
-                    .font(theme.promptFont)
-                    .foregroundStyle(theme.promptPlaceholder)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.leading, 8)
-            .padding(.trailing, 9)
-            .frame(height: 41)
-            .background(
-                Capsule()
-                    .fill(theme.promptFill)
-                    .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
-            )
-            .contentShape(Capsule())
+            Text("When was my Paris trip?")
+                .font(theme.promptFont)
+                .foregroundStyle(theme.promptPlaceholder)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(.plain)
+        .padding(.leading, 8)
+        .padding(.trailing, 9)
+        .frame(height: 41)
+        .background(
+            Capsule()
+                .fill(theme.promptFill)
+                .shadow(color: Color(hex: 0x544738).opacity(0.08), radius: 16, y: 16)
+        )
+        .contentShape(Capsule())
+        // A tap, not a Button: a Button also fires when a drag ends on it,
+        // and an edge swipe across Home must not open the chat.
+        .onTapGesture(perform: onAsk)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Ask Mira")
         .accessibilityHint("Opens the Mira chat")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onAsk() }
         .accessibilityIdentifier("home.ask")
     }
 

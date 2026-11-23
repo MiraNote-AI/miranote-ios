@@ -45,3 +45,15 @@ field and raises no keyboard.
    returns 0.6-1.0 s after it starts, the field focused within 0.12 s
    of that; the 1 s budget counts from the tap's return.
    KeyboardDismissUITests 12/12 + OwnerTour chat green.
+4. Full suite (xcodebuild test-without-building, iPhone 17 Pro iOS
+   26.3): unit 211 green; UI 465 run, 24 skipped, 4 failed. Caught a
+   real regression: SwipeBackUITests.testSwipeOnHomeLeavesHomeUsable --
+   the edge swipe ends on the bar and a SwiftUI Button fires on a drag
+   that ends on it, opening the chat. The bar is a tap gesture again,
+   with button trait, label, hint and activation for VoiceOver. The
+   other 3 (BackgroundPaint testTheCardHoldsStillUnderTheApplyKeyboard,
+   TextChatBox testTheGoKeySendsWithAnAutocorrectionPending,
+   TextVisibility testTypingOnTheSameLineBringsTheBlockBack) fail the
+   same way on an origin/dev build: pre-existing. After the fix:
+   SwipeBack 3/3, StarJar 17/17, OwnerTour 3/3, the Home ask tests and
+   the chat-from-Home tests green.
