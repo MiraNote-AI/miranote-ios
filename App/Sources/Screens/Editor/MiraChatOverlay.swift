@@ -11,9 +11,11 @@ import SwiftUI
 struct MiraChatOverlay: View {
     @Binding var prompt: String
     var focus: FocusState<Bool>.Binding
-    /// A take is listening or its press is in progress: the mic stays
-    /// (never Go) under the finger.
+    /// A take is listening: the mic shows it.
     let listening: Bool
+    /// A press on the mic is in progress, its take maybe still coming up:
+    /// the mic stays (never Go) under the finger.
+    let pressing: Bool
     /// Listening, the words on their way, or why nothing landed: over the
     /// box, and the mic's VoiceOver value.
     let caption: String?
@@ -69,6 +71,7 @@ struct MiraChatOverlay: View {
             ask: $prompt,
             focus: focus,
             listening: listening,
+            pressing: pressing,
             // No waveform: the words land in this field, which keeps the
             // keyboard while the mic listens.
             recorder: nil,

@@ -220,6 +220,10 @@ struct WritingChatBox: View {
     @Binding var ask: String
     var focus: FocusState<Bool>.Binding
     let listening: Bool
+    /// A press on the mic is in progress, its take maybe still coming up:
+    /// the mic stays (never Go) under the finger, though it shows live
+    /// only once it listens (the Mira chat, whose words land in the box).
+    var pressing = false
     /// The live take's recorder, for the waveform; nil keeps the field
     /// while the mic listens (the Mira chat, whose words land in it).
     let recorder: AudioRecording?
@@ -284,7 +288,7 @@ struct WritingChatBox: View {
                     .accessibilityLabel(Text(copy: names.prompt))
                     .accessibilityIdentifier(names.field)
             }
-            if hasWords, !listening {
+            if hasWords, !listening, !pressing {
                 go
             } else {
                 mic
