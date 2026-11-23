@@ -80,7 +80,7 @@ Relaunch re-seeds the four starter collections.
 1. Home -> tap the ask bar -> type "note this down: ..." in the chat ->
    Mira drafts a page -> open in editor (works in Chinese too, via paste).
 2. Home -> tap the ask bar -> type "find my note about ..." in the chat ->
-   tap the cover -> read -> back returns to the conversation.
+   tap the cover -> read -> back returns to Home (the chat is not kept).
 3. Canvas: Text tool, type a stub -> sparkles -> Expand -> live result
    with real bullets; Revert available on the receipt.
 4. Image -> AI image -> prompt -> ~30s -> tap result to place.
