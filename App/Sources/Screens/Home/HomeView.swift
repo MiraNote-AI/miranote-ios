@@ -100,6 +100,18 @@ struct HomeView: View {
                 // wordmark, not the circle, lines up with the editor's nav row.
                 .padding(.top, -6)
                 .padding(.bottom, 28)
+                // The empty margin at the left edge takes a touch that starts
+                // in it: SwiftUI gives a touch just outside a control to the
+                // control, so a swipe from the edge (Home has nothing to go
+                // back to) fired the ask bar or the left card where it ended
+                // (#254). The tap does nothing.
+                .overlay(alignment: .leading) {
+                    Color.clear
+                        .frame(width: Metrics.chromeInset)
+                        .contentShape(Rectangle())
+                        .onTapGesture {}
+                        .accessibilityHidden(true)
+                }
             }
             .task(id: arrivingStar?.id) { await landArrivingStar(scroller) }
         }
