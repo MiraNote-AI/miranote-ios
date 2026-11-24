@@ -475,6 +475,10 @@ private extension CanvasViewModel {
 // MARK: - Previews
 
 extension CanvasViewModel {
+    /// A push taken back lands a hair off where it was (about 6e-14 pt):
+    /// still the same page, for undo and for filing a draft alike.
+    static let pushDrift: CGFloat = 0.5
+
     /// Changes previewed live without undo steps (an AI rewrite, a custom
     /// color being dragged) become one undo step back to `original`; none
     /// when the item ends up unchanged. That step takes back the item and
@@ -484,14 +488,12 @@ extension CanvasViewModel {
         guard item(original.id) != nil else { return }
         let previewed = currentSnapshot
         let before = previewed.replacingItems(TextFit.revert(previewed.items, box: original.id, to: original))
-        // A push taken back lands a hair off where it was: still the same page.
-        let drift: CGFloat = 0.5
         // A rewrite shown while writing records a step with its first words
         // (a reopened block's session start, or words after a size): the
         // page before the preview, already on top of the history -- also
         // when a page tap ended the session before this commit.
-        let shownStep = history.last?.sameEdits(as: before, ignoringMovesUnder: drift) == true
-        guard !previewed.sameEdits(as: before, ignoringMovesUnder: drift) else {
+        let shownStep = history.last?.sameEdits(as: before, ignoringMovesUnder: Self.pushDrift) == true
+        guard !previewed.sameEdits(as: before, ignoringMovesUnder: Self.pushDrift) else {
             // Back to Original after a version: that step restores nothing.
             if shownStep { dropLastStep() }
             return
@@ -789,11 +791,12 @@ extension CanvasViewModel {
     }
 
     /// The page differs from how it opened. A text session that typed
-    /// nothing, steps all undone, the opening re-measure and a photo
-    /// description landing late are no edits.
+    /// nothing, steps all undone, the opening re-measure, a photo
+    /// description landing late and a push taken back (what it moved
+    /// lands within `pushDrift` of where it was, #253) are no edits.
     public var hasEdits: Bool {
         guard let before = pageBeforeEdits else { return false }
-        return !filedSnapshot.sameEdits(as: before)
+        return !filedSnapshot.sameEdits(as: before, ignoringMovesUnder: Self.pushDrift)
     }
 
     /// The page as leaving files it (#137): Save makes it saved; Home and
