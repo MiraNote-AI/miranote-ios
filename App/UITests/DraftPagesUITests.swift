@@ -113,6 +113,57 @@ final class DraftPagesUITests: XCTestCase {
         XCTAssertNotEqual(cover.value as? String, "Draft")
     }
 
+    // #253: a saved page whose caption grew and shrank back looks as it
+    // did, so it stays saved. Its last words are dragged and saved first:
+    // a drag leaves them at a fractional place (the drag's travel over the
+    // page's scale), and when Expand on the caption pushes them past y 512
+    // and Original takes the push back, they land 6e-14 pt off it. (The
+    // seeded places and the measured heights are whole or half points,
+    // which come back exactly.) Before, Home filed the page as a draft.
+    func testAVersionTakenBackOnASavedPageKeepsItSaved() {
+        app.buttons["collection.Daily Log"].tap()
+        let cover = app.buttons["note.Lunch by the river"]
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        cover.tap()
+        app.buttons["reading.edit"].tap()
+        // The reading page under the editor shows the page too: the
+        // editor's elements are on the board, with the canvas photo.
+        let board = app.scrollViews.containing(.image, identifier: "element.image").firstMatch
+        let lastWords = board.staticTexts["Sunny afternoon, tiny noodle shop by the bridge"]
+        XCTAssertTrue(lastWords.waitForExistence(timeout: 5))
+        let start = lastWords.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.08, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 90)))
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["reading.edit"].waitForExistence(timeout: 8))
+        app.buttons["reading.edit"].tap()
+
+        let caption = board.staticTexts["June 21 - calm afternoon"]
+        XCTAssertTrue(caption.waitForExistence(timeout: 5))
+        let wordsAt = placeOnPage(of: "Sunny afternoon")
+        XCTAssertLessThan(wordsAt, 512, "the dragged words sit above y 512")
+        // One tap selects the block, the next opens its writing.
+        caption.tap()
+        caption.tap()
+        let field = app.descendants(matching: .any)["canvas.textEditor"]
+        if !field.waitForExistence(timeout: 2) { caption.tap() }
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "writing the caption")
+        app.openTextRow("style.ai")
+        app.buttons["style.ai.expand"].tap()
+        XCTAssertTrue(waitForValue(of: field, "CONTAINS", "(expanded draft -- mock)"), "the version shows")
+        XCTAssertGreaterThan(placeOnPage(of: "Sunny afternoon"), 512, "the version pushed the words past y 512")
+        app.buttons["style.ai.original"].tap()
+        XCTAssertTrue(waitForValue(of: field, "==", "June 21 - calm afternoon"), "Original brings the words back")
+        app.backToTextRow()
+        app.buttons["keyboard.done"].tap()
+        XCTAssertTrue(app.buttons["keyboard.done"].waitForNonExistence(timeout: 5))
+        XCTAssertEqual(placeOnPage(of: "Sunny afternoon"), wordsAt, accuracy: 0.5, "the push taken back")
+
+        app.buttons["Home"].tap()
+        app.buttons["reading.back"].tap()
+        XCTAssertTrue(cover.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(cover.value as? String, "Draft")
+    }
+
     // The Draft tag makes a card's caption taller than its neighbor's (a
     // long date at a large text size even puts the tag on a line of its
     // own): the row is top-aligned, so the covers still line up. The
@@ -227,6 +278,26 @@ final class DraftPagesUITests: XCTestCase {
         shot.name = name
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    private func waitForValue(of field: XCUIElement, _ comparison: String, _ words: String) -> Bool {
+        let shown = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value \(comparison) %@", words), object: field
+        )
+        return XCTWaiter.wait(for: [shown], timeout: 5) == .completed
+    }
+
+    /// Where the text block whose words start with `words` sits on the
+    /// page (its center's y), from the -UITEST probe once it has caught up
+    /// (it refreshes every 0.25 s).
+    private func placeOnPage(of words: String) -> Double {
+        XCTAssertTrue(app.canvasProbe.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 0.6)
+        let probe = (try? JSONSerialization.jsonObject(with: Data(app.canvasProbe.label.utf8))) as? [String: Any]
+        let blocks = (probe?["elements"] as? [[String: Any]] ?? [])
+            .filter { ($0["text"] as? String)?.hasPrefix(words) == true }
+        XCTAssertEqual(blocks.count, 1, "one block starting with \(words)")
+        return blocks.first?["y"] as? Double ?? -1
     }
 
     private func waitUntilGone(_ element: XCUIElement) {
