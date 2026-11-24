@@ -116,4 +116,18 @@ final class SwipeBackUITests: XCTestCase {
         point(starX, leftCard.frame.midY).tap()
         XCTAssertTrue(app.buttons["note.add"].waitForExistence(timeout: 5), "a tap on the left card opens its journal")
     }
+
+    /// The margin ends where the controls start: a tap 2 pt inside the
+    /// bar's or the card's left edge is still theirs.
+    func testATapJustInsideTheAskBarsLeftEdgeOpensTheChat() {
+        let bar = app.homeAsk.frame
+        point(bar.minX + 2, bar.midY).tap()
+        XCTAssertTrue(app.buttons["chat.home"].waitForExistence(timeout: 5), "a tap at the bar's edge opens the chat")
+    }
+
+    func testATapJustInsideTheLeftCardsEdgeOpensItsJournal() {
+        let card = leftCard.frame
+        point(card.minX + 2, card.midY).tap()
+        XCTAssertTrue(app.buttons["note.add"].waitForExistence(timeout: 5), "a tap at the card's edge opens its journal")
+    }
 }
