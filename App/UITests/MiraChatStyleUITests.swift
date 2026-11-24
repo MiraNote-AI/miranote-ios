@@ -18,11 +18,7 @@ final class MiraChatStyleUITests: XCTestCase {
     }
 
     private func openChat() {
-        let field = app.textFields["quick.field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 8))
-        field.tap()
-        field.typeText("say hello")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("say hello")
         XCTAssertTrue(app.buttons["chat.plus"].waitForExistence(timeout: 5))
     }
 

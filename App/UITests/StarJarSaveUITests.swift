@@ -134,11 +134,7 @@ final class StarJarSaveUITests: XCTestCase {
         let jar = app.buttons["home.starJar"]
         XCTAssertTrue(jar.waitForExistence(timeout: 8))
         XCTAssertEqual(jar.value as? String, "0")
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("draft me a noodle page")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("draft me a noodle page")
         let card = app.buttons["chat.draft.open"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         card.tap()

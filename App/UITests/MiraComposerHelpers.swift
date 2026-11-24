@@ -40,6 +40,22 @@ extension XCUIApplication {
         XCTAssertTrue(miraInput.waitForExistence(timeout: 5), "the chat opens", file: file, line: line)
     }
 
+    /// Home's ask bar, a button: one tap opens the Mira chat.
+    var homeAsk: XCUIElement { buttons["home.ask"] }
+
+    /// The Mira chat's field (a text view; Return sends).
+    var chatField: XCUIElement { descendants(matching: .any)["chat.field"] }
+
+    /// Opens the Mira chat from Home's ask bar and sends `words` from its
+    /// field, which has the keyboard without a tap.
+    func askFromHome(_ words: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(homeAsk.waitForExistence(timeout: 8), "Home's ask bar is up", file: file, line: line)
+        homeAsk.tap()
+        XCTAssertTrue(chatField.waitForExistence(timeout: 5), "the chat opens", file: file, line: line)
+        chatField.typeText(words)
+        buttons["chat.send"].tap()
+    }
+
     func askMira(_ words: String, file: StaticString = #filePath, line: UInt = #line) {
         openMiraChat(file: file, line: line)
         miraInput.tap()

@@ -76,7 +76,7 @@ final class ThemeTests: XCTestCase {
             let theme = Theme(appearance: choice)
             XCTAssertGreaterThanOrEqual(contrast(theme.ink, theme.background), 4.5, "\(choice) ink")
             XCTAssertGreaterThanOrEqual(contrast(theme.muted(.clear), theme.background), 4.5, "\(choice) muted")
-            XCTAssertGreaterThanOrEqual(contrast(theme.ink, theme.promptFill), 4.5, "\(choice) prompt")
+            XCTAssertGreaterThanOrEqual(contrast(theme.promptPlaceholder, theme.promptFill), 4.5, "\(choice) prompt")
         }
     }
 

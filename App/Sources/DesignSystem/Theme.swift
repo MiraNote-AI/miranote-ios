@@ -231,11 +231,6 @@ struct Theme: Equatable {
         }
     }
 
-    /// The prompt field's caret.
-    var promptTint: Color {
-        appearance == .system ? Palette.forest : button
-    }
-
     /// The theme's card title face; System keeps Josefin Bold 22.
     var cardTitleFace: UIFont? {
         switch appearance {

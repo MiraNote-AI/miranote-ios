@@ -1,10 +1,12 @@
 import MiraNoteKit
 import SwiftUI
 
-/// The MiraNote AI conversation. Opened from the Home quick-capture field
-/// with the typed text as the first message; asking Mira to note something
-/// down yields a draft card that opens the editor.
+/// The MiraNote AI conversation. Home's ask bar opens it with no seed: the
+/// field takes the keyboard at once for the first message. Asking Mira to
+/// note something down yields a draft card that opens the editor.
 struct MiraChatView: View {
+    /// A first message to send on open (debug and catalog screens); with
+    /// none the field takes the keyboard.
     var seed: String?
     var onExit: () -> Void = {}
     /// The header's Canvas pill: leave the chat for a blank page.
@@ -61,7 +63,7 @@ struct MiraChatView: View {
         VStack(spacing: 0) {
             header
             transcript
-            MiraChatComposer(viewModel: viewModel)
+            MiraChatComposer(viewModel: viewModel, focusOnAppear: seed == nil)
         }
         .screenBackground()
         #if DEBUG

@@ -35,17 +35,10 @@ final class MiraNoteUITests: XCTestCase {
         XCTAssertTrue(dateline.firstMatch.exists)
     }
 
-    // The quick-capture field is a live text input, not a static placeholder:
-    // typing and sending opens the MiraNote AI chat, seeded with the message.
-    func testQuickCaptureOpensChat() {
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("noodles by the river")
-
-        let send = app.buttons["quick.send"]
-        XCTAssertTrue(send.waitForExistence(timeout: 5))
-        send.tap()
+    // The ask bar opens the MiraNote AI chat; the first message is typed
+    // there.
+    func testAskBarOpensChat() {
+        app.askFromHome("noodles by the river")
 
         // Screen 02 has no title; the chat's own Home pill marks it.
         XCTAssertTrue(app.buttons["chat.home"].waitForExistence(timeout: 5))
@@ -55,11 +48,7 @@ final class MiraNoteUITests: XCTestCase {
     // The home pill is the ask-the-past entry: results render as tappable
     // page covers in the chat, and tapping one opens reading mode.
     func testHomeSearchFindsPageAndOpensReading() {
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("noodle shop")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("noodle shop")
 
         let hit = app.buttons["chat.hit.Lunch by the river"]
         XCTAssertTrue(hit.waitForExistence(timeout: 8), "the matching page appears as a cover")
@@ -224,11 +213,7 @@ final class MiraNoteUITests: XCTestCase {
     // Mira can draft a page from the conversation: the card opens the
     // editor with the drafted words on the canvas; Save files it.
     func testChatDraftOpensEditorAndFiles() {
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("draft me a noodle page")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("draft me a noodle page")
 
         let draftCard = app.buttons["chat.draft.open"]
         XCTAssertTrue(draftCard.waitForExistence(timeout: 5))
@@ -323,11 +308,7 @@ final class MiraNoteUITests: XCTestCase {
     // Mira's light markdown renders as styling; asterisks never reach
     // the glass (the scripted reply carries ** on purpose).
     func testChatRendersMarkdownAsStyle() {
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
-        field.typeText("say hello")
-        app.buttons["quick.send"].tap()
+        app.askFromHome("say hello")
 
         XCTAssertTrue(app.buttons["chat.home"].waitForExistence(timeout: 5))
         let rendered = "A scripted reply for UI tests. How about: \"a quiet line for the page\"?"

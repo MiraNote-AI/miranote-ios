@@ -19,7 +19,7 @@ final class OnboardingAndHomeUITests: XCTestCase {
     func testHomeLeadsWithStartThenSearch() {
         launch([])
         let start = app.buttons["Start a memory"]
-        let search = app.textFields["quick.field"]
+        let search = app.homeAsk
         XCTAssertTrue(start.waitForExistence(timeout: 8))
         XCTAssertTrue(search.exists)
         XCTAssertLessThan(start.frame.maxY, search.frame.minY, "Start sits above the search pill")

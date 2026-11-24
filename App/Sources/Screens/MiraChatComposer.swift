@@ -13,6 +13,8 @@ import SwiftUI
 /// the composer.
 struct MiraChatComposer: View {
     @Bindable var viewModel: ChatViewModel
+    /// The chat opened with nothing said yet: the field takes the keyboard.
+    var focusOnAppear = false
 
     private enum Mode { case text, voice }
 
@@ -34,6 +36,8 @@ struct MiraChatComposer: View {
     /// Staged photos' thumbnails, decoded once per photo.
     @State private var thumbnails: [StagedPhoto.ID: UIImage] = [:]
     @State private var fieldFocused = false
+    /// `focusOnAppear` has given the field the keyboard.
+    @State private var openedFocused = false
     @Environment(\.scenePhase) private var scenePhase
 
     /// Upward travel past which a release cancels the clip.
@@ -79,6 +83,13 @@ struct MiraChatComposer: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { stopListening() }
+        }
+        // Only once: closing a cover over the chat (the camera) runs onAppear
+        // again, and must not raise the keyboard.
+        .onAppear {
+            guard focusOnAppear, !openedFocused else { return }
+            openedFocused = true
+            fieldFocused = true
         }
         .onDisappear { stopListening() }
         .photosPicker(
