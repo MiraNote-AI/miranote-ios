@@ -2,14 +2,23 @@ import MiraNoteKit
 import SwiftUI
 
 /// Handoff screen 06, the Mira canvas chat: a frosted scrim over the canvas
-/// and the dock, the question being typed in a dark capsule, Mira's panel
-/// with the four quick actions, and the "Mira Dictation" strip riding on the
-/// keyboard. The nav pills stay on top: Canvas (on glass) and Done both
-/// close the chat; a draft stays in the composer.
+/// and the dock, Mira's panel with the four quick actions, and the question
+/// box at the bottom, riding on the keyboard: the writing chat box's light
+/// pill with its mic (team lead, 2026-11-22, option B) -- hold to talk or
+/// tap to toggle, Go once there are words. The nav pills stay on top:
+/// Canvas (on glass) and Done both close the chat; a draft stays in the
+/// composer.
 struct MiraChatOverlay: View {
     @Binding var prompt: String
     var focus: FocusState<Bool>.Binding
-    var dictation: DictationStripState
+    /// A take is listening: the mic shows it.
+    let listening: Bool
+    /// A press on the mic is in progress, its take maybe still coming up:
+    /// the mic stays (never Go) under the finger.
+    let pressing: Bool
+    /// Listening, the words on their way, or why nothing landed: over the
+    /// box, and the mic's VoiceOver value.
+    let caption: String?
     var onUndo: () -> Void
     var undoEnabled: Bool
     var onSend: () -> Void
@@ -42,73 +51,59 @@ struct MiraChatOverlay: View {
                     undoEnabled: undoEnabled,
                     leadingOnGlass: true
                 )
-                questionCapsule
-                    .padding(.top, 12 - Metrics.navToCanvas)
                 miraPanel
                     // A tap on the panel lowers the keyboard; the quick
                     // actions still act.
                     .onTapGesture { focus.wrappedValue = false }
                     .padding(.top, 25)
                 Spacer(minLength: 0)
-                DictationStrip(
-                    listening: dictation == .listening,
-                    detail: dictation.detail,
-                    action: dictation == .listening ? "Release" : "Hold",
-                    onPress: onHoldStart,
-                    onRelease: onHoldEnd,
-                    onCancel: onHoldCancel
-                )
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Mira Dictation")
-                .accessibilityValue(dictation.detail)
-                .accessibilityHint(dictation == .listening
-                    ? Text("Ends the dictation.")
-                    : Text("Hold to talk, or tap to start; your words land in the question."))
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { onToggle() }
-                .accessibilityIdentifier("mira.dictation")
-                .padding(.horizontal, Metrics.chromeInset)
-                .padding(.bottom, 8)
+                questionBox
             }
         }
     }
 
     // MARK: Question
 
-    /// The live question: Medium 17 white words on ink, 253 wide against
-    /// the trailing inset. Return sends.
-    private var questionCapsule: some View {
-        HStack {
-            Spacer(minLength: 0)
-            // Single line: the keyboard's Send is the system Return
-            // (onSubmit); a paste never sends -- only the key does.
-            TextField(
-                "",
-                text: $prompt,
-                prompt: Text("Ask Mira anything").foregroundStyle(Color.white.opacity(0.55))
-            )
-            .font(.miraComposer)
-            .foregroundStyle(Color.white)
-            .tint(Color.white)
-            .submitLabel(.send)
-            .onSubmit(onSend)
-            .focused(focus)
-            // The dark keyboard of the handoff (forest-tinted in the mock).
-            .environment(\.colorScheme, .dark)
-            .padding(.horizontal, 18)
-            // 14 as drawn plus the half-leading of lh16 (Josefin's line
-            // box is 1.0 em; lineSpacing only adds between lines).
-            .padding(.vertical, 16)
-            .frame(width: 253, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(Palette.ink)
-                    .shadow(color: Palette.ink.opacity(0.1), radius: 8, y: 12)
-            )
-            .accessibilityLabel("Ask Mira")
-            .accessibilityIdentifier("mira.input")
-        }
+    /// The writing chat box, asking Mira about the page: Return or Go
+    /// sends; a paste never does.
+    private var questionBox: some View {
+        WritingChatBox(
+            ask: $prompt,
+            focus: focus,
+            listening: listening,
+            pressing: pressing,
+            // No waveform: the words land in this field, which keeps the
+            // keyboard while the mic listens.
+            recorder: nil,
+            status: caption ?? "",
+            canGo: true,
+            asking: false,
+            onGo: onSend,
+            onPress: onHoldStart,
+            onRelease: onHoldEnd,
+            onCancel: onHoldCancel,
+            onToggle: onToggle,
+            onEscape: onClose,
+            names: .chat
+        )
         .padding(.horizontal, Metrics.chromeInset)
+        // As the writing box's caption: over the box, taking no room.
+        .overlay(alignment: .top) {
+            if let caption {
+                Text(caption)
+                    .font(.miraCaption)
+                    .foregroundStyle(Palette.textSecondary)
+                    .lineLimit(2)
+                    .padding(.horizontal, Metrics.chromeInset)
+                    .padding(.bottom, 6)
+                    .frame(height: 0, alignment: .bottom)
+                    .transition(.opacity)
+                    .accessibilityIdentifier("mira.caption")
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: caption)
+        // 8 above the keyboard, or the home indicator when it is down.
+        .padding(.bottom, 8)
     }
 
     // MARK: Mira's panel
@@ -188,21 +183,4 @@ struct MiraChatOverlay: View {
 
     /// The handoff's warm grey for the panel's body line.
     private static let warmGrey = Color(hex: 0x8F7E76)
-}
-
-/// What the dictation strip says: at rest, listening, or why nothing landed.
-enum DictationStripState: Equatable {
-    case idle
-    case listening
-    case transcribing
-    case notice(String)
-
-    var detail: String {
-        switch self {
-        case .idle: return String(appCopy: "accurate voice-to-text")
-        case .listening: return String(appCopy: "Listening...")
-        case .transcribing: return String(appCopy: "Writing it down...")
-        case .notice(let message): return message
-        }
-    }
 }

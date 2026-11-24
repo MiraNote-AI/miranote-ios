@@ -130,8 +130,8 @@ final class KeyboardDismissUITests: XCTestCase {
         XCTAssertEqual(app.miraInput.value as? String, "a picnic", "the question stays")
 
         raiseKeyboard(app.miraInput)
-        let frame = app.miraInput.frame
-        point(frame.minX / 2, frame.midY).tap()
+        // The dimmed page just over the question box.
+        point(app.frame.midX, app.miraInput.frame.minY - 40).tap()
         waitUntilGone(app.miraInput, "a tap on the dimmed page closes the chat")
         XCTAssertEqual(app.miraComposer.label, "a picnic", "the draft waits in the composer")
     }

@@ -2852,18 +2852,6 @@
         }
       }
     },
-    "Hold" : {
-      "comment" : "Dictation strip action.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按住"
-          }
-        }
-      }
-    },
     "Hold to talk" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2883,18 +2871,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按住说话，或轻点开始。"
-          }
-        }
-      }
-    },
-    "Hold to talk, or tap to start; your words land in the question." : {
-      "comment" : "VoiceOver hint.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按住说话，或轻点开始；你说的话会填进问题里。"
           }
         }
       }
@@ -5626,18 +5602,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在重绘贴纸…"
-          }
-        }
-      }
-    },
-    "Release" : {
-      "comment" : "Dictation strip action while listening.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "松开"
           }
         }
       }
@@ -8522,17 +8486,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "几处内容"
-          }
-        }
-      }
-    },
-    "accurate voice-to-text" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "精准语音转文字"
           }
         }
       }

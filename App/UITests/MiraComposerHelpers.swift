@@ -2,14 +2,14 @@ import UIKit
 import XCTest
 
 /// Asking Mira from the canvas (handoff screen 06): the composer opens the
-/// Mira canvas chat, the question is typed in its dark capsule, and Return
-/// (the keyboard's Go) sends it.
+/// Mira canvas chat, the question is typed in its box at the bottom, and
+/// Return (the keyboard's Go) sends it.
 extension XCUIApplication {
     /// The composer at rest; its label is the waiting draft, or the
     /// placeholder.
     var miraComposer: XCUIElement { buttons["mira.composer"] }
 
-    /// The chat's question field (single line; Return sends).
+    /// The chat's question field (one line; Return sends).
     var miraInput: XCUIElement { descendants(matching: .any)["mira.input"].firstMatch }
 
     /// Pastes `text` into `field` through the system edit menu, as a person
