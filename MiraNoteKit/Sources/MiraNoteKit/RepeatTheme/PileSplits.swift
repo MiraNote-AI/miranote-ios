@@ -49,6 +49,45 @@ enum PileSplits {
                 splitB(members, places: places, calendar: calendar))
     }
 
+    // MARK: - Label shares
+
+    /// How one label is spread inside a group and in the rest of its pile.
+    struct TagShare: Equatable, Sendable {
+        let label: String
+        let inside: Double
+        let outside: Double
+    }
+
+    /// At most this many shares per group.
+    static let maxTagShares = 8
+
+    /// Labels present in at least one moment of the group, with the share of
+    /// the group's moments and of the pile's other moments that hold them.
+    /// Sorted by inside (high first), then label; at most eight.
+    static func tagShares(of groupMomentIds: [String], pile: Pile, moments: [String: Moment]) -> [TagShare] {
+        func present(_ moment: Moment) -> Set<String> {
+            Set(moment.labels.filter { $0.confidence >= presentConfidence }.map(\.id))
+        }
+        let inGroup = Set(groupMomentIds)
+        let inside = groupMomentIds.compactMap { moments[$0] }.map(present)
+        let others = pile.momentIds.filter { !inGroup.contains($0) }.compactMap { moments[$0] }.map(present)
+        var counts: [String: Int] = [:]
+        for labels in inside { for label in labels { counts[label, default: 0] += 1 } }
+        let shares = counts.map { label, count -> TagShare in
+            let outsideCount = others.filter { $0.contains(label) }.count
+            return TagShare(label: label, inside: Double(count) / Double(inside.count),
+                            outside: others.isEmpty ? 0 : Double(outsideCount) / Double(others.count))
+        }
+        return Array(shares.sorted { $0.inside != $1.inside ? $0.inside > $1.inside : $0.label < $1.label }
+            .prefix(maxTagShares))
+    }
+
+    /// A label that marks the group: in at least 30% of it, and at most half
+    /// as common outside it.
+    static func isSharp(_ share: TagShare) -> Bool {
+        share.inside >= 0.3 && share.outside <= share.inside / 2
+    }
+
     // MARK: - Split A
 
     private static func splitA(_ members: [Moment], places: Places, calendar: Calendar) -> [SplitGroup] {

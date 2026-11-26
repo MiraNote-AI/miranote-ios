@@ -95,13 +95,7 @@ enum PileCutter {
         let (days, share) = dayStats(leaves, moments)
 
         // Summed in member order so the same moments give the same center.
-        let length = members[0].vector.count
-        var sum = [Double](repeating: 0, count: length)
-        for member in members where member.vector.count == length {
-            for (offset, value) in member.vector.enumerated() { sum[offset] += Double(value) }
-        }
-        let norm = sum.reduce(0) { $0 + $1 * $1 }.squareRoot()
-        let center = sum.map { Float(norm > 0 ? $0 / norm : $0) }
+        let center = MomentBuilder.meanCenter(members.map(\.vector))
 
         return Pile(momentIds: members.map(\.id), days: days, maxDayShare: share,
                     height: tree.height(index), center: center)

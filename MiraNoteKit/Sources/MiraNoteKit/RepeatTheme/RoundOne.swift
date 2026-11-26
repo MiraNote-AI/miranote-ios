@@ -10,6 +10,33 @@ public struct RoundOneRequest: Encodable, Equatable, Sendable {
         public let id: String
         public let days: Int
         public let `where`: WhereFacts
+        /// The label shares of a content (A) group; nil, and no key, for B.
+        public let tags: [RoundOneRequest.Tag]?
+
+        private enum CodingKeys: String, CodingKey {
+            case id, days, `where`, tags
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(days, forKey: .days)
+            try container.encode(`where`, forKey: .where)
+            try container.encodeIfPresent(tags, forKey: .tags)
+        }
+    }
+
+    /// One label: its share of the group (`in`) and of the rest of the pile (`out`).
+    public struct Tag: Encodable, Equatable, Sendable {
+        public let label: String
+        public let inside: Double
+        public let outside: Double
+
+        private enum CodingKeys: String, CodingKey {
+            case label
+            case inside = "in"
+            case outside = "out"
+        }
     }
 
     /// One image: its number (1...N, the name of its upload part), its group
@@ -68,8 +95,14 @@ public struct RoundOneRequest: Encodable, Equatable, Sendable {
     // swiftlint:disable:next identifier_name function_parameter_count
     static func make(pile: Pile, moments: [String: Moment], a: [SplitGroup], b: [SplitGroup],
                      photos: [SampledPhoto], old: Old?) -> RoundOneRequest {
-        func entries(_ groups: [SplitGroup]) -> [Group] {
-            groups.map { Group(id: $0.id, days: $0.days, where: $0.where) }
+        func entries(_ groups: [SplitGroup], withTags: Bool) -> [Group] {
+            groups.map { group in
+                let tags = withTags
+                    ? PileSplits.tagShares(of: group.momentIds, pile: pile, moments: moments)
+                        .map { Tag(label: $0.label, inside: $0.inside, outside: $0.outside) }
+                    : nil
+                return Group(id: group.id, days: group.days, where: group.where, tags: tags)
+            }
         }
         var ids: [Int: String] = [:]
         let rows = photos.enumerated().map { offset, photo -> Photo in
@@ -82,8 +115,8 @@ public struct RoundOneRequest: Encodable, Equatable, Sendable {
         }
         // Photos, not moments: the prompt says "N photos on D different days".
         let photoCount = pile.momentIds.reduce(0) { $0 + (moments[$1]?.photoIds.count ?? 1) }
-        return RoundOneRequest(photoCount: photoCount, dayCount: pile.days, splitA: entries(a),
-                               splitB: entries(b), photos: rows, old: old, photoIds: ids)
+        return RoundOneRequest(photoCount: photoCount, dayCount: pile.days, splitA: entries(a, withTags: true),
+                               splitB: entries(b, withTags: false), photos: rows, old: old, photoIds: ids)
     }
 
     public func encode(to encoder: Encoder) throws {

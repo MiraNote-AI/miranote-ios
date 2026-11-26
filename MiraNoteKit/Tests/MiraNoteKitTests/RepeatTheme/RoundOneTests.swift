@@ -194,7 +194,7 @@ final class RoundOneTests: XCTestCase {
         XCTAssertEqual(json["pile"] as? [String: Int], ["photo_count": 5, "day_count": 3])
         let splitA = try XCTUnwrap(json["split_a"] as? [[String: Any]])
         XCTAssertEqual(splitA.map { $0["id"] as? String }, ["A1", "A2"])
-        XCTAssertEqual(Set(splitA[0].keys), ["id", "days", "where"])
+        XCTAssertEqual(Set(splitA[0].keys), ["id", "days", "where", "tags"])
         let whereJSON = try XCTUnwrap(splitA[0]["where"] as? [String: Any])
         XCTAssertEqual(Set(whereJSON.keys), ["daypart", "daypart_share", "hour_from", "hour_to", "weekpart", "places"])
         XCTAssertTrue(whereJSON["places"] is NSNull)
@@ -202,6 +202,23 @@ final class RoundOneTests: XCTestCase {
         XCTAssertEqual(photos.map { $0["n"] as? Int }, [1, 2])
         XCTAssertEqual(Set(photos[0].keys), ["n", "a", "b", "labels"])
         XCTAssertEqual(photos[1]["a"] as? String, "A0")
+    }
+
+    func testRequestEncodesTagsOnlyOnSplitA() throws {
+        let pile = Pile(momentIds: ["m1", "m2"], days: 3, maxDayShare: 0.4, height: 0.3, center: [1])
+        let moments = ["m1": moment("m1", labels: [("cat", 0.9)]), "m2": moment("m2", labels: [("dog", 0.9)])]
+        let groupA = SplitGroup(id: "A1", key: "cat", momentIds: ["m1"], days: 3, where: facts, placeCenter: nil)
+        let groupB = SplitGroup(id: "B1", key: "k", momentIds: ["m1"], days: 3, where: facts, placeCenter: nil)
+        let built = RoundOneRequest.make(pile: pile, moments: moments, a: [groupA], b: [groupB], photos: [], old: nil)
+        let json = try encoded(built)
+        let splitA = try XCTUnwrap(json["split_a"] as? [[String: Any]])
+        let splitB = try XCTUnwrap(json["split_b"] as? [[String: Any]])
+        let tags = try XCTUnwrap(splitA[0]["tags"] as? [[String: Any]])
+        XCTAssertEqual(tags.count, 1)
+        XCTAssertEqual(tags[0]["label"] as? String, "cat")
+        XCTAssertEqual(tags[0]["in"] as? Double, 1)
+        XCTAssertEqual(tags[0]["out"] as? Double, 0)
+        XCTAssertNil(splitB[0]["tags"])
     }
 
     func testRequestLabelsArePresentTopEightByConfidence() throws {

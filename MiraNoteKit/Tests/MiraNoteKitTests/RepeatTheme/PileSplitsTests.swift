@@ -171,4 +171,27 @@ final class PileSplitsTests: XCTestCase {
         XCTAssertTrue(object["hour_from"] is NSNull)
         XCTAssertEqual(try JSONDecoder().decode(WhereFacts.self, from: data), facts)
     }
+
+    func testTagSharesInsideAndOutside() {
+        let moments = [moment("m1", dayOffset: 0, labels: [("cat", 0.9), ("animal", 0.8)]),
+                       moment("m2", dayOffset: 1, labels: [("cat", 0.9), ("animal", 0.8)]),
+                       moment("m3", dayOffset: 2, labels: [("dog", 0.9), ("animal", 0.8)]),
+                       moment("m4", dayOffset: 3, labels: [("dog", 0.9), ("animal", 0.8), ("weak", 0.1)])]
+        let pile = Pile(momentIds: moments.map(\.id), days: 4, maxDayShare: 0.25, height: 0.3, center: [1, 0])
+        let byId = Dictionary(uniqueKeysWithValues: moments.map { ($0.id, $0) })
+        let shares = PileSplits.tagShares(of: ["m1", "m2"], pile: pile, moments: byId)
+        XCTAssertEqual(shares, [PileSplits.TagShare(label: "animal", inside: 1, outside: 1),
+                                PileSplits.TagShare(label: "cat", inside: 1, outside: 0)])
+        XCTAssertFalse(PileSplits.isSharp(shares[0]))
+        XCTAssertTrue(PileSplits.isSharp(shares[1]))
+    }
+
+    func testTagSharesCapAtEightAndOutsideIsZeroWithoutOthers() {
+        let labels = (0..<10).map { ("l\($0)", Float(0.9)) }
+        let only = moment("m1", dayOffset: 0, labels: labels)
+        let pile = Pile(momentIds: ["m1"], days: 1, maxDayShare: 1, height: 0.3, center: [1, 0])
+        let shares = PileSplits.tagShares(of: ["m1"], pile: pile, moments: ["m1": only])
+        XCTAssertEqual(shares.map(\.label), (0..<8).map { "l\($0)" })
+        XCTAssertTrue(shares.allSatisfy { $0.outside == 0 })
+    }
 }

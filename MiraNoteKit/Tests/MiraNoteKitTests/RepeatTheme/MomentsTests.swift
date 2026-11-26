@@ -135,4 +135,12 @@ final class MomentsTests: XCTestCase {
         XCTAssertEqual(MomentBuilder.cosineDistance([0, 0], [1, 0]), 1)
         XCTAssertEqual(MomentBuilder.cosineDistance([1, 0], [0, 1]), 1, accuracy: 1e-6)
     }
+
+    func testMeanCenterIsUnitLengthAndSkipsOtherLengths() {
+        let center = MomentBuilder.meanCenter([[3, 0], [0, 4], [1, 2, 3]])
+        XCTAssertEqual(center.count, 2)
+        XCTAssertEqual(center[0], 0.6, accuracy: 1e-6)
+        XCTAssertEqual(center[1], 0.8, accuracy: 1e-6)
+        XCTAssertEqual(MomentBuilder.meanCenter([]), [])
+    }
 }

@@ -39,6 +39,19 @@ public enum MomentBuilder {
     /// ...and at most this many seconds after the moment's first photo.
     public static let mergeSeconds: TimeInterval = 600
 
+    /// The unit-length mean direction of `vectors`, summed in the given order
+    /// in Double. Vectors whose length differs from the first are skipped;
+    /// `[]` when there are none.
+    public static func meanCenter(_ vectors: [[Float]]) -> [Float] {
+        guard let length = vectors.first?.count else { return [] }
+        var sum = [Double](repeating: 0, count: length)
+        for vector in vectors where vector.count == length {
+            for (offset, value) in vector.enumerated() { sum[offset] += Double(value) }
+        }
+        let norm = sum.reduce(0) { $0 + $1 * $1 }.squareRoot()
+        return sum.map { Float(norm > 0 ? $0 / norm : $0) }
+    }
+
     /// Moments sorted by start. Photos are only compared with the moment's
     /// FIRST photo, never with the previous one, so a slow drift cannot chain
     /// unlike shots into one moment. Days never mix. Groups whatever it is

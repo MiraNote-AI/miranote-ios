@@ -63,17 +63,12 @@ extension ThemeEngine {
         let own = pile.momentIds.compactMap { moments[$0] }
             .filter { $0.photoIds.contains(where: members.contains) }
             .sorted { ($0.start, $0.id) < ($1.start, $1.id) }
-        guard let length = own.first?.vector.count else { return nil }
+        guard !own.isEmpty else { return nil }
         var perDay: [String: Int] = [:]
         for moment in own { perDay[moment.day, default: 0] += 1 }
-        var sum = [Double](repeating: 0, count: length)
-        for moment in own where moment.vector.count == length {
-            for (offset, value) in moment.vector.enumerated() { sum[offset] += Double(value) }
-        }
-        let norm = sum.reduce(0) { $0 + $1 * $1 }.squareRoot()
         return Pile(momentIds: own.map(\.id), days: perDay.count,
                     maxDayShare: Double(perDay.values.max() ?? 0) / Double(own.count), height: pile.height,
-                    center: sum.map { Float(norm > 0 ? $0 / norm : $0) })
+                    center: MomentBuilder.meanCenter(own.map(\.vector)))
     }
 
     /// Asks one question and folds the answer into `rows`.
