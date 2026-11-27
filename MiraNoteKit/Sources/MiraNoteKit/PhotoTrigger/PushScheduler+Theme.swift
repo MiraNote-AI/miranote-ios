@@ -160,10 +160,18 @@ extension PushScheduler {
         let ids = row.members.filter {
             context.records[$0] != nil && context.library[$0] != nil && !context.repeatPushed.contains($0)
         }
+        var evidence: [String: Float] = [:]
+        if case .content(let wanted) = row.rule {
+            for id in ids {
+                let scores = (context.records[id]?.labels ?? []).filter { wanted.contains($0.id) }.map(\.confidence)
+                if let top = scores.max() { evidence[id] = top }
+            }
+        }
         return PushPhotoPicker.candidates(ids, takenAt: context.records.mapValues(\.takenAt), days: context.days,
                                           aesthetics: context.aesthetics,
                                           vectors: context.records.mapValues(\.vector),
-                                          center: context.center(of: row), lifeFragmentPhotos: context.lifeFragment)
+                                          center: context.center(of: row), lifeFragmentPhotos: context.lifeFragment,
+                                          evidence: evidence)
     }
 
     // MARK: Round 2

@@ -75,6 +75,14 @@ final class PushSchedulerThemeTests: PushSchedulerTestCase {
         XCTAssertEqual(notSetUp, [.preparing, .themeStopped(.notSetUp)])
     }
 
+    func testContentThemeCandidatesUseEvidence() async throws {
+        let weak = try seed("weak", days: Array(10...14), label: ("soup", 0.2), aesthetics: 0.9)
+        let strong = try seed("strong", days: Array(10...14), label: ("soup", 0.8), aesthetics: 0.5)
+        try themeLibrary.save([big(members: weak + strong), small("soup", name: "Soup", members: weak + strong)])
+        _ = await press(scheduler(), "soup")
+        XCTAssertEqual(Set(try XCTUnwrap(ledger.load().first).photoIds), Set(strong), "the strongest evidence wins")
+    }
+
     func testSmallThemeUnderFiveDaysFallsBackToBig() async throws {
         let ids = try seed("t", days: Array(10...19))
         let soup = Array(ids.prefix(6))
@@ -274,10 +282,10 @@ extension PushSchedulerThemeTests {
     /// 19:00 in Chicago, `days` before the test's start.
     private func evening(_ days: Int) -> Date { start.addingTimeInterval(-Double(days) * 86_400 + 8 * 3600) }
 
-    /// One photo `<prefix>-<day>` a day at 19:00, in the library and with a
-    /// theme record, all near the theme's look.
+    /// One photo `<prefix>-<day>` a day at 19:00, in the library, with a theme record near the look.
     @discardableResult
-    private func seed(_ prefix: String, days: [Int]) throws -> [String] {
+    private func seed(_ prefix: String, days: [Int], label: (String, Float) = ("food", 0.9),
+                      aesthetics: Double? = nil) throws -> [String] {
         var records: [ThemePhoto] = []
         for day in days {
             let id = "\(prefix)-\(day)"
@@ -288,8 +296,8 @@ extension PushSchedulerThemeTests {
             var raw = Self.center
             raw[1 + day % 7] = 0.3
             records.append(ThemePhoto(id: id, takenAt: evening(day), location: nil,
-                                      labels: [LabelScore(id: "food", confidence: 0.9)],
-                                      aesthetics: 0.5 + Double(day % 3) / 10, faces: 0, isTheme: true,
+                                      labels: [LabelScore(id: label.0, confidence: label.1)],
+                                      aesthetics: aesthetics ?? 0.5 + Double(day % 3) / 10, faces: 0, isTheme: true,
                                       print: ThemePhoto.normalized(raw), printRevision: 1))
         }
         try themePhotos.upsert(records, calendar: zone.calendar)

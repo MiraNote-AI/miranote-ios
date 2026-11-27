@@ -14,17 +14,20 @@ public enum PushPhotoPicker {
     static let likeness: Float = 0.5
 
     // swiftlint:disable function_parameter_count
-    /// Decision 12: one photo a day -- the highest aesthetics (missing:
-    /// 0.5, as iOS 17), a tie to the one nearest `center`, then the earlier.
+    /// Decision 12: one photo a day -- the strongest `evidence` (a content
+    /// theme's label confidence, missing: 0), then the highest aesthetics
+    /// (missing: 0.5, as iOS 17), a tie to the one nearest `center`, then the earlier.
     /// The days whose photo a life-fragment push used (`lifeFragmentPhotos`)
     /// go after the others: over 15 days, the others are spaced first and
     /// those days only fill what is left. Spaced = evenly over time, the
     /// first and last day kept. The others by date, then those by date.
     public static func candidates(_ ids: [String], takenAt: [String: Date], days: [String: String],
                                   aesthetics: [String: Double], vectors: [String: [Float]], center: [Float],
-                                  lifeFragmentPhotos: Set<String>) -> [String] {
+                                  lifeFragmentPhotos: Set<String>, evidence: [String: Float] = [:]) -> [String] {
         var best: [String: String] = [:]
         func better(_ first: String, _ second: String) -> Bool {
+            let (firstEvidence, secondEvidence) = (evidence[first] ?? 0, evidence[second] ?? 0)
+            if firstEvidence != secondEvidence { return firstEvidence > secondEvidence }
             let (firstScore, secondScore) = (aesthetics[first] ?? 0.5, aesthetics[second] ?? 0.5)
             if firstScore != secondScore { return firstScore > secondScore }
             let firstDistance = MomentBuilder.cosineDistance(vectors[first] ?? [], center)

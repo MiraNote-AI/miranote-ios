@@ -40,10 +40,10 @@ final class PushPhotoPickerTests: XCTestCase {
     }
 
     private func candidates(_ photos: Photos, center: [Float] = [1, 0, 0],
-                            lifeFragment: Set<String> = []) -> [String] {
+                            lifeFragment: Set<String> = [], evidence: [String: Float] = [:]) -> [String] {
         PushPhotoPicker.candidates(photos.ids, takenAt: photos.takenAt, days: photos.days,
                                    aesthetics: photos.aesthetics, vectors: photos.vectors, center: center,
-                                   lifeFragmentPhotos: lifeFragment)
+                                   lifeFragmentPhotos: lifeFragment, evidence: evidence)
     }
 
     func testCandidatesOnePerDayMaxFifteenEvenlySpread() {
@@ -81,6 +81,20 @@ final class PushPhotoPickerTests: XCTestCase {
 
     /// Days a life-fragment push used go after the others, and only fill
     /// what the other days leave of the 15.
+    func testCandidatesPreferEvidenceThenAesthetics() {
+        var day = photos(days: [1])
+        day.ids = ["a", "b"]
+        for (id, score) in [("a", 0.9), ("b", 0.5)] {
+            day.takenAt[id] = at(1)
+            day.days[id] = dayKey(1)
+            day.aesthetics[id] = score
+            day.vectors[id] = Self.vector([1, 0, 0])
+        }
+        XCTAssertEqual(candidates(day, evidence: ["a": 0.2, "b": 0.8]), ["b"], "evidence first")
+        XCTAssertEqual(candidates(day), ["a"], "no evidence: aesthetics")
+        XCTAssertEqual(candidates(day, evidence: ["b": 0.1]), ["b"], "a missing score counts as 0")
+    }
+
     func testCandidatesPutLifeFragmentDaysLast() {
         let all = photos(days: Array(1...20))
         let used = Set((1...8).map { "p\($0)" })
