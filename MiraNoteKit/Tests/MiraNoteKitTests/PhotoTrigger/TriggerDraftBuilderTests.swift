@@ -92,6 +92,22 @@ final class TriggerDraftBuilderTests: XCTestCase {
         XCTAssertEqual([parts.year, parts.month, parts.day], [2026, 10, 18])
     }
 
+    /// A push draft is a page never saved, as Start's is: its first Save
+    /// folds it into the star jar, and left via Home it is no star (#257).
+    @MainActor
+    func testDraftIsUnsavedUntilSaveMakesItAStar() {
+        let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
+                                              imageFiles: files(3), detailFont: "Lora")
+        XCTAssertTrue(draft.page.isDraft)
+        XCTAssertFalse(draft.page.hasBeenSaved)
+        XCTAssertEqual(StarFold.arrival(saved: true, wasStar: draft.page.hasBeenSaved, onHome: true,
+                                        reduceMotion: false), .fold)
+
+        let canvas = CanvasViewModel(memory: draft.page, prompts: draft.prompts)
+        XCTAssertTrue(canvas.filedMemory(saving: true).hasBeenSaved)
+        XCTAssertFalse(canvas.filedMemory(saving: false).hasBeenSaved, "left via Home it is no star")
+    }
+
     func testQuestionIsThePagesOnlyPrompt() throws {
         let draft = TriggerDraftBuilder.draft(memory: memory(count: 3, detail: "Light on the arch"),
                                               imageFiles: files(3), detailFont: "Lora")

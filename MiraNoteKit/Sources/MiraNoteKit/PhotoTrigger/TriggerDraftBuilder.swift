@@ -64,8 +64,10 @@ public enum TriggerDraftBuilder {
                 height: textHeight(memory.ending.question, size: questionSize, width: width))
         let question = items[items.count - 1].id
 
+        // Unsaved, as Start's page is: its first Save makes it a star (#257).
         return TriggerDraft(
-            page: Memory(title: memory.ending.factLine, memoryDate: shootingDay(memory), items: items),
+            page: Memory(title: memory.ending.factLine, memoryDate: shootingDay(memory), items: items,
+                         isDraft: true),
             prompts: [question: memory.ending.question]
         )
     }

@@ -319,6 +319,31 @@ extension PhotoTriggerUITests {
         XCTAssertTrue(app.buttons["note.\(groupADate)"].waitForExistence(timeout: 5))
     }
 
+    /// A push draft was never saved: its first Save folds it into the star
+    /// jar, as a page from Start does (#257). Watched on Home's probe, not
+    /// the jar's count: the page is dated its photos' day, which may be
+    /// last month's jar.
+    func testCtaDraftsFirstSaveFoldsIntoTheJar() {
+        launch()
+        pushAndWait()
+        openLatestPush()
+        skipToEnding(photos: 8).tap()
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10), "the canvas opened")
+        save.tap()
+        let folding = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.app.descendants(matching: .any).matching(identifier: "debug.state").allElementsBoundByIndex
+                .contains { probe in
+                    guard let data = probe.label.data(using: .utf8),
+                          let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        return false
+                    }
+                    return state["scene"] as? String == "home" && state["starArriving"] as? Bool == true
+                }
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [folding], timeout: 8), .completed, "the star folds into the jar")
+    }
+
     func testDraftSurvivesRelaunch() {
         launch()
         pushAndWait()
