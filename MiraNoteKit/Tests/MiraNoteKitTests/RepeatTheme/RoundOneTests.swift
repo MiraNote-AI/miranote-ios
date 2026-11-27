@@ -51,6 +51,22 @@ final class RoundOneTests: XCTestCase {
         XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"from":["A0"],"name":"x"}]}"#), .unknownGroup)
     }
 
+    func testNoGroupsOfferedKeepsPileNameAndDropsInventedGroups() throws {
+        let json = #"""
+        {"pile_name": "Dinners", "chosen": "A",
+         "groups": [{"from": ["A1"], "name": "a"}, {"from": ["A2"], "name": "b"}, {"from": ["A3"], "name": "c"},
+                    {"from": ["A4"], "name": "d"}, {"from": ["A5"], "name": "e"}], "drop_groups": ["A1"]}
+        """#
+        let result = RoundOneValidator.validate(answer(json), offered: ([], []))
+        let valid = try result.get()
+        XCTAssertEqual(valid.chosen, "none")
+        XCTAssertTrue(valid.groups.isEmpty)
+        XCTAssertTrue(valid.dropGroups.isEmpty)
+        XCTAssertEqual(valid.pileName, "Dinners")
+        let blank = RoundOneValidator.validate(answer(#"{"chosen": "A", "groups": []}"#), offered: ([], []))
+        XCTAssertEqual(blank, .failure(.blankPileName))
+    }
+
     func testEmptyFromOrBlankNameFails() {
         XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"from":[],"name":"x"}]}"#), .unknownGroup)
         XCTAssertEqual(problem(#"{"chosen":"A","groups":[{"name":"x"}]}"#), .unknownGroup)

@@ -179,6 +179,9 @@ final class ThemeHarness {
     var rounds: RoundLog { RoundLog(file: directory.appendingPathComponent("rounds.json")) }
     var window: ThemeWindowStore { ThemeWindowStore(file: directory.appendingPathComponent("window.json")) }
     var runs: ThemeRunLog { ThemeRunLog(file: directory.appendingPathComponent("runs.json")) }
+    var cooldown: ThemeAskCooldownStore {
+        ThemeAskCooldownStore(file: directory.appendingPathComponent("failed-asks.json"))
+    }
     var analyses: AnalysisStore { AnalysisStore(directory: directory.appendingPathComponent("analysis")) }
 
     var deps: ThemeDependencies {
@@ -186,7 +189,8 @@ final class ThemeHarness {
         return ThemeDependencies(
             library: library, analyzer: analyzer, analyses: analyses, photos: photos, themes: themes,
             rounds: rounds, window: window, runs: runs, client: roundClient ?? client, imageData: imageData,
-            now: { clock.now }, calendar: calendar, momentsCap: momentsCap)
+            now: { clock.now }, calendar: calendar, momentsCap: momentsCap,
+            cooldown: cooldown)
     }
 
     func engine() -> ThemeEngine { ThemeEngine(deps) }

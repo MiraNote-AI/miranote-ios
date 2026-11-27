@@ -71,6 +71,11 @@ extension ThemeEngine {
                     center: MomentBuilder.meanCenter(own.map(\.vector)))
     }
 
+    /// The ids of every photo in the pile's moments.
+    static func photoIds(of pile: Pile, scene: Scene) -> [String] {
+        pile.momentIds.flatMap { scene.moments[$0]?.photoIds ?? [] }
+    }
+
     /// Asks one question and folds the answer into `rows`.
     func ask(_ ask: Ask, rows: [ThemeRow], scene: Scene) async -> AskOutcome {
         let groups = PileSplits.make(ask.pile, moments: scene.moments, calendar: scene.calendar)
@@ -93,6 +98,10 @@ extension ThemeEngine {
         case .success(let valid): answer = valid
         case .failure(let reason):
             outcome.failure = "\(ask.label): \(reason.text)"
+            if case .answer = reason {
+                let failed = FailedAsk(at: deps.now(), photoIds: Self.photoIds(of: ask.pile, scene: scene))
+                try? deps.cooldown.record(failed)
+            }
             return outcome
         }
         let named: RoundOneAnswer

@@ -22,12 +22,15 @@ public struct ThemeDependencies: Sendable {
     public var calendar: Calendar
     /// At most this many moments are clustered: the newest (spec 6.2, I2).
     public var momentsCap: Int
+    /// `themes/failed-asks.json`: unusable asks wait before they are asked again.
+    public var cooldown: ThemeAskCooldownStore
 
     public init(library: PhotoLibraryReading, analyzer: PhotoAnalyzing, analyses: AnalysisStore,
                 photos: ThemePhotoStore, themes: ThemeLibrary, rounds: RoundLog, window: ThemeWindowStore,
                 runs: ThemeRunLog, client: ThemeRoundClient, imageData: @escaping @Sendable (String) async -> Data?,
                 now: @escaping @Sendable () -> Date = { Date() }, calendar: Calendar = .current,
-                momentsCap: Int = ThemeDependencies.defaultMomentsCap) {
+                momentsCap: Int = ThemeDependencies.defaultMomentsCap,
+                cooldown: ThemeAskCooldownStore = ThemeAskCooldownStore(file: ThemeAskCooldownStore.defaultFile)) {
         self.library = library
         self.analyzer = analyzer
         self.analyses = analyses
@@ -41,6 +44,7 @@ public struct ThemeDependencies: Sendable {
         self.now = now
         self.calendar = calendar
         self.momentsCap = momentsCap
+        self.cooldown = cooldown
     }
 }
 
@@ -279,6 +283,10 @@ public actor ThemeEngine {
             // Blocked since the asks were drawn up: not asked.
             rows = overridden(rows)
             if let big = ask.big, rows.contains(where: { $0.id == big.id && $0.status == .blocked }) { continue }
+            if deps.cooldown.isCooling(photoIds: Self.photoIds(of: ask.pile, scene: scene), now: deps.now()) {
+                report.failures.append("\(ask.label): waiting after an unusable answer")
+                continue
+            }
             let outcome = await self.ask(ask, rows: rows, scene: scene)
             if outcome.sent { report.asked += 1 }
             if let failure = outcome.failure { report.failures.append(failure) }

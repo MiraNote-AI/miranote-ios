@@ -247,7 +247,7 @@ final class ThemeEngineTests: XCTestCase {
         XCTAssertEqual(harness.bigRow(with: "x-1")?.name, "Theme2")
     }
 
-    func testBadAnswerIsLoggedAndAskedAgain() async {
+    func testBadAnswerCoolsTheAskForSevenDays() async {
         harness.client.roundOneReply = { _, number in
             number == 1 ? "no json here" : #"{"pile_name": "Fine", "chosen": "none"}"#
         }
@@ -256,7 +256,13 @@ final class ThemeEngineTests: XCTestCase {
         _ = await run(engine)
         XCTAssertEqual(harness.rounds.load().map(\.problem), [.notJSON])
         XCTAssertTrue(harness.themes.load().isEmpty)
+        let report = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 1, "cooling: no new round-1 call")
+        XCTAssertEqual(report.asked, 0)
+        XCTAssertTrue(report.failures.contains { $0.hasSuffix("waiting after an unusable answer") })
+        harness.clock.advance(8 * 86_400)
         _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 2)
         XCTAssertEqual(harness.bigRow(with: "x-1")?.name, "Fine")
     }
 

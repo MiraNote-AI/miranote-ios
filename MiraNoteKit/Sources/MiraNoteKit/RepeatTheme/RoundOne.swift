@@ -303,6 +303,13 @@ enum RoundOneValidator {
     private static func checkedGroups(_ answer: RoundOneAnswer, offered: (a: [SplitGroup], b: [SplitGroup]))
         -> Result<RoundOneAnswer, RoundOneProblem> {
         var result = answer
+        if offered.a.isEmpty && offered.b.isEmpty {
+            // The phone offered no groups: Qwen's name stays, invented groups go.
+            result.chosen = "none"
+            result.groups = []
+            result.dropGroups = []
+            return .success(result)
+        }
         let own: Set<String>
         let other: Set<String>
         switch answer.chosen {
