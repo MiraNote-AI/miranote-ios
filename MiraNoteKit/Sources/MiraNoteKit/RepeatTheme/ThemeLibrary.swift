@@ -75,7 +75,7 @@ public struct ThemeLibrary: Sendable {
         if answer.sensitive { return others + [row] + retiredCopies(of: old) }
 
         let splitChanged = big?.split.map { $0 != answer.chosen } ?? false
-        let fresh = smallRows(answer, parent: row, groups: groups, moments: moments, old: old,
+        let fresh = smallRows(answer, parent: row, pile: pile, groups: groups, moments: moments, old: old,
                               splitChanged: splitChanged)
         let used = Set(fresh.map(\.id))
         let missing = retiredCopies(of: old.filter { !used.contains($0.id) })
@@ -91,7 +91,9 @@ public struct ThemeLibrary: Sendable {
         }
     }
 
-    private static func smallRows(_ answer: RoundOneAnswer, parent: ThemeRow,
+    /// A content (A) row takes its groups' look as `center`; an occasion
+    /// (B) row has none.
+    private static func smallRows(_ answer: RoundOneAnswer, parent: ThemeRow, pile: Pile,
                                   groups: (a: [SplitGroup], b: [SplitGroup]), moments: [String: Moment],
                                   old: [ThemeRow], splitChanged: Bool) -> [ThemeRow] {
         guard answer.chosen == "A" || answer.chosen == "B" else { return [] }
@@ -104,15 +106,19 @@ public struct ThemeLibrary: Sendable {
         for group in answer.groups {
             let sources = group.from.compactMap { offered[$0] }
             guard let first = sources.first, !group.name.isEmpty else { continue }
-            let rule = rule(for: answer.chosen, group: group, sources: sources)
-            let photos = sources.flatMap(\.momentIds).flatMap { moments[$0]?.photoIds ?? [] }
+            let momentIds = sources.flatMap(\.momentIds)
+            let byContent = answer.chosen == "A"
+            let shares = byContent ? PileSplits.tagShares(of: momentIds, pile: pile, moments: moments) : []
+            let rule = rule(for: answer.chosen, group: group, sources: sources, shares: shares)
+            let center = byContent ? MomentBuilder.meanCenter(momentIds.compactMap { moments[$0]?.vector }) : nil
+            let photos = momentIds.flatMap { moments[$0]?.photoIds ?? [] }
             let found = reusable.first { $0.name == group.name && !taken.contains($0.id) }
             let status = found.map { $0.status == .retired ? ThemeStatus.active : $0.status } ?? .active
             let members = unique(photos).filter(inBig.contains)
             taken.insert(found?.id ?? "")
             rows.append(ThemeRow(id: found?.id ?? UUID().uuidString, kind: .small, parentId: parent.id,
                                  name: group.name, noun: group.noun ?? "", samePart: group.samePart ?? "",
-                                 split: answer.chosen, status: status, center: nil, rule: rule,
+                                 split: answer.chosen, status: status, center: center, rule: rule,
                                  members: members, lastAskedCount: members.count,
                                  flagged: found?.flagged ?? false, followRatio: found?.followRatio,
                                  where: first.where))
@@ -122,9 +128,15 @@ public struct ThemeLibrary: Sendable {
 
     // swiftlint:enable function_parameter_count
 
-    private static func rule(for chosen: String, group: RoundOneAnswer.Group, sources: [SplitGroup]) -> SubRule {
+    /// A content rule keeps the evidence labels that are sharp in the
+    /// groups (`shares`, `PileSplits.isSharp`); with none left, the source
+    /// groups' label keys.
+    private static func rule(for chosen: String, group: RoundOneAnswer.Group, sources: [SplitGroup],
+                             shares: [PileSplits.TagShare]) -> SubRule {
         if chosen == "A" {
-            return .content(evidence: group.evidence.isEmpty ? unique(sources.map(\.key)) : group.evidence)
+            let sharp = Set(shares.filter(PileSplits.isSharp).map(\.label))
+            let evidence = group.evidence.filter(sharp.contains)
+            return .content(evidence: evidence.isEmpty ? unique(sources.map(\.key)) : evidence)
         }
         var keys: [OccasionKey] = []
         for source in sources {

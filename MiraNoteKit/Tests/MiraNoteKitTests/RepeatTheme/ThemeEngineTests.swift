@@ -290,6 +290,42 @@ final class ThemeEngineTests: XCTestCase {
         XCTAssertEqual(harness.client.shortenItems.count, 1)
     }
 
+    /// The small lists the ask sets are the ones every later run makes:
+    /// content children split the big list by look, a photo in one at most.
+    func testSmallListsAfterAskMatchNextRun() async throws {
+        let soup = LabelScore(id: "soup", confidence: 0.9)
+        harness.addTheme("x", base: 0, days: [1, 2, 3, 4], labels: [soup])
+        harness.addTheme("x", base: 0, days: [5, 6, 7, 8], labels: [LabelScore(id: "noodle", confidence: 0.9)])
+        // A soup-looking day that also shows some noodles: soup only, by look.
+        harness.addTheme("x", base: 0, days: [9], labels: [soup, LabelScore(id: "noodle", confidence: 0.5)])
+        for day in 1...9 {
+            var look = ThemeHarness.vector(base: 0, noise: day)
+            look[(5...8).contains(day) ? 2 : 1] = 0.3
+            harness.analyzer.vectors["x-\(day)"] = look
+        }
+        harness.client.roundOneReply = { request, _ in
+            let groups = request.splitA.compactMap { group -> String? in
+                guard let label = group.tags?.first?.label else { return nil }
+                return #"{"from": ["\#(group.id)"], "name": "\#(label)", "evidence": ["\#(label)"]}"#
+            }
+            return #"{"pile_name": "Meals", "chosen": "A", "groups": [\#(groups.joined(separator: ", "))]}"#
+        }
+        func smallLists() -> [String: [String]] {
+            Dictionary(uniqueKeysWithValues: harness.themes.load().filter { $0.kind == .small }
+                .map { ($0.name, $0.members) })
+        }
+        let engine = harness.engine()
+        _ = await run(engine)
+        let afterAsk = smallLists()
+        XCTAssertEqual(Set(afterAsk["soup"] ?? []), ["x-1", "x-2", "x-3", "x-4", "x-9"])
+        XCTAssertEqual(Set(afterAsk["noodle"] ?? []), ["x-5", "x-6", "x-7", "x-8"])
+        XCTAssertTrue(Set(afterAsk["soup"] ?? []).isDisjoint(with: afterAsk["noodle"] ?? []))
+
+        _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 1, "not asked again")
+        XCTAssertEqual(smallLists(), afterAsk)
+    }
+
     func testShortenedNamesAreUsed() async {
         harness.addTheme("x", base: 0, days: Array(1...6))
         harness.client.roundOneReply = { _, _ in #"{"pile_name": "Abcdefghijk", "chosen": "none"}"# }

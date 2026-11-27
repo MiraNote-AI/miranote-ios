@@ -19,7 +19,8 @@ public struct OccasionKey: Codable, Equatable, Sendable {
 
 /// How a small theme picks its photos from its big theme's list.
 public enum SubRule: Codable, Equatable, Sendable {
-    /// Any of these Vision labels present.
+    /// Any of these Vision labels present; a row with a center also takes
+    /// only the photos that look like it (`SubThemeRule.lists`).
     case content(evidence: [String])
     /// Any of these occasions.
     case occasion(keys: [OccasionKey])
@@ -39,33 +40,98 @@ enum SubThemeRule {
     /// moment has none.
     static func members(_ rule: SubRule, in photos: [String], moments: [String: Moment],
                         photosById: [String: ThemePhoto], calendar: Calendar) -> [String] {
+        let judged = judge(photos, moments: moments, photosById: photosById)
+        return judged.filter { matches(rule, $0.moment, calendar: calendar) }.map(\.photoId)
+    }
+
+    /// Tonight's lists of the small rows among `rows`, made by `lists` per
+    /// big row. A small theme whose big theme froze (or is not in `claim`,
+    /// or not among `rows`) freezes too and keeps its old list. The engine
+    /// must take small lists from here, never call `members` for the small
+    /// themes of a frozen big theme.
+    static func membersTonight(of rows: [ThemeRow], claim: ClaimResult, moments: [String: Moment],
+                               photosById: [String: ThemePhoto], calendar: Calendar) -> [String: [String]] {
+        let smalls = rows.filter { $0.kind == .small }
+        var lists = Dictionary(smalls.map { ($0.id, $0.members) }, uniquingKeysWith: { first, _ in first })
+        for parent in rows where parent.kind == .big && !claim.frozen.contains(parent.id) {
+            guard let bigList = claim.members[parent.id] else { continue }
+            let children = smalls.filter { $0.parentId == parent.id }
+            guard !children.isEmpty else { continue }
+            lists.merge(self.lists(children: children, parent: parent, in: bigList, moments: moments,
+                                   photosById: photosById, calendar: calendar)) { _, new in new }
+        }
+        return lists
+    }
+
+    // swiftlint:disable function_parameter_count
+    /// The lists of `children` (small rows of `parent`) within `bigList`,
+    /// each in `bigList` order (decision 2):
+    /// - an occasion child, or a content child without a center (an old
+    ///   row), takes what `members` gives its rule;
+    /// - content children with a center share the photos: a photo's moment
+    ///   goes to the child whose center is nearest its look (tie: the first
+    ///   child), only when that is strictly nearer than `parent.center`
+    ///   (skipped when the parent has none) and the moment holds one of that
+    ///   child's evidence labels at `PileSplits.presentConfidence`. A moment
+    ///   whose look has no length in common with the centers joins none;
+    /// - a retired child, or one without a rule, keeps its old list and
+    ///   takes part in nothing.
+    static func lists(children: [ThemeRow], parent: ThemeRow, in bigList: [String], moments: [String: Moment],
+                      photosById: [String: ThemePhoto], calendar: Calendar) -> [String: [String]] {
+        let judged = judge(bigList, moments: moments, photosById: photosById)
+        var lists: [String: [String]] = [:]
+        var byLook: [LookChild] = []
+        for child in children {
+            guard child.status != .retired, let rule = child.rule else {
+                lists[child.id] = child.members
+                continue
+            }
+            if case .content(let evidence) = rule, let center = child.center, !center.isEmpty {
+                byLook.append(LookChild(id: child.id, center: center, evidence: evidence))
+                lists[child.id] = []
+            } else {
+                lists[child.id] = judged.filter { matches(rule, $0.moment, calendar: calendar) }.map(\.photoId)
+            }
+        }
+        guard !byLook.isEmpty else { return lists }
+        let parentCenter = parent.center ?? []
+        for (photoId, moment) in judged {
+            var nearest: (index: Int, distance: Float)?
+            for (index, child) in byLook.enumerated() where child.center.count == moment.vector.count {
+                let distance = MomentBuilder.cosineDistance(moment.vector, child.center)
+                if nearest.map({ distance < $0.distance }) ?? true { nearest = (index, distance) }
+            }
+            guard let nearest else { continue }
+            if !parentCenter.isEmpty,
+               nearest.distance >= MomentBuilder.cosineDistance(moment.vector, parentCenter) { continue }
+            let child = byLook[nearest.index]
+            guard matches(.content(evidence: child.evidence), moment, calendar: calendar) else { continue }
+            lists[child.id, default: []].append(photoId)
+        }
+        return lists
+    }
+
+    // swiftlint:enable function_parameter_count
+
+    /// A content child that takes photos by look.
+    private struct LookChild {
+        let id: String
+        let center: [Float]
+        let evidence: [String]
+    }
+
+    /// Each photo of `photos` (in that order) with the moment it is judged
+    /// by: its moment, else its own record as one; a photo in neither is
+    /// left out.
+    private static func judge(_ photos: [String], moments: [String: Moment],
+                              photosById: [String: ThemePhoto]) -> [(photoId: String, moment: Moment)] {
         var momentOf: [String: Moment] = [:]
         for moment in moments.values {
             for photoId in moment.photoIds { momentOf[photoId] = moment }
         }
-        return photos.filter { photoId in
-            guard let moment = momentOf[photoId] ?? photosById[photoId].map(standalone) else { return false }
-            return matches(rule, moment, calendar: calendar)
+        return photos.compactMap { photoId in
+            (momentOf[photoId] ?? photosById[photoId].map(standalone)).map { (photoId, $0) }
         }
-    }
-
-    /// Tonight's lists of `smallThemes`. A small theme whose big theme froze
-    /// (or is not in `claim`) freezes too and keeps its old list; so does one
-    /// without a rule. The engine must take small lists from here, never
-    /// call `members` for the small themes of a frozen big theme.
-    static func membersTonight(of smallThemes: [ThemeRow], claim: ClaimResult, moments: [String: Moment],
-                               photosById: [String: ThemePhoto], calendar: Calendar) -> [String: [String]] {
-        var lists: [String: [String]] = [:]
-        for row in smallThemes where row.kind == .small {
-            guard let rule = row.rule, let parent = row.parentId, !claim.frozen.contains(parent),
-                  let bigList = claim.members[parent] else {
-                lists[row.id] = row.members
-                continue
-            }
-            lists[row.id] = members(rule, in: bigList, moments: moments, photosById: photosById,
-                                    calendar: calendar)
-        }
-        return lists
     }
 
     private static func matches(_ rule: SubRule, _ moment: Moment, calendar: Calendar) -> Bool {

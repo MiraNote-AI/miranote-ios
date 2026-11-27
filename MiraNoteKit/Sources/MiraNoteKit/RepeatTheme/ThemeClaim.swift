@@ -24,7 +24,10 @@ public struct ThemeRow: Codable, Equatable, Sendable, Identifiable {
     /// `A`, `B` or `none` (big themes only).
     public var split: String?
     public var status: ThemeStatus
-    /// The mean look of the members, unit length (big themes only).
+    /// The mean look, unit length: of a big theme's members, or of the
+    /// moments a content small theme was made from.
+    /// Nil for occasion small themes and for small rows stored before
+    /// small themes had one.
     public var center: [Float]?
     /// How tonight's members are picked from the big theme's (small themes only).
     /// An occasion rule holds place centers: on disk only, never sent anywhere.

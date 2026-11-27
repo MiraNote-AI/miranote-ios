@@ -9,8 +9,8 @@ extension ThemeEngine {
     /// one with its big one); blocked, sensitive and retired stay as they are.
     static func writeBack(_ claim: ClaimResult, to rows: [ThemeRow], moments: [String: Moment],
                           photos: [String: ThemePhoto], calendar: Calendar) -> [ThemeRow] {
-        let smallLists = SubThemeRule.membersTonight(of: rows.filter { $0.kind == .small }, claim: claim,
-                                                     moments: moments, photosById: photos, calendar: calendar)
+        let smallLists = SubThemeRule.membersTonight(of: rows, claim: claim, moments: moments, photosById: photos,
+                                                     calendar: calendar)
         return rows.map { original in
             var row = original
             let movable = row.status == .active || row.status == .frozen

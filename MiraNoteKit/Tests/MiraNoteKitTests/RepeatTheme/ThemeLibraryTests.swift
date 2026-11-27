@@ -124,6 +124,38 @@ final class ThemeLibraryTests: XCTestCase {
         XCTAssertEqual(small(rows, "Desk")?.rule, .content(evidence: ["table"]))
     }
 
+    /// Content rows get their groups' look, and keep only the evidence
+    /// labels that are sharp in their groups (decision 2).
+    func testFirstAnswerGivesContentRowsACenterAndSharpEvidence() throws {
+        var labelled = moments
+        let looks: [Int: [Float]] = [1: [1, 0], 2: [0.8, 0.6], 3: [1, 0], 4: [0, 1], 5: [0.6, 0.8], 6: [0, 1]]
+        for index in 1...6 {
+            var labels = [LabelScore(id: "outdoor", confidence: 0.9)]
+            if index <= 3 { labels.append(LabelScore(id: "cat", confidence: 0.9)) }
+            if index == 4 || index == 5 { labels.append(LabelScore(id: "table", confidence: 0.9)) }
+            let old = try XCTUnwrap(labelled["m\(index)"])
+            labelled[old.id] = Moment(id: old.id, photoIds: old.photoIds, day: old.day, start: old.start,
+                                      vector: looks[index]!, labels: labels, location: nil)
+        }
+        let catPile = answer("""
+        {"sensitive":false,"pile_name":"Cats","chosen":"A","groups":[
+        {"from":["A1"],"name":"Cat","evidence":["outdoor","cat"]},
+        {"from":["A2"],"name":"Table","evidence":["outdoor"]}],"not_in_pile":[]}
+        """)
+        let rows = ThemeLibrary.apply(catPile, to: nil, pile: pile, moments: labelled, groups: (splitA, splitB),
+                                      sample: sample, existing: [])
+        let cat = try XCTUnwrap(small(rows, "Cat"))
+        XCTAssertEqual(cat.rule, .content(evidence: ["cat"]), "outdoor is in every moment: not sharp")
+        let center = try XCTUnwrap(cat.center)
+        XCTAssertEqual(center, MomentBuilder.meanCenter([[1, 0], [0.8, 0.6], [1, 0]]))
+        XCTAssertFalse(center.isEmpty)
+        // No sharp evidence left: the source group's key, as before.
+        let table = try XCTUnwrap(small(rows, "Table"))
+        XCTAssertEqual(table.rule, .content(evidence: ["table"]))
+        XCTAssertEqual(table.center, MomentBuilder.meanCenter([[0, 1], [0.6, 0.8]]))
+        XCTAssertEqual(rows.first { $0.kind == .big }?.center, [0.5, 0.5], "the big row keeps the pile's look")
+    }
+
     func testOccasionRuleParsesGroupKeys() throws {
         let byOccasion = answer("""
         {"sensitive":false,"pile_name":"Meals","chosen":"B","groups":[
@@ -137,6 +169,7 @@ final class ThemeLibraryTests: XCTestCase {
         XCTAssertEqual(dinner.where, facts)
         XCTAssertEqual(small(rows, "Weekend breakfast")?.rule,
                        .occasion(keys: [OccasionKey(place: nil, daypart: "morning", weekpart: "weekend")]))
+        XCTAssertTrue(smalls(rows).allSatisfy { $0.center == nil }, "occasion rows have no look")
     }
 
     func testReaskKeepsIdsOfSameNames() throws {

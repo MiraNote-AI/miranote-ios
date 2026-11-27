@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 @testable import MiraNoteKit
 
+// swiftlint:disable:next type_body_length
 final class SubThemeRuleTests: XCTestCase {
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -16,12 +17,34 @@ final class SubThemeRuleTests: XCTestCase {
 
     /// A one-photo moment (moment id = photo id) unless `photos` names more.
     private func moment(_ id: String, dayOffset: Int = 0, hour: Int = 18, labels: [(String, Float)] = [],
-                        location: GeoPoint? = nil, photos: [String]? = nil) -> Moment {
+                        location: GeoPoint? = nil, photos: [String]? = nil, vector: [Float] = [1, 0]) -> Moment {
         Moment(id: id, photoIds: photos ?? [id], day: "d\(dayOffset)",
                start: monday.addingTimeInterval(Double(dayOffset) * 86_400 + Double(hour) * 3600),
-               vector: [1, 0], labels: labels.map { LabelScore(id: $0.0, confidence: $0.1) },
+               vector: vector, labels: labels.map { LabelScore(id: $0.0, confidence: $0.1) },
                location: location)
     }
+
+    private func small(_ id: String, parent: String = "big", members: [String] = [], rule: SubRule,
+                       center: [Float]? = nil, status: ThemeStatus = .active) -> ThemeRow {
+        ThemeRow(id: id, kind: .small, parentId: parent, name: id, noun: id, samePart: "", split: nil,
+                 status: status, center: center, rule: rule, members: members,
+                 lastAskedCount: members.count, flagged: false, followRatio: nil, where: nil)
+    }
+
+    private func big(_ id: String = "big", center: [Float]?, members: [String] = []) -> ThemeRow {
+        ThemeRow(id: id, kind: .big, parentId: nil, name: id, noun: id, samePart: "", split: "A",
+                 status: .active, center: center, rule: nil, members: members,
+                 lastAskedCount: members.count, flagged: false, followRatio: nil, where: nil)
+    }
+
+    private func lists(_ children: [ThemeRow], parent: ThemeRow, _ moments: [Moment],
+                       photosById: [String: ThemePhoto] = [:], extra: [String] = []) -> [String: [String]] {
+        SubThemeRule.lists(children: children, parent: parent, in: moments.flatMap(\.photoIds) + extra,
+                           moments: Dictionary(uniqueKeysWithValues: moments.map { ($0.id, $0) }),
+                           photosById: photosById, calendar: calendar)
+    }
+
+    private let diagonal: [Float] = [Float(0.5).squareRoot(), Float(0.5).squareRoot()]
 
     private func members(_ rule: SubRule, _ moments: [Moment]) -> [String] {
         SubThemeRule.members(rule, in: moments.flatMap(\.photoIds),
@@ -94,23 +117,158 @@ final class SubThemeRuleTests: XCTestCase {
             moment("r2", labels: [("soup", 0.7)]),
             moment("s0", labels: [("sunset", 0.9)])
         ]
-        func small(_ id: String, parent: String, members: [String], evidence: [String]) -> ThemeRow {
-            ThemeRow(id: id, kind: .small, parentId: parent, name: id, noun: id, samePart: "", split: nil,
-                     status: .active, center: nil, rule: .content(evidence: evidence), members: members,
-                     lastAskedCount: members.count, flagged: false, followRatio: nil, where: nil)
-        }
-        let soup = small("soup", parent: "rice", members: ["r0"], evidence: ["soup"])
-        let sunset = small("sunset", parent: "sky", members: ["old-sky"], evidence: ["sunset"])
+        let soup = small("soup", parent: "rice", members: ["r0"], rule: .content(evidence: ["soup"]))
+        let sunset = small("sunset", parent: "sky", members: ["old-sky"], rule: .content(evidence: ["sunset"]))
         let claim = ClaimResult(follows: ["rice": 0], ratios: ["rice": 1, "sky": 0.1], flagged: [],
                                 frozen: ["sky"], members: ["rice": ["r0", "r1", "r2"], "sky": ["old-sky"]],
                                 newPiles: [1])
         let tonight = SubThemeRule.membersTonight(
-            of: [soup, sunset], claim: claim,
+            of: [big("rice", center: nil), soup, big("sky", center: nil), sunset], claim: claim,
             moments: Dictionary(uniqueKeysWithValues: moments.map { ($0.id, $0) }), photosById: [:],
             calendar: calendar)
         XCTAssertEqual(tonight["soup"], ["r0", "r2"])
         // The sky is frozen: its small theme keeps its list, though "s0" would match.
         XCTAssertEqual(tonight["sunset"], ["old-sky"])
+    }
+
+    func testMissingParentRowKeepsTheOldList() {
+        let moments = [moment("r0", labels: [("soup", 0.9)])]
+        let soup = small("soup", parent: "rice", members: ["old"], rule: .content(evidence: ["soup"]))
+        let claim = ClaimResult(follows: ["rice": 0], ratios: ["rice": 1], flagged: [], frozen: [],
+                                members: ["rice": ["r0"]], newPiles: [])
+        let tonight = SubThemeRule.membersTonight(
+            of: [soup], claim: claim, moments: Dictionary(uniqueKeysWithValues: moments.map { ($0.id, $0) }),
+            photosById: [:], calendar: calendar)
+        XCTAssertEqual(tonight["soup"], ["old"])
+    }
+
+    // MARK: - Content children by look (decision 2)
+
+    func testContentChildrenSplitByLook() {
+        let cat = small("cat", rule: .content(evidence: ["cat"]), center: [1, 0])
+        let dog = small("dog", rule: .content(evidence: ["dog"]), center: [0, 1])
+        let moments = [
+            moment("c1", labels: [("cat", 0.9)], vector: [1, 0.1]),
+            moment("c2", labels: [("cat", 0.3), ("dog", 0.9)], photos: ["c2", "c2-b"], vector: [0.9, 0.2]),
+            moment("d1", labels: [("dog", 0.8)], vector: [0.1, 1]),
+            moment("d2", labels: [("dog", 0.5), ("cat", 0.9)], vector: [0.2, 0.9]),
+            moment("nocat", labels: [("dog", 0.9), ("cat", 0.29)], vector: [1, 0.1])
+        ]
+        let result = lists([cat, dog], parent: big(center: diagonal), moments)
+        XCTAssertEqual(result["cat"], ["c1", "c2", "c2-b"])
+        XCTAssertEqual(result["dog"], ["d1", "d2"])
+    }
+
+    func testPhotoNearerBigCenterJoinsNoChild() {
+        let cat = small("cat", rule: .content(evidence: ["cat"]), center: [1, 0])
+        let dog = small("dog", rule: .content(evidence: ["dog"]), center: [0, 1])
+        let moments = [
+            moment("middle", labels: [("cat", 0.9), ("dog", 0.9)], vector: [1, 0.8]),
+            moment("c1", labels: [("cat", 0.9)], vector: [1, 0.1])
+        ]
+        let result = lists([cat, dog], parent: big(center: diagonal), moments)
+        XCTAssertEqual(result["cat"], ["c1"])
+        XCTAssertEqual(result["dog"], [])
+        // A big theme without a look does not hold photos back.
+        for parent in [big(center: nil), big(center: [])] {
+            let loose = lists([cat, dog], parent: parent, moments)
+            XCTAssertEqual(loose["cat"], ["middle", "c1"])
+            XCTAssertEqual(loose["dog"], [])
+        }
+    }
+
+    func testPhotoJoinsAtMostOneContentChild() {
+        let cat = small("cat", rule: .content(evidence: ["cat"]), center: [1, 0])
+        let kitten = small("kitten", rule: .content(evidence: ["kitten"]), center: [0.9, 0.3])
+        let moments = [
+            moment("c1", labels: [("cat", 0.9), ("kitten", 0.9)], vector: [1, 0]),
+            moment("k1", labels: [("cat", 0.9), ("kitten", 0.9)], vector: [0.9, 0.35]),
+            // Nearest is kitten, which it has no label of: it joins neither, not the next nearest.
+            moment("k2", labels: [("cat", 0.9)], vector: [0.9, 0.35])
+        ]
+        let result = lists([cat, kitten], parent: big(center: [0, 1]), moments)
+        XCTAssertEqual(result["cat"], ["c1"])
+        XCTAssertEqual(result["kitten"], ["k1"])
+        // The same center twice: the first child in order wins.
+        let twin = small("twin", rule: .content(evidence: ["cat"]), center: [1, 0])
+        let tied = lists([twin, cat], parent: big(center: [0, 1]), [moments[0]])
+        XCTAssertEqual(tied["twin"], ["c1"])
+        XCTAssertEqual(tied["cat"], [])
+    }
+
+    func testMomentWithoutVectorJoinsNoSmallTheme() {
+        let cat = small("cat", rule: .content(evidence: ["cat"]), center: [1, 0])
+        let moments = [
+            moment("blank", labels: [("cat", 0.9)], vector: []),
+            moment("short", labels: [("cat", 0.9)], vector: [1]),
+            moment("c1", labels: [("cat", 0.9)], vector: [1, 0])
+        ]
+        let loose = ThemePhoto(id: "loose", takenAt: monday, location: nil,
+                               labels: [LabelScore(id: "cat", confidence: 0.9)], aesthetics: nil,
+                               faces: 0, isTheme: true, print: Data(), printRevision: 1)
+        let result = lists([cat], parent: big(center: nil), moments, photosById: ["loose": loose],
+                           extra: ["loose"])
+        XCTAssertEqual(result["cat"], ["c1"])
+    }
+
+    func testOldSmallRowWithoutCenterKeepsLabelRule() {
+        let oldCat = small("old-cat", rule: .content(evidence: ["cat"]))
+        let emptyCenter = small("empty", rule: .content(evidence: ["cat"]), center: [])
+        let dog = small("dog", rule: .content(evidence: ["dog"]), center: [0, 1])
+        let moments = [
+            moment("c1", labels: [("cat", 0.9)], vector: [1, 0]),
+            moment("both", labels: [("cat", 0.9), ("dog", 0.9)], vector: [0, 1]),
+            moment("d1", labels: [("dog", 0.9)], vector: [0, 1])
+        ]
+        let result = lists([oldCat, emptyCenter, dog], parent: big(center: diagonal), moments)
+        XCTAssertEqual(result["old-cat"], ["c1", "both"])
+        XCTAssertEqual(result["empty"], ["c1", "both"])
+        XCTAssertEqual(result["dog"], ["both", "d1"])
+    }
+
+    func testOccasionChildrenUnchanged() {
+        let moments = [
+            moment("home", location: home),
+            moment("saturday", dayOffset: 5, location: home, vector: [1, 0]),
+            moment("cat", labels: [("cat", 0.9)], location: home, vector: [1, 0])
+        ]
+        let rule = SubRule.occasion(keys: [OccasionKey(place: home, daypart: "evening", weekpart: "weekday")])
+        let evening = small("evening", rule: rule)
+        let cat = small("cat", rule: .content(evidence: ["cat"]), center: [1, 0])
+        let result = lists([evening, cat], parent: big(center: [0, 1]), moments)
+        XCTAssertEqual(result["evening"], members(rule, moments))
+        XCTAssertEqual(result["evening"], ["home", "cat"])
+        XCTAssertEqual(result["cat"], ["cat"])
+    }
+
+    func testRetiredOrRulelessChildKeepsItsListAndTakesNoPhoto() {
+        let retired = small("retired", members: ["old"], rule: .content(evidence: ["cat"]), center: [1, 0],
+                            status: .retired)
+        let ruleless = ThemeRow(id: "ruleless", kind: .small, parentId: "big", name: "r", noun: "r", samePart: "",
+                                split: nil, status: .active, center: [1, 0], rule: nil, members: ["kept"],
+                                lastAskedCount: 1, flagged: false, followRatio: nil, where: nil)
+        let cat = small("cat", rule: .content(evidence: ["cat"]), center: [0.9, 0.1])
+        let moments = [moment("c1", labels: [("cat", 0.9)], vector: [1, 0])]
+        let result = lists([retired, ruleless, cat], parent: big(center: [0, 1]), moments)
+        XCTAssertEqual(result["retired"], ["old"])
+        XCTAssertEqual(result["ruleless"], ["kept"])
+        XCTAssertEqual(result["cat"], ["c1"])
+    }
+
+    func testMembersTonightSplitsContentChildrenByLook() {
+        let cat = small("cat", members: ["stale"], rule: .content(evidence: ["cat"]), center: [1, 0])
+        let dog = small("dog", rule: .content(evidence: ["dog"]), center: [0, 1])
+        let moments = [
+            moment("c1", labels: [("cat", 0.9), ("dog", 0.9)], vector: [1, 0.1]),
+            moment("d1", labels: [("cat", 0.9), ("dog", 0.9)], vector: [0.1, 1])
+        ]
+        let claim = ClaimResult(follows: ["big": 0], ratios: ["big": 1], flagged: [], frozen: [],
+                                members: ["big": ["c1", "d1"]], newPiles: [])
+        let tonight = SubThemeRule.membersTonight(
+            of: [big(center: diagonal), cat, dog], claim: claim,
+            moments: Dictionary(uniqueKeysWithValues: moments.map { ($0.id, $0) }), photosById: [:],
+            calendar: calendar)
+        XCTAssertEqual(tonight, ["cat": ["c1"], "dog": ["d1"]])
     }
 
     // MARK: - Rows on disk

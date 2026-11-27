@@ -106,12 +106,12 @@ extension ThemeEngine {
         var updated = ThemeLibrary.apply(named, to: ask.big, pile: ask.pile, moments: scene.moments, groups: groups,
                                          sample: sample, existing: rows, newId: themeId)
         if let parent = updated.first(where: { $0.id == themeId }) {
-            // Small lists by their rule, as every later run will make them.
-            for index in updated.indices where updated[index].parentId == themeId
-                && updated[index].status != .retired {
-                guard let rule = updated[index].rule else { continue }
-                updated[index].members = SubThemeRule.members(rule, in: parent.members, moments: scene.moments,
-                                                              photosById: scene.photos, calendar: scene.calendar)
+            // Small lists as every later run will make them.
+            let lists = SubThemeRule.lists(children: updated.filter { $0.parentId == themeId }, parent: parent,
+                                           in: parent.members, moments: scene.moments, photosById: scene.photos,
+                                           calendar: scene.calendar)
+            for index in updated.indices {
+                if let list = lists[updated[index].id] { updated[index].members = list }
             }
         }
         outcome.rows = updated
