@@ -63,7 +63,8 @@ enum PileSplits {
 
     /// Labels present in at least one moment of the group, with the share of
     /// the group's moments and of the pile's other moments that hold them.
-    /// Sorted by inside (high first), then label; at most eight.
+    /// Sorted by sharp first, then inside (high first), then label; the first
+    /// eight are kept, so a sharp label is never cut by generic ones.
     static func tagShares(of groupMomentIds: [String], pile: Pile, moments: [String: Moment]) -> [TagShare] {
         func present(_ moment: Moment) -> Set<String> {
             Set(moment.labels.filter { $0.confidence >= presentConfidence }.map(\.id))
@@ -78,8 +79,11 @@ enum PileSplits {
             return TagShare(label: label, inside: Double(count) / Double(inside.count),
                             outside: others.isEmpty ? 0 : Double(outsideCount) / Double(others.count))
         }
-        return Array(shares.sorted { $0.inside != $1.inside ? $0.inside > $1.inside : $0.label < $1.label }
-            .prefix(maxTagShares))
+        return Array(shares.sorted { first, second in
+            let firstSharp = isSharp(first), secondSharp = isSharp(second)
+            if firstSharp != secondSharp { return firstSharp }
+            return first.inside != second.inside ? first.inside > second.inside : first.label < second.label
+        }.prefix(maxTagShares))
     }
 
     /// A label that marks the group: in at least 30% of it, and at most half

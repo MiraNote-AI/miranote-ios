@@ -43,9 +43,9 @@ public enum MomentBuilder {
     /// in Double. Vectors whose length differs from the first are skipped;
     /// `[]` when there are none.
     public static func meanCenter(_ vectors: [[Float]]) -> [Float] {
-        guard let length = vectors.first?.count else { return [] }
+        guard let length = vectors.first(where: { !$0.isEmpty })?.count else { return [] }
         var sum = [Double](repeating: 0, count: length)
-        for vector in vectors where vector.count == length {
+        for vector in vectors where vector.count == length {  // empty or other-length vectors are skipped
             for (offset, value) in vector.enumerated() { sum[offset] += Double(value) }
         }
         let norm = sum.reduce(0) { $0 + $1 * $1 }.squareRoot()

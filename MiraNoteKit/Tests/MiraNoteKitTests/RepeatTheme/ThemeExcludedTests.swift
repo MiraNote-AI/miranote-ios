@@ -42,6 +42,10 @@ final class ThemeExcludedTests: XCTestCase {
     }
 
     func testExcludedPhotosDoNotTriggerReask() async throws {
+        // Half the pile is out: without the filter the list would reach 1.5x what was asked.
+        harness.client.roundOneReply = { _, _ in
+            #"{"sensitive": false, "pile_name": "Xs", "chosen": "none", "groups": [], "not_in_pile": [1, 2, 3]}"#
+        }
         let engine = harness.engine()
         _ = await engine.run(trigger: .foreground, deadline: nil)
         let asked = harness.client.roundOneRequests.count
@@ -55,17 +59,22 @@ final class ThemeExcludedTests: XCTestCase {
 
     func testExcludedPhotoStaysOutOfSmallLists() throws {
         let big = ThemeRow(id: "b", kind: .big, parentId: nil, name: "B", noun: "", samePart: "", split: "A",
-                           status: .active, center: [1, 0], rule: nil, members: ["a", "b", "c"], lastAskedCount: 3,
+                           status: .active, center: [0, 1], rule: nil, members: ["a", "b", "c"], lastAskedCount: 3,
                            flagged: false, followRatio: nil, where: nil, excluded: ["c"])
         let small = ThemeRow(id: "s", kind: .small, parentId: "b", name: "S", noun: "", samePart: "", split: "A",
-                             status: .active, center: [1, 0], rule: nil, members: [], lastAskedCount: 0,
-                             flagged: false, followRatio: nil, where: nil)
+                             status: .active, center: [1, 0], rule: .content(evidence: ["cat"]), members: [],
+                             lastAskedCount: 0, flagged: false, followRatio: nil, where: nil)
+        let moments = Dictionary(uniqueKeysWithValues: ["a", "b", "c"].enumerated().map { offset, id in
+            (id, Moment(id: id, photoIds: [id], day: "d\(offset)",
+                        start: Date(timeIntervalSince1970: Double(offset) * 86_400), vector: [1, 0],
+                        labels: [LabelScore(id: "cat", confidence: 0.9)], location: nil))
+        })
         let claim = ClaimResult(follows: ["b": 0], ratios: ["b": 1], flagged: [], frozen: [],
                                 members: ["b": ["a", "b", "c"]], newPiles: [])
-        let rows = ThemeEngine.writeBack(claim, to: [big, small], moments: [:], photos: [:],
+        let rows = ThemeEngine.writeBack(claim, to: [big, small], moments: moments, photos: [:],
                                          calendar: harness.calendar)
         XCTAssertEqual(rows.first { $0.id == "b" }?.members, ["a", "b"])
-        XCTAssertFalse(rows.first { $0.id == "s" }?.members.contains("c") ?? true)
+        XCTAssertEqual(rows.first { $0.id == "s" }?.members, ["a", "b"], "c is near and cat, yet excluded")
     }
 
     func testDeletedPhotoLeavesExcluded() throws {

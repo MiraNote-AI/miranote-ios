@@ -98,10 +98,7 @@ extension ThemeEngine {
         case .success(let valid): answer = valid
         case .failure(let reason):
             outcome.failure = "\(ask.label): \(reason.text)"
-            if case .answer = reason {
-                let failed = FailedAsk(at: deps.now(), photoIds: Self.photoIds(of: ask.pile, scene: scene))
-                try? deps.cooldown.record(failed)
-            }
+            recordUnusable(reason, ask: ask, scene: scene)
             return outcome
         }
         let named: RoundOneAnswer
@@ -109,6 +106,7 @@ extension ThemeEngine {
         case .success(let short): named = short
         case .failure(let reason):
             outcome.failure = "\(ask.label): \(reason.text)"
+            recordUnusable(reason, ask: ask, scene: scene)
             return outcome
         }
 
@@ -125,6 +123,12 @@ extension ThemeEngine {
         }
         outcome.rows = updated
         return outcome
+    }
+
+    /// An unusable answer (not a failed call) puts the ask on cooldown.
+    private func recordUnusable(_ reason: AskFailure, ask: Ask, scene: Scene) {
+        guard case .answer = reason else { return }
+        try? deps.cooldown.record(FailedAsk(at: deps.now(), photoIds: Self.photoIds(of: ask.pile, scene: scene)))
     }
 
     /// A new pile's theme id: the one its stored answer was logged with,

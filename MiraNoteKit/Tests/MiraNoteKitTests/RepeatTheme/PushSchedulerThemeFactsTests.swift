@@ -65,4 +65,16 @@ final class PushSchedulerThemeFactsTests: PushSchedulerThemeCase {
         let sent = try await photos(ids)
         XCTAssertTrue(sent.allSatisfy { $0.daypart == nil && $0.hour == nil && $0.atPlace == nil })
     }
+
+    func testAStoredEmptyCenterFallsBackToTheBigThemesCenter() {
+        let parent = big(members: [])
+        var child = small("night", name: "Soup", members: [])
+        child.center = []
+        let context = PushScheduler.ThemeContext(rows: [parent, child], records: [:], library: [:], ledger: [],
+                                                 now: start, calendar: zone.calendar, days: [:],
+                                                 repeatPushed: [], lifeFragment: [])
+        XCTAssertEqual(context.center(of: child), Self.center)
+        child.center = [0, 1]
+        XCTAssertEqual(context.center(of: child), [0, 1])
+    }
 }

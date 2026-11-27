@@ -90,7 +90,8 @@ final class ThemeBackgroundTaskTests: XCTestCase {
             themes: ThemeLibrary(file: folder.appendingPathComponent("library.json")),
             rounds: RoundLog(file: folder.appendingPathComponent("rounds.json")),
             window: ThemeWindowStore(file: folder.appendingPathComponent("window.json")),
-            runs: runs, client: UnreachableRounds(), imageData: { _ in nil }
+            runs: runs, client: UnreachableRounds(), imageData: { _ in nil },
+            cooldown: ThemeAskCooldownStore(file: folder.appendingPathComponent("failed-asks.json"))
         ))
         let scheduler = FakeTaskScheduler()
 

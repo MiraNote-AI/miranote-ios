@@ -340,6 +340,21 @@ final class ThemeEngineTests: XCTestCase {
         XCTAssertEqual(harness.bigRow(with: "x-1")?.name, "Short")
     }
 
+    func testUnusableShortenReplyPutsThePileOnCooldown() async throws {
+        harness.addTheme("x", base: 0, days: Array(1...6))
+        harness.client.roundOneReply = { _, _ in #"{"pile_name": "Abcdefghijk", "chosen": "none"}"# }
+        harness.client.shortenReply = { _ in "not json" }
+        let engine = harness.engine()
+        _ = await run(engine)
+        let failed = try XCTUnwrap(harness.cooldown.load().first)
+        XCTAssertEqual(Set(failed.photoIds), Set((1...6).map { "x-\($0)" }))
+        XCTAssertNil(harness.bigRow(with: "x-1"))
+        _ = await run(engine)
+        XCTAssertEqual(harness.client.roundOneRequests.count, 1, "not asked again")
+        XCTAssertEqual(harness.client.shortenItems.count, 1)
+        XCTAssertEqual(harness.cooldown.load().count, 1)
+    }
+
     func testReaskSendsAtMostTwelveOldGroupNames() async throws {
         harness.addTheme("x", base: 0, days: Array(1...6))
         let big = ThemeHarness.row("big", name: "Meals", members: (1...4).map { "x-\($0)" }, lastAsked: 4,

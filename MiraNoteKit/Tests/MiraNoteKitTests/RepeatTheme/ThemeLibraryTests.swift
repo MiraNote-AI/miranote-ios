@@ -130,7 +130,9 @@ final class ThemeLibraryTests: XCTestCase {
         var labelled = moments
         let looks: [Int: [Float]] = [1: [1, 0], 2: [0.8, 0.6], 3: [1, 0], 4: [0, 1], 5: [0.6, 0.8], 6: [0, 1]]
         for index in 1...6 {
-            var labels = [LabelScore(id: "outdoor", confidence: 0.9)]
+            // Nine generic labels that sort before `cat` must not crowd it out of the table.
+            var labels = (0..<9).map { LabelScore(id: "a\($0)", confidence: 0.9) }
+                + [LabelScore(id: "outdoor", confidence: 0.9)]
             if index <= 3 { labels.append(LabelScore(id: "cat", confidence: 0.9)) }
             if index == 4 || index == 5 { labels.append(LabelScore(id: "table", confidence: 0.9)) }
             let old = try XCTUnwrap(labelled["m\(index)"])
@@ -139,13 +141,13 @@ final class ThemeLibraryTests: XCTestCase {
         }
         let catPile = answer("""
         {"sensitive":false,"pile_name":"Cats","chosen":"A","groups":[
-        {"from":["A1"],"name":"Cat","evidence":["outdoor","cat"]},
-        {"from":["A2"],"name":"Table","evidence":["outdoor"]}],"not_in_pile":[]}
+        {"from":["A1"],"name":"Cat","evidence":["a0","outdoor","cat"]},
+        {"from":["A2"],"name":"Table","evidence":["a0","outdoor"]}],"not_in_pile":[]}
         """)
         let rows = ThemeLibrary.apply(catPile, to: nil, pile: pile, moments: labelled, groups: (splitA, splitB),
                                       sample: sample, existing: [])
         let cat = try XCTUnwrap(small(rows, "Cat"))
-        XCTAssertEqual(cat.rule, .content(evidence: ["cat"]), "outdoor is in every moment: not sharp")
+        XCTAssertEqual(cat.rule, .content(evidence: ["cat"]), "generic labels are in every moment: not sharp")
         let center = try XCTUnwrap(cat.center)
         XCTAssertEqual(center, MomentBuilder.meanCenter([[1, 0], [0.8, 0.6], [1, 0]]))
         XCTAssertFalse(center.isEmpty)
@@ -361,5 +363,14 @@ final class ThemeLibraryTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Data("garbage".utf8).write(to: file)
         XCTAssertEqual(RoundLog(file: file).load(), [])
+    }
+
+    func testRetiredCopyLosesItsCenter() throws {
+        let first = apply(answerA())
+        XCTAssertNotNil(small(first, "Desk")?.center)
+        let second = apply(answerA(names: ["Dinner", "Workspace"]), existing: first)
+        let desk = try XCTUnwrap(small(second, "Desk"))
+        XCTAssertEqual(desk.status, .retired)
+        XCTAssertNil(desk.center)
     }
 }

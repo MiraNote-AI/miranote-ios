@@ -126,9 +126,11 @@ extension PushScheduler {
             row.parentId.flatMap { id in rows.first { $0.id == id } }
         }
 
-        /// The theme's center; a small theme's is its big theme's.
+        /// The theme's center; a small theme's is its big theme's. A stored
+        /// empty center counts as none.
         func center(of row: ThemeRow) -> [Float] {
-            row.center ?? parent(of: row)?.center ?? []
+            if let own = row.center, !own.isEmpty { return own }
+            return parent(of: row)?.center ?? []
         }
 
         var aesthetics: [String: Double] { records.compactMapValues(\.aesthetics) }

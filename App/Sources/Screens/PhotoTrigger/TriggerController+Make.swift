@@ -151,7 +151,8 @@ extension TriggerController {
             window: ThemeWindowStore(file: themes.appendingPathComponent("window.json")),
             runs: ThemeRunLog(file: themes.appendingPathComponent("runs.json")), client: UITestThemeRoundClient(),
             imageData: { await library.uploadData(for: $0) }, now: clock ?? { Date() },
-            calendar: .autoupdatingCurrent
+            calendar: .autoupdatingCurrent,
+            cooldown: ThemeAskCooldownStore(file: themes.appendingPathComponent("failed-asks.json"))
         ))
     }
     #endif

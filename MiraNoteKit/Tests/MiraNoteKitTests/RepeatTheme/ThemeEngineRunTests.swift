@@ -172,7 +172,8 @@ final class ThemeEngineRunTests: XCTestCase {
         let engine = ThemeEngine(ThemeDependencies(
             library: undated, analyzer: deps.analyzer, analyses: deps.analyses, photos: deps.photos,
             themes: deps.themes, rounds: deps.rounds, window: deps.window, runs: deps.runs, client: deps.client,
-            imageData: deps.imageData, now: deps.now, calendar: deps.calendar, momentsCap: deps.momentsCap))
+            imageData: deps.imageData, now: deps.now, calendar: deps.calendar, momentsCap: deps.momentsCap,
+            cooldown: deps.cooldown))
         _ = await engine.run(trigger: .foreground, deadline: nil)
         _ = await engine.run(trigger: .foreground, deadline: nil)
         XCTAssertFalse(harness.analyzer.checked.contains("undated"))

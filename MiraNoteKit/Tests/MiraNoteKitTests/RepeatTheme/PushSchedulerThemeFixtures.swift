@@ -33,7 +33,8 @@ extension PushSchedulerThemeCase {
             themes: themeLibrary, rounds: roundLog,
             window: ThemeWindowStore(file: folder.appendingPathComponent("themes/window.json")),
             runs: ThemeRunLog(file: folder.appendingPathComponent("themes/runs.json")), client: rounds,
-            imageData: { _ in Self.bigJPEG }, now: { clock.now }, calendar: zone.calendar))
+            imageData: { _ in Self.bigJPEG }, now: { clock.now }, calendar: zone.calendar,
+            cooldown: ThemeAskCooldownStore(file: folder.appendingPathComponent("themes/failed-asks.json"))))
     }
 
     func scheduler() -> PushScheduler { makeScheduler(themeEngine: engine()) }

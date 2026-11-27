@@ -91,6 +91,7 @@ public struct ThemeLibrary: Sendable {
     private static func retiredCopies(of rows: [ThemeRow]) -> [ThemeRow] {
         rows.map { small in
             var retired = small
+            retired.center = nil
             if retired.status != .blocked { retired.status = .retired }
             return retired
         }
