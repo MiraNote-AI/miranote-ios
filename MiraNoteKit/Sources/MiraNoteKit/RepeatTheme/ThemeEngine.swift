@@ -302,7 +302,7 @@ public actor ThemeEngine {
     private func prune(keeping ids: Set<String>) -> [ThemeRow] {
         try? deps.photos.prune(keeping: ids)
         let rows = deps.themes.load()
-        let gone = Set(rows.flatMap(\.members)).subtracting(ids)
+        let gone = Set(rows.flatMap { $0.members + ($0.excluded ?? []) }).subtracting(ids)
         guard !gone.isEmpty else { return rows }
         var kept = ThemeLibrary.removing(gone, from: rows)
         save(&kept)

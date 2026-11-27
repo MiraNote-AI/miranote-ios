@@ -54,7 +54,8 @@ public struct ThemeLibrary: Sendable {
     ///   new ids; missing ones become `retired`.
     /// - A changed split retires every old small row (new ones get new ids),
     ///   except a name that was already retired, which comes back with its old id.
-    /// - Images the judge put in `notInPile` leave the big row's members.
+    /// - Images the judge put in `notInPile` leave the big row's members and are
+///   remembered in its `excluded`, so later runs keep them out.
     /// - A new big row takes `newId` (the id its answer was logged with), or a new UUID.
     static func apply(_ answer: RoundOneAnswer, to big: ThemeRow?, pile: Pile, moments: [String: Moment],
                       groups: (a: [SplitGroup], b: [SplitGroup]), sample: [SampledPhoto],
@@ -63,13 +64,17 @@ public struct ThemeLibrary: Sendable {
         let outside = Set(answer.notInPile.compactMap { number in
             sample.indices.contains(number - 1) ? sample[number - 1].momentId : nil
         })
+        let left = outside.flatMap { moments[$0]?.photoIds ?? [] }
+        let excluded = Set(big?.excluded ?? []).union(left)
         let members = pile.momentIds.filter { !outside.contains($0) }.flatMap { moments[$0]?.photoIds ?? [] }
+            .filter { !excluded.contains($0) }
         let inherited = big?.status == .blocked || big?.status == .frozen ? big?.status : nil
         let row = ThemeRow(id: bigId, kind: .big, parentId: nil, name: answer.pileName ?? big?.name ?? "",
                            noun: answer.pileNoun ?? big?.noun ?? "", samePart: "",
                            split: answer.chosen, status: answer.sensitive ? .sensitive : inherited ?? .active,
                            center: pile.center, rule: nil, members: members, lastAskedCount: members.count,
-                           flagged: big?.flagged ?? false, followRatio: big?.followRatio, where: big?.where)
+                           flagged: big?.flagged ?? false, followRatio: big?.followRatio, where: big?.where,
+                           excluded: excluded.isEmpty ? nil : excluded.sorted())
         let others = existing.filter { $0.id != bigId && $0.parentId != bigId }
         let old = existing.filter { $0.kind == .small && $0.parentId == bigId }
         if answer.sensitive { return others + [row] + retiredCopies(of: old) }
@@ -174,6 +179,7 @@ public struct ThemeLibrary: Sendable {
                 continue
             }
             row.members = remaining
+            if let excluded = row.excluded { row.excluded = excluded.filter { !deleted.contains($0) } }
             kept.append(row)
         }
         return kept.filter { $0.parentId.map { !removed.contains($0) } ?? true }

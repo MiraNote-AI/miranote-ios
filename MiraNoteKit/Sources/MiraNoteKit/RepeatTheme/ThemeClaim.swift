@@ -41,10 +41,15 @@ public struct ThemeRow: Codable, Equatable, Sendable, Identifiable {
     /// Tonight's claim ratio (big themes only).
     public var followRatio: Double?
     public var `where`: WhereFacts?
+    /// Photo ids round 1 said do not belong to this big theme: kept out of its
+    /// members and its small themes on every later run. Nil in rows stored
+    /// before this field (big themes only).
+    public var excluded: [String]?
 
     public init(id: String, kind: Kind, parentId: String?, name: String, noun: String, samePart: String,
                 split: String?, status: ThemeStatus, center: [Float]?, rule: SubRule?, members: [String],
-                lastAskedCount: Int, flagged: Bool, followRatio: Double?, where: WhereFacts?) {
+                lastAskedCount: Int, flagged: Bool, followRatio: Double?, where: WhereFacts?,
+                excluded: [String]? = nil) {
         self.id = id
         self.kind = kind
         self.parentId = parentId
@@ -60,6 +65,7 @@ public struct ThemeRow: Codable, Equatable, Sendable, Identifiable {
         self.flagged = flagged
         self.followRatio = followRatio
         self.where = `where`
+        self.excluded = excluded
     }
 }
 

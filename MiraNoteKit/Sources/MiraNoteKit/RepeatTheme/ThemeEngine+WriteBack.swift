@@ -9,6 +9,13 @@ extension ThemeEngine {
     /// one with its big one); blocked, sensitive and retired stay as they are.
     static func writeBack(_ claim: ClaimResult, to rows: [ThemeRow], moments: [String: Moment],
                           photos: [String: ThemePhoto], calendar: Calendar) -> [ThemeRow] {
+        // A photo round 1 left out stays out of the big list and the small ones.
+        var claim = claim
+        for row in rows where row.kind == .big {
+            guard let excluded = row.excluded, !excluded.isEmpty, let tonight = claim.members[row.id] else { continue }
+            let out = Set(excluded)
+            claim.members[row.id] = tonight.filter { !out.contains($0) }
+        }
         let smallLists = SubThemeRule.membersTonight(of: rows, claim: claim, moments: moments, photosById: photos,
                                                      calendar: calendar)
         return rows.map { original in
