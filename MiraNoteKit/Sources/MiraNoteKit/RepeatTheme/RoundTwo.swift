@@ -176,8 +176,9 @@ extension ThemeEngine {
     /// answer is reused). The candidates that can be read are numbered from
     /// 1 in the order given, as 336 px images with no metadata; the reply
     /// goes in the round log, with `notJSON` when it is not an answer.
+    /// `facts` (by photo id) say when and where a photo was taken.
     func roundTwo(theme: RoundTwoRequest.Theme, candidates: [String], pushed: [String], blocked: [String],
-                  themeId: String) async -> RoundTwoCall {
+                  themeId: String, facts: [String: RoundTwoRequest.PhotoFacts] = [:]) async -> RoundTwoCall {
         var numbering: [Int: String] = [:]
         var images: [(n: Int, jpeg: Data)] = []
         for id in candidates {
@@ -190,8 +191,8 @@ extension ThemeEngine {
         guard !images.isEmpty else {
             return RoundTwoCall(numbering: [:], result: .failure(.unreadableImages), usage: nil)
         }
-        let request = RoundTwoRequest(theme: theme, photos: images.map { RoundTwoRequest.Photo(n: $0.n) },
-                                      pushed: pushed, blocked: blocked)
+        let photos = images.map { RoundTwoRequest.Photo(n: $0.n, facts: numbering[$0.n].flatMap { facts[$0] }) }
+        let request = RoundTwoRequest(theme: theme, photos: photos, pushed: pushed, blocked: blocked)
         let reply: RoundReply
         do {
             reply = try await deps.client.roundTwo(request, images: images)

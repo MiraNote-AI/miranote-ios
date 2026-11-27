@@ -235,6 +235,26 @@ extension PushScheduler {
         return .stopped(.triesUsedUp(tries))
     }
 
+    /// Round 2's facts for an occasion row's candidates; big and content rows send none.
+    static func photoFacts(_ row: ThemeRow, candidates: [String],
+                           context: ThemeContext) -> [String: RoundTwoRequest.PhotoFacts] {
+        guard case .occasion(let keys) = row.rule else { return [:] }
+        var facts: [String: RoundTwoRequest.PhotoFacts] = [:]
+        for id in candidates {
+            guard let record = context.records[id] else { continue }
+            let hour = context.calendar.component(.hour, from: record.takenAt)
+            let atPlace: Bool?
+            if let location = record.location {
+                atPlace = keys.contains { key in key.place.map { $0.km(to: location) <= PileSplits.placeKm } ?? false }
+            } else {
+                atPlace = keys.allSatisfy { $0.place == nil } ? true : nil
+            }
+            facts[id] = RoundTwoRequest.PhotoFacts(daypart: Daypart(hour: hour).rawValue, hour: hour,
+                                                   atPlace: atPlace)
+        }
+        return facts
+    }
+
     /// One try: the candidates (no call under 5 days of them), round 2,
     /// what is left of them; and what the call cost.
     private func themeTry(_ row: ThemeRow, attempt: Int, context: ThemeContext, engine: ThemeEngine,
@@ -248,7 +268,8 @@ extension PushScheduler {
                                              now: context.now, calendar: context.calendar)
         let call = await engine.roundTwo(
             theme: RoundTwoRequest.Theme(name: row.name, noun: row.noun, samePart: row.samePart),
-            candidates: candidates, pushed: lists.pushed, blocked: lists.blocked, themeId: row.id)
+            candidates: candidates, pushed: lists.pushed, blocked: lists.blocked, themeId: row.id,
+            facts: Self.photoFacts(row, candidates: candidates, context: context))
         switch call.result {
         case .failure(let failure):
             return (.failed(reason: "\(row.name): \(failure.text)", short: false), call.usage)

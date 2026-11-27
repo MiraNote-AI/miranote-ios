@@ -53,13 +53,54 @@ public struct RoundTwoRequest: Encodable, Equatable, Sendable {
         }
     }
 
+    /// When and where a photo was taken, for occasion themes. Each is
+    /// omitted from the body when nil.
+    public struct PhotoFacts: Equatable, Sendable {
+        /// A `Daypart` raw value.
+        public let daypart: String?
+        /// 0...23, local.
+        public let hour: Int?
+        public let atPlace: Bool?
+
+        public init(daypart: String?, hour: Int?, atPlace: Bool?) {
+            self.daypart = daypart
+            self.hour = hour
+            self.atPlace = atPlace
+        }
+    }
+
     public struct Photo: Encodable, Equatable, Sendable {
         // swiftlint:disable:next identifier_name
         public let n: Int
+        public let daypart: String?
+        public let hour: Int?
+        public let atPlace: Bool?
 
         // swiftlint:disable:next identifier_name
-        public init(n: Int) {
+        public init(n: Int, daypart: String? = nil, hour: Int? = nil, atPlace: Bool? = nil) {
             self.n = n
+            self.daypart = daypart
+            self.hour = hour
+            self.atPlace = atPlace
+        }
+
+        // swiftlint:disable:next identifier_name
+        init(n: Int, facts: PhotoFacts?) {
+            self.init(n: n, daypart: facts?.daypart, hour: facts?.hour, atPlace: facts?.atPlace)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            // swiftlint:disable:next identifier_name
+            case n, daypart, hour
+            case atPlace = "at_place"
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(n, forKey: .n)
+            try container.encodeIfPresent(daypart, forKey: .daypart)
+            try container.encodeIfPresent(hour, forKey: .hour)
+            try container.encodeIfPresent(atPlace, forKey: .atPlace)
         }
     }
 

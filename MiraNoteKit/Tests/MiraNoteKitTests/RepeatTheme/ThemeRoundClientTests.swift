@@ -95,6 +95,16 @@ final class ThemeRoundClientTests: XCTestCase {
         XCTAssertTrue(body.contains(#""blocked":[]"#))
     }
 
+    func testRoundTwoPostsPhotoFacts() async throws {
+        let box = respond(200, Self.okBody)
+        let meta = RoundTwoRequest(theme: .init(name: "Meals", noun: "", samePart: ""),
+                                   photos: [.init(n: 1, daypart: "evening", hour: 17, atPlace: true)],
+                                   pushed: [], blocked: [])
+        _ = try await client.roundTwo(meta, images: [(n: 1, jpeg: Data("one".utf8))])
+        let body = try XCTUnwrap(String(bytes: try XCTUnwrap(box.body), encoding: .utf8))
+        XCTAssertTrue(body.contains(#"{"at_place":true,"daypart":"evening","hour":17,"n":1}"#), body)
+    }
+
     func testShortenPostsJSONItems() async throws {
         let box = respond(200, Self.okBody)
         _ = try await client.shorten([ShortenItem(key: "pile", name: "Abcdefghijk", samePart: "")])

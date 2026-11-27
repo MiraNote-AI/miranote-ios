@@ -4,15 +4,7 @@ import XCTest
 
 /// "Test-push this theme" on the debug page (spec 6.10, F2): round 2, the
 /// photo choice and the repeat compose, pushed in 10 s as a debug push.
-final class PushSchedulerThemeTests: PushSchedulerTestCase {
-    private var rounds: FakeRoundClient!
-    static let center = [Float](repeating: 0, count: 8).enumerated().map { $0.offset == 0 ? 1 : $0.element }
-
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        rounds = FakeRoundClient()
-    }
-
+final class PushSchedulerThemeTests: PushSchedulerThemeCase {
     // MARK: - The push
 
     func testTryThemePushesInTenSecondsAsDebug() async throws {
@@ -255,81 +247,6 @@ final class PushSchedulerThemeTests: PushSchedulerTestCase {
 // MARK: - Fixtures
 
 extension PushSchedulerThemeTests {
-    private var themeLibrary: ThemeLibrary { ThemeLibrary(file: folder.appendingPathComponent("themes/library.json")) }
-    private var themePhotos: ThemePhotoStore { ThemePhotoStore(directory: folder.appendingPathComponent("themes/p")) }
-    private var roundLog: RoundLog { RoundLog(file: folder.appendingPathComponent("themes/rounds.json")) }
-
-    /// A large JPEG with GPS: what a round image is made from.
-    private static let bigJPEG: Data = {
-        guard let data = try? ComposeMetaTests.jpegWithGPS(width: 1200, height: 900) else { fatalError("no JPEG") }
-        return data
-    }()
-
-    private func engine() -> ThemeEngine {
-        let clock = self.clock!
-        let zone = self.zone!
-        return ThemeEngine(ThemeDependencies(
-            library: library, analyzer: ThemeFakeAnalyzer(),
-            analyses: AnalysisStore(directory: folder.appendingPathComponent("analysis")), photos: themePhotos,
-            themes: themeLibrary, rounds: roundLog,
-            window: ThemeWindowStore(file: folder.appendingPathComponent("themes/window.json")),
-            runs: ThemeRunLog(file: folder.appendingPathComponent("themes/runs.json")), client: rounds,
-            imageData: { _ in Self.bigJPEG }, now: { clock.now }, calendar: zone.calendar))
-    }
-
-    private func scheduler() -> PushScheduler { makeScheduler(themeEngine: engine()) }
-
-    /// 19:00 in Chicago, `days` before the test's start.
-    private func evening(_ days: Int) -> Date { start.addingTimeInterval(-Double(days) * 86_400 + 8 * 3600) }
-
-    /// One photo `<prefix>-<day>` a day at 19:00, in the library, with a theme record near the look.
-    @discardableResult
-    private func seed(_ prefix: String, days: [Int], label: (String, Float) = ("food", 0.9),
-                      aesthetics: Double? = nil) throws -> [String] {
-        var records: [ThemePhoto] = []
-        for day in days {
-            let id = "\(prefix)-\(day)"
-            library.assetsList.append(LibraryAsset(id: id, takenAt: evening(day), location: nil,
-                                                   isFavorite: day == days[0], isEdited: false, isScreenshot: false,
-                                                   isHidden: false, isVideo: false,
-                                                   originalFilename: "IMG_\(day).HEIC", burstId: nil))
-            var raw = Self.center
-            raw[1 + day % 7] = 0.3
-            records.append(ThemePhoto(id: id, takenAt: evening(day), location: nil,
-                                      labels: [LabelScore(id: label.0, confidence: label.1)],
-                                      aesthetics: aesthetics ?? 0.5 + Double(day % 3) / 10, faces: 0, isTheme: true,
-                                      print: ThemePhoto.normalized(raw), printRevision: 1))
-        }
-        try themePhotos.upsert(records, calendar: zone.calendar)
-        return records.map(\.id)
-    }
-
-    private func big(_ id: String = "big", name: String = "Dinner", members: [String],
-                     status: ThemeStatus = .active) -> ThemeRow {
-        ThemeRow(id: id, kind: .big, parentId: nil, name: name, noun: "dinner", samePart: "home at dusk",
-                 split: "A", status: status, center: Self.center, rule: nil, members: members,
-                 lastAskedCount: members.count, flagged: false, followRatio: nil, where: nil)
-    }
-
-    private func small(_ id: String, name: String, members: [String]) -> ThemeRow {
-        ThemeRow(id: id, kind: .small, parentId: "big", name: name, noun: "soup", samePart: "a bowl", split: "A",
-                 status: .active, center: nil, rule: .content(evidence: ["soup"]), members: members,
-                 lastAskedCount: members.count, flagged: false, followRatio: nil,
-                 where: WhereFacts(daypart: "evening", daypartShare: 0.8, hourFrom: 18, hourTo: 20,
-                                   weekpart: "weekday", places: 1))
-    }
-
-    private func press(_ scheduler: PushScheduler, _ themeId: String) async -> [TriggerProgress] {
-        var steps: [TriggerProgress] = []
-        for await step in await scheduler.tryTheme(themeId) { steps.append(step) }
-        return steps
-    }
-
-    private func repeatMeta(_ index: Int = 0) throws -> [String: Any] {
-        let data = try XCTUnwrap(client.repeatMetas.dropFirst(index).first)
-        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-    }
-
     /// Round 2: ten candidates, one a day, 336 px and bare; the names to compare with.
     private func assertRoundTwoSentTen() throws {
         let request = try XCTUnwrap(rounds.roundTwoRequests.first)
