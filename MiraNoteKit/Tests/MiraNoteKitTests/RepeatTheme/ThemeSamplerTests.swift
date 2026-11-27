@@ -120,4 +120,97 @@ final class ThemeSamplerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(others.count, 1)
         XCTAssertTrue(others.allSatisfy { $0.momentId.hasPrefix("o") })
     }
+
+    // MARK: Hand-built groups, so the sampler's rounds can be counted exactly.
+
+    private let dims = 11
+
+    /// Grouped moments point at the pile's center; ungrouped ones each get their
+    /// own axis, so MMR (round 3) always prefers them over the grouped ones.
+    private func centerVector() -> [Float] { [1] + [Float](repeating: 0, count: dims - 1) }
+
+    private func axisVector(_ axis: Int) -> [Float] {
+        var vector = [Float](repeating: 0, count: dims)
+        vector[axis] = 1
+        return vector
+    }
+
+    private func group(_ id: String, _ members: [Moment]) -> SplitGroup {
+        let facts = WhereFacts(daypart: nil, daypartShare: 0, hourFrom: nil, hourTo: nil,
+                               weekpart: "mixed", places: nil)
+        return SplitGroup(id: id, key: id, momentIds: members.map(\.id), days: Set(members.map(\.day)).count,
+                          where: facts, placeCenter: nil)
+    }
+
+    private func pick(_ moments: [Moment], groupsA: [SplitGroup], groupsB: [SplitGroup]) -> [SampledPhoto] {
+        let pile = Pile(momentIds: moments.map(\.id), days: moments.count, maxDayShare: 0.1, height: 0.3,
+                        center: centerVector())
+        let byId = Dictionary(uniqueKeysWithValues: moments.map { ($0.id, $0) })
+        return ThemeSampler.pick(pile, moments: byId, a: groupsA, b: groupsB, aesthetics: [:], max: 20)
+    }
+
+    private func grouped(_ count: Int) -> [Moment] {
+        (0..<count).map { index in
+            moment("g\(index)", dayOffset: 7 * index, hour: 8, labels: [], location: nil, vector: centerVector())
+        }
+    }
+
+    private func ungrouped(_ count: Int, firstDay: Int) -> [Moment] {
+        (0..<count).map { index in
+            moment("o\(index)", dayOffset: 7 * (firstDay + index), hour: 8, labels: [], location: nil,
+                   vector: axisVector(index + 1))
+        }
+    }
+
+    func testBiggerGroupGetsMoreByDays() {
+        // A1 has 30 days and A2 has 10; one B group holds them all. 10 ungrouped
+        // moments fill round 3, so the grouped counts are exactly rounds 1 + 2.
+        let moments = grouped(40)
+        let big = Array(moments.prefix(30)), small = Array(moments.suffix(10))
+        let groupsA = [group("A1", big), group("A2", small)]
+        let groupsB = [group("B1", moments)]
+        let photos = pick(moments + ungrouped(10, firstDay: 40), groupsA: groupsA, groupsB: groupsB)
+        XCTAssertEqual(photos.count, 20)
+
+        // Round 2 adds `extra` over the groups by days (largest remainder).
+        let other = Int((20 * ThemeSampler.otherShare).rounded())
+        let wanted = Int((20 * ThemeSampler.sizeShare).rounded())
+        let floors = ThemeSampler.floorPerGroup * 2   // A1 + A2; B1 shares the same picks.
+        let extra = min(wanted, 20 - floors - other)
+        let exactBig = Double(extra * 30) / 40
+        var bigExtra = Int(exactBig), smallExtra = Int(Double(extra * 10) / 40)
+        if bigExtra + smallExtra < extra {   // The leftover goes to the larger remainder; a tie goes to A1.
+            let smallRest = Double(extra * 10) / 40 - Double(smallExtra)
+            if smallRest > exactBig - Double(bigExtra) { smallExtra += 1 } else { bigExtra += 1 }
+        }
+        let bigCount = photos.filter { $0.a == "A1" }.count
+        let smallCount = photos.filter { $0.a == "A2" }.count
+        XCTAssertEqual(bigCount, ThemeSampler.floorPerGroup + bigExtra)
+        XCTAssertEqual(smallCount, ThemeSampler.floorPerGroup + smallExtra)
+        XCTAssertGreaterThan(bigCount, smallCount)
+        XCTAssertGreaterThan(smallCount, ThemeSampler.floorPerGroup)
+    }
+
+    func testOtherShareIsKeptForTheLastRound() {
+        // Six A groups and six B groups of 5 days each, the same members, so
+        // the floor (12) and the extra could fill 18 of the 20 slots; 10
+        // ungrouped moments stand by for round 3.
+        let moments = grouped(30)
+        let parts = (0..<6).map { part in moments.enumerated().filter { $0.offset % 6 == part }.map(\.element) }
+        let groupsA = parts.enumerated().map { group("A\($0.offset + 1)", $0.element) }
+        let groupsB = parts.enumerated().map { group("B\($0.offset + 1)", $0.element) }
+        let photos = pick(moments + ungrouped(10, firstDay: 30), groupsA: groupsA, groupsB: groupsB)
+        XCTAssertEqual(photos.count, 20)
+
+        // Rounds 1 + 2 stop 20% of the slots short, so round 3 picks those from "other".
+        let other = Int((20 * ThemeSampler.otherShare).rounded())
+        XCTAssertEqual(other, 4)
+        let others = photos.filter { $0.a == "A0" && $0.b == "B0" }
+        XCTAssertEqual(others.count, other)
+        XCTAssertTrue(others.allSatisfy { $0.momentId.hasPrefix("o") })
+        // The grouped rest keeps the floor in every group.
+        for index in 1...6 {
+            XCTAssertGreaterThanOrEqual(photos.filter { $0.a == "A\(index)" }.count, ThemeSampler.floorPerGroup)
+        }
+    }
 }
